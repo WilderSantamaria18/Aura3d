@@ -1,0 +1,19 @@
+{
+  "name": "Aura3D — 3D Music Visualizer & Player",
+  "short_name": "Aura3D",
+  "description": "Visualizador de música 3D interactivo con Web Audio DSP, control gestual VR y ecualizador de estudio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00f2fe",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["music", "entertainment", "graphics"]
+}
