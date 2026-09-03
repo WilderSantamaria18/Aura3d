@@ -285,6 +285,60 @@ export const useAudioEngine = () => {
   );
 
   // ─── 4. Playback controls ─────────────────────────────────────────────────
+  const playTrack = useCallback(
+    async (track: Track) => {
+      try {
+        setError(null);
+        await audioEngine.init();
+
+        if (track.file) {
+          await loadAudioFile(track.file);
+          return;
+        }
+
+        if (track.url) {
+          await audioEngine.loadTrack(track.url, true);
+          const dur = audioEngine.getDuration() || track.duration || 0;
+          setDuration(dur);
+          setCurrentTime(0);
+          setCurrentTrack(track);
+          setIsPlaying(true);
+          setHasStarted(true);
+          setAudioUnlocked(true);
+        } else {
+          setCurrentTrack(track);
+          setIsPlaying(true);
+        }
+      } catch (err: unknown) {
+        console.error('[useAudioEngine] playTrack error:', err);
+        setError(err instanceof Error ? err.message : 'Error al reproducir pista');
+      }
+    },
+    [loadAudioFile, setCurrentTrack, setDuration, setCurrentTime, setIsPlaying, setHasStarted, setAudioUnlocked]
+  );
+
+  const playNext = useCallback(async () => {
+    const state = usePlayerStore.getState();
+    const next = state.nextTrack();
+    if (next) {
+      await playTrack(next);
+    } else {
+      audioEngine.pause();
+      setIsPlaying(false);
+    }
+  }, [playTrack, setIsPlaying]);
+
+  const playPrevious = useCallback(async () => {
+    const state = usePlayerStore.getState();
+    const prev = state.previousTrack();
+    if (prev) {
+      await playTrack(prev);
+    } else {
+      audioEngine.seek(0);
+      setCurrentTime(0);
+    }
+  }, [playTrack, setCurrentTime]);
+
   const togglePlayPause = useCallback(async () => {
     if (isPlaying) {
       audioEngine.pause();
@@ -332,6 +386,9 @@ export const useAudioEngine = () => {
     toggleMicrophone,
     loadAudioFile,
     loadFile: loadAudioFile,       // alias
+    playTrack,
+    playNext,
+    playPrevious,
     togglePlayPause,
     seek,
     seekTo: seek,                  // alias

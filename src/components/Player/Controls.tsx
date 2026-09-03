@@ -21,8 +21,6 @@ export const Controls: React.FC = () => {
     repeatMode,
     isShuffled,
     favorites,
-    nextTrack,
-    previousTrack,
     toggleShuffle,
     setRepeatMode,
     toggleFavorite,
@@ -30,7 +28,7 @@ export const Controls: React.FC = () => {
     lucidTheme,
   } = usePlayerStore();
 
-  const { togglePlayPause } = useAudioEngine();
+  const { togglePlayPause, playNext, playPrevious } = useAudioEngine();
 
   const isFav = currentTrack ? favorites.some((t) => t.id === currentTrack.id) : false;
 
@@ -101,9 +99,9 @@ export const Controls: React.FC = () => {
         </button>
 
         <button
-          onClick={() => previousTrack()}
+          onClick={playPrevious}
           className="p-1.5 sm:p-2 text-white/80 hover:text-cyan-300 transition-transform active:scale-95"
-          title="Anterior"
+          title="Canción Anterior"
         >
           <SkipBack className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
         </button>
@@ -132,9 +130,9 @@ export const Controls: React.FC = () => {
         </button>
 
         <button
-          onClick={() => nextTrack()}
+          onClick={playNext}
           className="p-1.5 sm:p-2 text-white/80 hover:text-cyan-300 transition-transform active:scale-95"
-          title="Siguiente"
+          title="Siguiente Canción"
         >
           <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
         </button>

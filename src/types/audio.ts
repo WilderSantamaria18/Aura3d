@@ -133,6 +133,7 @@ export interface Track {
   duration: number; // in seconds
   sourceType: AudioSourceType;
   url?: string; // object URL or stream URL
+  file?: File;
   spotifyUri?: string;
   youtubeId?: string;
   coverUrl?: string;

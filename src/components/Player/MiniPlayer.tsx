@@ -74,8 +74,8 @@ const parseEmbedUrl = (rawUrl: string): { type: 'youtube' | 'spotify' | null; em
 };
 
 export const MiniPlayer: React.FC = () => {
-  const { isPlaying, currentTime, duration, isMicActive, currentTrack, isLucid, lucidTheme } = usePlayerStore();
-  const { loadFile, seek, togglePlayPause, startSystemCapture, isCapturing } = useAudioEngine();
+  const { isPlaying, currentTime, duration, isMicActive, currentTrack, queue, isLucid, lucidTheme } = usePlayerStore();
+  const { loadFile, seek, togglePlayPause, startSystemCapture, isCapturing, playNext: enginePlayNext, playPrevious: enginePlayPrev } = useAudioEngine();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -173,15 +173,21 @@ export const MiniPlayer: React.FC = () => {
   );
 
   const playPrev = () => {
-    if (activeIdx === null || files.length === 0) return;
-    const next = (activeIdx - 1 + files.length) % files.length;
-    playFile(next);
+    if (files.length > 0 && activeIdx !== null) {
+      const next = (activeIdx - 1 + files.length) % files.length;
+      playFile(next);
+    } else {
+      enginePlayPrev();
+    }
   };
 
   const playNext = () => {
-    if (activeIdx === null || files.length === 0) return;
-    const next = (activeIdx + 1) % files.length;
-    playFile(next);
+    if (files.length > 0 && activeIdx !== null) {
+      const next = (activeIdx + 1) % files.length;
+      playFile(next);
+    } else {
+      enginePlayNext();
+    }
   };
 
   // ── Handle Embed submit ───────────────────────────────────────────────────
@@ -447,8 +453,9 @@ export const MiniPlayer: React.FC = () => {
               <div className="flex items-center justify-center gap-5 pb-4 flex-shrink-0 mt-1">
                 <button
                   onClick={playPrev}
-                  disabled={files.length < 2}
+                  disabled={files.length < 2 && queue.length < 2}
                   className="text-white/40 hover:text-cyan-300 disabled:opacity-20 transition-colors"
+                  title="Canción Anterior"
                 >
                   <SkipBack className="w-4 h-4" />
                 </button>
@@ -462,8 +469,9 @@ export const MiniPlayer: React.FC = () => {
 
                 <button
                   onClick={playNext}
-                  disabled={files.length < 2}
+                  disabled={files.length < 2 && queue.length < 2}
                   className="text-white/40 hover:text-cyan-300 disabled:opacity-20 transition-colors"
+                  title="Siguiente Canción"
                 >
                   <SkipForward className="w-4 h-4" />
                 </button>
