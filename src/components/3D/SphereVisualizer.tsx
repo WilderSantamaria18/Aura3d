@@ -258,11 +258,13 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       boomFlashRef.current *= 0.78;
       const boomPunch = boomImpulseRef.current * intensity;
 
-      // Dynamic Camera Punch on Boom Drop & Heavy Bass
+      // Dynamic Camera Punch on Boom Drop & Heavy Bass with Responsive Aspect Fit
       if (state.camera) {
+        const aspect = state.size.width / Math.max(1, state.size.height);
+        const baseZ = aspect < 1.0 ? 6.2 / Math.max(0.45, aspect * 0.92) : 6.2;
         state.camera.position.z = THREE.MathUtils.lerp(
           state.camera.position.z,
-          6.2 - boomPunch * 0.9 - bass * 0.35,
+          baseZ - boomPunch * 0.9 - bass * 0.35,
           0.3
         );
       }

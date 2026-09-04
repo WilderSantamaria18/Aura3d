@@ -44,6 +44,8 @@ export const HeaderBar: React.FC = () => {
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
+      // Force instant resize event to trigger Three.js camera & Canvas re-projections
+      window.dispatchEvent(new Event('resize'));
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -56,6 +58,9 @@ export const HeaderBar: React.FC = () => {
       } else {
         await document.exitFullscreen();
       }
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 50);
     } catch (err) {
       console.warn('Fullscreen error:', err);
     }

@@ -20,14 +20,14 @@ export const NowPlayingPanel: React.FC = () => {
 
   return (
     <div
-      className={`fixed top-20 left-4 sm:left-6 z-30 transition-all duration-500 pointer-events-auto select-none ${
+      className={`fixed top-16 sm:top-20 left-2 sm:left-6 z-30 transition-all duration-500 pointer-events-auto select-none ${
         isNowPlayingExpanded
           ? 'translate-x-0 opacity-100'
           : '-translate-x-[calc(100%-2.5rem)] opacity-70 hover:opacity-100'
       }`}
     >
       <div
-        className={`relative rounded-3xl p-4 flex items-center gap-3.5 max-w-sm transition-all duration-400 ${
+        className={`relative rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 w-[clamp(240px,28vw,380px)] max-w-[calc(100vw-1.5rem)] transition-all duration-400 ${
           isLucid
             ? 'bg-[#080b18]/85 backdrop-blur-2xl border'
             : visualizerMode === 'party'

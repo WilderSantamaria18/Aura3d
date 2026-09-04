@@ -109,9 +109,29 @@ export const App: React.FC = () => {
     };
   }, [loadFile]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // ResizeObserver on root container to trigger canvas resize on orientation & fullscreen changes
+  useEffect(() => {
+    if (!rootRef.current) return;
+    const observer = new ResizeObserver(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    observer.observe(rootRef.current);
+    const handleFullscreen = () => {
+      window.dispatchEvent(new Event('resize'));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreen);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('fullscreenchange', handleFullscreen);
+    };
+  }, []);
+
   return (
     <div
-      className={`relative w-screen h-screen overflow-hidden select-none font-sans transition-all duration-700 ${
+      ref={rootRef}
+      className={`relative w-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] overflow-hidden select-none font-sans transition-all duration-700 ${
         isUiIdle && hasStarted ? 'cursor-none' : ''
       }`}
       style={{
@@ -132,7 +152,7 @@ export const App: React.FC = () => {
 
       {/* 2. Visualizer in Fullscreen Center (Active when started: Sphere, Blob, or Party) */}
       <div
-        className={`absolute inset-0 transition-opacity duration-700 ${
+        className={`absolute inset-0 w-full h-full min-h-[55dvh] transition-opacity duration-700 ${
           hasStarted ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -170,7 +190,7 @@ export const App: React.FC = () => {
       {/* 5. Floating Bottom Player & Quick Visualizer Controls */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-30 p-2 sm:p-5 transition-all duration-700 pointer-events-none flex flex-col items-center gap-1.5 sm:gap-2.5 ${
+          className={`fixed bottom-0 left-0 right-0 z-30 p-2 sm:p-4 md:p-5 transition-all duration-700 pointer-events-none flex flex-col items-center gap-1.5 sm:gap-2.5 ${
             isUiIdle ? 'opacity-0 translate-y-6' : 'opacity-100 translate-y-0'
           }`}
         >
@@ -181,7 +201,7 @@ export const App: React.FC = () => {
 
           {/* Main Glassmorphic Player Bar */}
           <div
-            className="w-full max-w-4xl rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-2xl flex flex-col gap-2 sm:gap-3 pointer-events-auto transition-all duration-500 bg-[#090e1c]/85 backdrop-blur-2xl border border-white/10"
+            className="w-[clamp(320px,94vw,900px)] rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-2xl flex flex-col gap-2 sm:gap-3 pointer-events-auto transition-all duration-500 bg-[#090e1c]/85 backdrop-blur-2xl border border-white/10"
             style={
               isLucid
                 ? {

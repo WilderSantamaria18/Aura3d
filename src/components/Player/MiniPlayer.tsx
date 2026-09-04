@@ -261,7 +261,7 @@ export const MiniPlayer: React.FC = () => {
     <div
       className="fixed right-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 max-w-full"
       style={{
-        width: isCollapsed ? 48 : `min(${panelWidth}px, 100vw)`,
+        width: isCollapsed ? 48 : `clamp(280px, 30vw, min(${panelWidth}px, 100vw))`,
         background: `rgba(5, 7, 15, ${panelOpacity})`,
         backdropFilter: 'blur(24px)',
         borderLeft: isLucid
