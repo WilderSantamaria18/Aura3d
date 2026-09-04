@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   VOLUME: 'auralis_volume_v1',
   EQ_PRESET: 'auralis_eq_preset_v1',
   BLOB_SETTINGS: 'auralis_blob_settings_v1',
+  SPHERE_SCALE: 'auralis_sphere_scale_v1',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -24,6 +25,23 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
 };
 
 export class StorageService {
+  public static getSphereScale(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SPHERE_SCALE);
+      return val ? parseFloat(val) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  }
+
+  public static saveSphereScale(scale: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_SCALE, scale.toString());
+    } catch (e) {
+      console.warn('Failed to save sphere scale to LocalStorage', e);
+    }
+  }
+
   public static getPlaylists(): Playlist[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PLAYLISTS);

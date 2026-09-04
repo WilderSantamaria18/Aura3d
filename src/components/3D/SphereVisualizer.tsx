@@ -326,10 +326,26 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.05 + bass * 0.15);
         }
 
-        // Gesture Closed/Fist Boost + Bass Boost Expansion Multiplier
+        // Layer 1: Auto-Fit Base Scale (dynamically calculated to occupy 60% of shortest viewport side)
+        const shortestSide = Math.min(state.size.width, state.size.height);
+        const autoFitBaseScale = Math.max(0.75, Math.min(1.4, shortestSide / 650));
+
+        // Layer 2: User Multiplier from localStorage (range 0.5x - 2.0x, default 1.0)
+        const userMultiplier = sphereRadius || 1.0;
+
+        // Gesture Closed/Fist Boost + Dynamic Subwoofer Pump
         const gestureBoost = (handGesture === 'closed' || handGesture === 'fist') ? 0.35 : 0;
-        // Subwoofer pump: contracts to ~0.72x on silence, explodes to 2.0x+ on bass kicks & boom drops
-        const bassScale = 0.72 + Math.pow(bass, 1.08) * (1.15 + (isLucid ? 0.35 : 0)) + boomPunch * 1.25 + gestureBoost;
+        const bassPump = 0.75 + Math.pow(bass, 1.08) * (1.15 + (isLucid ? 0.35 : 0)) + boomPunch * 1.25 + gestureBoost;
+
+        const finalMeshScale = autoFitBaseScale * userMultiplier * bassPump;
+
+        // Apply scale in Three.js without moving camera or mutating base geometry
+        pointsRef.current.scale.set(finalMeshScale, finalMeshScale, finalMeshScale);
+
+        if (particleRingRef.current) {
+          const ringScale = autoFitBaseScale * userMultiplier * (1.0 + bass * 0.35 + boomPunch * 0.6);
+          particleRingRef.current.scale.set(ringScale, ringScale, ringScale);
+        }
 
         for (let i = 0; i < particleCount; i++) {
           const i3 = i * 3;
@@ -387,7 +403,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
               Math.cos(ny * 4.0 + time * 1.8) *
               Math.sin(nz * 4.0 + time * 1.6);
 
-            const displacement = sphereRadius * (bassScale + idleBreathe) + wave * (0.12 + mids * 0.55) + Math.pow(bass, 1.3) * 0.35;
+            const displacement = 1.0 + idleBreathe + wave * (0.12 + mids * 0.55) + Math.pow(bass, 1.3) * 0.35;
             px = nx * displacement;
             py = ny * displacement;
             pz = nz * displacement;

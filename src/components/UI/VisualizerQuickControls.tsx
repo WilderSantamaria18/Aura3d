@@ -3,7 +3,7 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { Activity, CircleDot, Eye, Bot, Shapes, Waves } from 'lucide-react';
 import type { VisualizerShape, WaveEffectMode } from '../../types/audio';
 
-export const VisualizerQuickControls: React.FC = () => {
+export const VisualizerQuickControls: React.FC = React.memo(() => {
   const {
     visualizerMode,
     visualizerShape,
@@ -110,21 +110,27 @@ export const VisualizerQuickControls: React.FC = () => {
         <span className="hidden sm:inline">Barras 3D</span>
       </button>
 
-      {/* 4. Sphere Radius Slider */}
-      <div className="flex items-center gap-2">
+      {/* 4. Sphere Scale Override Slider (0.5x - 2.0x, with double-click reset) */}
+      <div
+        className="flex items-center gap-2 cursor-pointer"
+        onDoubleClick={() => setSphereRadius(1.0)}
+        title="Escala 3D: Doble clic para restablecer a 1.0x"
+      >
         <CircleDot className={`w-3.5 h-3.5 ${isLucid ? 'text-emerald-400' : 'text-pink-400'}`} />
-        <span className="hidden sm:inline text-[11px] text-white/50">Radio</span>
+        <span className="hidden sm:inline text-[11px] text-white/50">
+          Escala <span className="font-mono text-cyan-300">{sphereRadius.toFixed(1)}x</span>
+        </span>
         <input
           type="range"
-          min="0.6"
-          max="2.5"
+          min="0.5"
+          max="2.0"
           step="0.05"
           value={sphereRadius}
           onChange={(e) => setSphereRadius(parseFloat(e.target.value))}
           className={`w-16 sm:w-20 h-1 rounded-lg cursor-pointer transition-all ${
             isLucid ? 'accent-emerald-400 shadow-[0_0_10px_#39FF14]' : 'bg-white/10 accent-pink-500'
           }`}
-          title={`Radio: ${sphereRadius.toFixed(2)}`}
+          title={`Escala 3D: ${sphereRadius.toFixed(2)}x (Doble clic para restablecer a 1.0x)`}
         />
       </div>
 
@@ -147,6 +153,6 @@ export const VisualizerQuickControls: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default VisualizerQuickControls;

@@ -69,3 +69,4 @@ export interface IVisualShapeConfig {
   colorDistribution: 'concentric' | 'frequency' | 'radial' | 'uniform';
   deformationAlgorithm: 'harmonic' | 'spikes' | 'orbital' | 'turbulent' | 'toroidal';
 }
+

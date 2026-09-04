@@ -98,3 +98,4 @@ export const VISUAL_SHAPE_PRESETS: Record<VisualizerShape, IVisualShapeConfig> =
 export const getVisualShapeConfig = (shape: VisualizerShape): IVisualShapeConfig => {
   return VISUAL_SHAPE_PRESETS[shape] || VISUAL_SHAPE_PRESETS.sphere;
 };
+

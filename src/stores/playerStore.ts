@@ -179,7 +179,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isMicActive: false,
   showFrequencyBars: true,
   sphereOpacity: 0.9,
-  sphereRadius: 1.0,
+  sphereRadius: StorageService.getSphereScale(),
 
   blobSettings: StorageService.getBlobSettings(),
   isBlobPanelOpen: false,
@@ -231,7 +231,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setIsMicActive: (isMicActive) => set({ isMicActive }),
   setShowFrequencyBars: (showFrequencyBars) => set({ showFrequencyBars }),
   setSphereOpacity: (sphereOpacity) => set({ sphereOpacity }),
-  setSphereRadius: (sphereRadius) => set({ sphereRadius }),
+  setSphereRadius: (sphereRadius) => {
+    StorageService.saveSphereScale(sphereRadius);
+    set({ sphereRadius });
+  },
 
   setBlobSettings: (blobSettings) => {
     StorageService.saveBlobSettings(blobSettings);
