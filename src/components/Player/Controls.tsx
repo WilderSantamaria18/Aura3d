@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -14,7 +14,7 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { VolumeControl } from './VolumeControl';
 
-export const Controls: React.FC = () => {
+export const Controls: React.FC = React.memo(() => {
   const {
     currentTrack,
     isPlaying,
@@ -32,11 +32,11 @@ export const Controls: React.FC = () => {
 
   const isFav = currentTrack ? favorites.some((t) => t.id === currentTrack.id) : false;
 
-  const cycleRepeat = () => {
+  const cycleRepeat = useCallback(() => {
     if (repeatMode === 'off') setRepeatMode('all');
     else if (repeatMode === 'all') setRepeatMode('one');
     else setRepeatMode('off');
-  };
+  }, [repeatMode, setRepeatMode]);
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 w-full px-1 sm:px-4">
@@ -167,4 +167,4 @@ export const Controls: React.FC = () => {
       </div>
     </div>
   );
-};
+});

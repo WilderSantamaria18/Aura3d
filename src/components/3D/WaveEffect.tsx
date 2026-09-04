@@ -10,7 +10,7 @@ interface WaveEffectProps {
   particleCount?: number;
 }
 
-export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) => {
+export const WaveEffect: React.FC<WaveEffectProps> = React.memo(({ particleCount = 1800 }) => {
   const {
     waveEffectMode,
     waveEffectIntensity,
@@ -21,6 +21,8 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
   } = usePlayerStore();
 
   const pointsRef = useRef<THREE.Points>(null);
+  const frameCounterRef = useRef(0);
+  const cachedAudioRef = useRef({ bass: 0, mids: 0, highs: 0, energy: 0 });
   const { getSmoothedData } = useVisualizer(0.2);
 
   // Transition smoothing state
@@ -63,6 +65,16 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
     return { basePositions: pos, baseAngles: angles, colors: col };
   }, [particleCount]);
 
+  // Clean memory on unmount
+  useEffect(() => {
+    return () => {
+      if (pointsRef.current) {
+        pointsRef.current.geometry?.dispose();
+        (pointsRef.current.material as THREE.Material)?.dispose();
+      }
+    };
+  }, []);
+
   // Palette colors for lerp
   const pal = PROFESSIONAL_PALETTES[currentPaletteIndex] || PROFESSIONAL_PALETTES[0];
   const palColor1 = useMemo(() => new THREE.Color(pal.colors[0] || '#39FF14'), [pal]);
@@ -86,25 +98,21 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
   ) => {
     switch (mode) {
       case 'concentric':
-        // Spherical expanding rings pulsing outwards
         return (
           Math.sin(r * 4.2 - time * speed * 2.0) * waveAmp * 0.38 +
           Math.cos(phi * 3.0 + time * speed) * bass * 0.25
         );
       case 'sinusoidal':
-        // Undulating vertical ripple curtain
         return (
           Math.sin(theta * 6.0 + time * speed * 1.5) * waveAmp * 0.32 +
           Math.cos(phi * 4.0 - time * speed) * 0.18
         );
       case 'spiral':
-        // Vortex spiral arms twisting with high frequencies
         return (
           Math.sin(theta * 5.0 + r * 2.8 - time * speed * 2.2) * waveAmp * 0.35 +
           Math.sin(phi * 8.0 + highs * 4.0) * 0.15
         );
       case 'void':
-        // Deep breathing particle expansion / void aura
         return (
           Math.sin(time * speed * 1.2) * waveAmp * 0.45 +
           Math.sin(r * 2.0 + theta * 3.0) * bass * 0.3
@@ -118,7 +126,18 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
   useFrame(({ clock }) => {
     if (!pointsRef.current) return;
 
-    const { bass, mids, highs, energy } = getSmoothedData();
+    frameCounterRef.current++;
+    if (frameCounterRef.current % 2 === 0) {
+      const data = getSmoothedData();
+      cachedAudioRef.current = {
+        bass: data.bass,
+        mids: data.mids,
+        highs: data.highs,
+        energy: data.energy,
+      };
+    }
+
+    const { bass, mids, highs, energy } = cachedAudioRef.current;
     const posAttr = pointsRef.current.geometry.attributes.position;
     const colAttr = pointsRef.current.geometry.attributes.color;
     const posArr = posAttr.array as Float32Array;
@@ -195,7 +214,9 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
     }
 
     posAttr.needsUpdate = true;
-    // Continuous celestial rotation even at idle
+    colAttr.needsUpdate = true;
+
+    // Continuous celestial rotation
     pointsRef.current.rotation.y = time * 0.08 * (isLucid ? 1.5 : 1.0);
     pointsRef.current.rotation.x = Math.sin(time * 0.15) * 0.06;
 
@@ -225,6 +246,6 @@ export const WaveEffect: React.FC<WaveEffectProps> = ({ particleCount = 2000 }) 
       />
     </points>
   );
-};
+});
 
 export default WaveEffect;

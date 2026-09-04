@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 
-export const ProgressBar: React.FC = () => {
+export const ProgressBar: React.FC = React.memo(() => {
   const { currentTime, duration, isLucid, lucidTheme } = usePlayerStore();
   const { seek } = useAudioEngine();
   const [isDragging, setIsDragging] = useState(false);
@@ -22,7 +22,7 @@ export const ProgressBar: React.FC = () => {
     return Math.min(100, Math.max(0, (time / duration) * 100));
   }, [currentTime, dragTime, duration, isDragging]);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!barRef.current || !duration) return;
     setIsDragging(true);
     const rect = barRef.current.getBoundingClientRect();
@@ -30,16 +30,16 @@ export const ProgressBar: React.FC = () => {
     const newTime = pos * duration;
     setDragTime(newTime);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
+  }, [duration]);
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging || !barRef.current || !duration) return;
     const rect = barRef.current.getBoundingClientRect();
     const pos = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     setDragTime(pos * duration);
-  };
+  }, [isDragging, duration]);
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (isDragging) {
       setIsDragging(false);
       seek(dragTime);
@@ -49,7 +49,7 @@ export const ProgressBar: React.FC = () => {
         // pointer capture fallback
       }
     }
-  };
+  }, [isDragging, dragTime, seek]);
 
   const progressPct = getPercentage();
 
@@ -98,5 +98,5 @@ export const ProgressBar: React.FC = () => {
       <span className="w-10 text-left tabular-nums">{formatTime(duration)}</span>
     </div>
   );
-};
+});
 

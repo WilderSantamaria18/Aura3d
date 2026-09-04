@@ -1,9 +1,10 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SphereVisualizer } from './SphereVisualizer';
 import { WaveEffect } from './WaveEffect';
+import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 
 // ── Responsive Camera Controller (Auto-fits sphere to ~70% center on any aspect ratio) ──
 const ResponsiveCameraController: React.FC = () => {
@@ -25,19 +26,21 @@ const ResponsiveCameraController: React.FC = () => {
   return null;
 };
 
-export const SceneContainer: React.FC = () => {
-  const isMobile = useMemo(() => {
-    return window.innerWidth < 768;
-  }, []);
-
-  const particleCount = isMobile ? 900 : 2200;
-  const waveParticleCount = isMobile ? 750 : 1800;
+export const SceneContainer: React.FC = React.memo(() => {
+  const device = useDeviceCapabilities();
 
   return (
     <div className="absolute inset-0 w-full h-full pointer-events-auto bg-[#060812] overflow-hidden">
       <Canvas
         camera={{ position: [0, 0, 6.2], fov: 50 }}
-        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+        gl={{
+          antialias: !device.isLowEnd,
+          alpha: false,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: true,
+        }}
+        dpr={[1, device.maxDpr]}
         resize={{ debounce: 0, scroll: false }}
       >
         <ResponsiveCameraController />
@@ -47,13 +50,21 @@ export const SceneContainer: React.FC = () => {
         <pointLight position={[-10, -10, -10]} intensity={1.2} color="#ff088a" />
 
         {/* Ambient starfield */}
-        <Stars radius={50} depth={50} count={isMobile ? 500 : 1500} factor={4} saturation={0.5} fade speed={1} />
+        <Stars
+          radius={50}
+          depth={50}
+          count={device.isMobile ? 400 : 1200}
+          factor={4}
+          saturation={0.5}
+          fade
+          speed={0.8}
+        />
 
         {/* 3D Crystalline Particle Sphere */}
-        <SphereVisualizer particleCount={particleCount} />
+        <SphereVisualizer particleCount={device.particleCount} />
 
         {/* 3D Dynamic Particle Wave Effect */}
-        <WaveEffect particleCount={waveParticleCount} />
+        <WaveEffect particleCount={device.waveParticleCount} />
 
         {/* User Orbit Controls */}
         <OrbitControls
@@ -67,6 +78,6 @@ export const SceneContainer: React.FC = () => {
       </Canvas>
     </div>
   );
-};
+});
 
 export default SceneContainer;

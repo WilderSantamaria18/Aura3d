@@ -33,6 +33,20 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const prevBassRef = useRef(0);
     const boomImpulseRef = useRef(0);
     const boomFlashRef = useRef(0);
+    const frameCounterRef = useRef(0);
+    const cachedAudioRef = useRef<{
+      bass: number;
+      mids: number;
+      highs: number;
+      energy: number;
+      raw: Uint8Array;
+    }>({
+      bass: 0,
+      mids: 0,
+      highs: 0,
+      energy: 0,
+      raw: new Uint8Array(32),
+    });
     const { getSmoothedData } = useVisualizer(0.2);
 
     // Color instances for smooth lerping
@@ -232,13 +246,22 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       return () => {
         geometry.dispose();
         ringGeometry.dispose();
+        if (pointsRef.current) {
+          (pointsRef.current.material as THREE.Material)?.dispose();
+        }
+        if (particleRingRef.current) {
+          (particleRingRef.current.material as THREE.Material)?.dispose();
+        }
       };
     }, [geometry, ringGeometry]);
 
-    // High performance animation loop
+    // High performance animation loop with 2-frame Analyser throttling
     useFrame((state, delta) => {
-      const audioData = getSmoothedData();
-      const { bass, mids, highs, energy, raw } = audioData;
+      frameCounterRef.current++;
+      if (frameCounterRef.current % 2 === 0) {
+        cachedAudioRef.current = getSmoothedData();
+      }
+      const { bass, mids, highs, energy, raw } = cachedAudioRef.current;
       const time = state.clock.getElapsedTime();
 
       // Bass Transient Detection for Explosive "BOOM"

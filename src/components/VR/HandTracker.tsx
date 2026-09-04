@@ -3,6 +3,8 @@ import { usePlayerStore, type HandLandmark } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES } from '../../types/audio';
 import { X, Eye, EyeOff, Sliders, Palette, Maximize2, Sparkles, Activity } from 'lucide-react';
 
+import { classifyHandGesture } from '../../features/vr/gestureMap';
+
 const HISTORY_SIZE = 5;
 
 // Gesture Labels for HUD
@@ -11,6 +13,8 @@ const GESTURE_LABELS: Record<string, { label: string; action: string; color: str
   one: { label: 'SIGNO 1', action: 'PANTALLA COMPLETA', color: '#00f2fe' },
   open: { label: 'MANO ABIERTA', action: 'ROTACIÓN 3D', color: '#39FF14' },
   pinch: { label: 'PELLIZCO', action: 'ZOOM / ESCALA', color: '#FFD700' },
+  thumbs_up: { label: 'PULGAR ARRIBA', action: 'REPRODUCIR/PAUSA', color: '#00ffb3' },
+  peace: { label: 'PAZ / V', action: 'MODO AUTO COLOR', color: '#c471ed' },
   unknown: { label: 'DETECTANDO...', action: 'ESPERANDO GESTO', color: '#ffffff' },
 };
 
@@ -64,54 +68,12 @@ export const HandTracker: React.FC = () => {
     }, 1600);
   }, []);
 
-  // Precise Gesture Calculation based on Landmarks
+  // Precise Gesture Calculation based on Landmarks via pure gesture classifier
   const calculateGesture = useCallback((landmarks: HandLandmark[]): 'fist' | 'one' | 'open' | 'pinch' | 'unknown' => {
-    if (!landmarks || landmarks.length < 21) return 'unknown';
-
-    const wrist = landmarks[0];
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-    const indexPIP = landmarks[6];
-    const middleTip = landmarks[12];
-    const middlePIP = landmarks[10];
-    const ringTip = landmarks[16];
-    const ringPIP = landmarks[14];
-    const pinkyTip = landmarks[20];
-    const pinkyPIP = landmarks[18];
-
-    // Helper: is finger extended away from wrist relative to PIP
-    const isFingerExt = (tip: HandLandmark, pip: HandLandmark) => {
-      const dTip = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
-      const dPip = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
-      return dTip > dPip * 1.12;
-    };
-
-    const isIndexExt = isFingerExt(indexTip, indexPIP);
-    const isMiddleExt = isFingerExt(middleTip, middlePIP);
-    const isRingExt = isFingerExt(ringTip, ringPIP);
-    const isPinkyExt = isFingerExt(pinkyTip, pinkyPIP);
-
-    // 1. Pinch detection (Thumb tip & Index tip close together while middle is open)
-    const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
-    if (pinchDist < 0.055 && (isMiddleExt || isRingExt)) {
-      return 'pinch';
+    const classified = classifyHandGesture(landmarks);
+    if (classified.type === 'fist' || classified.type === 'one' || classified.type === 'open' || classified.type === 'pinch') {
+      return classified.type;
     }
-
-    // 2. Fist detection (All fingers folded towards palm)
-    if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
-      return 'fist';
-    }
-
-    // 3. Sign of "1" (Only index finger extended upwards)
-    if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
-      return 'one';
-    }
-
-    // 4. Open hand (All fingers extended)
-    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt) {
-      return 'open';
-    }
-
     return 'unknown';
   }, []);
 
