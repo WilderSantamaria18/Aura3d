@@ -4,6 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SphereVisualizer } from './SphereVisualizer';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
+import { usePlayerStore } from '../../stores/playerStore';
 
 // ── Responsive Camera Controller (Auto-fits sphere to ~70% center on any aspect ratio) ──
 const ResponsiveCameraController: React.FC = () => {
@@ -77,6 +78,8 @@ export const SceneContainer: React.FC = React.memo(() => {
           maxDistance={14}
           rotateSpeed={0.6}
           dampingFactor={0.05}
+          onStart={() => usePlayerStore.getState().setUserInteracting(true)}
+          onEnd={() => usePlayerStore.getState().setUserInteracting(false)}
         />
       </Canvas>
     </div>

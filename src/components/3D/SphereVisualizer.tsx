@@ -33,8 +33,8 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       ringParticleBudget,
     } = usePerformanceMonitor();
 
-    const activeParticleCount = Math.min(particleCount, particleBudget, MAX_PARTICLES);
-    const ringCount = Math.min(ringParticleBudget, MAX_RINGS);
+    const activeParticleCount = Math.max(50, Math.min(particleCount, particleBudget, MAX_PARTICLES));
+    const ringCount = Math.max(30, Math.min(ringParticleBudget, MAX_RINGS));
 
     const groupRef = useRef<THREE.Group>(null);
     const pointsRef = useRef<THREE.Points>(null);
@@ -240,8 +240,13 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         colArray[i * 3 + 2] = tempColor.b;
       }
 
-      geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(colArray, 3));
+      const posAttr = new THREE.BufferAttribute(posArray, 3);
+      posAttr.setUsage(THREE.DynamicDrawUsage);
+      const colAttr = new THREE.BufferAttribute(colArray, 3);
+      colAttr.setUsage(THREE.DynamicDrawUsage);
+
+      geo.setAttribute('position', posAttr);
+      geo.setAttribute('color', colAttr);
       geo.setDrawRange(0, activeParticleCount);
       return { geometry: geo };
     }, [initialPositions, colorCyan, colorMagenta, tempColor]);
@@ -277,8 +282,13 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
 
       const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+      const posAttr = new THREE.BufferAttribute(new Float32Array(positions), 3);
+      posAttr.setUsage(THREE.DynamicDrawUsage);
+      const colAttr = new THREE.BufferAttribute(new Float32Array(colors), 3);
+      colAttr.setUsage(THREE.DynamicDrawUsage);
+
+      geo.setAttribute('position', posAttr);
+      geo.setAttribute('color', colAttr);
       geo.setDrawRange(0, ringCount);
 
       return {
@@ -361,20 +371,24 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const positions = positionAttr.array as Float32Array;
         const colors = colorAttr.array as Float32Array;
 
-        // Base continuous rotation
+        // Base continuous rotation & VR Tracking (Paused while user is dragging OrbitControls)
+        const isInteracting = playerState.userInteracting;
         const rotMultiplier = isLucid ? 1.6 : 1.0;
         const danceSpeedBoost = 1.0 + (poseVelocity || 0) * 0.75;
-        pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier * danceSpeedBoost;
 
-        // VR Full-Body Dance & Hand Tracking: smooth continuous lerp
-        if (vrMode) {
-          if (handRotation) {
-            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.12;
-            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.12;
+        if (!isInteracting) {
+          pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier * danceSpeedBoost;
+
+          // VR Full-Body Dance & Hand Tracking: smooth continuous lerp
+          if (vrMode) {
+            if (handRotation) {
+              pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.12;
+              pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.12;
+            }
+          } else {
+            pointsRef.current.rotation.x = Math.sin(time * 0.25) * (0.08 + sMids * 0.15);
+            pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.04 + sBass * 0.1);
           }
-        } else {
-          pointsRef.current.rotation.x = Math.sin(time * 0.25) * (0.08 + sMids * 0.15);
-          pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.04 + sBass * 0.1);
         }
 
         // Layer 1: Auto-Fit Base Scale

@@ -98,6 +98,11 @@ interface PlayerState {
   genreConfidence: number;
   isAdminModalOpen: boolean;
 
+  // Web Audio Analyser & Interaction
+  analyser: AnalyserNode | null;
+  audioContext: AudioContext | null;
+  userInteracting: boolean;
+
   // Actions
   setHasStarted: (hasStarted: boolean) => void;
   setIsLucid: (isLucid: boolean) => void;
@@ -169,9 +174,15 @@ interface PlayerState {
   setDetectedGenre: (genre: string, confidence?: number) => void;
   setAdminModalOpen: (isOpen: boolean) => void;
   toggleAdminModal: () => void;
+  setAnalyser: (analyser: AnalyserNode | null, audioContext?: AudioContext | null) => void;
+  setUserInteracting: (interacting: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
+  analyser: null,
+  audioContext: null,
+  userInteracting: false,
+
   hasStarted: false,
 
   isLucid: false,
@@ -523,4 +534,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setDetectedGenre: (detectedGenre, genreConfidence = 0.85) => set({ detectedGenre, genreConfidence }),
   setAdminModalOpen: (isAdminModalOpen) => set({ isAdminModalOpen }),
   toggleAdminModal: () => set((state) => ({ isAdminModalOpen: !state.isAdminModalOpen })),
+  setAnalyser: (analyser, audioContext) => set((state) => ({
+    analyser,
+    audioContext: audioContext !== undefined ? audioContext : state.audioContext,
+  })),
+  setUserInteracting: (userInteracting) => set({ userInteracting }),
 }));
+
+// Expose store globally for QA console tests
+if (typeof window !== 'undefined') {
+  (window as unknown as { __ZUSTAND_STORE__: typeof usePlayerStore }).__ZUSTAND_STORE__ = usePlayerStore;
+}

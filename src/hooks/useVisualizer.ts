@@ -1,7 +1,6 @@
 import { useRef, useCallback } from 'react';
-import { audioEngine } from '../services/audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
-import type { FrequencyData } from '../types/audio';
+import { audioEngine } from '../services/audioEngine';
 
 export interface SmoothedAudioData {
   bass: number;
@@ -11,52 +10,95 @@ export interface SmoothedAudioData {
   raw: Uint8Array;
 }
 
-export const useVisualizer = (smoothingFactor = 0.18) => {
-  const { isPlaying, isMicActive } = usePlayerStore();
+export const useVisualizer = (smoothingFactor = 0.2) => {
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array>(new Uint8Array(64));
   const smoothedRef = useRef<SmoothedAudioData>({
     bass: 0,
     mids: 0,
     highs: 0,
     energy: 0,
-    raw: new Uint8Array(128),
+    raw: new Uint8Array(64),
   });
 
   const getSmoothedData = useCallback((): SmoothedAudioData => {
-    const current = smoothedRef.current;
-    const fresh: FrequencyData = audioEngine.getFrequencyData();
-
-    // If audio is completely silent, gently decay to resting state
-    if (fresh.energy < 0.001 && !isPlaying && !isMicActive) {
-      current.bass   *= 0.88;
-      current.mids   *= 0.88;
-      current.highs  *= 0.88;
-      current.energy *= 0.88;
-      if (current.bass   < 0.001) current.bass   = 0;
-      if (current.mids   < 0.001) current.mids   = 0;
-      if (current.highs  < 0.001) current.highs  = 0;
-      if (current.energy < 0.001) current.energy = 0;
-      current.raw.fill(0);
-      return current;
+    // 1. Resolve live AnalyserNode from store or AudioEngine singleton
+    let activeAnalyser = analyserRef.current;
+    if (!activeAnalyser) {
+      activeAnalyser = usePlayerStore.getState().analyser || audioEngine.analyser;
+      if (activeAnalyser) {
+        analyserRef.current = activeAnalyser;
+        dataArrayRef.current = new Uint8Array(activeAnalyser.frequencyBinCount || 64);
+        smoothedRef.current.raw = new Uint8Array(activeAnalyser.frequencyBinCount || 64);
+      }
     }
 
-    // Asymmetric Audio Envelope (Instant 0-delay Attack, Snappy Release for distinct small-to-large pump)
-    const attackFactor = 0.90; // Instant microsecond expansion on beat rise
-    const bassDecayFactor = 0.24; // Snappy contraction back to small size between beats
-    const generalDecay = smoothingFactor;
+    if (!activeAnalyser) {
+      return smoothedRef.current;
+    }
 
-    const bassFactor   = fresh.bass   > current.bass   ? attackFactor : bassDecayFactor;
-    const midsFactor   = fresh.mids   > current.mids   ? attackFactor * 0.85 : generalDecay;
-    const highsFactor  = fresh.highs  > current.highs  ? attackFactor * 0.85 : generalDecay;
-    const energyFactor = fresh.energy > current.energy ? attackFactor : generalDecay;
+    const raw = dataArrayRef.current;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    activeAnalyser.getByteFrequencyData(raw as any);
 
-    current.bass   += (fresh.bass   - current.bass)   * bassFactor;
-    current.mids   += (fresh.mids   - current.mids)   * midsFactor;
-    current.highs  += (fresh.highs  - current.highs)  * highsFactor;
-    current.energy += (fresh.energy - current.energy) * energyFactor;
-    current.raw = fresh.raw;
+    const total = raw.length;
+    let sum = 0;
+    for (let i = 0; i < total; i++) {
+      sum += raw[i];
+    }
 
-    return current;
-  }, [smoothingFactor, isPlaying, isMicActive]);
+    // Silent state decay
+    if (sum === 0) {
+      smoothedRef.current.bass *= 0.88;
+      smoothedRef.current.mids *= 0.88;
+      smoothedRef.current.highs *= 0.88;
+      smoothedRef.current.energy *= 0.88;
+      return smoothedRef.current;
+    }
+
+    // Frequency spectrum bands
+    const bassEnd = Math.max(1, Math.floor(total * 0.25));
+    const midsEnd = Math.max(bassEnd + 1, Math.floor(total * 0.70));
+
+    let bassSum = 0;
+    for (let i = 0; i < bassEnd; i++) bassSum += raw[i];
+    const rawBass = bassSum / (bassEnd * 255);
+    const bass = Math.min(1.0, Math.pow(rawBass, 1.25) * 1.35);
+
+    let midsSum = 0;
+    for (let i = bassEnd; i < midsEnd; i++) midsSum += raw[i];
+    const mids = midsSum / ((midsEnd - bassEnd) * 255);
+
+    let highsSum = 0;
+    for (let i = midsEnd; i < total; i++) highsSum += raw[i];
+    const highs = highsSum / ((total - midsEnd) * 255);
+
+    const energy = sum / (total * 255);
+
+    // Asymmetric audio envelope for responsive beat attack & smooth organic decay
+    const attackFactor = 0.85;
+    const bassDecay = 0.22;
+    const genDecay = smoothingFactor;
+
+    const bFactor = bass > smoothedRef.current.bass ? attackFactor : bassDecay;
+    const mFactor = mids > smoothedRef.current.mids ? attackFactor : genDecay;
+    const hFactor = highs > smoothedRef.current.highs ? attackFactor : genDecay;
+    const eFactor = energy > smoothedRef.current.energy ? attackFactor : genDecay;
+
+    smoothedRef.current.bass += (bass - smoothedRef.current.bass) * bFactor;
+    smoothedRef.current.mids += (mids - smoothedRef.current.mids) * mFactor;
+    smoothedRef.current.highs += (highs - smoothedRef.current.highs) * hFactor;
+    smoothedRef.current.energy += (energy - smoothedRef.current.energy) * eFactor;
+    smoothedRef.current.raw = raw;
+
+    return {
+      bass: Math.min(1.0, Math.max(0, smoothedRef.current.bass)),
+      mids: Math.min(1.0, Math.max(0, smoothedRef.current.mids)),
+      highs: Math.min(1.0, Math.max(0, smoothedRef.current.highs)),
+      energy: Math.min(1.0, Math.max(0, smoothedRef.current.energy)),
+      raw,
+    };
+  }, [smoothingFactor]);
 
   return { getSmoothedData };
 };

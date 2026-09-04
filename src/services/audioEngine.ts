@@ -1,4 +1,5 @@
 import type { EqualizerBand, FrequencyData } from '../types/audio';
+import { usePlayerStore } from '../stores/playerStore';
 
 export const DEFAULT_EQ_BANDS: EqualizerBand[] = [
   { id: 0, frequency: 32, label: '32Hz', gain: 0, type: 'lowshelf' },
@@ -175,6 +176,7 @@ export class AudioEngine {
     }
 
     this.isInitialized = true;
+    usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
   }
 
   /**
