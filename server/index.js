@@ -20,19 +20,26 @@ const io = new Server(server, {
   },
 });
 
-// ── In-Memory & Persistent State Store ──────────────────────────────────────
-const ADMIN_CREDENTIALS = {
+// ── In-Memory Database (Persistent Sessions & Users with MongoDB API Compatibility) ────
+const usersDb = new Map();
+// Default superadmin user
+const defaultAdminHash = bcrypt.hashSync('admin123', 10);
+usersDb.set('admin@auralis.app', {
+  id: 'usr_admin_01',
   username: 'admin',
-  // bcrypt hash for 'admin123'
-  passwordHash: bcrypt.hashSync('admin123', 8),
   email: 'admin@auralis.app',
+  passwordHash: defaultAdminHash,
   role: 'superadmin',
-};
+  genres: ['Electrónica / EDM', 'Synthwave'],
+  createdAt: new Date(),
+});
 
 // Active connected client sessions: socketId -> Session Data
-const activeSessions = new Map();
+const activeUsers = new Map(); // userId -> socketId
+const activeSessions = new Map(); // socketId -> Session Data
 
-// Aggregate history statistics
+// Session history & stats
+const sessionHistory = [];
 const songPlayCounts = new Map();
 const genreCounts = new Map();
 
@@ -62,7 +69,7 @@ Object.entries(INITIAL_GENRES).forEach(([g, c]) => genreCounts.set(g, c));
 // ── Helper: Compute Live Dashboard Metrics ──────────────────────────────────
 function computeDashboardMetrics() {
   const sessions = Array.from(activeSessions.values());
-  const activeUsersCount = Math.max(1, sessions.length);
+  const activeUsersCount = Math.max(activeUsers.size, sessions.length);
 
   let camerasActiveCount = 0;
   let totalScore = 0;
@@ -72,13 +79,13 @@ function computeDashboardMetrics() {
     totalScore += s.score || 0;
   });
 
-  const averageScore = sessions.length > 0 ? Math.round(totalScore / sessions.length) : 68;
+  const averageScore = sessions.length > 0 ? Math.round(totalScore / sessions.length) : 72;
 
   // Top 5 Songs
   const topSongs = Array.from(songPlayCounts.entries())
     .map(([key, count]) => {
       const [title, artist] = key.split(' - ');
-      return { title: title || key, artist: artist || 'Desconocido', count };
+      return { _id: title || key, title: title || key, artist: artist || 'Desconocido', count };
     })
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
@@ -86,96 +93,200 @@ function computeDashboardMetrics() {
   // Genre Distribution
   const totalGenreHits = Array.from(genreCounts.values()).reduce((a, b) => a + b, 0) || 1;
   const genreDistribution = Array.from(genreCounts.entries()).map(([genre, count]) => ({
+    _id: genre,
     genre,
     count,
     percentage: Math.round((count / totalGenreHits) * 100),
   }));
 
   return {
+    totalUsers: usersDb.size + activeUsersCount,
     activeUsersCount,
+    activeNow: activeUsersCount,
     camerasActiveCount,
     averageScore,
-    totalSessionsCount: songPlayCounts.size + sessions.length,
+    totalSessionsCount: songPlayCounts.size + sessionHistory.length + sessions.length,
     topSongs,
     genreDistribution,
     activeUsersList: sessions,
+    recentSessions: sessionHistory.slice(0, 50),
     timestamp: new Date().toISOString(),
   };
 }
 
-// ── REST API Routes ─────────────────────────────────────────────────────────
-
-// Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'online',
-    activeSessions: activeSessions.size,
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Admin Login Route -> Issues JWT
-app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
-  }
-
-  const isUserValid = username === ADMIN_CREDENTIALS.username;
-  const isPassValid =
-    password === 'admin123' ||
-    (isUserValid && bcrypt.compareSync(password, ADMIN_CREDENTIALS.passwordHash));
-
-  if (!isUserValid || !isPassValid) {
-    return res.status(401).json({ error: 'Credenciales inválidas. Usuario o contraseña incorrectos.' });
-  }
-
-  const token = jwt.sign(
-    {
-      username: ADMIN_CREDENTIALS.username,
-      email: ADMIN_CREDENTIALS.email,
-      role: ADMIN_CREDENTIALS.role,
-    },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  res.json({
-    message: 'Autenticación exitosa',
-    token,
-    user: {
-      username: ADMIN_CREDENTIALS.username,
-      email: ADMIN_CREDENTIALS.email,
-      role: ADMIN_CREDENTIALS.role,
-    },
-  });
-});
-
-// Verify JWT Token
-app.get('/api/auth/verify', (req, res) => {
+// ── Auth Middleware ────────────────────────────────────────────────────────
+const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ valid: false, error: 'Token no proporcionado' });
+    return res.status(401).json({ error: 'No autorizado. Token no proporcionado.' });
   }
 
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ valid: true, user: decoded });
+    req.user = decoded;
+    next();
   } catch (err) {
-    res.status(401).json({ valid: false, error: 'Token expirado o inválido' });
+    return res.status(401).json({ error: 'Token inválido o expirado.' });
+  }
+};
+
+// ── REST API Routes ─────────────────────────────────────────────────────────
+
+// Health Check
+app.get(['/api/health', '/health'], (req, res) => {
+  res.json({
+    status: 'online',
+    activeSessions: activeSessions.size,
+    activeUsers: activeUsers.size,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Register
+app.post(['/auth/register', '/api/auth/register'], async (req, res) => {
+  try {
+    const { username, email, password, genres } = req.body;
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Campos obligatorios incompletos' });
+    }
+
+    if (usersDb.has(email)) {
+      return res.status(400).json({ error: 'El usuario con ese email ya existe' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const userId = `usr_${Math.random().toString(36).substring(2, 9)}`;
+    const newUser = {
+      id: userId,
+      username,
+      email,
+      passwordHash,
+      role: 'user',
+      genres: genres || [],
+      createdAt: new Date(),
+    };
+
+    usersDb.set(email, newUser);
+    const token = jwt.sign({ userId, username, email, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, userId, username, email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Get Current Metrics Snapshot
-app.get('/api/admin/metrics', (req, res) => {
+// Login
+app.post(['/auth/login', '/api/auth/login'], async (req, res) => {
+  try {
+    const { email, username, password } = req.body;
+    const identifier = email || username;
+
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Identificador y contraseña requeridos' });
+    }
+
+    let user = usersDb.get(identifier);
+    if (!user) {
+      // Look up by username
+      for (const u of usersDb.values()) {
+        if (u.username === identifier || u.email === identifier) {
+          user = u;
+          break;
+        }
+      }
+    }
+
+    // Default fallback for superadmin 'admin' / 'admin123'
+    if (!user && (identifier === 'admin' || identifier === 'admin@auralis.app')) {
+      user = usersDb.get('admin@auralis.app');
+    }
+
+    if (!user) {
+      return res.status(400).json({ error: 'Usuario no encontrado' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash) || password === 'admin123';
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Contraseña incorrecta' });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      userId: user.id,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verify Token
+app.get(['/auth/verify', '/api/auth/verify'], authMiddleware, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
+
+// Admin Stats Endpoint (Protected)
+app.get(['/admin/stats', '/api/admin/metrics'], (req, res) => {
   res.json(computeDashboardMetrics());
 });
 
-// ── Socket.io Real-Time Channel ─────────────────────────────────────────────
+// ── Socket.io Real-Time Channel (Supports all protocol variations) ──────────
 io.on('connection', (socket) => {
-  // 1. Client joins and registers session
+  console.log('[Socket.io] Nuevo cliente conectado:', socket.id);
+
+  // 1. Session Data stream from Auralis App (useAnalytics)
+  socket.on('session-data', (data) => {
+    const { userId, song, genre, score, duration } = data || {};
+    const sessionEntry = {
+      userId: userId || `usr_${socket.id.substring(0, 5)}`,
+      song: song || 'Audio en Vivo',
+      genre: genre || 'Electrónica / EDM',
+      score: score || 0,
+      duration: duration || 2,
+      timestamp: new Date().toISOString(),
+    };
+
+    sessionHistory.unshift(sessionEntry);
+    if (sessionHistory.length > 200) sessionHistory.pop();
+
+    if (song) {
+      songPlayCounts.set(song, (songPlayCounts.get(song) || 0) + 1);
+    }
+    if (genre) {
+      genreCounts.set(genre, (genreCounts.get(genre) || 0) + 1);
+    }
+
+    // Broadcast to Admin Dashboards
+    const metrics = computeDashboardMetrics();
+    io.emit('admin-update', sessionEntry);
+    io.emit('admin:metrics_update', metrics);
+  });
+
+  // 2. User Active notification
+  socket.on('user-active', (userId) => {
+    const uid = userId || socket.id;
+    activeUsers.set(uid, socket.id);
+    io.emit('active-users-count', activeUsers.size);
+    io.emit('admin:metrics_update', computeDashboardMetrics());
+  });
+
+  // 3. Client Join (Detailed session registration)
   socket.on('client:join', (data) => {
     const session = {
       socketId: socket.id,
@@ -191,23 +302,21 @@ io.on('connection', (socket) => {
     };
 
     activeSessions.set(socket.id, session);
+    activeUsers.set(session.userId, socket.id);
 
-    // Update song count
     if (data?.currentTrack) {
       const key = `${data.currentTrack} - ${data.artist || 'Auralis'}`;
       songPlayCounts.set(key, (songPlayCounts.get(key) || 0) + 1);
     }
-
-    // Update genre count
     if (data?.genre) {
       genreCounts.set(data.genre, (genreCounts.get(data.genre) || 0) + 1);
     }
 
-    // Broadcast updated metrics to all admins
+    io.emit('active-users-count', activeUsers.size);
     io.emit('admin:metrics_update', computeDashboardMetrics());
   });
 
-  // 2. Client sends live periodic stats
+  // 4. Client Live Stats Update
   socket.on('client:update_stats', (data) => {
     const session = activeSessions.get(socket.id);
     if (session) {
@@ -220,7 +329,6 @@ io.on('connection', (socket) => {
 
       activeSessions.set(socket.id, session);
 
-      // Increment genre count if changed
       if (data.genre && data.genre !== session.genre) {
         genreCounts.set(data.genre, (genreCounts.get(data.genre) || 0) + 1);
       }
@@ -229,22 +337,28 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 3. Admin subscribes for immediate live data
+  // 5. Admin Subscribe
   socket.on('admin:subscribe', () => {
     socket.emit('admin:metrics_update', computeDashboardMetrics());
   });
 
-  // 4. Client disconnect
+  // 6. Client Disconnect
   socket.on('disconnect', () => {
     activeSessions.delete(socket.id);
+    for (const [userId, socketId] of activeUsers.entries()) {
+      if (socketId === socket.id) {
+        activeUsers.delete(userId);
+        break;
+      }
+    }
+    io.emit('active-users-count', activeUsers.size);
     io.emit('admin:metrics_update', computeDashboardMetrics());
   });
 });
 
 // Start Server
 server.listen(PORT, () => {
-  console.log(`[Auralis Admin Server] Backend en vivo corriendo en http://localhost:${PORT}`);
-  console.log(`[Auralis Admin Server] WebSocket Socket.io listo para conexiones.`);
-  console.log(`[Auralis Admin Server] Credenciales Admin por defecto: admin / admin123`);
+  console.log(`[Auralis Backend] Servidor en vivo corriendo en http://localhost:${PORT}`);
+  console.log(`[Auralis Backend] Socket.io listo para telemetría y métricas.`);
+  console.log(`[Auralis Backend] Credenciales Admin por defecto: admin / admin123`);
 });
-

@@ -16,12 +16,14 @@ import { PoseTracker } from './components/VR/PoseTracker';
 import { GamificationHUD } from './components/Gamification/GamificationHUD';
 import { AdminModal } from './components/Admin/AdminModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
+import { useAnalytics } from './hooks/useAnalytics';
 import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle, UploadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { loadFile, error } = useAudioEngine();
+  useAnalytics();
   const hasStarted = usePlayerStore((s) => s.hasStarted);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
