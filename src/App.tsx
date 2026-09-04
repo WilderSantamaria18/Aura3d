@@ -13,6 +13,8 @@ import { EqualizerModal } from './components/UI/EqualizerModal';
 import { PlaylistSidebar } from './components/UI/PlaylistSidebar';
 import { MiniPlayer } from './components/Player/MiniPlayer';
 import { PoseTracker } from './components/VR/PoseTracker';
+import { GamificationHUD } from './components/Gamification/GamificationHUD';
+import { AdminModal } from './components/Admin/AdminModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { usePlayerStore } from './stores/playerStore';
 import { AlertCircle, UploadCloud } from 'lucide-react';
@@ -220,6 +222,9 @@ export const App: React.FC = () => {
       {/* 6. Full-Body VR Dance & Pose Tracker Camera Card */}
       {hasStarted && <PoseTracker />}
 
+      {/* 7. Real-Time Gamification & Intensity Score HUD */}
+      {hasStarted && <GamificationHUD />}
+
       {/* Error Notification */}
       {error && (
         <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-200 text-xs flex items-center gap-2 shadow-xl backdrop-blur-xl animate-bounce">
@@ -232,6 +237,7 @@ export const App: React.FC = () => {
       <LyricsOverlay />
       <EqualizerModal />
       <PlaylistSidebar />
+      <AdminModal />
 
       {/* Mini Player — right-side floating panel for local files */}
       {hasStarted && <MiniPlayer />}

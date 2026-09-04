@@ -89,6 +89,15 @@ interface PlayerState {
   // EQ Bands
   eqBands: EqualizerBand[];
 
+  // Gamification & Real-Time Stats
+  intensityScore: number;
+  sessionHighScore: number;
+  totalListeningTime: number;
+  sessionDuration: number;
+  detectedGenre: string;
+  genreConfidence: number;
+  isAdminModalOpen: boolean;
+
   // Actions
   setHasStarted: (hasStarted: boolean) => void;
   setIsLucid: (isLucid: boolean) => void;
@@ -153,6 +162,13 @@ interface PlayerState {
   setRepeatMode: (mode: 'off' | 'all' | 'one') => void;
   toggleShuffle: () => void;
   setCrossfadeDuration: (seconds: number) => void;
+  setIntensityScore: (score: number) => void;
+  setSessionHighScore: (score: number) => void;
+  setTotalListeningTime: (seconds: number) => void;
+  setSessionDuration: (seconds: number) => void;
+  setDetectedGenre: (genre: string, confidence?: number) => void;
+  setAdminModalOpen: (isOpen: boolean) => void;
+  toggleAdminModal: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -217,6 +233,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isNowPlayingExpanded: true,
 
   eqBands: StorageService.getEqBands() || DEFAULT_EQ_BANDS,
+
+  // Gamification & Real-Time Stats
+  intensityScore: 0,
+  sessionHighScore: StorageService.getHighScore(),
+  totalListeningTime: StorageService.getTotalListeningTime(),
+  sessionDuration: 0,
+  detectedGenre: 'Detectando...',
+  genreConfidence: 0.85,
+  isAdminModalOpen: false,
 
   setHasStarted: (hasStarted) => set({ hasStarted }),
   setIsLucid: (isLucid) => set({ isLucid }),
@@ -484,4 +509,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setRepeatMode: (repeatMode) => set({ repeatMode }),
   toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
   setCrossfadeDuration: (crossfadeDuration) => set({ crossfadeDuration }),
+
+  setIntensityScore: (intensityScore) => set({ intensityScore }),
+  setSessionHighScore: (sessionHighScore) => {
+    StorageService.saveHighScore(sessionHighScore);
+    set({ sessionHighScore });
+  },
+  setTotalListeningTime: (totalListeningTime) => {
+    StorageService.saveTotalListeningTime(totalListeningTime);
+    set({ totalListeningTime });
+  },
+  setSessionDuration: (sessionDuration) => set({ sessionDuration }),
+  setDetectedGenre: (detectedGenre, genreConfidence = 0.85) => set({ detectedGenre, genreConfidence }),
+  setAdminModalOpen: (isAdminModalOpen) => set({ isAdminModalOpen }),
+  toggleAdminModal: () => set((state) => ({ isAdminModalOpen: !state.isAdminModalOpen })),
 }));

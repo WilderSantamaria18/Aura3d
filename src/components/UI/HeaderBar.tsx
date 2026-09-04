@@ -14,6 +14,7 @@ import {
   Sparkles,
   PartyPopper,
   Camera,
+  Shield,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -27,6 +28,8 @@ export const HeaderBar: React.FC = () => {
     vrMode,
     toggleVrMode,
     vrTrackingMode,
+    isAdminModalOpen,
+    toggleAdminModal,
     isEqualizerOpen,
     setEqualizerOpen,
     isLyricsOpen,
@@ -290,6 +293,19 @@ export const HeaderBar: React.FC = () => {
           title="Letras Karaoke"
         >
           <AlignLeft className="w-4 h-4" />
+        </button>
+
+        {/* Admin Dashboard */}
+        <button
+          onClick={toggleAdminModal}
+          className={`p-2 rounded-full transition-all ${
+            isAdminModalOpen
+              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,242,254,0.4)] animate-pulse'
+              : 'text-white/60 hover:text-cyan-300 hover:bg-white/5'
+          }`}
+          title="Panel de Administración en Tiempo Real (Telemetría / ML)"
+        >
+          <Shield className="w-4 h-4" />
         </button>
 
         {/* Share */}

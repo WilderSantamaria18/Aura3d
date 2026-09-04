@@ -7,6 +7,8 @@ const STORAGE_KEYS = {
   EQ_PRESET: 'auralis_eq_preset_v1',
   BLOB_SETTINGS: 'auralis_blob_settings_v1',
   SPHERE_SCALE: 'auralis_sphere_scale_v1',
+  TOTAL_LISTENING_TIME: 'auralis_total_listening_time_v1',
+  HIGH_SCORE: 'auralis_high_score_v1',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -124,6 +126,40 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.BLOB_SETTINGS, JSON.stringify(settings));
     } catch (e) {
       console.warn('Failed to save Blob settings to LocalStorage', e);
+    }
+  }
+
+  public static getTotalListeningTime(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.TOTAL_LISTENING_TIME);
+      return val ? parseInt(val, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  public static saveTotalListeningTime(seconds: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TOTAL_LISTENING_TIME, Math.floor(seconds).toString());
+    } catch (e) {
+      console.warn('Failed to save total listening time to LocalStorage', e);
+    }
+  }
+
+  public static getHighScore(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.HIGH_SCORE);
+      return val ? parseInt(val, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  public static saveHighScore(score: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.HIGH_SCORE, Math.floor(score).toString());
+    } catch (e) {
+      console.warn('Failed to save high score to LocalStorage', e);
     }
   }
 }
