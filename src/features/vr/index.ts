@@ -3,5 +3,7 @@
  * MediaPipe Hands Recognition, Gesture Classifier & Action Mappings
  */
 export * from '../../components/VR/HandTracker';
+export * from '../../components/VR/PoseTracker';
 export * from './gestureMap';
+export * from '../../hooks/useSmoothLandmarks';
 

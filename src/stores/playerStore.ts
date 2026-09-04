@@ -27,6 +27,7 @@ interface PlayerState {
 
   // VR Gesture Mode & Full Body Dance Pose
   vrMode: boolean;
+  vrTrackingMode: 'body' | 'hands';
   handLandmarks: HandLandmark[] | null;
   handGesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null;
   handRotation: { x: number; y: number };
@@ -96,6 +97,7 @@ interface PlayerState {
   cycleLucidTheme: () => void;
   setVrMode: (vrMode: boolean) => void;
   toggleVrMode: () => void;
+  setVrTrackingMode: (mode: 'body' | 'hands') => void;
   setHandLandmarks: (landmarks: HandLandmark[] | null) => void;
   setHandGesture: (gesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null) => void;
   setHandRotation: (rotation: { x: number; y: number }) => void;
@@ -161,6 +163,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   // VR Gesture Mode & Full Body Dance Pose
   vrMode: false,
+  vrTrackingMode: 'body',
   handLandmarks: null,
   handGesture: null,
   handRotation: { x: 0, y: 0 },
@@ -229,6 +232,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setVrMode: (vrMode) => set({ vrMode }),
   toggleVrMode: () => set((state) => ({ vrMode: !state.vrMode })),
+  setVrTrackingMode: (vrTrackingMode) => set({ vrTrackingMode }),
   setHandLandmarks: (handLandmarks) => set({ handLandmarks }),
   setHandGesture: (handGesture) => set({ handGesture }),
   setHandRotation: (handRotation) => set({ handRotation }),

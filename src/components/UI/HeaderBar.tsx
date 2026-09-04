@@ -26,6 +26,7 @@ export const HeaderBar: React.FC = () => {
     isMicActive,
     vrMode,
     toggleVrMode,
+    vrTrackingMode,
     isEqualizerOpen,
     setEqualizerOpen,
     isLyricsOpen,
@@ -199,18 +200,26 @@ export const HeaderBar: React.FC = () => {
         {/* Lucid Mode Toggle */}
         <LucidToggle />
 
-        {/* Full Body VR Dance & Pose Tracking Toggle */}
+        {/* Dual VR Tracking Mode Toggle (Body / Hands) */}
         <button
           onClick={toggleVrMode}
           className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-1.5 ${
             vrMode
-              ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-[0_0_15px_rgba(0,255,179,0.4)] animate-pulse'
+              ? vrTrackingMode === 'body'
+                ? 'bg-pink-500/25 text-pink-300 border border-pink-400/50 shadow-[0_0_15px_rgba(255,8,138,0.4)] animate-pulse'
+                : 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-[0_0_15px_rgba(0,255,179,0.4)] animate-pulse'
               : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
           }`}
-          title={vrMode ? 'Desactivar VR Danza (Cuerpo Completo)' : 'Activar VR Danza con Cuerpo Completo (MediaPipe Pose 33P)'}
+          title={
+            vrMode
+              ? `VR Activo (${vrTrackingMode === 'body' ? 'Cuerpo 33P' : '2 Manos 21P'}). Clic para desactivar.`
+              : 'Activar Interacción VR (Cuerpo 33P / 2 Manos 21P)'
+          }
         >
           <Camera className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{vrMode ? 'VR DANCE ON' : 'VR DANCE'}</span>
+          <span className="hidden sm:inline">
+            {vrMode ? (vrTrackingMode === 'body' ? 'VR CUERPO' : 'VR MANOS') : 'VR CAM'}
+          </span>
         </button>
 
         {/* System Audio Screen / Tab Capture */}

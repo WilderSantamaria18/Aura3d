@@ -23,11 +23,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       lucidTheme,
       currentPaletteIndex,
       vrMode,
+      vrTrackingMode,
       handRotation,
       handGesture,
       handLandmarks,
       poseVelocity,
-      rightHandPos,
       leftHandPos,
       headPos,
     } = usePlayerStore();
@@ -322,16 +322,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const danceSpeedBoost = 1.0 + (poseVelocity || 0) * 0.95;
         pointsRef.current.rotation.y += delta * (0.15 + mids * 0.85 + boomPunch * 0.45) * rotMultiplier * danceSpeedBoost;
 
-        // VR Full-Body Dance & Hand Tracking: smooth lerp to keypoints
+        // VR Full-Body Dance & Hand Tracking: smooth continuous lerp to keypoints
         if (vrMode) {
-          if (rightHandPos) {
-            const targetRotY = (0.5 - rightHandPos.x) * 3.5;
-            const targetRotX = (rightHandPos.y - 0.5) * 1.8;
-            pointsRef.current.rotation.y += (targetRotY - pointsRef.current.rotation.y) * 0.12;
-            pointsRef.current.rotation.x += (targetRotX - pointsRef.current.rotation.x) * 0.12;
-          } else if (handRotation) {
-            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.1;
-            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.1;
+          if (handRotation) {
+            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.15;
+            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.15;
           }
         } else {
           pointsRef.current.rotation.x = Math.sin(time * 0.3) * (0.1 + mids * 0.2);
@@ -347,7 +342,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
         // Gesture Closed/Fist Boost + Left Hand Subwoofer Boost + Dynamic Subwoofer Pump
         const gestureBoost = (handGesture === 'closed' || handGesture === 'fist') ? 0.35 : 0;
-        const leftHandBoost = (leftHandPos && leftHandPos.y < 0.45) ? 0.3 : 0;
+        const leftHandBoost = (vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0) ? 0.35 : 0;
         const bassPump = 0.75 + Math.pow(bass, 1.08) * (1.15 + (isLucid ? 0.35 : 0)) + boomPunch * 1.25 + gestureBoost + leftHandBoost;
 
         const finalMeshScale = autoFitBaseScale * userMultiplier * bassPump;
@@ -360,7 +355,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           particleRingRef.current.scale.set(ringScale, ringScale, ringScale);
         }
 
-        const headYOffset = headPos ? (0.5 - headPos.y) * 0.15 : 0;
+        const headYOffset = headPos ? (headPos.y / 6) * 0.18 : 0;
 
         for (let i = 0; i < particleCount; i++) {
           const i3 = i * 3;
