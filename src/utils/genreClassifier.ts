@@ -25,3 +25,4 @@ export const classifyGenre = (fftData: Uint8Array): string => {
 
   return 'Pop / Indie';
 };
+

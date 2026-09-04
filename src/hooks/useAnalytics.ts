@@ -54,3 +54,4 @@ export const useAnalytics = () => {
     return () => clearInterval(interval);
   }, [isPlaying, currentTrack, intensityScore, vrMode, getSmoothedData, setDetectedGenre]);
 };
+

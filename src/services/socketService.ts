@@ -1,6 +1,11 @@
 import { io, Socket } from 'socket.io-client';
+import type { AdminUserRecord } from '../components/Admin/UserManagement';
+import type { AdminSessionRecord } from '../components/Admin/SessionAnalytics';
+import type { PerformanceStats } from '../components/Admin/PerformanceMonitor';
+import type { AdminNotification } from '../components/Admin/NotificationBell';
 
 export interface AdminMetrics {
+  totalUsers?: number;
   activeUsersCount: number;
   camerasActiveCount: number;
   averageScore: number;
@@ -30,6 +35,7 @@ class SocketService {
   private socket: Socket | null = null;
   private isConnected: boolean = false;
   private metricsListeners: ((metrics: AdminMetrics) => void)[] = [];
+  private notificationListeners: ((notification: AdminNotification) => void)[] = [];
   private batchedData: {
     userId?: string;
     username?: string;
@@ -50,8 +56,8 @@ class SocketService {
       this.socket = io(SERVER_URL, {
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 5000,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 3000,
         timeout: 5000,
       });
 
@@ -70,6 +76,21 @@ class SocketService {
 
       this.socket.on('admin:metrics_update', (metrics: AdminMetrics) => {
         this.metricsListeners.forEach((listener) => listener(metrics));
+      });
+
+      this.socket.on('admin-update', (data: any) => {
+        // Also triggers notification if score > 85
+        if (data && data.score >= 85) {
+          const notif: AdminNotification = {
+            id: `notif_${Date.now()}`,
+            type: 'alert',
+            title: '¡Alto Nivel de Intensidad!',
+            message: `${data.username || 'Un usuario'} alcanzó un score de ${data.score} en ${data.song || 'la pista actual'}.`,
+            timestamp: new Date().toISOString(),
+            read: false,
+          };
+          this.notificationListeners.forEach((l) => l(notif));
+        }
       });
     } catch (e) {
       console.warn('[SocketService] Error inicializando socket.io:', e);
@@ -137,6 +158,16 @@ class SocketService {
   }
 
   /**
+   * Subscribe to real-time admin notifications
+   */
+  public subscribeNotifications(callback: (notification: AdminNotification) => void): () => void {
+    this.notificationListeners.push(callback);
+    return () => {
+      this.notificationListeners = this.notificationListeners.filter((cb) => cb !== callback);
+    };
+  }
+
+  /**
    * Admin Login via REST API
    */
   public async loginAdmin(username: string, password: string): Promise<{ token: string; user: { username: string; email: string; role: string } }> {
@@ -193,10 +224,204 @@ class SocketService {
   }
 
   /**
+   * Fetch Users List
+   */
+  public async fetchUsers(): Promise<AdminUserRecord[]> {
+    try {
+      const token = localStorage.getItem('auralis_admin_jwt_token');
+      const res = await fetch(`${SERVER_URL}/api/admin/users`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+
+    // Default rich demo users
+    return [
+      {
+        id: 'usr_01',
+        username: 'admin',
+        email: 'admin@auralis.app',
+        role: 'superadmin',
+        genres: ['Electrónica / EDM', 'Synthwave', 'Ambient'],
+        isActive: true,
+        createdAt: '2026-01-10T08:00:00.000Z',
+        lastLogin: new Date().toISOString(),
+      },
+      {
+        id: 'usr_02',
+        username: 'CyberDancer_99',
+        email: 'cyber@auralis.io',
+        role: 'user',
+        genres: ['Electrónica / EDM', 'Hip-Hop'],
+        isActive: true,
+        createdAt: '2026-02-14T12:30:00.000Z',
+        lastLogin: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+      },
+      {
+        id: 'usr_03',
+        username: 'LucidDreamer',
+        email: 'lucid@visuals.art',
+        role: 'admin',
+        genres: ['Ambient / Chill', 'Clásica / Pop'],
+        isActive: true,
+        createdAt: '2026-02-20T18:15:00.000Z',
+        lastLogin: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+      },
+      {
+        id: 'usr_04',
+        username: 'BassMaster_X',
+        email: 'bass@drop.fm',
+        role: 'user',
+        genres: ['Rock / Metal', 'Hip-Hop / Trap'],
+        isActive: true,
+        createdAt: '2026-03-01T10:00:00.000Z',
+        lastLogin: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+      },
+      {
+        id: 'usr_05',
+        username: 'NeonValkyrie',
+        email: 'valk@neon.jp',
+        role: 'user',
+        genres: ['Pop / Moderno', 'Electrónica / EDM'],
+        isActive: false,
+        createdAt: '2026-03-02T14:20:00.000Z',
+        lastLogin: '2026-03-03T11:00:00.000Z',
+      },
+    ];
+  }
+
+  /**
+   * Fetch Sessions List
+   */
+  public async fetchSessions(): Promise<AdminSessionRecord[]> {
+    try {
+      const token = localStorage.getItem('auralis_admin_jwt_token');
+      const res = await fetch(`${SERVER_URL}/api/admin/sessions`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+
+    return [
+      {
+        id: 'ses_1',
+        userId: 'usr_02',
+        username: 'CyberDancer_99',
+        song: 'Neon Horizon',
+        artist: 'Aura Collective',
+        genre: 'Electrónica / EDM',
+        score: 94,
+        duration: 180,
+        hasCamera: true,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: 'ses_2',
+        userId: 'usr_03',
+        username: 'LucidDreamer',
+        song: 'Quantum Drift',
+        artist: 'Lucid Flow',
+        genre: 'Ambient / Chill',
+        score: 76,
+        duration: 210,
+        hasCamera: true,
+        timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+      },
+      {
+        id: 'ses_3',
+        userId: 'usr_04',
+        username: 'BassMaster_X',
+        song: 'Solar Pulse',
+        artist: 'Hyper Bass',
+        genre: 'Rock / Metal',
+        score: 88,
+        duration: 145,
+        hasCamera: false,
+        timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+      },
+      {
+        id: 'ses_4',
+        userId: 'usr_05',
+        username: 'NeonValkyrie',
+        song: 'Midnight Echoes',
+        artist: 'Synth Vibe',
+        genre: 'Pop / Moderno',
+        score: 65,
+        duration: 195,
+        hasCamera: true,
+        timestamp: new Date(Date.now() - 1000 * 60 * 70).toISOString(),
+      },
+    ];
+  }
+
+  /**
+   * Fetch System Performance Stats
+   */
+  public async fetchPerformance(): Promise<PerformanceStats> {
+    try {
+      const res = await fetch(`${SERVER_URL}/api/admin/performance`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+
+    return {
+      clientFPS: 60,
+      clientLatencyMs: 18,
+      serverMemoryMB: 48,
+      serverUptimeSeconds: 14280,
+      activeSocketsCount: Math.max(1, this.isConnected ? 3 : 1),
+      audioProcessingTimeMs: 0.18,
+      gpuLoadEstimate: '22% (WebGL2 OK)',
+    };
+  }
+
+  /**
+   * Export CSV Client Utility
+   */
+  public exportCSV(type: 'users' | 'sessions', data: any[]) {
+    if (!data || data.length === 0) return;
+
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map((row) =>
+        headers
+          .map((fieldName) => {
+            const val = row[fieldName];
+            const escaped = typeof val === 'object' ? JSON.stringify(val) : `${val ?? ''}`;
+            return `"${escaped.replace(/"/g, '""')}"`;
+          })
+          .join(',')
+      ),
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `auralis_${type}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
    * Generate fallback live metrics when server is offline
    */
   public getFallbackMetrics(liveUserScore: number, liveGenre: string, hasCamera: boolean, currentTrackTitle: string): AdminMetrics {
     return {
+      totalUsers: 24,
       activeUsersCount: 12,
       camerasActiveCount: hasCamera ? 8 : 7,
       averageScore: Math.max(45, Math.min(95, Math.round(55 + (liveUserScore || 50) * 0.35))),
@@ -267,4 +492,3 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
-
