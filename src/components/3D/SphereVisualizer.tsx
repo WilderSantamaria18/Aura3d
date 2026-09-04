@@ -379,10 +379,12 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
       // Auto Dynamic Harmonic Color Mode from FFT bands
       if (autoMode) {
-        const ap = storeState.autoPalette || { primary: '#00f2fe', secondary: '#ff088a', accent: '#39FF14' };
-        autoPrimaryColor.set(ap.primary);
-        autoSecondaryColor.set(ap.secondary);
-        autoAccentColor.set(ap.accent);
+        const ap = storeState.autoPalette;
+        if (ap) {
+          autoPrimaryColor.set(ap.primary || '#00f2fe');
+          autoSecondaryColor.set(ap.secondary || '#ff088a');
+          autoAccentColor.set(ap.accent || ap.tertiary || '#39FF14');
+        }
       }
 
       // Animate Main Particles

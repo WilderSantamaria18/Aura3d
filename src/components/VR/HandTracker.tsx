@@ -34,6 +34,8 @@ export const HandTracker: React.FC = () => {
     currentPaletteIndex,
     cyclePalette,
     cycleLucidTheme,
+    autoMode,
+    autoPalette,
     isLucid,
     lucidTheme,
   } = usePlayerStore();
@@ -202,7 +204,11 @@ export const HandTracker: React.FC = () => {
             );
 
             // Draw simplified hand dots (wrist + 5 fingertips)
-            ctx.fillStyle = isLucid ? lucidTheme.primary : '#00f2fe';
+            ctx.fillStyle = autoMode
+              ? autoPalette.primary
+              : isLucid
+              ? lucidTheme.primary
+              : '#00f2fe';
             const keyIndices = [0, 4, 8, 12, 16, 20];
 
             for (let i = 0; i < landmarks.length; i++) {
@@ -367,12 +373,19 @@ export const HandTracker: React.FC = () => {
       {/* Mini Video + Canvas Tracking Card */}
       <div
         className={`relative w-52 sm:w-60 backdrop-blur-2xl border-2 rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-all ${
-          isLucid
+          autoMode
+            ? 'bg-black/90'
+            : isLucid
             ? 'lucid-panel'
             : 'bg-black/90 border-emerald-400/60 shadow-[0_0_35px_rgba(0,255,179,0.35)]'
         }`}
         style={
-          isLucid
+          autoMode
+            ? {
+                borderColor: autoPalette.primary,
+                boxShadow: `0 0 35px ${autoPalette.glow}`,
+              }
+            : isLucid
             ? {
                 backgroundColor: lucidTheme.glassColor,
                 borderColor: lucidTheme.borderColor,

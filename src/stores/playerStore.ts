@@ -17,6 +17,15 @@ export interface PoseLandmark {
   visibility?: number;
 }
 
+export interface AutoPalette {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+  accent?: string;
+  glow: string;
+  bg: string;
+}
+
 interface PlayerState {
   // App navigation state
   hasStarted: boolean;
@@ -71,7 +80,7 @@ interface PlayerState {
   bassBoomIntensity: number;
   autoMode: boolean;
   autoSensitivity: number;
-  autoPalette: { primary: string; secondary: string; accent: string };
+  autoPalette: AutoPalette;
   autoFeedbackToast: boolean;
   isMicActive: boolean;
   showFrequencyBars: boolean;
@@ -141,7 +150,8 @@ interface PlayerState {
   setAutoMode: (autoMode: boolean) => void;
   toggleAutoMode: () => void;
   setAutoSensitivity: (sensitivity: number) => void;
-  setAutoPalette: (palette: { primary: string; secondary: string; accent: string }) => void;
+  setAutoPalette: (palette: AutoPalette) => void;
+  updateAutoPalette: (fftData: Uint8Array) => void;
   setAutoFeedbackToast: (show: boolean) => void;
   setIsMicActive: (active: boolean) => void;
   setShowFrequencyBars: (show: boolean) => void;
@@ -253,7 +263,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   bassBoomIntensity: 1.0,
   autoMode: false,
   autoSensitivity: 1.0,
-  autoPalette: { primary: '#00f2fe', secondary: '#ff088a', accent: '#39FF14' },
+  autoPalette: {
+    primary: '#00f2fe',
+    secondary: '#ff088a',
+    tertiary: '#39FF14',
+    accent: '#39FF14',
+    glow: 'rgba(0, 242, 254, 0.6)',
+    bg: 'radial-gradient(circle at 30% 30%, #0a2a43 0%, #001e33 70%, #000000 100%)',
+  },
   autoFeedbackToast: false,
   isMicActive: false,
   showFrequencyBars: false,
@@ -381,7 +398,48 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return { autoMode: nextMode, autoFeedbackToast: nextMode };
     }),
   setAutoSensitivity: (autoSensitivity) => set({ autoSensitivity: Math.min(2.5, Math.max(0.1, autoSensitivity)) }),
-  setAutoPalette: (autoPalette) => set({ autoPalette }),
+  setAutoPalette: (autoPalette) =>
+    set({
+      autoPalette: {
+        ...autoPalette,
+        accent: autoPalette.accent || autoPalette.tertiary || '#39FF14',
+      },
+    }),
+  updateAutoPalette: (fftData) => {
+    if (!get().autoMode || !fftData || fftData.length === 0) return;
+
+    let maxVal = 0;
+    let maxIdx = 0;
+    for (let i = 0; i < fftData.length; i++) {
+      if (fftData[i] > maxVal) {
+        maxVal = fftData[i];
+        maxIdx = i;
+      }
+    }
+
+    const sens = get().autoSensitivity || 1.0;
+    const hue = ((maxIdx / Math.max(1, fftData.length)) * 0.85 + 0.15) * sens;
+    const baseHueDeg = (hue * 360) % 360;
+    const secHueDeg = (baseHueDeg + 120) % 360;
+    const tertHueDeg = (baseHueDeg + 240) % 360;
+
+    const primary = `hsl(${baseHueDeg.toFixed(0)}, 95%, 55%)`;
+    const secondary = `hsl(${secHueDeg.toFixed(0)}, 90%, 52%)`;
+    const tertiary = `hsl(${tertHueDeg.toFixed(0)}, 90%, 52%)`;
+    const glow = `hsla(${baseHueDeg.toFixed(0)}, 100%, 60%, 0.6)`;
+    const bg = `radial-gradient(circle at 30% 30%, hsla(${baseHueDeg.toFixed(0)}, 75%, 15%, 0.95), hsla(${secHueDeg.toFixed(0)}, 65%, 8%, 0.9), #03050c)`;
+
+    set({
+      autoPalette: {
+        primary,
+        secondary,
+        tertiary,
+        accent: tertiary,
+        glow,
+        bg,
+      },
+    });
+  },
   setAutoFeedbackToast: (autoFeedbackToast) => set({ autoFeedbackToast }),
   setIsMicActive: (isMicActive) => set({ isMicActive }),
   setShowFrequencyBars: (showFrequencyBars) => set({ showFrequencyBars }),

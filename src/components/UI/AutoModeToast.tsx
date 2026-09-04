@@ -98,3 +98,4 @@ export const AutoModeToast: React.FC = () => {
 };
 
 export default AutoModeToast;
+

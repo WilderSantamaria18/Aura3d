@@ -31,3 +31,4 @@ export const AutoThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 };
 
 export default AutoThemeProvider;
+

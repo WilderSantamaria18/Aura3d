@@ -51,6 +51,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
     currentTrack,
     isMicActive,
     isPlaying,
+    autoMode,
+    autoPalette,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -418,6 +420,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   const haloBackground = isLucid
     ? `conic-gradient(from 0deg, ${lucidTheme.primary}, ${lucidTheme.secondary}, #ff007f, ${lucidTheme.primary})`
+    : autoMode
+    ? `conic-gradient(from 0deg, ${autoPalette.primary}, ${autoPalette.secondary}, ${autoPalette.tertiary || autoPalette.accent || '#39FF14'}, ${autoPalette.primary})`
     : blobSettings.isRainbowMode
     ? 'conic-gradient(from 0deg, #ff088a, #8a2be2, #00f2fe, #00ffb3, #ffe600, #ff5e00, #ff088a)'
     : `conic-gradient(${blobSettings.haloColor1}, ${blobSettings.haloColor2}, ${blobSettings.haloColor1})`;

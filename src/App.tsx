@@ -19,6 +19,7 @@ import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
 import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useAnalytics } from './hooks/useAnalytics';
+import { useAutoPalette } from './hooks/useAutoPalette';
 import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle, UploadCloud } from 'lucide-react';
@@ -26,10 +27,13 @@ import { AlertCircle, UploadCloud } from 'lucide-react';
 export const App: React.FC = () => {
   const { loadFile, error } = useAudioEngine();
   useAnalytics();
+  useAutoPalette();
   const hasStarted = usePlayerStore((s) => s.hasStarted);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const autoMode = usePlayerStore((s) => s.autoMode);
+  const autoPalette = usePlayerStore((s) => s.autoPalette);
   const vrMode = usePlayerStore((s) => s.vrMode);
   const isEqualizerOpen = usePlayerStore((s) => s.isEqualizerOpen);
   const isLyricsOpen = usePlayerStore((s) => s.isLyricsOpen);
@@ -149,8 +153,16 @@ export const App: React.FC = () => {
         '--lucid-border': activeTheme.borderColor,
         '--lucid-text': activeTheme.textColor,
         '--lucid-bg': activeTheme.bgGradient,
-        background: isLucid ? activeTheme.bgGradient : '#04060d',
-        boxShadow: isLucid ? `inset 0 0 120px ${activeTheme.glow}` : undefined,
+        background: isLucid
+          ? activeTheme.bgGradient
+          : autoMode
+          ? autoPalette.bg
+          : '#04060d',
+        boxShadow: isLucid
+          ? `inset 0 0 120px ${activeTheme.glow}`
+          : autoMode
+          ? `inset 0 0 120px ${autoPalette.glow}`
+          : undefined,
       } as React.CSSProperties}
     >
       {/* 1. Initial Landing Screen */}

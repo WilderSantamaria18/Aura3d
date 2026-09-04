@@ -24,6 +24,8 @@ export const Controls: React.FC = React.memo(() => {
     toggleShuffle,
     setRepeatMode,
     toggleFavorite,
+    autoMode,
+    autoPalette,
     isLucid,
     lucidTheme,
   } = usePlayerStore();
@@ -110,7 +112,12 @@ export const Controls: React.FC = React.memo(() => {
           onClick={togglePlayPause}
           className="w-10 h-10 sm:w-12 sm:h-12 rounded-full text-slate-950 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg flex-shrink-0"
           style={
-            isLucid
+            autoMode
+              ? {
+                  background: `linear-gradient(135deg, ${autoPalette.primary}, ${autoPalette.secondary})`,
+                  boxShadow: `0 0 25px ${autoPalette.glow}`,
+                }
+              : isLucid
               ? {
                   background: `linear-gradient(135deg, ${lucidTheme.primary}, ${lucidTheme.secondary})`,
                   boxShadow: `0 0 25px ${lucidTheme.glow}`,

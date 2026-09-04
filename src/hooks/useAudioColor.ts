@@ -97,7 +97,10 @@ export const useAudioColor = () => {
         usePlayerStore.getState().setAutoPalette({
           primary: newPrimary,
           secondary: newSecondary,
+          tertiary: newAccent,
           accent: newAccent,
+          glow: `${newPrimary}66`,
+          bg: `radial-gradient(circle at 30% 30%, ${newPrimary}30, ${newSecondary}18, #03050c)`,
         });
       }
     };
@@ -108,3 +111,4 @@ export const useAudioColor = () => {
 
   return { dominantColor, secondaryColor, accentColor, colorRef };
 };
+

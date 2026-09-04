@@ -81,6 +81,8 @@ export const PoseTracker: React.FC = () => {
     setSphereScale,
     rainbowScale,
     setRainbowScale,
+    autoMode,
+    autoPalette,
     isLucid,
     lucidTheme,
     cyclePalette,
@@ -236,14 +238,24 @@ export const PoseTracker: React.FC = () => {
         let strokeColor = '#00f2fe';
 
         if (startIdx >= 11 && endIdx <= 21 && (startIdx % 2 === 1 || endIdx % 2 === 1)) {
-          // Left Arm -> Bass Reactive (Pink)
-          strokeColor = `rgba(255, 8, 138, ${0.75 + bass * 0.25})`;
+          // Left Arm -> Bass Reactive
+          strokeColor = autoMode
+            ? autoPalette.primary
+            : isLucid
+            ? lucidTheme.secondary
+            : `rgba(255, 8, 138, ${0.75 + bass * 0.25})`;
         } else if (startIdx >= 12 && endIdx <= 22 && (startIdx % 2 === 0 || endIdx % 2 === 0)) {
-          // Right Arm -> Treble Reactive (Cyan)
-          strokeColor = `rgba(0, 242, 254, ${0.75 + highs * 0.25})`;
+          // Right Arm -> Treble Reactive
+          strokeColor = autoMode
+            ? autoPalette.secondary
+            : `rgba(0, 242, 254, ${0.75 + highs * 0.25})`;
         } else if (startIdx >= 23 || endIdx >= 23) {
-          // Legs -> Kick Reactive (Green / Lucid)
-          strokeColor = isLucid ? lucidTheme.primary : `rgba(57, 255, 20, ${0.7 + energy * 0.3})`;
+          // Legs -> Kick Reactive
+          strokeColor = autoMode
+            ? autoPalette.tertiary
+            : isLucid
+            ? lucidTheme.primary
+            : `rgba(57, 255, 20, ${0.7 + energy * 0.3})`;
         } else {
           // Torso & Face
           strokeColor = 'rgba(255, 215, 0, 0.85)';
@@ -734,10 +746,20 @@ export const PoseTracker: React.FC = () => {
         className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${
           showPreview ? 'w-60 sm:w-64' : 'w-auto'
         } ${
-          isLucid
+          autoMode
+            ? 'bg-[#060a17]/90'
+            : isLucid
             ? 'bg-[#060a17]/90 border border-emerald-400/50 shadow-[0_0_35px_rgba(57,255,20,0.3)]'
             : 'bg-[#090e1c]/90 border border-cyan-400/40 shadow-[0_0_30px_rgba(0,242,254,0.3)]'
         } backdrop-blur-2xl`}
+        style={
+          autoMode
+            ? {
+                borderColor: autoPalette.primary,
+                boxShadow: `0 0 35px ${autoPalette.glow}`,
+              }
+            : undefined
+        }
       >
         {/* Header HUD */}
         <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/10 bg-black/40">
