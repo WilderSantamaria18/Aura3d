@@ -19,11 +19,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const visualizerShape = usePlayerStore((s) => s.visualizerShape);
     const currentPaletteIndex = usePlayerStore((s) => s.currentPaletteIndex);
     const isLucid = usePlayerStore((s) => s.isLucid);
-    const lucidPrimary = usePlayerStore((s) => s.lucidTheme.primary);
-    const lucidSecondary = usePlayerStore((s) => s.lucidTheme.secondary);
+    const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
+    const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
     const autoMode = usePlayerStore((s) => s.autoMode);
     const vrMode = usePlayerStore((s) => s.vrMode);
-    const vrTrackingMode = usePlayerStore((s) => s.vrTrackingMode);
     const showFrequencyBars = usePlayerStore((s) => s.showFrequencyBars);
 
     const {
@@ -33,15 +32,46 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       ringParticleBudget,
     } = usePerformanceMonitor();
 
-    const activeParticleCount = Math.max(50, Math.min(particleCount, particleBudget, MAX_PARTICLES));
-    const ringCount = Math.max(30, Math.min(ringParticleBudget, MAX_RINGS));
+    // Reduce particles in VR mode to guarantee 60 FPS
+    const effectiveParticleCount = vrMode ? Math.min(particleCount, 800) : particleCount;
+    const effectiveRingCount = vrMode ? Math.min(ringParticleBudget, 300) : ringParticleBudget;
+
+    const activeParticleCount = Math.max(50, Math.min(effectiveParticleCount, particleBudget, MAX_PARTICLES));
+    const ringCount = Math.max(30, Math.min(effectiveRingCount, MAX_RINGS));
 
     const groupRef = useRef<THREE.Group>(null);
     const pointsRef = useRef<THREE.Points>(null);
     const particleRingRef = useRef<THREE.Points>(null);
-    const frameCounterRef = useRef(0);
     const smoothScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
     const smoothRingScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+
+    // Isolated tracking & store refs to guarantee 0 React re-renders in useFrame
+    const sphereScaleRef = useRef(usePlayerStore.getState().sphereScale || 1.0);
+    const sphereOpacityRef = useRef(usePlayerStore.getState().sphereOpacity ?? 0.9);
+    const handRotationRef = useRef(usePlayerStore.getState().handRotation);
+    const handGestureRef = useRef(usePlayerStore.getState().handGesture);
+    const poseVelocityRef = useRef(usePlayerStore.getState().poseVelocity);
+    const leftHandPosRef = useRef(usePlayerStore.getState().leftHandPos);
+    const headPosRef = useRef(usePlayerStore.getState().headPos);
+    const handLandmarksRef = useRef(usePlayerStore.getState().handLandmarks);
+    const userInteractingRef = useRef(usePlayerStore.getState().userInteracting);
+    const vrTrackingModeRef = useRef(usePlayerStore.getState().vrTrackingMode);
+
+    useEffect(() => {
+      const unsub = usePlayerStore.subscribe((state) => {
+        sphereScaleRef.current = state.sphereScale || 1.0;
+        sphereOpacityRef.current = state.sphereOpacity ?? 0.9;
+        handRotationRef.current = state.handRotation;
+        handGestureRef.current = state.handGesture;
+        poseVelocityRef.current = state.poseVelocity;
+        leftHandPosRef.current = state.leftHandPos;
+        headPosRef.current = state.headPos;
+        handLandmarksRef.current = state.handLandmarks;
+        userInteractingRef.current = state.userInteracting;
+        vrTrackingModeRef.current = state.vrTrackingMode;
+      });
+      return () => unsub();
+    }, []);
 
     // Audio smoothing filters (Exponential Moving Averages) for natural, fluid motion
     const smoothedBassRef = useRef(0);
@@ -49,19 +79,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const smoothedHighsRef = useRef(0);
     const smoothedEnergyRef = useRef(0);
 
-    const cachedAudioRef = useRef<{
-      bass: number;
-      mids: number;
-      highs: number;
-      energy: number;
-      raw: Uint8Array;
-    }>({
-      bass: 0,
-      mids: 0,
-      highs: 0,
-      energy: 0,
-      raw: new Uint8Array(32),
-    });
     const { getSmoothedData } = useVisualizer(0.2);
 
     // Color instances for smooth lerping
@@ -78,7 +95,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const palColor2 = useMemo(() => new THREE.Color(activePalette.colors[1] || '#00E5FF'), [activePalette]);
     const palColor3 = useMemo(() => new THREE.Color(activePalette.colors[2] || '#9D00FF'), [activePalette]);
 
-    // Pre-allocated static PointsMaterials with depthWrite: false to eliminate Z-fighting
+    // Pre-allocated static PointsMaterials with explicit depth settings
     const mainMaterial = useMemo(
       () =>
         new THREE.PointsMaterial({
@@ -87,7 +104,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           transparent: true,
           opacity: 0.9,
           blending: THREE.AdditiveBlending,
-          depthWrite: false,
+          depthWrite: true,
           depthTest: true,
           sizeAttenuation: true,
         }),
@@ -311,33 +328,41 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
     // Ultra-smooth animation loop directly manipulating Three.js objects (0 React state re-renders)
     useFrame((state, delta) => {
-      frameCounterRef.current++;
-      if (frameCounterRef.current % 2 === 0) {
-        cachedAudioRef.current = getSmoothedData();
-      }
-      const { bass, mids, highs, energy, raw } = cachedAudioRef.current;
+      // Direct live audio read on every frame (0 frame skip, instant 60 FPS beat reaction)
+      const { bass, mids, highs, energy, raw } = getSmoothedData();
       const time = state.clock.getElapsedTime();
 
-      // Exponential moving average filter for natural organic motion
-      smoothedBassRef.current += (bass - smoothedBassRef.current) * 0.16;
-      smoothedMidsRef.current += (mids - smoothedMidsRef.current) * 0.16;
-      smoothedHighsRef.current += (highs - smoothedHighsRef.current) * 0.16;
-      smoothedEnergyRef.current += (energy - smoothedEnergyRef.current) * 0.16;
+      // Read freshest store state directly every frame (0-latency tracking reaction)
+      const storeState = usePlayerStore.getState();
+      const musicSens = storeState.musicSensitivity ?? 1.0;
+      const sphereScale = storeState.sphereScale || 1.0;
+      const sphereOpacity = storeState.sphereOpacity ?? 0.9;
+      const handRotation = storeState.handRotation || { x: 0, y: 0 };
+      const handGesture = storeState.handGesture;
+      const poseVelocity = storeState.poseVelocity || 0;
+      const leftHandPos = storeState.leftHandPos;
+      const rightHandPos = storeState.rightHandPos;
+      const headPos = storeState.headPos;
+      const handLandmarks = storeState.handLandmarks;
+      const isInteracting = storeState.userInteracting;
+      const vrTrackingMode = storeState.vrTrackingMode;
+      const isVrActive = storeState.vrMode;
+
+      // Exponential moving average filter scaled by music sensitivity
+      const effectiveBass = bass * musicSens;
+      const effectiveMids = mids * musicSens;
+      const effectiveHighs = highs * musicSens;
+      const effectiveEnergy = energy * musicSens;
+
+      smoothedBassRef.current += (effectiveBass - smoothedBassRef.current) * 0.28;
+      smoothedMidsRef.current += (effectiveMids - smoothedMidsRef.current) * 0.28;
+      smoothedHighsRef.current += (effectiveHighs - smoothedHighsRef.current) * 0.28;
+      smoothedEnergyRef.current += (effectiveEnergy - smoothedEnergyRef.current) * 0.28;
 
       const sBass = smoothedBassRef.current;
       const sMids = smoothedMidsRef.current;
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
-
-      const playerState = usePlayerStore.getState();
-      const sphereRadius = playerState.sphereRadius || 1.0;
-      const sphereOpacity = playerState.sphereOpacity ?? 0.9;
-      const handRotation = playerState.handRotation;
-      const handGesture = playerState.handGesture;
-      const poseVelocity = playerState.poseVelocity;
-      const leftHandPos = playerState.leftHandPos;
-      const headPos = playerState.headPos;
-      const handLandmarks = playerState.handLandmarks;
 
       // Update material properties directly without triggering React re-renders
       mainMaterial.opacity = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
@@ -372,20 +397,16 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const colors = colorAttr.array as Float32Array;
 
         // Base continuous rotation & VR Tracking (Paused while user is dragging OrbitControls)
-        const isInteracting = playerState.userInteracting;
         const rotMultiplier = isLucid ? 1.6 : 1.0;
-        const danceSpeedBoost = 1.0 + (poseVelocity || 0) * 0.75;
 
         if (!isInteracting) {
-          pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier * danceSpeedBoost;
-
-          // VR Full-Body Dance & Hand Tracking: smooth continuous lerp
-          if (vrMode) {
-            if (handRotation) {
-              pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.12;
-              pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.12;
-            }
+          if (isVrActive) {
+            // Direct smooth interpolation towards VR tracking rotation
+            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.15;
+            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.15;
           } else {
+            // Continuous audio-reactive rotation
+            pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier;
             pointsRef.current.rotation.x = Math.sin(time * 0.25) * (0.08 + sMids * 0.15);
             pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.04 + sBass * 0.1);
           }
@@ -396,19 +417,20 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const autoFitBaseScale = Math.max(0.85, Math.min(1.4, shortestSide / 620));
 
         // Layer 2: User Multiplier from localStorage / Pinch Slider
-        const userMultiplier = sphereRadius || 1.0;
+        const userMultiplier = sphereScale || 1.0;
 
-        // Soft music breathing pump
+        // Soft music breathing pump + dance energy boost + gesture boosts
+        const danceBoost = isVrActive ? 1.0 + poseVelocity * 0.55 : 1.0;
         const gestureBoost = (handGesture === 'closed' || handGesture === 'fist') ? 0.25 : 0;
-        const leftHandBoost = (vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0) ? 0.25 : 0;
-        const bassPump = 0.92 + Math.pow(sBass, 1.1) * (0.32 + (isLucid ? 0.15 : 0)) + gestureBoost + leftHandBoost;
+        const leftHandBoost = (vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0) ? 0.35 : 0;
+        const bassPump = (0.92 + Math.pow(sBass, 1.1) * (0.32 + (isLucid ? 0.15 : 0)) + gestureBoost + leftHandBoost) * danceBoost;
 
         const targetScaleVal = autoFitBaseScale * userMultiplier * bassPump;
         smoothScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
         pointsRef.current.scale.lerp(smoothScaleVec, 0.14);
 
         if (particleRingRef.current) {
-          const targetRingScaleVal = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3);
+          const targetRingScaleVal = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3) * danceBoost;
           smoothRingScaleVec.set(targetRingScaleVal, targetRingScaleVal, targetRingScaleVal);
           particleRingRef.current.scale.lerp(smoothRingScaleVec, 0.14);
         }
@@ -472,6 +494,52 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
             pz = nz * displacement;
           }
 
+          // VR Physical Interactive Hand / Body Push
+          if (isVrActive) {
+            if (vrTrackingMode === 'body') {
+              if (rightHandPos) {
+                const dx = px - rightHandPos.x * 0.25;
+                const dy = py - rightHandPos.y * 0.25;
+                const dz = pz - (rightHandPos.z || 0) * 0.25;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < 2.2) {
+                  const force = (1.0 - Math.sqrt(d2) / 1.48) * 0.25;
+                  const invDist = 1.0 / Math.sqrt(d2 + 0.01);
+                  px += dx * invDist * force;
+                  py += dy * invDist * force;
+                  pz += dz * invDist * force;
+                }
+              }
+              if (leftHandPos) {
+                const dx = px - leftHandPos.x * 0.25;
+                const dy = py - leftHandPos.y * 0.25;
+                const dz = pz - (leftHandPos.z || 0) * 0.25;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < 2.2) {
+                  const force = (1.0 - Math.sqrt(d2) / 1.48) * (0.25 + sBass * 0.3);
+                  const invDist = 1.0 / Math.sqrt(d2 + 0.01);
+                  px += dx * invDist * force;
+                  py += dy * invDist * force;
+                  pz += dz * invDist * force;
+                }
+              }
+            } else if (handLandmarks && handLandmarks.length > 0) {
+              // Hands Mode: index fingertip (8) and wrist (0) interactive push
+              const tip = handLandmarks[8] || handLandmarks[0];
+              const hx = (1.0 - tip.x - 0.5) * 2.8;
+              const hy = (0.5 - tip.y) * 2.8;
+              const dx = px - hx;
+              const dy = py - hy;
+              const d2 = dx * dx + dy * dy;
+              if (d2 < 2.0) {
+                const force = (1.0 - Math.sqrt(d2) / 1.41) * 0.35;
+                const invDist = 1.0 / Math.sqrt(d2 + 0.01);
+                px += dx * invDist * force;
+                py += dy * invDist * force;
+              }
+            }
+          }
+
           positions[i3] = px;
           positions[i3 + 1] = py;
           positions[i3 + 2] = pz;
@@ -526,11 +594,19 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
           let handForceX = 0;
           let handForceY = 0;
-          if (vrMode && handLandmarks && handLandmarks.length > 0) {
-            const handX = (handLandmarks[0].x - 0.5) * 3;
-            const handY = (0.5 - handLandmarks[0].y) * 3;
-            handForceX = (handX - bx) * 0.05;
-            handForceY = (handY - by) * 0.05;
+          if (isVrActive) {
+            if (vrTrackingMode === 'body' && (rightHandPos || leftHandPos)) {
+              const hPos = rightHandPos || leftHandPos;
+              if (hPos) {
+                handForceX = (hPos.x * 0.3 - bx) * 0.05;
+                handForceY = (hPos.y * 0.3 - by) * 0.05;
+              }
+            } else if (handLandmarks && handLandmarks.length > 0) {
+              const handX = (1.0 - handLandmarks[0].x - 0.5) * 3;
+              const handY = (0.5 - handLandmarks[0].y) * 3;
+              handForceX = (handX - bx) * 0.05;
+              handForceY = (handY - by) * 0.05;
+            }
           }
 
           ringPositionsArray[i3] = normX * newDist + handForceX;
@@ -545,11 +621,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     return (
       <group ref={groupRef}>
         {/* Main 3D Shape Particles */}
-        <points ref={pointsRef} geometry={geometry} material={mainMaterial} />
+        <points ref={pointsRef} renderOrder={0} geometry={geometry} material={mainMaterial} />
 
         {/* Concentric Cosmic Sand Particle Rings (Shown only when 3D Bars are toggled ON) */}
         {showFrequencyBars && (
-          <points ref={particleRingRef} geometry={ringGeometry} material={ringMaterial} />
+          <points ref={particleRingRef} renderOrder={1} geometry={ringGeometry} material={ringMaterial} />
         )}
       </group>
     );

@@ -22,19 +22,29 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
   });
 
   const getSmoothedData = useCallback((): SmoothedAudioData => {
-    // 1. Resolve live AnalyserNode from store or AudioEngine singleton
-    let activeAnalyser = analyserRef.current;
-    if (!activeAnalyser) {
-      activeAnalyser = usePlayerStore.getState().analyser || audioEngine.analyser;
-      if (activeAnalyser) {
-        analyserRef.current = activeAnalyser;
-        dataArrayRef.current = new Uint8Array(activeAnalyser.frequencyBinCount || 64);
-        smoothedRef.current.raw = new Uint8Array(activeAnalyser.frequencyBinCount || 64);
-      }
+    // 1. Dynamically retrieve live AnalyserNode from AudioEngine singleton or store
+    const currentAnalyser = audioEngine.analyser || usePlayerStore.getState().analyser;
+    if (currentAnalyser && analyserRef.current !== currentAnalyser) {
+      analyserRef.current = currentAnalyser;
+      const binCount = currentAnalyser.frequencyBinCount || 64;
+      dataArrayRef.current = new Uint8Array(binCount);
+      smoothedRef.current.raw = new Uint8Array(binCount);
     }
 
+    const activeAnalyser = analyserRef.current || currentAnalyser;
+
     if (!activeAnalyser) {
+      smoothedRef.current.bass *= 0.9;
+      smoothedRef.current.mids *= 0.9;
+      smoothedRef.current.highs *= 0.9;
+      smoothedRef.current.energy *= 0.9;
       return smoothedRef.current;
+    }
+
+    if (dataArrayRef.current.length !== activeAnalyser.frequencyBinCount) {
+      const binCount = activeAnalyser.frequencyBinCount;
+      dataArrayRef.current = new Uint8Array(binCount);
+      smoothedRef.current.raw = new Uint8Array(binCount);
     }
 
     const raw = dataArrayRef.current;
@@ -57,13 +67,13 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
     }
 
     // Frequency spectrum bands
-    const bassEnd = Math.max(1, Math.floor(total * 0.25));
-    const midsEnd = Math.max(bassEnd + 1, Math.floor(total * 0.70));
+    const bassEnd = Math.max(1, Math.floor(total * 0.15));
+    const midsEnd = Math.max(bassEnd + 1, Math.floor(total * 0.65));
 
     let bassSum = 0;
     for (let i = 0; i < bassEnd; i++) bassSum += raw[i];
     const rawBass = bassSum / (bassEnd * 255);
-    const bass = Math.min(1.0, Math.pow(rawBass, 1.25) * 1.35);
+    const bass = Math.min(1.0, Math.pow(rawBass, 1.1) * 1.45);
 
     let midsSum = 0;
     for (let i = bassEnd; i < midsEnd; i++) midsSum += raw[i];

@@ -26,13 +26,16 @@ export const HandTracker: React.FC = () => {
     setHandGesture,
     setHandRotation,
     setSphereOpacity,
-    setSphereRadius,
+    visualizerMode,
+    setSphereScale,
+    setRainbowScale,
     handSensitivity,
     setHandSensitivity,
     currentPaletteIndex,
     cyclePalette,
     cycleLucidTheme,
     isLucid,
+    lucidTheme,
   } = usePlayerStore();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,6 +50,7 @@ export const HandTracker: React.FC = () => {
   const rotationHistoryRef = useRef<{ x: number; y: number }[]>([]);
   const lastGestureActionTime = useRef<number>(0);
   const feedbackTimeoutRef = useRef<number | null>(null);
+  const intervalIdRef = useRef<number | null>(null);
 
   // Fullscreen toggle helper
   const toggleFullscreen = useCallback(() => {
@@ -105,7 +109,6 @@ export const HandTracker: React.FC = () => {
     let cameraStream: MediaStream | null = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let handsInstance: any = null;
-    let animId: number;
 
     const initTracking = async () => {
       try {
@@ -118,8 +121,26 @@ export const HandTracker: React.FC = () => {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setIsCameraReady(true);
+          // Esperar a que el video cargue y se reproduzca
+          await new Promise<void>((resolve) => {
+            const video = videoRef.current!;
+            video.onloadedmetadata = () => {
+              video.play().then(() => resolve()).catch(() => resolve());
+            };
+            video.onloadeddata = () => {
+              if (video.readyState >= 2) resolve();
+            };
+            setTimeout(resolve, 3000);
+          });
+          if (videoRef.current && videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+            setIsCameraReady(true);
+          } else {
+            setTimeout(() => {
+              if (videoRef.current && videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+                setIsCameraReady(true);
+              }
+            }, 500);
+          }
         }
 
         const loadScript = (src: string): Promise<void> => {
@@ -153,21 +174,22 @@ export const HandTracker: React.FC = () => {
 
         handsInstance.setOptions({
           maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.55,
-          minTrackingConfidence: 0.55,
+          modelComplexity: 0,
+          minDetectionConfidence: 0.4,
+          minTrackingConfidence: 0.4,
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handsInstance.onResults((results: any) => {
+          console.log('[HandTracker] onResults recibido, multiHandLandmarks:', results.multiHandLandmarks);
           if (!canvasRef.current || !videoRef.current) return;
           const canvas = canvasRef.current;
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
 
-          canvas.width = videoRef.current.videoWidth || 320;
-          canvas.height = videoRef.current.videoHeight || 240;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.width = 160;
+          canvas.height = 120;
+          ctx.clearRect(0, 0, 160, 120);
 
           if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             const rawLandmarks = results.multiHandLandmarks[0];
@@ -179,16 +201,16 @@ export const HandTracker: React.FC = () => {
               })
             );
 
-            // Draw hand skeleton on canvas mirror
-            ctx.fillStyle = '#00f2fe';
-            ctx.strokeStyle = '#39FF14';
-            ctx.lineWidth = 2;
+            // Draw simplified hand dots (wrist + 5 fingertips)
+            ctx.fillStyle = isLucid ? lucidTheme.primary : '#00f2fe';
+            const keyIndices = [0, 4, 8, 12, 16, 20];
 
             for (let i = 0; i < landmarks.length; i++) {
-              const x = landmarks[i].x * canvas.width;
-              const y = landmarks[i].y * canvas.height;
+              if (!keyIndices.includes(i)) continue;
+              const x = landmarks[i].x * 160;
+              const y = landmarks[i].y * 120;
               ctx.beginPath();
-              ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+              ctx.arc(x, y, 2.5, 0, Math.PI * 2);
               ctx.fill();
             }
 
@@ -197,6 +219,7 @@ export const HandTracker: React.FC = () => {
 
             // 1. Detect Gesture
             const gesture = calculateGesture(landmarks);
+            console.log('[HandTracker] Gesture clasificado:', gesture);
             setDetectedGesture(gesture);
             setHandGesture(gesture);
 
@@ -225,10 +248,14 @@ export const HandTracker: React.FC = () => {
                 lastGestureActionTime.current = now;
               }
             } else if (gesture === 'pinch') {
-              // PELLIZCO -> Control dinámico de radio/zoom
+              // PELLIZCO -> Control dinámico de escala
               const thumbTip = landmarks[4];
-              const dynamicRadius = Math.max(0.6, Math.min(2.4, 1.0 + (0.5 - thumbTip.y) * 2.0));
-              setSphereRadius(dynamicRadius);
+              const dynamicRadius = Math.max(0.5, Math.min(2.5, 1.0 + (0.5 - thumbTip.y) * 2.0));
+              if (visualizerMode === 'blob') {
+                setRainbowScale(dynamicRadius);
+              } else {
+                setSphereScale(dynamicRadius);
+              }
             } else if (gesture === 'open') {
               // MANO ABIERTA -> Control de Rotación 3D Continuo
               const wrist = landmarks[0];
@@ -244,18 +271,27 @@ export const HandTracker: React.FC = () => {
           }
         });
 
-        const sendFrame = async () => {
-          if (videoRef.current && handsInstance && vrMode) {
-            if (videoRef.current.readyState >= 2) {
-              await handsInstance.send({ image: videoRef.current });
+        const isProcessing = { current: false };
+        const intervalId = setInterval(async () => {
+          if (isProcessing.current || !videoRef.current || !handsInstance || !vrMode) return;
+          const video = videoRef.current;
+          if (video.readyState < 2 || video.videoWidth === 0) {
+            if (Math.random() < 0.02) {
+              console.warn('[HandTracker] Video no listo aún, readyState:', video.readyState);
             }
+            return;
           }
-          if (vrMode) {
-            animId = requestAnimationFrame(sendFrame);
+          isProcessing.current = true;
+          try {
+            await handsInstance.send({ image: video });
+          } catch (err) {
+            console.warn('[HandTracker] Error en send:', err);
+          } finally {
+            isProcessing.current = false;
           }
-        };
+        }, 50);
 
-        animId = requestAnimationFrame(sendFrame);
+        intervalIdRef.current = intervalId as unknown as number;
       } catch (err: unknown) {
         const isUserCancel =
           err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'AbortError');
@@ -274,7 +310,10 @@ export const HandTracker: React.FC = () => {
     initTracking();
 
     return () => {
-      if (animId) cancelAnimationFrame(animId);
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+      }
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
       }
@@ -296,7 +335,9 @@ export const HandTracker: React.FC = () => {
     setHandGesture,
     setHandRotation,
     setSphereOpacity,
-    setSphereRadius,
+    visualizerMode,
+    setSphereScale,
+    setRainbowScale,
     handSensitivity,
     calculateGesture,
     smoothRotation,
@@ -324,14 +365,31 @@ export const HandTracker: React.FC = () => {
       )}
 
       {/* Mini Video + Canvas Tracking Card */}
-      <div className="relative w-52 sm:w-60 bg-black/90 backdrop-blur-2xl border-2 border-emerald-400/60 rounded-2xl overflow-hidden shadow-[0_0_35px_rgba(0,255,179,0.35)] flex flex-col">
-        {/* Hidden source video element */}
-        <video ref={videoRef} playsInline muted className="hidden" />
+      <div
+        className={`relative w-52 sm:w-60 backdrop-blur-2xl border-2 rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-all ${
+          isLucid
+            ? 'lucid-panel'
+            : 'bg-black/90 border-emerald-400/60 shadow-[0_0_35px_rgba(0,255,179,0.35)]'
+        }`}
+        style={
+          isLucid
+            ? {
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
+                boxShadow: `0 0 35px ${lucidTheme.glow}`,
+              }
+            : undefined
+        }
+      >
+        {/* Non-blocking source video element for MediaPipe decoding */}
+        <video ref={videoRef} playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-0 pointer-events-none" />
 
         {/* Render Canvas skeleton mirror */}
         <div className="h-32 sm:h-36 w-full relative overflow-hidden bg-black/50">
           <canvas
             ref={canvasRef}
+            width={320}
+            height={240}
             className={`w-full h-full object-cover transform -scale-x-100 ${
               showPreview ? 'opacity-100' : 'opacity-0'
             }`}
@@ -339,8 +397,26 @@ export const HandTracker: React.FC = () => {
 
           {/* Top Floating Badge & Action controls */}
           <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-emerald-400/50 text-[10px] font-mono text-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <div
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-mono ${
+                isLucid
+                  ? 'border'
+                  : 'bg-black/70 border-emerald-400/50 text-emerald-300'
+              }`}
+              style={
+                isLucid
+                  ? {
+                      backgroundColor: `${lucidTheme.primary}20`,
+                      borderColor: `${lucidTheme.primary}60`,
+                      color: lucidTheme.primary,
+                    }
+                  : undefined
+              }
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-ping"
+                style={{ backgroundColor: isLucid ? lucidTheme.primary : '#39FF14' }}
+              />
               <span>VR GESTURES</span>
             </div>
 

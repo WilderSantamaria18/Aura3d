@@ -46,12 +46,17 @@ export const RainbowBlobVisualizer: React.FC = () => {
     setBassBoomThreshold,
     bassBoomIntensity,
     setBassBoomIntensity,
-    sphereRadius,
+    rainbowScale,
+    musicSensitivity,
     currentTrack,
     isMicActive,
     isPlaying,
     isLucid,
     lucidTheme,
+    lucidPrimaryColor,
+    lucidSecondaryColor,
+    setLucidPrimaryColor,
+    setLucidSecondaryColor,
   } = usePlayerStore();
 
   const { getSmoothedData } = useVisualizer(0.18);
@@ -106,7 +111,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         boomFlash.current = Math.min(1.5, 1.0 * intensity);
         
         // Spawn primary explosive shockwave ring on boom drop
-        const baseR = (blobSettings.circleSize / 2) * sphereRadius;
+        const baseR = (blobSettings.circleSize / 2) * rainbowScale;
         shockwaves.current.push({
           radius: baseR + 6,
           maxRadius: baseR + 460 * (waveEffectIntensity || 1) * intensity,
@@ -138,11 +143,18 @@ export const RainbowBlobVisualizer: React.FC = () => {
         angle += 0.15;
       }
 
-      const nivel = isAudioActive ? bass : 0;
+      const audioSens = musicSensitivity ?? 1.0;
+      const nivel = isAudioActive ? bass * audioSens : 0;
       const boostVal = blobSettings.bassBoost;
       const idleBreathing = isAudioActive ? 0 : Math.sin(waveTime * 1.6) * 0.035;
-      // Subwoofer pump: contracts to ~0.72x on silence, explodes to 1.8x - 2.5x on bass hits / boom
-      const escala = (0.72 + Math.pow(nivel, 1.08) * (0.85 + boostVal * 0.42) + boomPunch * 0.95 + idleBreathing) * sphereRadius;
+      // Subwoofer pump: smoothed power curves, bounded boom impact and clamped scale
+      const sens = (blobSettings.scaleSensitivity ?? 1.0) * audioSens;
+      const baseScale = 0.72 + idleBreathing;
+      const bassContribution = Math.pow(nivel, 1.2) * (0.6 + boostVal * 0.25);
+      const boomContribution = Math.min(boomPunch * 0.45 * audioSens, 0.8);
+      const totalScale = (baseScale + bassContribution + boomContribution) * sens;
+      const clampedScale = Math.min(2.2, Math.max(0.4, totalScale));
+      const escala = clampedScale * rainbowScale;
 
       // ── CSS Organic Liquid Halo Morphing (Default / Sphere Shape) ────────
       let borderRadius: string;
@@ -270,7 +282,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           if (visualizerShape === 'cloud') {
             cloudParticles.forEach((p) => {
               p.angle += p.speed * (1 + mids * 2);
-              const currentDist = (p.dist * (1 - bass * 0.15)) * sphereRadius;
+              const currentDist = (p.dist * (1 - bass * 0.15)) * rainbowScale;
               const px = cx + Math.cos(p.angle) * currentDist;
               const py = cy + Math.sin(p.angle) * currentDist;
 
@@ -397,7 +409,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
     visualizerShape,
     waveEffectMode,
     waveEffectIntensity,
-    sphereRadius,
+    rainbowScale,
+    musicSensitivity,
     isLucid,
     lucidTheme,
     cloudParticles,
@@ -564,11 +577,17 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* El Círculo Interior (The Void) */}
         <div
           ref={circleRef}
-          className="relative z-10 rounded-full flex flex-col justify-center items-center border border-white/15 shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_20px_rgba(0,0,0,0.8)] transition-all duration-75 ease-out p-4"
+          className={`relative z-10 rounded-full flex flex-col justify-center items-center transition-all duration-75 ease-out p-4 ${
+            isLucid
+              ? 'border-2'
+              : 'border border-white/15 shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_20px_rgba(0,0,0,0.8)]'
+          }`}
           style={{
             width: `${blobSettings.circleSize}px`,
             height: `${blobSettings.circleSize}px`,
-            backgroundColor: blobSettings.circleColor,
+            backgroundColor: isLucid ? (lucidTheme.glassColor || '#050711') : blobSettings.circleColor,
+            borderColor: isLucid ? lucidTheme.borderColor : undefined,
+            boxShadow: isLucid ? `0 0 35px ${lucidTheme.glow}, inset 0 0 25px ${lucidTheme.glow}` : undefined,
           }}
         >
           {/* Logo Central Vectorial o Imagen Personalizada */}
@@ -612,7 +631,20 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       {/* Panel de Control Editable */}
       {isBlobPanelOpen && (
-        <div className="fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 bg-[#090d1c]/95 backdrop-blur-2xl border border-cyan-500/30 rounded-3xl p-5 shadow-2xl shadow-black/90 space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200">
+        <div
+          className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
+            isLucid ? 'lucid-panel' : 'bg-[#090d1c]/95 backdrop-blur-2xl border border-cyan-500/30 shadow-black/90'
+          }`}
+          style={
+            isLucid
+              ? {
+                  backgroundColor: lucidTheme.glassColor,
+                  borderColor: lucidTheme.borderColor,
+                  boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
+                }
+              : undefined
+          }
+        >
           <div className="flex items-center justify-between pb-3 border-b border-white/10">
             <div className="flex items-center gap-2">
               <Palette className="w-4 h-4 text-cyan-400" />
@@ -639,6 +671,37 @@ export const RainbowBlobVisualizer: React.FC = () => {
           </div>
 
           <div className="space-y-3.5 text-xs text-white/80">
+            {/* Modo Lúcido Neón Selector */}
+            {isLucid && (
+              <div className="p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+                <span className="text-[11px] font-mono text-cyan-300 font-medium block">
+                  Colores del Modo Lúcido (Neón Activo):
+                </span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
+                    <input
+                      type="color"
+                      value={lucidPrimaryColor}
+                      onChange={(e) => setLucidPrimaryColor(e.target.value)}
+                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      title="Color Neón Primario"
+                    />
+                    <span className="text-[10px] font-mono text-white/80 uppercase">{lucidPrimaryColor}</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
+                    <input
+                      type="color"
+                      value={lucidSecondaryColor}
+                      onChange={(e) => setLucidSecondaryColor(e.target.value)}
+                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      title="Color Neón Secundario"
+                    />
+                    <span className="text-[10px] font-mono text-white/80 uppercase">{lucidSecondaryColor}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 1. Modo Arcoíris vs Colores Personalizados */}
             <div className="flex items-center justify-between py-1">
               <span className="text-cyan-200 flex items-center gap-1.5">
@@ -727,6 +790,23 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 value={blobSettings.bassBoost}
                 onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
                 className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-emerald-400"
+              />
+            </div>
+
+            {/* 4.1. Sensibilidad de Tamaño Dinámico */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-white/60">Sensibilidad de Tamaño:</span>
+                <span className="text-cyan-400 font-mono">{(blobSettings.scaleSensitivity ?? 1.0).toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.3"
+                max="2.0"
+                step="0.05"
+                value={blobSettings.scaleSensitivity ?? 1.0}
+                onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
+                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
               />
             </div>
 

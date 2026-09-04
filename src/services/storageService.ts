@@ -7,8 +7,13 @@ const STORAGE_KEYS = {
   EQ_PRESET: 'auralis_eq_preset_v1',
   BLOB_SETTINGS: 'auralis_blob_settings_v1',
   SPHERE_SCALE: 'auralis_sphere_scale_v1',
+  RAINBOW_SCALE: 'auralis_rainbow_scale_v1',
+  LINK_SCALES: 'auralis_link_scales_v1',
   TOTAL_LISTENING_TIME: 'auralis_total_listening_time_v1',
   HIGH_SCORE: 'auralis_high_score_v1',
+  LUCID_PRIMARY_COLOR: 'auralis_lucid_primary_color_v1',
+  LUCID_SECONDARY_COLOR: 'auralis_lucid_secondary_color_v1',
+  MUSIC_SENSITIVITY: 'auralis_music_sensitivity_v1',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -24,9 +29,42 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   backgroundBlur: 30,
   logoStyle: 'ghost',
   customLogoUrl: null,
+  scaleSensitivity: 1.0,
 };
 
 export class StorageService {
+  public static getLucidPrimaryColor(): string {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.LUCID_PRIMARY_COLOR) || '#00f2fe';
+    } catch {
+      return '#00f2fe';
+    }
+  }
+
+  public static saveLucidPrimaryColor(color: string): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LUCID_PRIMARY_COLOR, color);
+    } catch (e) {
+      console.warn('Failed to save lucid primary color to LocalStorage', e);
+    }
+  }
+
+  public static getLucidSecondaryColor(): string {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.LUCID_SECONDARY_COLOR) || '#ff088a';
+    } catch {
+      return '#ff088a';
+    }
+  }
+
+  public static saveLucidSecondaryColor(color: string): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LUCID_SECONDARY_COLOR, color);
+    } catch (e) {
+      console.warn('Failed to save lucid secondary color to LocalStorage', e);
+    }
+  }
+
   public static getSphereScale(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.SPHERE_SCALE);
@@ -41,6 +79,57 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.SPHERE_SCALE, scale.toString());
     } catch (e) {
       console.warn('Failed to save sphere scale to LocalStorage', e);
+    }
+  }
+
+  public static getRainbowScale(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.RAINBOW_SCALE);
+      return val ? parseFloat(val) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  }
+
+  public static saveRainbowScale(scale: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.RAINBOW_SCALE, scale.toString());
+    } catch (e) {
+      console.warn('Failed to save rainbow scale to LocalStorage', e);
+    }
+  }
+
+  public static getMusicSensitivity(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.MUSIC_SENSITIVITY);
+      return val ? parseFloat(val) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  }
+
+  public static saveMusicSensitivity(sens: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUSIC_SENSITIVITY, sens.toString());
+    } catch (e) {
+      console.warn('Failed to save music sensitivity to LocalStorage', e);
+    }
+  }
+
+  public static getLinkScales(): boolean {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.LINK_SCALES);
+      return val === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  public static saveLinkScales(link: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LINK_SCALES, link ? 'true' : 'false');
+    } catch (e) {
+      console.warn('Failed to save link scales to LocalStorage', e);
     }
   }
 

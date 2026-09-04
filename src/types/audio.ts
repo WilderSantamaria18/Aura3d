@@ -6,11 +6,78 @@ export type WaveEffectMode = 'concentric' | 'sinusoidal' | 'spiral' | 'void' | '
 export interface LucidTheme {
   id: string;
   name: string;
-  primary: string;       // main neon color
-  secondary: string;     // accent/complementary neon
-  glow: string;          // rgba string for glow shadows
+  primary: string;       // main neon color (e.g. #39FF14)
+  secondary: string;     // accent/complementary neon (e.g. #00f2fe)
+  glow: string;          // rgba string for glow shadows (e.g. rgba(57, 255, 20, 0.4))
   bgGradient: string;    // radial gradient background
+  glassColor: string;    // glassmorphism background rgba
+  borderColor: string;   // border color rgba
+  textColor: string;     // text highlight color
 }
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace('#', '');
+  let r = 0, g = 0, b = 0;
+  if (cleanHex.length === 3) {
+    r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    b = parseInt(cleanHex[2] + cleanHex[2], 16);
+  } else if (cleanHex.length >= 6) {
+    r = parseInt(cleanHex.slice(0, 2), 16);
+    g = parseInt(cleanHex.slice(2, 4), 16);
+    b = parseInt(cleanHex.slice(4, 6), 16);
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export function createLucidTheme(
+  primary: string,
+  secondary: string,
+  name = 'Personalizado',
+  id = 'custom'
+): LucidTheme {
+  const glow = hexToRgba(primary, 0.45);
+  const glassColor = hexToRgba(primary, 0.08);
+  const borderColor = hexToRgba(primary, 0.35);
+  const textColor = primary;
+  const bgGradient = `radial-gradient(ellipse at 30% 30%, ${hexToRgba(primary, 0.12)} 0%, ${hexToRgba(secondary, 0.05)} 50%, #03050c 85%, #000000 100%)`;
+
+  return {
+    id,
+    name,
+    primary,
+    secondary,
+    glow,
+    bgGradient,
+    glassColor,
+    borderColor,
+    textColor,
+  };
+}
+
+export const DEFAULT_DARK_THEME: LucidTheme = {
+  id: 'default-dark',
+  name: 'Oscuro Estándar',
+  primary: '#00f2fe',
+  secondary: '#ff088a',
+  glow: 'rgba(0, 242, 254, 0.3)',
+  bgGradient: '#04060d',
+  glassColor: 'rgba(9, 14, 28, 0.85)',
+  borderColor: 'rgba(255, 255, 255, 0.1)',
+  textColor: '#00f2fe',
+};
+
+export const DEFAULT_LUCID_THEME: LucidTheme = {
+  id: 'cyber-emerald',
+  name: 'Esmeralda Cyber',
+  primary: '#39FF14',
+  secondary: '#00ffb3',
+  glow: 'rgba(57, 255, 20, 0.4)',
+  bgGradient: 'radial-gradient(ellipse at 30% 30%, #03140a 0%, #010604 70%, #000000 100%)',
+  glassColor: 'rgba(57, 255, 20, 0.08)',
+  borderColor: 'rgba(57, 255, 20, 0.35)',
+  textColor: '#39FF14',
+};
 
 export interface ColorPalette {
   name: string;
@@ -35,6 +102,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#00ffb3',
     glow: 'rgba(57, 255, 20, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #03140a 0%, #010604 70%, #000000 100%)',
+    glassColor: 'rgba(57, 255, 20, 0.08)',
+    borderColor: 'rgba(57, 255, 20, 0.35)',
+    textColor: '#39FF14',
   },
   {
     id: 'quantum-cyan',
@@ -43,6 +113,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#4facfe',
     glow: 'rgba(0, 242, 254, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #04172a 0%, #010813 70%, #000000 100%)',
+    glassColor: 'rgba(0, 242, 254, 0.08)',
+    borderColor: 'rgba(0, 242, 254, 0.35)',
+    textColor: '#00f2fe',
   },
   {
     id: 'neon-violet',
@@ -51,6 +124,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#c471ed',
     glow: 'rgba(138, 43, 226, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #170529 0%, #080112 70%, #000000 100%)',
+    glassColor: 'rgba(138, 43, 226, 0.08)',
+    borderColor: 'rgba(138, 43, 226, 0.35)',
+    textColor: '#8a2be2',
   },
   {
     id: 'magenta-flare',
@@ -59,6 +135,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#f355da',
     glow: 'rgba(255, 8, 138, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #260216 0%, #0f0109 70%, #000000 100%)',
+    glassColor: 'rgba(255, 8, 138, 0.08)',
+    borderColor: 'rgba(255, 8, 138, 0.35)',
+    textColor: '#ff088a',
   },
   {
     id: 'solar-amber',
@@ -67,6 +146,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#ff5e00',
     glow: 'rgba(255, 230, 0, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #261b02 0%, #0f0a01 70%, #000000 100%)',
+    glassColor: 'rgba(255, 230, 0, 0.08)',
+    borderColor: 'rgba(255, 230, 0, 0.35)',
+    textColor: '#ffe600',
   },
   {
     id: 'ruby-crimson',
@@ -75,6 +157,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#ff3366',
     glow: 'rgba(255, 0, 85, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #290209 0%, #120104 70%, #000000 100%)',
+    glassColor: 'rgba(255, 0, 85, 0.08)',
+    borderColor: 'rgba(255, 0, 85, 0.35)',
+    textColor: '#ff0055',
   },
   {
     id: 'electric-cobalt',
@@ -83,6 +168,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#00d2ff',
     glow: 'rgba(0, 102, 255, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #020c29 0%, #010412 70%, #000000 100%)',
+    glassColor: 'rgba(0, 102, 255, 0.08)',
+    borderColor: 'rgba(0, 102, 255, 0.35)',
+    textColor: '#0066ff',
   },
   {
     id: 'mint-aurora',
@@ -91,6 +179,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#7b2cbf',
     glow: 'rgba(0, 245, 212, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #03211e 0%, #010e0c 70%, #000000 100%)',
+    glassColor: 'rgba(0, 245, 212, 0.08)',
+    borderColor: 'rgba(0, 245, 212, 0.35)',
+    textColor: '#00f5d4',
   },
   {
     id: 'deep-orchid',
@@ -99,6 +190,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#ff007f',
     glow: 'rgba(157, 0, 255, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #1e022b 0%, #09010d 70%, #000000 100%)',
+    glassColor: 'rgba(157, 0, 255, 0.08)',
+    borderColor: 'rgba(157, 0, 255, 0.35)',
+    textColor: '#9d00ff',
   },
   {
     id: 'rainbow-prism',
@@ -107,6 +201,9 @@ export const LUCID_THEMES: LucidTheme[] = [
     secondary: '#00f2fe',
     glow: 'rgba(255, 0, 127, 0.4)',
     bgGradient: 'radial-gradient(ellipse at 30% 30%, #130a24 0%, #06020d 70%, #000000 100%)',
+    glassColor: 'rgba(255, 0, 127, 0.08)',
+    borderColor: 'rgba(255, 0, 127, 0.35)',
+    textColor: '#ff007f',
   },
 ];
 
@@ -123,6 +220,7 @@ export interface BlobCustomSettings {
   backgroundBlur: number;
   logoStyle: string;
   customLogoUrl: string | null;
+  scaleSensitivity?: number;
 }
 
 export interface Track {

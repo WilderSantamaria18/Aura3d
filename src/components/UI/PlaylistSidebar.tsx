@@ -98,9 +98,20 @@ export const PlaylistSidebar: React.FC = () => {
           }}
           className={`pb-2.5 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
             activeTab === 'queue'
-              ? 'border-cyan-400 text-cyan-300'
+              ? isLucid
+                ? 'font-bold'
+                : 'border-cyan-400 text-cyan-300'
               : 'border-transparent text-white/50 hover:text-white/80'
           }`}
+          style={
+            activeTab === 'queue' && isLucid
+              ? {
+                  borderColor: lucidTheme.primary,
+                  color: lucidTheme.primary,
+                  textShadow: `0 0 10px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
         >
           <Music className="w-3.5 h-3.5" /> Cola ({queue.length})
         </button>
@@ -112,9 +123,20 @@ export const PlaylistSidebar: React.FC = () => {
           }}
           className={`pb-2.5 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
             activeTab === 'favorites'
-              ? 'border-pink-500 text-pink-400'
+              ? isLucid
+                ? 'font-bold'
+                : 'border-pink-500 text-pink-400'
               : 'border-transparent text-white/50 hover:text-white/80'
           }`}
+          style={
+            activeTab === 'favorites' && isLucid
+              ? {
+                  borderColor: lucidTheme.secondary,
+                  color: lucidTheme.secondary,
+                  textShadow: `0 0 10px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
         >
           <Heart className="w-3.5 h-3.5" /> Favoritos ({favorites.length})
         </button>
@@ -123,9 +145,20 @@ export const PlaylistSidebar: React.FC = () => {
           onClick={() => setActiveTab('playlists')}
           className={`pb-2.5 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 ${
             activeTab === 'playlists'
-              ? 'border-indigo-400 text-indigo-300'
+              ? isLucid
+                ? 'font-bold'
+                : 'border-indigo-400 text-indigo-300'
               : 'border-transparent text-white/50 hover:text-white/80'
           }`}
+          style={
+            activeTab === 'playlists' && isLucid
+              ? {
+                  borderColor: lucidTheme.primary,
+                  color: lucidTheme.primary,
+                  textShadow: `0 0 10px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
         >
           <ListMusic className="w-3.5 h-3.5" /> Playlists ({playlists.length})
         </button>

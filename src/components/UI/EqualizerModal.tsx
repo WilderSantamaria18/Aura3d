@@ -295,11 +295,14 @@ export const EqualizerModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-2xl pointer-events-auto select-none animate-in fade-in duration-200">
       <div
-        className="w-full max-w-3xl bg-[#060814]/98 border rounded-3xl p-4 sm:p-6 shadow-[0_0_70px_rgba(0,0,0,0.9)] relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300"
+        className={`w-full max-w-3xl border rounded-3xl p-4 sm:p-6 shadow-[0_0_70px_rgba(0,0,0,0.9)] relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300 ${
+          isLucid ? 'lucid-panel' : 'bg-[#060814]/98'
+        }`}
         style={
           isLucid
             ? {
-                borderColor: `${lucidTheme.primary}60`,
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
                 boxShadow: `0 0 50px ${lucidTheme.glow}, 0 20px 60px rgba(0,0,0,0.95)`,
               }
             : {

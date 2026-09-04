@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Track, Playlist, EqualizerBand, VisualizerMode, VisualizerShape, WaveEffectMode, BlobCustomSettings, LucidTheme } from '../types/audio';
-import { LUCID_THEMES, PROFESSIONAL_PALETTES } from '../types/audio';
+import { LUCID_THEMES, PROFESSIONAL_PALETTES, createLucidTheme } from '../types/audio';
 import { StorageService, DEFAULT_BLOB_SETTINGS } from '../services/storageService';
 import { DEFAULT_EQ_BANDS } from '../services/audioEngine';
 
@@ -21,9 +21,11 @@ interface PlayerState {
   // App navigation state
   hasStarted: boolean;
 
-  // Lucid Mode (Modo Lúcido) & 10 Color Themes
+  // Lucid Mode (Modo Lúcido) & Color Customization
   isLucid: boolean;
   lucidTheme: LucidTheme;
+  lucidPrimaryColor: string;
+  lucidSecondaryColor: string;
 
   // VR Gesture Mode & Full Body Dance Pose
   vrMode: boolean;
@@ -71,7 +73,11 @@ interface PlayerState {
   isMicActive: boolean;
   showFrequencyBars: boolean;
   sphereOpacity: number;
-  sphereRadius: number;
+  sphereScale: number;
+  rainbowScale: number;
+  linkScales: boolean;
+  sphereRadius: number; // backward compatibility alias
+  musicSensitivity: number;
 
   // Blob Customizer settings
   blobSettings: BlobCustomSettings;
@@ -108,6 +114,8 @@ interface PlayerState {
   setIsLucid: (isLucid: boolean) => void;
   toggleLucidMode: () => void;
   setLucidTheme: (theme: LucidTheme) => void;
+  setLucidPrimaryColor: (color: string) => void;
+  setLucidSecondaryColor: (color: string) => void;
   cycleLucidTheme: () => void;
   setVrMode: (vrMode: boolean) => void;
   toggleVrMode: () => void;
@@ -132,7 +140,11 @@ interface PlayerState {
   setIsMicActive: (active: boolean) => void;
   setShowFrequencyBars: (show: boolean) => void;
   setSphereOpacity: (opacity: number) => void;
+  setSphereScale: (scale: number) => void;
+  setRainbowScale: (scale: number) => void;
+  setLinkScales: (link: boolean) => void;
   setSphereRadius: (radius: number) => void;
+  setMusicSensitivity: (sensitivity: number) => void;
   setBlobSettings: (settings: BlobCustomSettings) => void;
   updateBlobSettings: (partial: Partial<BlobCustomSettings>) => void;
   resetBlobSettings: () => void;
@@ -186,7 +198,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   hasStarted: false,
 
   isLucid: false,
-  lucidTheme: LUCID_THEMES[0],
+  lucidPrimaryColor: StorageService.getLucidPrimaryColor(),
+  lucidSecondaryColor: StorageService.getLucidSecondaryColor(),
+  lucidTheme: (() => {
+    const p = StorageService.getLucidPrimaryColor();
+    const s = StorageService.getLucidSecondaryColor();
+    const matched = LUCID_THEMES.find((t) => t.primary.toLowerCase() === p.toLowerCase());
+    return matched || createLucidTheme(p, s, 'Personalizado', 'custom');
+  })(),
 
   // VR Gesture Mode & Full Body Dance Pose
   vrMode: false,
@@ -230,7 +249,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isMicActive: false,
   showFrequencyBars: false,
   sphereOpacity: 0.9,
-  sphereRadius: StorageService.getSphereScale(),
+  sphereScale: StorageService.getSphereScale() || 1.0,
+  rainbowScale: StorageService.getRainbowScale() || 1.0,
+  linkScales: StorageService.getLinkScales(),
+  sphereRadius: StorageService.getSphereScale() || 1.0,
+  musicSensitivity: StorageService.getMusicSensitivity() || 1.0,
 
   blobSettings: StorageService.getBlobSettings(),
   isBlobPanelOpen: false,
@@ -258,12 +281,58 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setIsLucid: (isLucid) => set({ isLucid }),
   toggleLucidMode: () => set((state) => ({ isLucid: !state.isLucid })),
 
-  setLucidTheme: (lucidTheme) => set({ lucidTheme }),
+  setLucidTheme: (lucidTheme) => {
+    StorageService.saveLucidPrimaryColor(lucidTheme.primary);
+    StorageService.saveLucidSecondaryColor(lucidTheme.secondary);
+    set({
+      lucidTheme,
+      lucidPrimaryColor: lucidTheme.primary,
+      lucidSecondaryColor: lucidTheme.secondary,
+    });
+  },
+  setLucidPrimaryColor: (color) => {
+    StorageService.saveLucidPrimaryColor(color);
+    set((state) => {
+      const updatedTheme = createLucidTheme(
+        color,
+        state.lucidSecondaryColor,
+        'Personalizado',
+        'custom'
+      );
+      return {
+        lucidPrimaryColor: color,
+        lucidTheme: updatedTheme,
+      };
+    });
+  },
+  setLucidSecondaryColor: (color) => {
+    StorageService.saveLucidSecondaryColor(color);
+    set((state) => {
+      const updatedTheme = createLucidTheme(
+        state.lucidPrimaryColor,
+        color,
+        'Personalizado',
+        'custom'
+      );
+      return {
+        lucidSecondaryColor: color,
+        lucidTheme: updatedTheme,
+      };
+    });
+  },
   cycleLucidTheme: () => {
     const { lucidTheme } = get();
     const currentIndex = LUCID_THEMES.findIndex((t) => t.id === lucidTheme.id);
     const nextIndex = (currentIndex + 1) % LUCID_THEMES.length;
-    set({ lucidTheme: LUCID_THEMES[nextIndex], isLucid: true });
+    const nextTheme = LUCID_THEMES[nextIndex];
+    StorageService.saveLucidPrimaryColor(nextTheme.primary);
+    StorageService.saveLucidSecondaryColor(nextTheme.secondary);
+    set({
+      lucidTheme: nextTheme,
+      lucidPrimaryColor: nextTheme.primary,
+      lucidSecondaryColor: nextTheme.secondary,
+      isLucid: true,
+    });
   },
 
   setVrMode: (vrMode) => set({ vrMode }),
@@ -301,9 +370,45 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setIsMicActive: (isMicActive) => set({ isMicActive }),
   setShowFrequencyBars: (showFrequencyBars) => set({ showFrequencyBars }),
   setSphereOpacity: (sphereOpacity) => set({ sphereOpacity }),
-  setSphereRadius: (sphereRadius) => {
-    StorageService.saveSphereScale(sphereRadius);
-    set({ sphereRadius });
+  setSphereScale: (scale) => {
+    const clamped = Math.min(2.5, Math.max(0.5, scale));
+    StorageService.saveSphereScale(clamped);
+    const { linkScales } = get();
+    if (linkScales) {
+      StorageService.saveRainbowScale(clamped);
+      set({ sphereScale: clamped, sphereRadius: clamped, rainbowScale: clamped });
+    } else {
+      set({ sphereScale: clamped, sphereRadius: clamped });
+    }
+  },
+  setRainbowScale: (scale) => {
+    const clamped = Math.min(2.5, Math.max(0.5, scale));
+    StorageService.saveRainbowScale(clamped);
+    const { linkScales } = get();
+    if (linkScales) {
+      StorageService.saveSphereScale(clamped);
+      set({ rainbowScale: clamped, sphereScale: clamped, sphereRadius: clamped });
+    } else {
+      set({ rainbowScale: clamped });
+    }
+  },
+  setLinkScales: (linkScales) => {
+    StorageService.saveLinkScales(linkScales);
+    if (linkScales) {
+      const { sphereScale } = get();
+      StorageService.saveRainbowScale(sphereScale);
+      set({ linkScales, rainbowScale: sphereScale });
+    } else {
+      set({ linkScales });
+    }
+  },
+  setSphereRadius: (radius) => {
+    get().setSphereScale(radius);
+  },
+  setMusicSensitivity: (sensitivity) => {
+    const clamped = Math.min(3.0, Math.max(0.0, sensitivity));
+    StorageService.saveMusicSensitivity(clamped);
+    set({ musicSensitivity: clamped });
   },
 
   setBlobSettings: (blobSettings) => {

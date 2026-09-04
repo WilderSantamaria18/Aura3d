@@ -55,11 +55,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
   return (
     <div
-      className="w-full h-full bg-[#080b18]/90 backdrop-blur-2xl border rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between select-none relative overflow-hidden transition-all duration-300"
+      className={`w-full h-full backdrop-blur-2xl border rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between select-none relative overflow-hidden transition-all duration-300 ${
+        isLucid ? 'lucid-panel' : 'bg-[#080b18]/90'
+      }`}
       style={
         isLucid
           ? {
-              borderColor: `${lucidTheme.primary}45`,
+              backgroundColor: lucidTheme.glassColor,
+              borderColor: lucidTheme.borderColor,
               boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
             }
           : {

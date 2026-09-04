@@ -123,7 +123,11 @@ export const PartyVisualizer: React.FC = () => {
     const drawRGBLights = (highs: number, energy: number) => {
       rgbLights.forEach((light, idx) => {
         light.hue = (light.hue + light.hueSpeed * (1 + highs * 2)) % 360;
-        if (isLucid) light.hue = parseFloat(lucidTheme.primary.replace('#', '0x').slice(0, 6)) % 360;
+        const beamColor = isLucid
+          ? idx % 2 === 0
+            ? lucidTheme.primary
+            : lucidTheme.secondary
+          : undefined;
 
         // Ceiling position (project from world space)
         const ceilX = W / 2 + light.x * (1 - Math.sin(time * 0.08 + idx) * 0.12);
@@ -135,13 +139,19 @@ export const PartyVisualizer: React.FC = () => {
         const endY = ceilY + Math.cos(sweep) * beamLen;
 
         const grad = ctx.createLinearGradient(ceilX, ceilY, endX, endY);
-        grad.addColorStop(0, `hsla(${light.hue}, 100%, 75%, ${0.55 + energy * 0.4 * rgbIntensity})`);
-        grad.addColorStop(0.6, `hsla(${(light.hue + 40) % 360}, 100%, 60%, ${0.18 * rgbIntensity})`);
-        grad.addColorStop(1, 'transparent');
+        if (isLucid && beamColor) {
+          grad.addColorStop(0, beamColor);
+          grad.addColorStop(0.6, `${beamColor}55`);
+          grad.addColorStop(1, 'transparent');
+        } else {
+          grad.addColorStop(0, `hsla(${light.hue}, 100%, 75%, ${0.55 + energy * 0.4 * rgbIntensity})`);
+          grad.addColorStop(0.6, `hsla(${(light.hue + 40) % 360}, 100%, 60%, ${0.18 * rgbIntensity})`);
+          grad.addColorStop(1, 'transparent');
+        }
 
         ctx.strokeStyle = grad;
         ctx.lineWidth = light.width * (1 + energy * 0.5);
-        ctx.shadowColor = `hsl(${light.hue}, 100%, 65%)`;
+        ctx.shadowColor = isLucid && beamColor ? beamColor : `hsl(${light.hue}, 100%, 65%)`;
         ctx.shadowBlur = 18 + energy * 24;
         ctx.lineCap = 'round';
 

@@ -17,6 +17,7 @@ import { GamificationHUD } from './components/Gamification/GamificationHUD';
 import { AdminModal } from './components/Admin/AdminModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { usePlayerStore } from './stores/playerStore';
+import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle, UploadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -128,16 +129,25 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  const activeTheme = isLucid ? lucidTheme : DEFAULT_DARK_THEME;
+
   return (
     <div
       ref={rootRef}
       className={`relative w-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] overflow-hidden select-none font-sans transition-all duration-700 ${
-        isUiIdle && hasStarted ? 'cursor-none' : ''
-      }`}
+        isLucid ? 'lucid-mode' : ''
+      } ${isUiIdle && hasStarted ? 'cursor-none' : ''}`}
       style={{
-        background: isLucid ? lucidTheme.bgGradient : '#04060d',
-        boxShadow: isLucid ? `inset 0 0 120px ${lucidTheme.glow}` : undefined,
-      }}
+        '--lucid-primary': activeTheme.primary,
+        '--lucid-secondary': activeTheme.secondary,
+        '--lucid-glow': activeTheme.glow,
+        '--lucid-glass': activeTheme.glassColor,
+        '--lucid-border': activeTheme.borderColor,
+        '--lucid-text': activeTheme.textColor,
+        '--lucid-bg': activeTheme.bgGradient,
+        background: isLucid ? activeTheme.bgGradient : '#04060d',
+        boxShadow: isLucid ? `inset 0 0 120px ${activeTheme.glow}` : undefined,
+      } as React.CSSProperties}
     >
       {/* 1. Initial Landing Screen */}
       <div
@@ -201,11 +211,14 @@ export const App: React.FC = () => {
 
           {/* Main Glassmorphic Player Bar */}
           <div
-            className="w-[clamp(320px,94vw,900px)] rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-2xl flex flex-col gap-2 sm:gap-3 pointer-events-auto transition-all duration-500 bg-[#090e1c]/85 backdrop-blur-2xl border border-white/10"
+            className={`w-[clamp(320px,94vw,900px)] rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-2xl flex flex-col gap-2 sm:gap-3 pointer-events-auto transition-all duration-500 ${
+              isLucid ? 'lucid-panel' : 'bg-[#090e1c]/85 backdrop-blur-2xl border border-white/10'
+            }`}
             style={
               isLucid
                 ? {
-                    borderColor: `${lucidTheme.primary}55`,
+                    backgroundColor: lucidTheme.glassColor,
+                    borderColor: lucidTheme.borderColor,
                     boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
                   }
                 : undefined

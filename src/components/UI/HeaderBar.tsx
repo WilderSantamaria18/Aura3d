@@ -96,14 +96,51 @@ export const HeaderBar: React.FC = () => {
     <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-4 pointer-events-auto select-none gap-2">
       {/* Brand logo & Studio badge */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-black/60 border border-white/15 flex items-center justify-center backdrop-blur-md shadow-sm">
-          <Disc3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-300 animate-[spin_12s_linear_infinite]" />
+        <div
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center backdrop-blur-md shadow-sm transition-all duration-300 ${
+            isLucid
+              ? 'border'
+              : 'bg-black/60 border border-white/15'
+          }`}
+          style={
+            isLucid
+              ? {
+                  backgroundColor: `${lucidTheme.primary}18`,
+                  borderColor: `${lucidTheme.primary}60`,
+                  boxShadow: `0 0 15px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
+        >
+          <Disc3
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-[spin_12s_linear_infinite]"
+            style={{ color: isLucid ? lucidTheme.primary : '#00f2fe' }}
+          />
         </div>
         <div className="hidden min-[480px]:flex items-center gap-1.5">
-          <h1 className="text-white font-medium tracking-[0.18em] text-xs sm:text-sm uppercase">
+          <h1
+            className={`font-medium tracking-[0.18em] text-xs sm:text-sm uppercase transition-colors ${
+              isLucid ? 'text-white drop-shadow' : 'text-white'
+            }`}
+          >
             Auralis
           </h1>
-          <span className="text-[8px] sm:text-[9px] tracking-widest text-cyan-300/60 uppercase font-mono px-1 py-0.5 rounded border border-cyan-400/20 bg-cyan-400/5">
+          <span
+            className="text-[8px] sm:text-[9px] tracking-widest uppercase font-mono px-1 py-0.5 rounded border transition-colors"
+            style={
+              isLucid
+                ? {
+                    color: lucidTheme.primary,
+                    borderColor: `${lucidTheme.primary}40`,
+                    backgroundColor: `${lucidTheme.primary}10`,
+                  }
+                : {
+                    color: 'rgba(103, 232, 249, 0.7)',
+                    borderColor: 'rgba(34, 211, 238, 0.2)',
+                    backgroundColor: 'rgba(34, 211, 238, 0.05)',
+                  }
+            }
+          >
             PRO
           </span>
         </div>
@@ -111,11 +148,16 @@ export const HeaderBar: React.FC = () => {
 
       {/* Visualizer Mode Switcher Tabs (Esfera 3D, Rainbow Void, Modo Fiesta) */}
       <div
-        className="flex items-center bg-black/60 backdrop-blur-xl border border-white/10 p-0.5 sm:p-1 rounded-full shadow-lg transition-all flex-shrink-0"
+        className={`flex items-center p-0.5 sm:p-1 rounded-full shadow-lg transition-all flex-shrink-0 ${
+          isLucid
+            ? 'lucid-panel'
+            : 'bg-black/60 backdrop-blur-xl border border-white/10'
+        }`}
         style={
           isLucid
             ? {
-                borderColor: `${lucidTheme.primary}45`,
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
                 boxShadow: `0 0 20px ${lucidTheme.glow}`,
               }
             : undefined
@@ -190,11 +232,16 @@ export const HeaderBar: React.FC = () => {
 
       {/* Right Controls & Utilities */}
       <div
-        className="flex items-center gap-1.5 sm:gap-2 bg-black/60 backdrop-blur-xl border border-white/10 p-1.5 rounded-full shadow-lg flex-wrap transition-all"
+        className={`flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-full shadow-lg flex-wrap transition-all ${
+          isLucid
+            ? 'lucid-panel'
+            : 'bg-black/60 backdrop-blur-xl border border-white/10'
+        }`}
         style={
           isLucid
             ? {
-                borderColor: `${lucidTheme.primary}45`,
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
                 boxShadow: `0 0 20px ${lucidTheme.glow}`,
               }
             : undefined
@@ -211,6 +258,8 @@ export const HeaderBar: React.FC = () => {
               ? vrTrackingMode === 'body'
                 ? 'bg-pink-500/25 text-pink-300 border border-pink-400/50 shadow-[0_0_15px_rgba(255,8,138,0.4)] animate-pulse'
                 : 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-[0_0_15px_rgba(0,255,179,0.4)] animate-pulse'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
           }`}
           title={
@@ -231,6 +280,8 @@ export const HeaderBar: React.FC = () => {
           className={`p-2 rounded-full transition-all text-xs flex items-center gap-1 ${
             isCapturing
               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_10px_rgba(0,255,179,0.3)]'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
           }`}
           title="Capturar audio del sistema o pestaña del navegador"
@@ -244,6 +295,8 @@ export const HeaderBar: React.FC = () => {
           className={`p-2 rounded-full transition-all relative ${
             isMicActive
               ? 'bg-pink-500/20 text-pink-400 border border-pink-500/40 shadow-[0_0_12px_rgba(255,8,138,0.4)]'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-white hover:bg-white/5'
           }`}
           title={isMicActive ? 'Desactivar micrófono en vivo' : 'Capturar audio del micrófono en vivo'}
@@ -261,9 +314,23 @@ export const HeaderBar: React.FC = () => {
           onClick={() => setSidebarOpen(!isSidebarOpen)}
           className={`p-2 rounded-full transition-all ${
             isSidebarOpen
-              ? 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
+              ? isLucid
+                ? 'border shadow-md'
+                : 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-white hover:bg-white/5'
           }`}
+          style={
+            isSidebarOpen && isLucid
+              ? {
+                  backgroundColor: `${lucidTheme.primary}25`,
+                  borderColor: `${lucidTheme.primary}60`,
+                  color: lucidTheme.primary,
+                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
           title="Biblioteca y Cola"
         >
           <ListMusic className="w-4 h-4" />
@@ -274,9 +341,23 @@ export const HeaderBar: React.FC = () => {
           onClick={() => setEqualizerOpen(!isEqualizerOpen)}
           className={`p-2 rounded-full transition-all ${
             isEqualizerOpen
-              ? 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
+              ? isLucid
+                ? 'border shadow-md'
+                : 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-white hover:bg-white/5'
           }`}
+          style={
+            isEqualizerOpen && isLucid
+              ? {
+                  backgroundColor: `${lucidTheme.primary}25`,
+                  borderColor: `${lucidTheme.primary}60`,
+                  color: lucidTheme.primary,
+                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
           title="Ecualizador"
         >
           <Sliders className="w-4 h-4" />
@@ -287,9 +368,23 @@ export const HeaderBar: React.FC = () => {
           onClick={() => setLyricsOpen(!isLyricsOpen)}
           className={`p-2 rounded-full transition-all ${
             isLyricsOpen
-              ? 'bg-pink-500/20 text-pink-400 shadow-[0_0_10px_rgba(255,8,138,0.3)]'
+              ? isLucid
+                ? 'border shadow-md'
+                : 'bg-pink-500/20 text-pink-400 shadow-[0_0_10px_rgba(255,8,138,0.3)]'
+              : isLucid
+              ? 'text-white/70 hover:text-white hover:bg-white/10'
               : 'text-white/60 hover:text-white hover:bg-white/5'
           }`}
+          style={
+            isLyricsOpen && isLucid
+              ? {
+                  backgroundColor: `${lucidTheme.secondary}25`,
+                  borderColor: `${lucidTheme.secondary}60`,
+                  color: lucidTheme.secondary,
+                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
           title="Letras Karaoke"
         >
           <AlignLeft className="w-4 h-4" />

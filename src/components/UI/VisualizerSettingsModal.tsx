@@ -9,6 +9,9 @@ import {
   Bot,
   Activity,
   Check,
+  Link2,
+  Unlink,
+  Zap,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES, LUCID_THEMES } from '../../types/audio';
@@ -71,10 +74,16 @@ export const VisualizerSettingsModal: React.FC = () => {
     setVisualizerSettingsOpen,
     visualizerShape,
     setVisualizerShape,
-    sphereRadius,
-    setSphereRadius,
+    sphereScale,
+    setSphereScale,
+    rainbowScale,
+    setRainbowScale,
+    linkScales,
+    setLinkScales,
     sphereOpacity,
     setSphereOpacity,
+    musicSensitivity,
+    setMusicSensitivity,
     showFrequencyBars,
     setShowFrequencyBars,
     autoMode,
@@ -85,6 +94,10 @@ export const VisualizerSettingsModal: React.FC = () => {
     lucidTheme,
     setLucidTheme,
     toggleLucidMode,
+    lucidPrimaryColor,
+    lucidSecondaryColor,
+    setLucidPrimaryColor,
+    setLucidSecondaryColor,
   } = usePlayerStore();
 
   const [activeTab, setActiveTab] = useState<'shapes' | 'params' | 'colors'>('shapes');
@@ -93,7 +106,20 @@ export const VisualizerSettingsModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl pointer-events-auto select-none">
-      <div className="relative w-full max-w-2xl bg-[#060814]/95 border border-cyan-400/25 rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+      <div
+        className={`relative w-full max-w-2xl border rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 transition-all ${
+          isLucid ? 'lucid-panel' : 'bg-[#060814]/95 border-cyan-400/25'
+        }`}
+        style={
+          isLucid
+            ? {
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
+                boxShadow: `0 0 50px ${lucidTheme.glow}, 0 20px 60px rgba(0,0,0,0.95)`,
+              }
+            : undefined
+        }
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0 bg-white/[0.02]">
@@ -200,27 +226,72 @@ export const VisualizerSettingsModal: React.FC = () => {
 
           {/* ── 2. TAB: PARAMS & SCALE ─────────────────────────────────── */}
           {activeTab === 'params' && (
-            <div className="space-y-5">
-              {/* Radio / Escala */}
+            <div className="space-y-4">
+              {/* Escala Esfera 3D */}
               <div className="p-4 bg-white/[0.03] border border-white/8 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-white flex items-center gap-2">
                     <CircleDot className="w-3.5 h-3.5 text-cyan-400" />
-                    Radio / Escala de la Geometría
+                    Escala Esfera 3D (Three.js)
                   </span>
                   <span className="text-xs font-mono text-cyan-300">
-                    {sphereRadius.toFixed(2)}x
+                    {(sphereScale || 1.0).toFixed(2)}x
                   </span>
                 </div>
                 <input
                   type="range"
-                  min="0.6"
-                  max="2.2"
+                  min="0.5"
+                  max="2.5"
                   step="0.05"
-                  value={sphereRadius}
-                  onChange={(e) => setSphereRadius(parseFloat(e.target.value))}
+                  value={sphereScale || 1.0}
+                  onChange={(e) => setSphereScale(parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
                 />
+              </div>
+
+              {/* Escala Rainbow Blob */}
+              <div className="p-4 bg-white/[0.03] border border-white/8 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white flex items-center gap-2">
+                    <CircleDot className="w-3.5 h-3.5 text-pink-400" />
+                    Escala Rainbow Blob (Canvas 2D)
+                  </span>
+                  <span className="text-xs font-mono text-pink-300">
+                    {(rainbowScale || 1.0).toFixed(2)}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.5"
+                  step="0.05"
+                  value={rainbowScale || 1.0}
+                  onChange={(e) => setRainbowScale(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
+                />
+              </div>
+
+              {/* Vincular escalas Toggle */}
+              <div
+                onClick={() => setLinkScales(!linkScales)}
+                className={`p-3.5 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
+                  linkScales
+                    ? 'bg-cyan-500/15 border-cyan-400/50 text-cyan-200 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
+                    : 'bg-white/[0.03] border-white/8 text-white/60 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-1.5 rounded-xl ${linkScales ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/5 text-white/40'}`}>
+                    {linkScales ? <Link2 className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-semibold text-white">Sincronizar Escalas</h4>
+                    <p className="text-[10px] text-white/40">Modificar una escala actualiza automáticamente la otra</p>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full border ${linkScales ? 'border-cyan-400/40 text-cyan-300 bg-cyan-400/10 font-bold' : 'border-white/10 text-white/40'}`}>
+                  {linkScales ? 'VINCULADAS' : 'INDEPENDIENTES'}
+                </span>
               </div>
 
               {/* Opacity */}
@@ -242,6 +313,28 @@ export const VisualizerSettingsModal: React.FC = () => {
                   value={sphereOpacity}
                   onChange={(e) => setSphereOpacity(parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-indigo-400"
+                />
+              </div>
+
+              {/* Sensibilidad Musical */}
+              <div className="p-4 bg-white/[0.03] border border-white/8 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    Sensibilidad Musical (Reactividad al Audio)
+                  </span>
+                  <span className="text-xs font-mono text-emerald-300">
+                    {(musicSensitivity || 1.0).toFixed(2)}x
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="2.5"
+                  step="0.05"
+                  value={musicSensitivity || 1.0}
+                  onChange={(e) => setMusicSensitivity(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-emerald-400"
                 />
               </div>
 
@@ -381,6 +474,46 @@ export const VisualizerSettingsModal: React.FC = () => {
                     );
                   })}
                 </div>
+
+                {/* Custom Color Pickers */}
+                <div className="p-3.5 bg-white/[0.03] border border-white/10 rounded-2xl space-y-3 mt-3">
+                  <span className="text-[11px] font-mono text-cyan-300 font-medium block">
+                    Personalizar Colores Neón Personalizados:
+                  </span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2.5 p-2 bg-black/40 border border-white/10 rounded-xl">
+                      <input
+                        type="color"
+                        value={lucidPrimaryColor}
+                        onChange={(e) => {
+                          setLucidPrimaryColor(e.target.value);
+                          if (!isLucid) toggleLucidMode();
+                        }}
+                        className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-white/50">Color Primario</span>
+                        <span className="text-xs font-mono text-white uppercase">{lucidPrimaryColor}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2 bg-black/40 border border-white/10 rounded-xl">
+                      <input
+                        type="color"
+                        value={lucidSecondaryColor}
+                        onChange={(e) => {
+                          setLucidSecondaryColor(e.target.value);
+                          if (!isLucid) toggleLucidMode();
+                        }}
+                        className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-white/50">Color Secundario</span>
+                        <span className="text-xs font-mono text-white uppercase">{lucidSecondaryColor}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -389,7 +522,7 @@ export const VisualizerSettingsModal: React.FC = () => {
         {/* Footer */}
         <div className="p-4 border-t border-white/8 flex items-center justify-between bg-black/40 flex-shrink-0">
           <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">
-            FORMA: {visualizerShape.toUpperCase()} &nbsp;·&nbsp; ESCALA: {sphereRadius.toFixed(1)}x &nbsp;·&nbsp; OPACIDAD: {Math.round(sphereOpacity * 100)}%
+            FORMA: {visualizerShape.toUpperCase()} &nbsp;·&nbsp; ESCALA 3D: {(sphereScale || 1.0).toFixed(1)}x &nbsp;·&nbsp; OPACIDAD: {Math.round(sphereOpacity * 100)}%
           </span>
 
           <button

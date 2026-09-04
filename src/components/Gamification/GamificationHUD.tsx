@@ -55,15 +55,26 @@ export const GamificationHUD: React.FC = () => {
       <div
         className={`transition-all duration-500 rounded-2xl overflow-hidden backdrop-blur-2xl border ${
           isLucid
-            ? 'bg-[#060a17]/90 border-emerald-400/50 shadow-[0_0_25px_rgba(57,255,20,0.25)]'
+            ? 'lucid-panel'
             : 'bg-[#090e1c]/90 border-white/15 shadow-[0_0_25px_rgba(0,0,0,0.8)]'
         }`}
-        style={{
-          boxShadow:
-            gameState.score > 70
-              ? `0 0 30px ${scoreColor}55, 0 10px 30px rgba(0,0,0,0.8)`
-              : undefined,
-        }}
+        style={
+          isLucid
+            ? {
+                backgroundColor: lucidTheme.glassColor,
+                borderColor: lucidTheme.borderColor,
+                boxShadow:
+                  gameState.score > 70
+                    ? `0 0 30px ${scoreColor}55, 0 0 25px ${lucidTheme.glow}`
+                    : `0 0 25px ${lucidTheme.glow}`,
+              }
+            : {
+                boxShadow:
+                  gameState.score > 70
+                    ? `0 0 30px ${scoreColor}55, 0 10px 30px rgba(0,0,0,0.8)`
+                    : undefined,
+              }
+        }
       >
         {/* Top Header / Mini Pill */}
         <div
