@@ -6,22 +6,20 @@ import { GenreClassifier, type GenrePrediction } from '../services/genreClassifi
 import { StorageService } from '../services/storageService';
 
 export const useGamification = () => {
-  const {
-    isPlaying,
-    poseVelocity,
-    vrMode,
-    isLucid,
-    setIsLucid,
-    intensityScore,
-    setIntensityScore,
-    sessionHighScore,
-    setSessionHighScore,
-    totalListeningTime,
-    setTotalListeningTime,
-    sessionDuration,
-    setSessionDuration,
-    setDetectedGenre,
-  } = usePlayerStore();
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const poseVelocity = usePlayerStore((s) => s.poseVelocity);
+  const vrMode = usePlayerStore((s) => s.vrMode);
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const setIsLucid = usePlayerStore((s) => s.setIsLucid);
+  const setIntensityScore = usePlayerStore((s) => s.setIntensityScore);
+  const intensityScore = usePlayerStore((s) => s.intensityScore);
+  const sessionHighScore = usePlayerStore((s) => s.sessionHighScore);
+  const setSessionHighScore = usePlayerStore((s) => s.setSessionHighScore);
+  const totalListeningTime = usePlayerStore((s) => s.totalListeningTime);
+  const setTotalListeningTime = usePlayerStore((s) => s.setTotalListeningTime);
+  const sessionDuration = usePlayerStore((s) => s.sessionDuration);
+  const setSessionDuration = usePlayerStore((s) => s.setSessionDuration);
+  const setDetectedGenre = usePlayerStore((s) => s.setDetectedGenre);
 
   const { getSmoothedData } = useVisualizer(0.25);
   const engineRef = useRef<GamificationEngine>(new GamificationEngine());
@@ -47,6 +45,8 @@ export const useGamification = () => {
   });
 
   const lastLucidTriggerRef = useRef<number>(0);
+  const lastScoreEmittedRef = useRef<number>(0);
+  const lastGenreClassifyRef = useRef<number>(0);
 
   // ── 1. Session Duration & Total Time Counter ──────────────────────────────
   useEffect(() => {
@@ -68,8 +68,8 @@ export const useGamification = () => {
 
     const updateLoop = () => {
       const now = performance.now();
-      // Run calculations at ~15-20Hz for optimal performance
-      if (now - lastFrameTime >= 65) {
+      // Run calculations at ~10Hz (100ms) for high efficiency
+      if (now - lastFrameTime >= 100) {
         lastFrameTime = now;
 
         const { bass, mids, highs, energy, raw } = getSmoothedData();
@@ -77,8 +77,6 @@ export const useGamification = () => {
         const allTimeHigh = StorageService.getHighScore();
 
         // 1. Calculate Intensity Score
-        // In VR mode with dance movement -> use poseVelocity.
-        // If not in VR but playing music -> compute subtle rhythm groove score
         const effectiveVelocity = vrMode
           ? Math.max(0.08, poseVelocity || 0)
           : isPlaying
@@ -92,8 +90,11 @@ export const useGamification = () => {
           currentSessionSeconds
         );
 
-        setGameState(currentGameState);
-        setIntensityScore(currentGameState.score);
+        if (Math.abs(currentGameState.score - lastScoreEmittedRef.current) >= 1) {
+          lastScoreEmittedRef.current = currentGameState.score;
+          setGameState(currentGameState);
+          setIntensityScore(currentGameState.score);
+        }
 
         if (currentGameState.highScore > usePlayerStore.getState().sessionHighScore) {
           setSessionHighScore(currentGameState.highScore);
@@ -105,8 +106,9 @@ export const useGamification = () => {
           lastLucidTriggerRef.current = now;
         }
 
-        // 3. Classify Genre in Real Time via DSP/ML
-        if (isPlaying) {
+        // 3. Classify Genre every 1500ms via DSP/ML (not every frame)
+        if (isPlaying && now - lastGenreClassifyRef.current >= 1500) {
+          lastGenreClassifyRef.current = now;
           const prediction = GenreClassifier.classify(bass, mids, highs, energy, raw);
           setGenrePrediction(prediction);
           setDetectedGenre(prediction.genre, prediction.confidence);

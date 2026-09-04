@@ -36,6 +36,7 @@ export const SceneContainer: React.FC = React.memo(() => {
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
+          preserveDrawingBuffer: false,
           stencil: false,
           depth: true,
         }}
@@ -43,8 +44,9 @@ export const SceneContainer: React.FC = React.memo(() => {
         resize={{ debounce: 0, scroll: false }}
         onCreated={({ gl }) => {
           gl.setClearColor(new THREE.Color('#060812'), 1.0);
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;
+          gl.autoClear = true;
         }}
       >
         <ResponsiveCameraController />

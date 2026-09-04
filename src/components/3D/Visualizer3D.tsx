@@ -3,10 +3,11 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Sphere, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { optimizeImageTexture } from '../../services/imageOptimizer';
+import { audioEngine } from '../../services/audioEngine';
 
 interface Visualizer3DProps {
-  frequencyData: Uint8Array;
-  isCapturing: boolean;
+  frequencyData?: Uint8Array;
+  isCapturing?: boolean;
   sphereColor?: string;
   glowIntensity?: number;
   imageUrl?: string | null;
@@ -15,18 +16,28 @@ interface Visualizer3DProps {
   showBars?: boolean;
 }
 
+const BAR_COUNT = 32;
+
 const SphereWithBars: React.FC<{
-  freqData: Uint8Array;
   color: string;
   glow: number;
   image: string | null;
   radius: number;
   barColor: string;
   showBars: boolean;
-}> = ({ freqData, color, glow, image, radius, barColor, showBars }) => {
+}> = ({ color, glow, image, radius, barColor, showBars }) => {
   const sphereRef = useRef<THREE.Mesh>(null);
-  const barGroupRef = useRef<THREE.Group>(null);
+  const barsRef = useRef<THREE.InstancedMesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  // 1. Audio data reference decoupled from React state
+  const audioDataRef = useRef<{ frequencies: Uint8Array; volume: number }>({
+    frequencies: new Uint8Array(BAR_COUNT),
+    volume: 0,
+  });
+  const frameCounter = useRef(0);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const tempScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
 
   // Load and optimize image texture if provided (max 512x512 for GPU memory budget)
   useEffect(() => {
@@ -63,99 +74,76 @@ const SphereWithBars: React.FC<{
     };
   }, [image]);
 
-  // Compute 32 averaged FFT frequency bins for the bars
-  const barData = useMemo(() => {
-    if (!freqData || freqData.length === 0) return new Array(32).fill(0);
-    const step = Math.max(1, Math.floor(freqData.length / 32));
-    const bars: number[] = [];
-    for (let i = 0; i < 32; i++) {
-      let sum = 0;
-      for (let j = 0; j < step; j++) {
-        const idx = i * step + j;
-        if (idx < freqData.length) sum += freqData[idx];
-      }
-      bars.push(sum / step / 255);
-    }
-    return bars;
-  }, [freqData]);
-
-  // Frame animation loop
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-
-    if (sphereRef.current) {
-      sphereRef.current.rotation.x = Math.sin(t * 0.15) * 0.2;
-      sphereRef.current.rotation.y += 0.008;
-
-      // Scale sphere with audio volume
-      const avg = barData.reduce((a, b) => a + b, 0) / (barData.length || 1);
-      const bassVal = (barData[0] + barData[1] + barData[2]) / 3;
-      const targetScale = radius * (1 + bassVal * 0.2 + avg * 0.1);
-
-      sphereRef.current.scale.set(targetScale, targetScale, targetScale);
-    }
-
-    if (barGroupRef.current && showBars) {
-      barGroupRef.current.rotation.y += 0.004;
-      const children = barGroupRef.current.children;
-      const count = children.length;
-
-      for (let i = 0; i < count; i++) {
-        const bar = children[i] as THREE.Mesh;
-        const val = barData[i] || 0;
-        const targetHeight = Math.max(0.15, val * 2.2);
-
-        bar.scale.y = targetHeight;
-        bar.position.y = targetHeight / 2 - 0.5;
-
-        // Dynamic HSL color transition from Cyan to Neon Pink / Gold
-        if (bar.material instanceof THREE.MeshStandardMaterial) {
-          const hue = 0.55 - val * 0.45; // Cyan/Blue -> Magenta/Red
-          bar.material.color.setHSL(hue, 0.95, 0.55);
-          bar.material.emissive.setHSL(hue, 0.95, 0.35 * (val + 0.2));
-        }
-      }
-    }
-  });
-
-  // Generate 32 orbital 3D Box bars around sphere equator
-  const bars = useMemo(() => {
-    const count = 32;
-    const ringRadius = radius * 1.55;
-    const barWidth = 0.09;
-    const barDepth = 0.09;
-    const temp = [];
-
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle) * ringRadius;
-      const z = Math.sin(angle) * ringRadius;
-
-      temp.push(
-        <mesh
-          key={i}
-          position={[x, 0, z]}
-          rotation={[0, -angle, 0]}
-        >
-          <boxGeometry args={[barWidth, 1, barDepth]} />
-          <meshStandardMaterial
-            color={barColor}
-            emissive={barColor}
-            emissiveIntensity={0.5}
-            roughness={0.2}
-            metalness={0.8}
-          />
-        </mesh>
-      );
-    }
-    return temp;
-  }, [radius, barColor]);
-
   const sphereColorObj = useMemo(() => new THREE.Color(color), [color]);
   const emissiveColor = useMemo(
     () => sphereColorObj.clone().multiplyScalar(glow),
     [sphereColorObj, glow]
   );
+
+  const barBoxGeometry = useMemo(() => new THREE.BoxGeometry(0.1, 1, 0.1), []);
+  const barMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: barColor,
+        emissive: barColor,
+        emissiveIntensity: 0.5,
+        roughness: 0.2,
+        metalness: 0.8,
+      }),
+    [barColor]
+  );
+
+  // 2. Direct useFrame loop with zero React state modifications
+  useFrame(({ clock }) => {
+    frameCounter.current++;
+    const t = clock.getElapsedTime();
+
+    // Read audio data throttled (every 2 frames)
+    if (frameCounter.current % 2 === 0) {
+      const freshData = audioEngine.getFrequencyData();
+      if (freshData && freshData.raw) {
+        const step = Math.max(1, Math.floor(freshData.raw.length / BAR_COUNT));
+        let sum = 0;
+        for (let i = 0; i < BAR_COUNT; i++) {
+          const val = freshData.raw[i * step] || 0;
+          audioDataRef.current.frequencies[i] = val;
+          sum += val;
+        }
+        audioDataRef.current.volume = sum / (BAR_COUNT * 255);
+      }
+    }
+
+    const { frequencies, volume } = audioDataRef.current;
+
+    // Direct mesh update on sphere
+    if (sphereRef.current) {
+      sphereRef.current.rotation.x = Math.sin(t * 0.15) * 0.2;
+      sphereRef.current.rotation.y += 0.008;
+
+      const targetScaleVal = radius * (1.0 + volume * 0.45);
+      tempScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
+      sphereRef.current.scale.lerp(tempScaleVec, 0.1);
+    }
+
+    // Direct InstancedMesh updates for bars
+    if (barsRef.current && showBars) {
+      const ringRadius = radius * 1.55;
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const angle = (i / BAR_COUNT) * Math.PI * 2 + t * 0.2;
+        const x = Math.cos(angle) * ringRadius;
+        const z = Math.sin(angle) * ringRadius;
+        const height = Math.max(0.15, (frequencies[i] / 255) * 2.2);
+
+        dummy.position.set(x, height / 2 - 0.5, z);
+        dummy.rotation.set(0, -angle, 0);
+        dummy.scale.set(1, height, 1);
+        dummy.updateMatrix();
+
+        barsRef.current.setMatrixAt(i, dummy.matrix);
+      }
+      barsRef.current.instanceMatrix.needsUpdate = true;
+    }
+  });
 
   return (
     <group>
@@ -184,8 +172,13 @@ const SphereWithBars: React.FC<{
         )}
       </Sphere>
 
-      {/* Orbital 3D Frequency Bars */}
-      {showBars && <group ref={barGroupRef}>{bars}</group>}
+      {/* Orbital 3D Instanced Frequency Bars */}
+      {showBars && (
+        <instancedMesh
+          ref={barsRef}
+          args={[barBoxGeometry, barMaterial, BAR_COUNT]}
+        />
+      )}
 
       {/* Point Lights & Ambient Lighting */}
       <pointLight position={[6, 6, 6]} intensity={1.5} color={color} />
@@ -196,8 +189,7 @@ const SphereWithBars: React.FC<{
 };
 
 export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
-  frequencyData,
-  isCapturing,
+  isCapturing = false,
   sphereColor = '#00f2fe',
   glowIntensity = 0.6,
   imageUrl = null,
@@ -213,17 +205,19 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
+          preserveDrawingBuffer: false,
           stencil: false,
           depth: true,
         }}
         dpr={[0.8, 1.5]}
         onCreated={({ gl }) => {
-          gl.setClearColor(new THREE.Color('#050713'), 1.0);
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.setClearColor(new THREE.Color(0x060814), 1.0);
+          gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;
+          gl.autoClear = true;
         }}
       >
-        <color attach="background" args={['#050713']} />
+        <color attach="background" args={['#060814']} />
         <OrbitControls
           enableZoom={true}
           enablePan={false}
@@ -233,7 +227,6 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
           dampingFactor={0.05}
         />
         <SphereWithBars
-          freqData={frequencyData}
           color={sphereColor}
           glow={glowIntensity}
           image={imageUrl}

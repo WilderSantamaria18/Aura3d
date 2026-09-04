@@ -15,24 +15,16 @@ const MAX_RINGS = 1200;
 
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
-    const {
-      sphereRadius,
-      sphereOpacity,
-      showFrequencyBars,
-      visualizerShape,
-      autoMode,
-      isLucid,
-      lucidTheme,
-      currentPaletteIndex,
-      vrMode,
-      vrTrackingMode,
-      handRotation,
-      handGesture,
-      handLandmarks,
-      poseVelocity,
-      leftHandPos,
-      headPos,
-    } = usePlayerStore();
+    // Stable configuration subscriptions (only re-renders on low-frequency config changes)
+    const visualizerShape = usePlayerStore((s) => s.visualizerShape);
+    const currentPaletteIndex = usePlayerStore((s) => s.currentPaletteIndex);
+    const isLucid = usePlayerStore((s) => s.isLucid);
+    const lucidPrimary = usePlayerStore((s) => s.lucidTheme.primary);
+    const lucidSecondary = usePlayerStore((s) => s.lucidTheme.secondary);
+    const autoMode = usePlayerStore((s) => s.autoMode);
+    const vrMode = usePlayerStore((s) => s.vrMode);
+    const vrTrackingMode = usePlayerStore((s) => s.vrTrackingMode);
+    const showFrequencyBars = usePlayerStore((s) => s.showFrequencyBars);
 
     const {
       isEco,
@@ -76,8 +68,8 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const colorCyan = useMemo(() => new THREE.Color('#00f2fe'), []);
     const colorMagenta = useMemo(() => new THREE.Color('#ff088a'), []);
     const colorEmerald = useMemo(() => new THREE.Color('#00ffb3'), []);
-    const colorLucidPrimary = useMemo(() => new THREE.Color(lucidTheme.primary), [lucidTheme.primary]);
-    const colorLucidSecondary = useMemo(() => new THREE.Color(lucidTheme.secondary), [lucidTheme.secondary]);
+    const colorLucidPrimary = useMemo(() => new THREE.Color(lucidPrimary), [lucidPrimary]);
+    const colorLucidSecondary = useMemo(() => new THREE.Color(lucidSecondary), [lucidSecondary]);
     const tempColor = useMemo(() => new THREE.Color(), []);
     const autoColor = useMemo(() => new THREE.Color(), []);
 
@@ -326,6 +318,16 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sMids = smoothedMidsRef.current;
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
+
+      const playerState = usePlayerStore.getState();
+      const sphereRadius = playerState.sphereRadius || 1.0;
+      const sphereOpacity = playerState.sphereOpacity ?? 0.9;
+      const handRotation = playerState.handRotation;
+      const handGesture = playerState.handGesture;
+      const poseVelocity = playerState.poseVelocity;
+      const leftHandPos = playerState.leftHandPos;
+      const headPos = playerState.headPos;
+      const handLandmarks = playerState.handLandmarks;
 
       // Update material properties directly without triggering React re-renders
       mainMaterial.opacity = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;

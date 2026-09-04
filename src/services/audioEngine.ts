@@ -126,7 +126,7 @@ export class AudioEngine {
     // Master Analyser Node for FFT computation — ultra-low latency & zero temporal lag
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 512;
-    this.analyser.smoothingTimeConstant = 0.22;
+    this.analyser.smoothingTimeConstant = 0.8;
     this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
     // Master Gain
@@ -256,14 +256,20 @@ export class AudioEngine {
   }
 
   private _bufferRafId: number | null = null;
+  private _lastTimeUpdateEmit = 0;
   private _startBufferTimeLoop(): void {
     if (this._bufferRafId) cancelAnimationFrame(this._bufferRafId);
     const tick = () => {
       if (!this.loadedAudioBuffer || !this.audioContext) return;
       if (this.bufferIsPlaying) {
-        const elapsed = this.bufferStartOffset + (this.audioContext.currentTime - this.bufferStartTime);
-        const clamped = Math.min(elapsed, this.loadedAudioBuffer.duration);
-        this.listeners.timeUpdate.forEach((cb) => cb(clamped, this.loadedAudioBuffer!.duration));
+        const now = performance.now();
+        // Throttle timeUpdate to 4 times per second (250ms interval) to match native HTML5 audio timeupdate
+        if (now - this._lastTimeUpdateEmit >= 250) {
+          this._lastTimeUpdateEmit = now;
+          const elapsed = this.bufferStartOffset + (this.audioContext.currentTime - this.bufferStartTime);
+          const clamped = Math.min(elapsed, this.loadedAudioBuffer.duration);
+          this.listeners.timeUpdate.forEach((cb) => cb(clamped, this.loadedAudioBuffer!.duration));
+        }
       }
       this._bufferRafId = requestAnimationFrame(tick);
     };

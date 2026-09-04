@@ -53,22 +53,49 @@ function parseStreamLabel(rawLabel?: string): { title: string; artist: string } 
   };
 }
 
+let isAudioEngineStoreSubscribed = false;
+
+function ensureAudioEngineStoreSubscription() {
+  if (isAudioEngineStoreSubscribed) return;
+  isAudioEngineStoreSubscribed = true;
+
+  audioEngine.onTimeUpdate((currentTime, duration) => {
+    usePlayerStore.setState({ currentTime, duration });
+  });
+
+  audioEngine.onStateChange((playing) => {
+    usePlayerStore.setState((state) => ({
+      isPlaying: playing,
+      hasStarted: playing ? true : state.hasStarted,
+      isAudioUnlocked: playing ? true : state.isAudioUnlocked,
+    }));
+  });
+
+  audioEngine.onEnded(() => {
+    const state = usePlayerStore.getState();
+    const next = state.nextTrack();
+    if (!next) {
+      usePlayerStore.setState({ isPlaying: false });
+    }
+  });
+}
+
 export const useAudioEngine = () => {
+  ensureAudioEngineStoreSubscription();
+
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    setCurrentTrack,
-    setHasStarted,
-    setAudioUnlocked,
-    setIsPlaying,
-    setCurrentTime,
-    setDuration,
-    setIsMicActive,
-    volume,
-    isMuted,
-    isPlaying,
-    isMicActive,
-  } = usePlayerStore();
+  const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack);
+  const setHasStarted = usePlayerStore((s) => s.setHasStarted);
+  const setAudioUnlocked = usePlayerStore((s) => s.setAudioUnlocked);
+  const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
+  const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
+  const setDuration = usePlayerStore((s) => s.setDuration);
+  const setIsMicActive = usePlayerStore((s) => s.setIsMicActive);
+  const volume = usePlayerStore((s) => s.volume);
+  const isMuted = usePlayerStore((s) => s.isMuted);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const isMicActive = usePlayerStore((s) => s.isMicActive);
 
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -88,36 +115,6 @@ export const useAudioEngine = () => {
   useEffect(() => {
     audioEngine.setVolume(isMuted ? 0 : volume);
   }, [volume, isMuted]);
-
-  // ─── Subscribe to audioEngine playback events ──────────────────────────────
-  useEffect(() => {
-    const offTime = audioEngine.onTimeUpdate((currentTime, duration) => {
-      setCurrentTime(currentTime);
-      setDuration(duration);
-    });
-
-    const offState = audioEngine.onStateChange((playing) => {
-      setIsPlaying(playing);
-      if (playing) {
-        setHasStarted(true);
-        setAudioUnlocked(true);
-      }
-    });
-
-    const offEnded = audioEngine.onEnded(() => {
-      const state = usePlayerStore.getState();
-      const next = state.nextTrack();
-      if (!next) {
-        setIsPlaying(false);
-      }
-    });
-
-    return () => {
-      offTime();
-      offState();
-      offEnded();
-    };
-  }, [setCurrentTime, setDuration, setIsPlaying, setHasStarted, setAudioUnlocked]);
 
   // ─── 1. Capture system / tab audio ────────────────────────────────────────
   const startSystemCapture = useCallback(async () => {

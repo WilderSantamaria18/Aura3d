@@ -21,17 +21,15 @@ import { AlertCircle, UploadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { loadFile, error } = useAudioEngine();
-  const {
-    hasStarted,
-    visualizerMode,
-    isLucid,
-    lucidTheme,
-    vrMode,
-    isEqualizerOpen,
-    isLyricsOpen,
-    isSidebarOpen,
-    isKaraokeFullscreen,
-  } = usePlayerStore();
+  const hasStarted = usePlayerStore((s) => s.hasStarted);
+  const visualizerMode = usePlayerStore((s) => s.visualizerMode);
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const vrMode = usePlayerStore((s) => s.vrMode);
+  const isEqualizerOpen = usePlayerStore((s) => s.isEqualizerOpen);
+  const isLyricsOpen = usePlayerStore((s) => s.isLyricsOpen);
+  const isSidebarOpen = usePlayerStore((s) => s.isSidebarOpen);
+  const isKaraokeFullscreen = usePlayerStore((s) => s.isKaraokeFullscreen);
 
   const [isUiIdle, setIsUiIdle] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
