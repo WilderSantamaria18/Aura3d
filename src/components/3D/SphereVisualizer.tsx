@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useVisualizer } from '../../hooks/useVisualizer';
+import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES } from '../../types/audio';
 
@@ -31,6 +32,16 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       leftHandPos,
       headPos,
     } = usePlayerStore();
+
+    const {
+      isEco,
+      isUltraEco,
+      particleBudget,
+      ringParticleBudget,
+    } = usePerformanceMonitor();
+
+    const activeParticleCount = Math.min(particleCount, particleBudget);
+    const ringCount = ringParticleBudget;
 
     const pointsRef = useRef<THREE.Points>(null);
     const particleRingRef = useRef<THREE.Points>(null);
@@ -69,11 +80,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
     // Generate initial crystalline points based on selected 3D Shape
     const { initialPositions, baseNormals } = useMemo(() => {
-      const positions = new Float32Array(particleCount * 3);
-      const normals = new Float32Array(particleCount * 3);
+      const positions = new Float32Array(activeParticleCount * 3);
+      const normals = new Float32Array(activeParticleCount * 3);
       const phi = Math.PI * (Math.sqrt(5) - 1); // Golden angle
 
-      for (let i = 0; i < particleCount; i++) {
+      for (let i = 0; i < activeParticleCount; i++) {
         let x = 0, y = 0, z = 0;
         let nx = 0, ny = 0, nz = 0;
 
@@ -83,7 +94,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const ringRadii = [0.7, 1.0, 1.3, 1.6, 1.9];
           const ringR = ringRadii[ringIdx] * sphereRadius * 0.75;
           const tubeR = 0.05 * sphereRadius;
-          const u = (Math.floor(i / 5) / (particleCount / 5)) * Math.PI * 2;
+          const u = (Math.floor(i / 5) / (activeParticleCount / 5)) * Math.PI * 2;
           const v = ((i % 24) / 24) * Math.PI * 2;
           const tilt = ringIdx * (Math.PI / 5);
 
@@ -100,7 +111,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'spikes') {
           // Radial hedgehog spikes: core sphere with 64 spike spikes extending out
-          const yVal = 1 - (i / (particleCount - 1)) * 2;
+          const yVal = 1 - (i / (activeParticleCount - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           nx = Math.cos(theta) * radiusAtY;
@@ -125,7 +136,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'torus') {
-          const u = (i / particleCount) * Math.PI * 2 * 14;
+          const u = (i / activeParticleCount) * Math.PI * 2 * 14;
           const v = ((i % 100) / 100) * Math.PI * 2;
           const R = sphereRadius * 0.95;
           const r = sphereRadius * 0.42;
@@ -135,7 +146,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'icosahedron' || visualizerShape === 'octahedron') {
-          const yVal = 1 - (i / (particleCount - 1)) * 2;
+          const yVal = 1 - (i / (activeParticleCount - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           x = Math.cos(theta) * radiusAtY;
@@ -151,7 +162,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = x / len; ny = y / len; nz = z / len;
           x = nx * sphereRadius; y = ny * sphereRadius; z = nz * sphereRadius;
         } else if (visualizerShape === 'wave') {
-          const gridSize = Math.floor(Math.sqrt(particleCount)) || 50;
+          const gridSize = Math.floor(Math.sqrt(activeParticleCount)) || 50;
           const row = Math.floor(i / gridSize);
           const col = i % gridSize;
           x = ((col - gridSize / 2) / (gridSize / 2)) * sphereRadius * 1.8;
@@ -160,7 +171,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = 0; ny = 1; nz = 0;
         } else {
           // Default Fibonacci Crystalline Sphere
-          const yVal = 1 - (i / (particleCount - 1)) * 2;
+          const yVal = 1 - (i / (activeParticleCount - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           x = Math.cos(theta) * radiusAtY;
@@ -183,15 +194,15 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
 
       return { initialPositions: positions, baseNormals: normals };
-    }, [particleCount, sphereRadius, visualizerShape]);
+    }, [activeParticleCount, sphereRadius, visualizerShape]);
 
     // Buffer geometry for main shape particles
     const { geometry } = useMemo(() => {
       const geo = new THREE.BufferGeometry();
       const posArray = new Float32Array(initialPositions);
-      const colArray = new Float32Array(particleCount * 3);
+      const colArray = new Float32Array(activeParticleCount * 3);
 
-      for (let i = 0; i < particleCount; i++) {
+      for (let i = 0; i < activeParticleCount; i++) {
         const t = (posArray[i * 3 + 1] / sphereRadius + 1) * 0.5;
         tempColor.copy(colorCyan).lerp(colorMagenta, t);
         colArray[i * 3] = tempColor.r;
@@ -202,10 +213,9 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(colArray, 3));
       return { geometry: geo };
-    }, [initialPositions, particleCount, sphereRadius, colorCyan, colorMagenta, tempColor]);
+    }, [initialPositions, activeParticleCount, sphereRadius, colorCyan, colorMagenta, tempColor]);
 
-    // 2000 Concentric Cosmic Sand Particle Rings (Organic FFT Bars)
-    const ringCount = 2000;
+    // Dynamic Concentric Cosmic Sand Particle Rings (Organic FFT Bars)
     const { ringPositions, ringBasePositions, ringColors } = useMemo(() => {
       const positions = new Float32Array(ringCount * 3);
       const basePositions = new Float32Array(ringCount * 3);
@@ -492,10 +502,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         {/* Main 3D Shape Particles */}
         <points ref={pointsRef} geometry={geometry}>
           <pointsMaterial
-            size={isLucid ? 0.062 : 0.052}
+            size={isLucid ? 0.062 : isUltraEco ? 0.068 : isEco ? 0.058 : 0.052}
             vertexColors={true}
             transparent={true}
-            opacity={isLucid ? 1.0 : sphereOpacity}
+            opacity={isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.15) : sphereOpacity}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
             sizeAttenuation={true}
@@ -506,7 +516,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         {showFrequencyBars && (
           <points ref={particleRingRef} geometry={ringGeometry}>
             <pointsMaterial
-              size={isLucid ? 0.045 : 0.038}
+              size={isLucid ? 0.045 : isUltraEco ? 0.048 : isEco ? 0.042 : 0.038}
               vertexColors={true}
               transparent={true}
               opacity={isLucid ? 0.95 : 0.82}

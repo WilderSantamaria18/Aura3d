@@ -15,6 +15,7 @@ import {
   Sparkles,
   Maximize2,
   AlertTriangle,
+  Moon,
 } from 'lucide-react';
 
 // ── MediaPipe Pose 33-point Connections (Bones) ──────────────────────────────
@@ -97,9 +98,12 @@ export const PoseTracker: React.FC = () => {
   const [gestureFeedback, setGestureFeedback] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isNoDetection, setIsNoDetection] = useState(false);
+  const [isSleeping, setIsSleeping] = useState(false);
 
   const lastProcessTimeRef = useRef<number>(0);
   const lastDetectionTimeRef = useRef<number>(Date.now());
+  const lastActiveTimeRef = useRef<number>(Date.now());
+  const isSleepingRef = useRef<boolean>(false);
   const lastGestureActionTime = useRef<number>(0);
   const feedbackTimeoutRef = useRef<number | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
@@ -124,16 +128,61 @@ export const PoseTracker: React.FC = () => {
     }, 1600);
   }, []);
 
-  // ── Periodic Detection Timeout Monitor (> 2000ms) ─────────────────────────
+  // Wake up handler on any interaction
+  const wakeUp = useCallback(() => {
+    lastActiveTimeRef.current = Date.now();
+    lastDetectionTimeRef.current = Date.now();
+    if (isSleepingRef.current) {
+      isSleepingRef.current = false;
+      setIsSleeping(false);
+      triggerFeedback('TRACKING REACTIVADO');
+    }
+  }, [triggerFeedback]);
+
+  // Global user activity listeners to wake up or refresh active timer
+  useEffect(() => {
+    const onActivity = () => {
+      lastActiveTimeRef.current = Date.now();
+      if (isSleepingRef.current) {
+        wakeUp();
+      }
+    };
+
+    window.addEventListener('click', onActivity);
+    window.addEventListener('touchstart', onActivity);
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('mousemove', onActivity);
+
+    return () => {
+      window.removeEventListener('click', onActivity);
+      window.removeEventListener('touchstart', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('mousemove', onActivity);
+    };
+  }, [wakeUp]);
+
+  // ── Periodic Detection Timeout (> 2000ms) & Inactivity Sleep (> 10s) Monitor ──
   useEffect(() => {
     if (!vrMode || !isCameraReady) {
       setIsNoDetection(false);
+      setIsSleeping(false);
+      isSleepingRef.current = false;
       return;
     }
 
     const checkInterval = setInterval(() => {
-      const elapsed = Date.now() - lastDetectionTimeRef.current;
-      setIsNoDetection(elapsed > 2000);
+      const now = Date.now();
+      const elapsedSinceDetection = now - lastDetectionTimeRef.current;
+      const elapsedSinceActivity = now - lastActiveTimeRef.current;
+
+      // 1. Framing timeout warning (> 2000ms without landmarks)
+      setIsNoDetection(elapsedSinceDetection > 2000 && !isSleepingRef.current);
+
+      // 2. Inactivity Sleep (> 10000ms): pauses MediaPipe to save massive CPU/battery
+      if (elapsedSinceActivity > 10000 && !isSleepingRef.current) {
+        isSleepingRef.current = true;
+        setIsSleeping(true);
+      }
     }, 500);
 
     return () => clearInterval(checkInterval);
@@ -486,13 +535,17 @@ export const PoseTracker: React.FC = () => {
         setIsCameraReady(false);
         resetSmoothing();
 
-        // 1. Request webcam stream with low-light compatible constraints
+        // 1. Request webcam stream with adaptive low-power constraints (320x240 on mobile, 480x360 on desktop)
+        const isMobileOrLowEnd =
+          typeof window !== 'undefined' &&
+          (window.innerWidth < 768 || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1));
+
         try {
           localStream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: 'user',
-              width: { ideal: 640 },
-              height: { ideal: 480 },
+              width: { ideal: isMobileOrLowEnd ? 320 : 480 },
+              height: { ideal: isMobileOrLowEnd ? 240 : 360 },
             },
             audio: false,
           });
@@ -530,7 +583,7 @@ export const PoseTracker: React.FC = () => {
           });
 
           modelInstance.setOptions({
-            modelComplexity: 0, // Fast low-latency 30 FPS tracking
+            modelComplexity: 0, // Fast low-latency tracking
             smoothLandmarks: true,
             enableSegmentation: false,
             smoothSegmentation: false,
@@ -559,7 +612,7 @@ export const PoseTracker: React.FC = () => {
 
         modelInstance.onResults(handleResults);
 
-        // 3. Throttled 30 FPS Processing Loop
+        // 3. Ultra-Efficient 20 FPS Throttled Processing Loop with Smart Sleep Check
         let isProcessing = false;
         const processFrame = async () => {
           if (isCancelled) return;
@@ -570,7 +623,8 @@ export const PoseTracker: React.FC = () => {
             videoRef.current.readyState >= 2 &&
             modelInstance &&
             !isProcessing &&
-            now - lastProcessTimeRef.current >= 32 // ~30 FPS throttling
+            !isSleepingRef.current && // Skip processing during inactivity sleep
+            now - lastProcessTimeRef.current >= 48 // ~20 FPS (every ~50ms) saves massive CPU
           ) {
             lastProcessTimeRef.current = now;
             isProcessing = true;
@@ -759,10 +813,29 @@ export const PoseTracker: React.FC = () => {
             )}
 
             {/* No Detection Warning (>2s) */}
-            {isCameraReady && isNoDetection && !errorMessage && (
+            {isCameraReady && isNoDetection && !errorMessage && !isSleeping && (
               <div className="absolute top-2 left-2 right-2 p-2 rounded-xl bg-red-950/90 border border-red-500/60 shadow-[0_0_20px_rgba(255,0,0,0.5)] backdrop-blur-md text-center flex items-center justify-center gap-1.5 text-[9px] font-mono text-red-200 animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
                 <span>🔴 Cámara activa, pero sin detección. ¿Estás en el encuadre?</span>
+              </div>
+            )}
+
+            {/* Smart Inactivity Sleep Overlay (>10s) */}
+            {isCameraReady && isSleeping && !errorMessage && (
+              <div
+                onClick={wakeUp}
+                className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center gap-2 cursor-pointer z-20 backdrop-blur-md animate-in fade-in duration-300"
+              >
+                <Moon className="w-7 h-7 text-yellow-300 animate-bounce" />
+                <span className="text-xs font-bold text-yellow-300 tracking-wider">
+                  MODO AHORRO ACTIVADO
+                </span>
+                <p className="text-[10px] text-white/70 font-mono leading-tight max-w-[200px]">
+                  Pausado por inactividad (10s) para ahorrar 100% de CPU.
+                </p>
+                <span className="mt-1 px-3 py-1 rounded-full bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[10px] font-bold animate-pulse">
+                  Toca para reactivar
+                </span>
               </div>
             )}
 

@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Sphere, Stars } from '@react-three/drei';
 import * as THREE from 'three';
+import { optimizeImageTexture } from '../../services/imageOptimizer';
 
 interface Visualizer3DProps {
   frequencyData: Uint8Array;
@@ -27,25 +28,39 @@ const SphereWithBars: React.FC<{
   const barGroupRef = useRef<THREE.Group>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
 
-  // Load image texture if provided
+  // Load and optimize image texture if provided (max 512x512 for GPU memory budget)
   useEffect(() => {
+    let isMounted = true;
     if (image) {
-      const loader = new THREE.TextureLoader();
-      loader.load(
-        image,
-        (tex) => {
-          tex.colorSpace = THREE.SRGBColorSpace;
-          setTexture(tex);
-        },
-        undefined,
-        (err) => {
-          console.warn('Error loading texture:', err);
-          setTexture(null);
-        }
-      );
+      optimizeImageTexture(image, 512)
+        .then((optimizedUrl) => {
+          if (!isMounted) return;
+          const loader = new THREE.TextureLoader();
+          loader.load(
+            optimizedUrl,
+            (tex) => {
+              if (!isMounted) return;
+              tex.colorSpace = THREE.SRGBColorSpace;
+              tex.generateMipmaps = false;
+              tex.minFilter = THREE.LinearFilter;
+              setTexture(tex);
+            },
+            undefined,
+            (err) => {
+              console.warn('Error loading texture:', err);
+              if (isMounted) setTexture(null);
+            }
+          );
+        })
+        .catch(() => {
+          if (isMounted) setTexture(null);
+        });
     } else {
       setTexture(null);
     }
+    return () => {
+      isMounted = false;
+    };
   }, [image]);
 
   // Compute 32 averaged FFT frequency bins for the bars

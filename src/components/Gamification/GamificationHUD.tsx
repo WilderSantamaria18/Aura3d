@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useDeferredValue } from 'react';
 import { useGamification } from '../../hooks/useGamification';
 import { usePlayerStore } from '../../stores/playerStore';
 import {
@@ -17,6 +17,11 @@ export const GamificationHUD: React.FC = () => {
   const { totalListeningTime, isLucid, lucidTheme, hasStarted } = usePlayerStore();
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Layer 4 UI optimization: useDeferredValue prevents React updates from blocking main thread / 60 FPS
+  const deferredScore = useDeferredValue(gameState.score);
+  const deferredRank = useDeferredValue(gameState.rank);
+  const deferredGenre = useDeferredValue(genrePrediction.genre);
+
   if (!hasStarted) return null;
 
   // Format seconds to hh:mm:ss or mm:ss
@@ -34,13 +39,13 @@ export const GamificationHUD: React.FC = () => {
   };
 
   const scoreColor =
-    gameState.score >= 80
+    deferredScore >= 80
       ? '#ff088a'
-      : gameState.score >= 60
+      : deferredScore >= 60
       ? '#00f2fe'
-      : gameState.score >= 40
+      : deferredScore >= 40
       ? '#39FF14'
-      : gameState.score >= 20
+      : deferredScore >= 20
       ? '#FFD700'
       : '#8A99AD';
 
@@ -67,7 +72,7 @@ export const GamificationHUD: React.FC = () => {
         >
           {/* Live Intensity Gauge Pill */}
           <div className="flex items-center gap-2">
-            <span className="text-base">{gameState.rank.badge}</span>
+            <span className="text-base">{deferredRank.badge}</span>
             <div className="flex flex-col">
               <span className="text-[9px] text-white/50 uppercase tracking-widest leading-none font-bold">
                 SCORE
@@ -77,7 +82,7 @@ export const GamificationHUD: React.FC = () => {
                   className="text-sm font-bold leading-none tracking-tight"
                   style={{ color: scoreColor }}
                 >
-                  {gameState.score}
+                  {deferredScore}
                 </span>
                 <span className="text-[9px] text-white/40">/100</span>
               </div>
@@ -89,12 +94,12 @@ export const GamificationHUD: React.FC = () => {
             <span
               className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider"
               style={{
-                backgroundColor: `${gameState.rank.color}22`,
-                color: gameState.rank.color,
-                border: `1px solid ${gameState.rank.color}55`,
+                backgroundColor: `${deferredRank.color}22`,
+                color: deferredRank.color,
+                border: `1px solid ${deferredRank.color}55`,
               }}
             >
-              {gameState.rank.tier}
+              {deferredRank.tier}
             </span>
             <button className="text-white/50 hover:text-white transition-colors p-0.5">
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -110,7 +115,7 @@ export const GamificationHUD: React.FC = () => {
               <div className="flex items-center justify-between text-[10px]">
                 <span className="text-white/60 flex items-center gap-1 font-bold">
                   <Activity className="w-3 h-3" style={{ color: scoreColor }} />
-                  {gameState.rank.title}
+                  {deferredRank.title}
                 </span>
                 <span className="font-bold flex items-center gap-1 text-pink-400">
                   <Flame className="w-3 h-3" />
@@ -121,7 +126,7 @@ export const GamificationHUD: React.FC = () => {
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
-                    width: `${gameState.score}%`,
+                    width: `${deferredScore}%`,
                     background: `linear-gradient(90deg, #00f2fe, ${scoreColor})`,
                     boxShadow: `0 0 10px ${scoreColor}`,
                   }}
@@ -172,9 +177,9 @@ export const GamificationHUD: React.FC = () => {
                 <span
                   className="font-bold text-[11px] truncate"
                   style={{ color: genrePrediction.color }}
-                  title={`${genrePrediction.genre} (${Math.round(genrePrediction.confidence * 100)}% conf)`}
+                  title={`${deferredGenre} (${Math.round(genrePrediction.confidence * 100)}% conf)`}
                 >
-                  {genrePrediction.genre}
+                  {deferredGenre}
                 </span>
               </div>
             </div>

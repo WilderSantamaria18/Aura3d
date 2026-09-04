@@ -247,3 +247,4 @@ server.listen(PORT, () => {
   console.log(`[Auralis Admin Server] WebSocket Socket.io listo para conexiones.`);
   console.log(`[Auralis Admin Server] Credenciales Admin por defecto: admin / admin123`);
 });
+

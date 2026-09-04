@@ -30,6 +30,16 @@ class SocketService {
   private socket: Socket | null = null;
   private isConnected: boolean = false;
   private metricsListeners: ((metrics: AdminMetrics) => void)[] = [];
+  private batchedData: {
+    userId?: string;
+    username?: string;
+    currentTrack?: string;
+    artist?: string;
+    genre?: string;
+    score?: number;
+    hasCamera?: boolean;
+  } | null = null;
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.initSocket();
@@ -40,9 +50,9 @@ class SocketService {
       this.socket = io(SERVER_URL, {
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        timeout: 4000,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 5000,
+        timeout: 5000,
       });
 
       this.socket.on('connect', () => {
@@ -67,7 +77,7 @@ class SocketService {
   }
 
   /**
-   * Register or update client session stats on the server
+   * Register or update client session stats on the server with 2000ms batch buffer
    */
   public reportSession(data: {
     userId?: string;
@@ -78,8 +88,15 @@ class SocketService {
     score?: number;
     hasCamera?: boolean;
   }) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit('client:update_stats', data);
+    this.batchedData = { ...this.batchedData, ...data };
+
+    if (!this.batchTimer) {
+      this.batchTimer = setTimeout(() => {
+        if (this.socket && this.isConnected && this.batchedData) {
+          this.socket.emit('client:update_stats', this.batchedData);
+        }
+        this.batchTimer = null;
+      }, 2000);
     }
   }
 
@@ -250,3 +267,4 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
+

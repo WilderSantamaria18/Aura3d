@@ -110,3 +110,4 @@ export class GamificationEngine {
     this.sessionHighScore = 0;
   }
 }
+
