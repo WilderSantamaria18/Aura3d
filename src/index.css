@@ -148,3 +148,38 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-color: var(--lucid-border) !important;
   box-shadow: 0 0 20px var(--lucid-glow) !important;
 }
+
+/* ── Dynamic Auto Mode (Modo Inteligente) CSS Variables & Utilities ── */
+:root {
+  --color-primary: #00f2fe;
+  --color-secondary: #ff088a;
+  --color-accent: #39FF14;
+  --color-bg: #060812;
+  --color-border: rgba(0, 242, 254, 0.3);
+  --color-shadow: rgba(0, 242, 254, 0.2);
+  --color-glow: rgba(0, 242, 254, 0.35);
+}
+
+.auto-mode-panel {
+  background-color: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+  box-shadow: 0 0 30px var(--color-shadow) !important;
+}
+
+.auto-text-primary {
+  color: var(--color-primary) !important;
+}
+
+.auto-text-secondary {
+  color: var(--color-secondary) !important;
+}
+
+.auto-text-accent {
+  color: var(--color-accent) !important;
+}
+
+.auto-border-glow {
+  border-color: var(--color-border) !important;
+  box-shadow: 0 0 25px var(--color-glow) !important;
+}
+

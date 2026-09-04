@@ -70,6 +70,9 @@ interface PlayerState {
   bassBoomThreshold: number;
   bassBoomIntensity: number;
   autoMode: boolean;
+  autoSensitivity: number;
+  autoPalette: { primary: string; secondary: string; accent: string };
+  autoFeedbackToast: boolean;
   isMicActive: boolean;
   showFrequencyBars: boolean;
   sphereOpacity: number;
@@ -137,6 +140,9 @@ interface PlayerState {
   setBassBoomIntensity: (intensity: number) => void;
   setAutoMode: (autoMode: boolean) => void;
   toggleAutoMode: () => void;
+  setAutoSensitivity: (sensitivity: number) => void;
+  setAutoPalette: (palette: { primary: string; secondary: string; accent: string }) => void;
+  setAutoFeedbackToast: (show: boolean) => void;
   setIsMicActive: (active: boolean) => void;
   setShowFrequencyBars: (show: boolean) => void;
   setSphereOpacity: (opacity: number) => void;
@@ -246,6 +252,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   bassBoomThreshold: 0.45,
   bassBoomIntensity: 1.0,
   autoMode: false,
+  autoSensitivity: 1.0,
+  autoPalette: { primary: '#00f2fe', secondary: '#ff088a', accent: '#39FF14' },
+  autoFeedbackToast: false,
   isMicActive: false,
   showFrequencyBars: false,
   sphereOpacity: 0.9,
@@ -365,8 +374,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setWaveEffectIntensity: (waveEffectIntensity) => set({ waveEffectIntensity }),
   setBassBoomThreshold: (bassBoomThreshold) => set({ bassBoomThreshold }),
   setBassBoomIntensity: (bassBoomIntensity) => set({ bassBoomIntensity }),
-  setAutoMode: (autoMode) => set({ autoMode }),
-  toggleAutoMode: () => set((state) => ({ autoMode: !state.autoMode })),
+  setAutoMode: (autoMode) => set({ autoMode, autoFeedbackToast: autoMode }),
+  toggleAutoMode: () =>
+    set((state) => {
+      const nextMode = !state.autoMode;
+      return { autoMode: nextMode, autoFeedbackToast: nextMode };
+    }),
+  setAutoSensitivity: (autoSensitivity) => set({ autoSensitivity: Math.min(2.5, Math.max(0.1, autoSensitivity)) }),
+  setAutoPalette: (autoPalette) => set({ autoPalette }),
+  setAutoFeedbackToast: (autoFeedbackToast) => set({ autoFeedbackToast }),
   setIsMicActive: (isMicActive) => set({ isMicActive }),
   setShowFrequencyBars: (showFrequencyBars) => set({ showFrequencyBars }),
   setSphereOpacity: (sphereOpacity) => set({ sphereOpacity }),

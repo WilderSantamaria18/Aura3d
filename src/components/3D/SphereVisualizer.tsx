@@ -88,7 +88,9 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const colorLucidPrimary = useMemo(() => new THREE.Color(lucidPrimary), [lucidPrimary]);
     const colorLucidSecondary = useMemo(() => new THREE.Color(lucidSecondary), [lucidSecondary]);
     const tempColor = useMemo(() => new THREE.Color(), []);
-    const autoColor = useMemo(() => new THREE.Color(), []);
+    const autoPrimaryColor = useMemo(() => new THREE.Color('#00f2fe'), []);
+    const autoSecondaryColor = useMemo(() => new THREE.Color('#ff088a'), []);
+    const autoAccentColor = useMemo(() => new THREE.Color('#39FF14'), []);
 
     const activePalette = PROFESSIONAL_PALETTES[currentPaletteIndex] || PROFESSIONAL_PALETTES[0];
     const palColor1 = useMemo(() => new THREE.Color(activePalette.colors[0] || '#39FF14'), [activePalette]);
@@ -329,7 +331,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     // Ultra-smooth animation loop directly manipulating Three.js objects (0 React state re-renders)
     useFrame((state, delta) => {
       // Direct live audio read on every frame (0 frame skip, instant 60 FPS beat reaction)
-      const { bass, mids, highs, energy, raw } = getSmoothedData();
+      const { bass, mids, highs, energy } = getSmoothedData();
       const time = state.clock.getElapsedTime();
 
       // Read freshest store state directly every frame (0-latency tracking reaction)
@@ -375,18 +377,12 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       geometry.setDrawRange(0, activeParticleCount);
       ringGeometry.setDrawRange(0, ringCount);
 
-      // Auto AI Color Mode calculation
+      // Auto Dynamic Harmonic Color Mode from FFT bands
       if (autoMode) {
-        let maxVal = 0;
-        let maxIdx = 0;
-        raw.forEach((v, i) => {
-          if (v > maxVal) {
-            maxVal = v;
-            maxIdx = i;
-          }
-        });
-        const autoHue = (maxIdx / Math.max(1, raw.length)) * 0.85 + 0.15;
-        autoColor.setHSL(autoHue, 1, 0.55 + sEnergy * 0.25);
+        const ap = storeState.autoPalette || { primary: '#00f2fe', secondary: '#ff088a', accent: '#39FF14' };
+        autoPrimaryColor.set(ap.primary);
+        autoSecondaryColor.set(ap.secondary);
+        autoAccentColor.set(ap.accent);
       }
 
       // Animate Main Particles
@@ -546,9 +542,15 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
           // Smooth harmonic colors
           if (autoMode) {
-            colors[i3] = autoColor.r;
-            colors[i3 + 1] = autoColor.g;
-            colors[i3 + 2] = autoColor.b;
+            const heightNorm = (ny + 1) * 0.5;
+            const waveHarmonic = (Math.sin(time * 2.2 + nx * 3.0 + ny * 2.5) + 1) * 0.5;
+            tempColor.copy(autoPrimaryColor).lerp(autoSecondaryColor, heightNorm);
+            if (heightNorm > 0.72 || waveHarmonic > 0.82) {
+              tempColor.lerp(autoAccentColor, (heightNorm - 0.72) * 2.2 + sHighs * 0.35);
+            }
+            colors[i3] = tempColor.r;
+            colors[i3 + 1] = tempColor.g;
+            colors[i3 + 2] = tempColor.b;
           } else if (isLucid) {
             const heightNorm = (ny + 1) * 0.5;
             const waveColor = (Math.sin(time * 2.0 + nx * 2.5 + ny * 2.5) + 1) * 0.5;

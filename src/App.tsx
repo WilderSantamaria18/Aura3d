@@ -15,6 +15,8 @@ import { MiniPlayer } from './components/Player/MiniPlayer';
 import { PoseTracker } from './components/VR/PoseTracker';
 import { GamificationHUD } from './components/Gamification/GamificationHUD';
 import { AdminModal } from './components/Admin/AdminModal';
+import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
+import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePlayerStore } from './stores/playerStore';
@@ -268,8 +270,18 @@ export const App: React.FC = () => {
           </p>
         </div>
       )}
+
+      {/* Auto Color Dynamic Feedback Toast */}
+      <AutoModeToast />
     </div>
   );
 };
 
-export default App;
+export const AppWithProviders: React.FC = () => (
+  <AutoThemeProvider>
+    <App />
+  </AutoThemeProvider>
+);
+
+export default AppWithProviders;
+

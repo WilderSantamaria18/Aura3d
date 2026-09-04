@@ -10,6 +10,9 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
     setVisualizerShape,
     autoMode,
     toggleAutoMode,
+    autoSensitivity,
+    setAutoSensitivity,
+    autoPalette,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -89,19 +92,54 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
         </select>
       </div>
 
-      {/* 2. Auto AI Mode Button */}
-      <button
-        onClick={toggleAutoMode}
-        className={`flex items-center gap-1 px-3 py-1 rounded-full font-medium transition-all ${
-          autoMode
-            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_12px_rgba(0,255,179,0.3)]'
-            : 'bg-white/5 text-white/50 hover:text-white border border-transparent'
-        }`}
-        title="Modo Inteligente: detecta frecuencias y cambia de color automáticamente"
-      >
-        <Bot className="w-3.5 h-3.5" />
-        <span>{autoMode ? 'Auto ON' : 'Auto OFF'}</span>
-      </button>
+      {/* 2. Auto AI Dynamic Color Mode Button */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={toggleAutoMode}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
+            autoMode
+              ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-pink-400/50 shadow-[0_0_15px_rgba(255,8,138,0.35)]'
+              : 'bg-white/5 text-white/50 hover:text-white border border-transparent'
+          }`}
+          title="Modo Inteligente: detecta frecuencias y sincroniza el ecosistema armónicamente"
+        >
+          {autoMode ? (
+            <div className="flex items-center gap-1">
+              <span
+                className="w-2 h-2 rounded-full animate-ping"
+                style={{ backgroundColor: autoPalette.primary }}
+              />
+              <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-pink-400 to-emerald-300">
+                Auto ON
+              </span>
+            </div>
+          ) : (
+            <>
+              <Bot className="w-3.5 h-3.5" />
+              <span>Auto OFF</span>
+            </>
+          )}
+        </button>
+
+        {/* Auto Color Sensitivity Quick Slider (Visible when Auto Mode is ON) */}
+        {autoMode && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 border border-white/10"
+            title="Sensibilidad de Color Armónico"
+          >
+            <span className="text-[10px] text-white/60 font-mono hidden sm:inline">Sens:</span>
+            <input
+              type="range"
+              min="0.2"
+              max="2.5"
+              step="0.1"
+              value={autoSensitivity || 1.0}
+              onChange={(e) => setAutoSensitivity(parseFloat(e.target.value))}
+              className="w-12 sm:w-16 h-1 cursor-pointer accent-pink-400"
+            />
+          </div>
+        )}
+      </div>
 
       {/* 3. Toggle Frequency Bars */}
       <button
