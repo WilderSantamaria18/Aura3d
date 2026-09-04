@@ -10,6 +10,13 @@ export interface HandLandmark {
   z?: number;
 }
 
+export interface PoseLandmark {
+  x: number;
+  y: number;
+  z?: number;
+  visibility?: number;
+}
+
 interface PlayerState {
   // App navigation state
   hasStarted: boolean;
@@ -18,12 +25,17 @@ interface PlayerState {
   isLucid: boolean;
   lucidTheme: LucidTheme;
 
-  // VR Gesture Mode & Sensitivity
+  // VR Gesture Mode & Full Body Dance Pose
   vrMode: boolean;
   handLandmarks: HandLandmark[] | null;
   handGesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null;
   handRotation: { x: number; y: number };
   handSensitivity: number;
+  poseLandmarks: PoseLandmark[] | null;
+  poseVelocity: number;
+  rightHandPos: { x: number; y: number; z: number } | null;
+  leftHandPos: { x: number; y: number; z: number } | null;
+  headPos: { x: number; y: number; z: number } | null;
 
   // Professional Palettes
   currentPaletteIndex: number;
@@ -88,6 +100,9 @@ interface PlayerState {
   setHandGesture: (gesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null) => void;
   setHandRotation: (rotation: { x: number; y: number }) => void;
   setHandSensitivity: (sensitivity: number) => void;
+  setPoseLandmarks: (landmarks: PoseLandmark[] | null) => void;
+  setPoseVelocity: (velocity: number) => void;
+  setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number } | null; leftHand?: { x: number; y: number; z: number } | null; head?: { x: number; y: number; z: number } | null; velocity?: number }) => void;
   setCurrentPaletteIndex: (index: number) => void;
   cyclePalette: () => void;
   setVisualizerMode: (mode: VisualizerMode) => void;
@@ -144,11 +159,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLucid: false,
   lucidTheme: LUCID_THEMES[0],
 
+  // VR Gesture Mode & Full Body Dance Pose
   vrMode: false,
   handLandmarks: null,
-  handGesture: 'open',
+  handGesture: null,
   handRotation: { x: 0, y: 0 },
   handSensitivity: 1.0,
+  poseLandmarks: null,
+  poseVelocity: 0,
+  rightHandPos: null,
+  leftHandPos: null,
+  headPos: null,
 
   currentPaletteIndex: 0,
 
@@ -212,6 +233,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setHandGesture: (handGesture) => set({ handGesture }),
   setHandRotation: (handRotation) => set({ handRotation }),
   setHandSensitivity: (handSensitivity) => set({ handSensitivity }),
+  setPoseLandmarks: (poseLandmarks) => set({ poseLandmarks }),
+  setPoseVelocity: (poseVelocity) => set({ poseVelocity }),
+  setPoseKeypoints: (data) =>
+    set((state) => ({
+      rightHandPos: data.rightHand !== undefined ? data.rightHand : state.rightHandPos,
+      leftHandPos: data.leftHand !== undefined ? data.leftHand : state.leftHandPos,
+      headPos: data.head !== undefined ? data.head : state.headPos,
+      poseVelocity: data.velocity !== undefined ? data.velocity : state.poseVelocity,
+    })),
 
   setCurrentPaletteIndex: (currentPaletteIndex) => set({ currentPaletteIndex }),
   cyclePalette: () => {

@@ -12,7 +12,7 @@ import { LyricsOverlay } from './components/Lyrics/LyricsOverlay';
 import { EqualizerModal } from './components/UI/EqualizerModal';
 import { PlaylistSidebar } from './components/UI/PlaylistSidebar';
 import { MiniPlayer } from './components/Player/MiniPlayer';
-import { HandTracker } from './components/VR/HandTracker';
+import { PoseTracker } from './components/VR/PoseTracker';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { usePlayerStore } from './stores/playerStore';
 import { AlertCircle, UploadCloud } from 'lucide-react';
@@ -217,8 +217,8 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 6. VR Hand Tracker Camera Card */}
-      {hasStarted && <HandTracker />}
+      {/* 6. Full-Body VR Dance & Pose Tracker Camera Card */}
+      {hasStarted && <PoseTracker />}
 
       {/* Error Notification */}
       {error && (

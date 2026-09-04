@@ -26,6 +26,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       handRotation,
       handGesture,
       handLandmarks,
+      poseVelocity,
+      rightHandPos,
+      leftHandPos,
+      headPos,
     } = usePlayerStore();
 
     const pointsRef = useRef<THREE.Points>(null);
@@ -313,14 +317,22 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const positions = positionAttr.array as Float32Array;
         const colors = colorAttr.array as Float32Array;
 
-        // Base continuous rotation (faster in Lucid mode + boost on boom)
+        // Base continuous rotation (faster in Lucid mode + boost on boom + Dance Velocity Speedup)
         const rotMultiplier = isLucid ? 1.8 : 1.0;
-        pointsRef.current.rotation.y += delta * (0.15 + mids * 0.85 + boomPunch * 0.45) * rotMultiplier;
+        const danceSpeedBoost = 1.0 + (poseVelocity || 0) * 0.95;
+        pointsRef.current.rotation.y += delta * (0.15 + mids * 0.85 + boomPunch * 0.45) * rotMultiplier * danceSpeedBoost;
 
-        // VR Hand Tracking: smooth lerp to hand rotation
-        if (vrMode && handRotation) {
-          pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.1;
-          pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.1;
+        // VR Full-Body Dance & Hand Tracking: smooth lerp to keypoints
+        if (vrMode) {
+          if (rightHandPos) {
+            const targetRotY = (0.5 - rightHandPos.x) * 3.5;
+            const targetRotX = (rightHandPos.y - 0.5) * 1.8;
+            pointsRef.current.rotation.y += (targetRotY - pointsRef.current.rotation.y) * 0.12;
+            pointsRef.current.rotation.x += (targetRotX - pointsRef.current.rotation.x) * 0.12;
+          } else if (handRotation) {
+            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.1;
+            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.1;
+          }
         } else {
           pointsRef.current.rotation.x = Math.sin(time * 0.3) * (0.1 + mids * 0.2);
           pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.05 + bass * 0.15);
@@ -333,9 +345,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         // Layer 2: User Multiplier from localStorage (range 0.5x - 2.0x, default 1.0)
         const userMultiplier = sphereRadius || 1.0;
 
-        // Gesture Closed/Fist Boost + Dynamic Subwoofer Pump
+        // Gesture Closed/Fist Boost + Left Hand Subwoofer Boost + Dynamic Subwoofer Pump
         const gestureBoost = (handGesture === 'closed' || handGesture === 'fist') ? 0.35 : 0;
-        const bassPump = 0.75 + Math.pow(bass, 1.08) * (1.15 + (isLucid ? 0.35 : 0)) + boomPunch * 1.25 + gestureBoost;
+        const leftHandBoost = (leftHandPos && leftHandPos.y < 0.45) ? 0.3 : 0;
+        const bassPump = 0.75 + Math.pow(bass, 1.08) * (1.15 + (isLucid ? 0.35 : 0)) + boomPunch * 1.25 + gestureBoost + leftHandBoost;
 
         const finalMeshScale = autoFitBaseScale * userMultiplier * bassPump;
 
@@ -343,9 +356,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         pointsRef.current.scale.set(finalMeshScale, finalMeshScale, finalMeshScale);
 
         if (particleRingRef.current) {
-          const ringScale = autoFitBaseScale * userMultiplier * (1.0 + bass * 0.35 + boomPunch * 0.6);
+          const ringScale = autoFitBaseScale * userMultiplier * (1.0 + bass * 0.35 + boomPunch * 0.6 + leftHandBoost * 0.5);
           particleRingRef.current.scale.set(ringScale, ringScale, ringScale);
         }
+
+        const headYOffset = headPos ? (0.5 - headPos.y) * 0.15 : 0;
 
         for (let i = 0; i < particleCount; i++) {
           const i3 = i * 3;
@@ -357,7 +372,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const iz = initialPositions[i3 + 2];
 
           let px = ix;
-          let py = iy;
+          let py = iy + headYOffset;
           let pz = iz;
 
           // Idle organic breathing component (keeps shapes alive even in silence)

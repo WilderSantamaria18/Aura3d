@@ -199,7 +199,7 @@ export const HeaderBar: React.FC = () => {
         {/* Lucid Mode Toggle */}
         <LucidToggle />
 
-        {/* VR Hand Tracking Toggle */}
+        {/* Full Body VR Dance & Pose Tracking Toggle */}
         <button
           onClick={toggleVrMode}
           className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-1.5 ${
@@ -207,10 +207,10 @@ export const HeaderBar: React.FC = () => {
               ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-[0_0_15px_rgba(0,255,179,0.4)] animate-pulse'
               : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
           }`}
-          title={vrMode ? 'Desactivar Control VR con Manos' : 'Activar Control VR Gestual con Manos'}
+          title={vrMode ? 'Desactivar VR Danza (Cuerpo Completo)' : 'Activar VR Danza con Cuerpo Completo (MediaPipe Pose 33P)'}
         >
           <Camera className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{vrMode ? 'VR ON' : 'VR OFF'}</span>
+          <span className="hidden sm:inline">{vrMode ? 'VR DANCE ON' : 'VR DANCE'}</span>
         </button>
 
         {/* System Audio Screen / Tab Capture */}
