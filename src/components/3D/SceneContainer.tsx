@@ -33,14 +33,19 @@ export const SceneContainer: React.FC = React.memo(() => {
       <Canvas
         camera={{ position: [0, 0, 6.2], fov: 50 }}
         gl={{
-          antialias: !device.isLowEnd,
+          antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
           stencil: false,
           depth: true,
         }}
-        dpr={[1, device.maxDpr]}
+        dpr={[0.8, 1.5]}
         resize={{ debounce: 0, scroll: false }}
+        onCreated={({ gl }) => {
+          gl.setClearColor(new THREE.Color('#060812'), 1.0);
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.0;
+        }}
       >
         <ResponsiveCameraController />
         <color attach="background" args={['#060812']} />

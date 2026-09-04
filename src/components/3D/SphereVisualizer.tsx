@@ -10,6 +10,9 @@ interface SphereVisualizerProps {
   particleCount?: number;
 }
 
+const MAX_PARTICLES = 2400;
+const MAX_RINGS = 1200;
+
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
     const {
@@ -38,15 +41,15 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       ringParticleBudget,
     } = usePerformanceMonitor();
 
-    const activeParticleCount = Math.min(particleCount, particleBudget);
-    const ringCount = ringParticleBudget;
+    const activeParticleCount = Math.min(particleCount, particleBudget, MAX_PARTICLES);
+    const ringCount = Math.min(ringParticleBudget, MAX_RINGS);
 
     const groupRef = useRef<THREE.Group>(null);
     const pointsRef = useRef<THREE.Points>(null);
     const particleRingRef = useRef<THREE.Points>(null);
     const frameCounterRef = useRef(0);
-    const smoothScaleRef = useRef(1.0);
-    const smoothRingScaleRef = useRef(1.0);
+    const smoothScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+    const smoothRingScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
 
     // Audio smoothing filters (Exponential Moving Averages) for natural, fluid motion
     const smoothedBassRef = useRef(0);
@@ -83,14 +86,45 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const palColor2 = useMemo(() => new THREE.Color(activePalette.colors[1] || '#00E5FF'), [activePalette]);
     const palColor3 = useMemo(() => new THREE.Color(activePalette.colors[2] || '#9D00FF'), [activePalette]);
 
-    // Generate normalized base points (Unit Scale = 1.0)
-    // NEVER reallocated on sphereRadius or volume changes!
+    // Pre-allocated static PointsMaterials with depthWrite: false to eliminate Z-fighting
+    const mainMaterial = useMemo(
+      () =>
+        new THREE.PointsMaterial({
+          size: 0.052,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: true,
+          sizeAttenuation: true,
+        }),
+      []
+    );
+
+    const ringMaterial = useMemo(
+      () =>
+        new THREE.PointsMaterial({
+          size: 0.038,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.8,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: true,
+          sizeAttenuation: true,
+        }),
+      []
+    );
+
+    // Generate normalized base points for MAX_PARTICLES (Unit Scale = 1.0)
+    // Only re-runs when the visualizer geometry shape changes!
     const { initialPositions, baseNormals } = useMemo(() => {
-      const positions = new Float32Array(activeParticleCount * 3);
-      const normals = new Float32Array(activeParticleCount * 3);
+      const positions = new Float32Array(MAX_PARTICLES * 3);
+      const normals = new Float32Array(MAX_PARTICLES * 3);
       const phi = Math.PI * (Math.sqrt(5) - 1); // Golden angle
 
-      for (let i = 0; i < activeParticleCount; i++) {
+      for (let i = 0; i < MAX_PARTICLES; i++) {
         let x = 0, y = 0, z = 0;
         let nx = 0, ny = 0, nz = 0;
 
@@ -100,7 +134,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const ringRadii = [0.65, 0.9, 1.15, 1.4, 1.65];
           const ringR = ringRadii[ringIdx] * 0.8;
           const tubeR = 0.05;
-          const u = (Math.floor(i / 5) / (activeParticleCount / 5)) * Math.PI * 2;
+          const u = (Math.floor(i / 5) / (MAX_PARTICLES / 5)) * Math.PI * 2;
           const v = ((i % 24) / 24) * Math.PI * 2;
           const tilt = ringIdx * (Math.PI / 5);
 
@@ -116,7 +150,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'spikes') {
           // Radial spikes: core sphere with 64 spikes
-          const yVal = 1 - (i / Math.max(1, activeParticleCount - 1)) * 2;
+          const yVal = 1 - (i / (MAX_PARTICLES - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           nx = Math.cos(theta) * radiusAtY;
@@ -140,7 +174,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'torus') {
-          const u = (i / activeParticleCount) * Math.PI * 2 * 12;
+          const u = (i / MAX_PARTICLES) * Math.PI * 2 * 12;
           const v = ((i % 80) / 80) * Math.PI * 2;
           const R = 0.9;
           const r = 0.38;
@@ -150,7 +184,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
         } else if (visualizerShape === 'icosahedron' || visualizerShape === 'octahedron') {
-          const yVal = 1 - (i / Math.max(1, activeParticleCount - 1)) * 2;
+          const yVal = 1 - (i / (MAX_PARTICLES - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           x = Math.cos(theta) * radiusAtY;
@@ -166,7 +200,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = x / len; ny = y / len; nz = z / len;
           x = nx * 1.0; y = ny * 1.0; z = nz * 1.0;
         } else if (visualizerShape === 'wave') {
-          const gridSize = Math.floor(Math.sqrt(activeParticleCount)) || 45;
+          const gridSize = Math.floor(Math.sqrt(MAX_PARTICLES)) || 45;
           const row = Math.floor(i / gridSize);
           const col = i % gridSize;
           x = ((col - gridSize / 2) / (gridSize / 2)) * 1.6;
@@ -175,7 +209,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           nx = 0; ny = 1; nz = 0;
         } else {
           // Default Fibonacci Crystalline Sphere
-          const yVal = 1 - (i / Math.max(1, activeParticleCount - 1)) * 2;
+          const yVal = 1 - (i / (MAX_PARTICLES - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
           x = Math.cos(theta) * radiusAtY;
@@ -198,15 +232,15 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
 
       return { initialPositions: positions, baseNormals: normals };
-    }, [activeParticleCount, visualizerShape]);
+    }, [visualizerShape]);
 
-    // Buffer geometry for main shape particles
+    // Permanent single BufferGeometry with dynamic setDrawRange (0 shader recompilations)
     const { geometry } = useMemo(() => {
       const geo = new THREE.BufferGeometry();
       const posArray = new Float32Array(initialPositions);
-      const colArray = new Float32Array(activeParticleCount * 3);
+      const colArray = new Float32Array(MAX_PARTICLES * 3);
 
-      for (let i = 0; i < activeParticleCount; i++) {
+      for (let i = 0; i < MAX_PARTICLES; i++) {
         const t = (posArray[i * 3 + 1] + 1) * 0.5;
         tempColor.copy(colorCyan).lerp(colorMagenta, t);
         colArray[i * 3] = tempColor.r;
@@ -216,17 +250,18 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
       geo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(colArray, 3));
+      geo.setDrawRange(0, activeParticleCount);
       return { geometry: geo };
-    }, [initialPositions, activeParticleCount, colorCyan, colorMagenta, tempColor]);
+    }, [initialPositions, colorCyan, colorMagenta, tempColor]);
 
-    // Dynamic Concentric Cosmic Sand Particle Rings (Organic FFT Bars)
-    const { ringPositions, ringBasePositions, ringColors } = useMemo(() => {
-      const positions = new Float32Array(ringCount * 3);
-      const basePositions = new Float32Array(ringCount * 3);
-      const colors = new Float32Array(ringCount * 3);
+    // Permanent single BufferGeometry for Concentric Rings
+    const { ringBasePositions, ringGeometry } = useMemo(() => {
+      const positions = new Float32Array(MAX_RINGS * 3);
+      const basePositions = new Float32Array(MAX_RINGS * 3);
+      const colors = new Float32Array(MAX_RINGS * 3);
 
-      for (let i = 0; i < ringCount; i++) {
-        const rad = 1.2 + Math.random() * 1.8;
+      for (let i = 0; i < MAX_RINGS; i++) {
+        const rad = 1.35 + Math.random() * 1.75; // Offset > 1.35 to eliminate Z-fighting with core (1.0)
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
 
@@ -249,30 +284,30 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         colors[i * 3 + 2] = tempColor.b;
       }
 
-      return { ringPositions: positions, ringBasePositions: basePositions, ringColors: colors };
-    }, [ringCount, colorCyan, colorEmerald, tempColor]);
-
-    const { ringGeometry } = useMemo(() => {
       const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ringPositions), 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(ringColors), 3));
-      return { ringGeometry: geo };
-    }, [ringPositions, ringColors]);
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+      geo.setDrawRange(0, ringCount);
 
+      return {
+        ringPositions: positions,
+        ringBasePositions: basePositions,
+        ringColors: colors,
+        ringGeometry: geo,
+      };
+    }, [colorCyan, colorEmerald, tempColor]);
+
+    // Cleanup resources on unmount
     useEffect(() => {
       return () => {
         geometry.dispose();
         ringGeometry.dispose();
-        if (pointsRef.current) {
-          (pointsRef.current.material as THREE.Material)?.dispose();
-        }
-        if (particleRingRef.current) {
-          (particleRingRef.current.material as THREE.Material)?.dispose();
-        }
+        mainMaterial.dispose();
+        ringMaterial.dispose();
       };
-    }, [geometry, ringGeometry]);
+    }, [geometry, ringGeometry, mainMaterial, ringMaterial]);
 
-    // High performance animation loop with smooth audio filtering & natural harmonic motion
+    // Ultra-smooth animation loop directly manipulating Three.js objects (0 React state re-renders)
     useFrame((state, delta) => {
       frameCounterRef.current++;
       if (frameCounterRef.current % 2 === 0) {
@@ -281,7 +316,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const { bass, mids, highs, energy, raw } = cachedAudioRef.current;
       const time = state.clock.getElapsedTime();
 
-      // Exponential moving average filter for smooth, organic physics without jarring jitter
+      // Exponential moving average filter for natural organic motion
       smoothedBassRef.current += (bass - smoothedBassRef.current) * 0.16;
       smoothedMidsRef.current += (mids - smoothedMidsRef.current) * 0.16;
       smoothedHighsRef.current += (highs - smoothedHighsRef.current) * 0.16;
@@ -291,6 +326,17 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sMids = smoothedMidsRef.current;
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
+
+      // Update material properties directly without triggering React re-renders
+      mainMaterial.opacity = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
+      mainMaterial.size = isLucid ? 0.058 : isUltraEco ? 0.065 : isEco ? 0.056 : 0.048;
+
+      ringMaterial.opacity = isLucid ? 0.95 : 0.8;
+      ringMaterial.size = isLucid ? 0.042 : isUltraEco ? 0.046 : isEco ? 0.040 : 0.035;
+
+      // Update draw range instantly with 0 shader recompilation
+      geometry.setDrawRange(0, activeParticleCount);
+      ringGeometry.setDrawRange(0, ringCount);
 
       // Auto AI Color Mode calculation
       if (autoMode) {
@@ -306,7 +352,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         autoColor.setHSL(autoHue, 1, 0.55 + sEnergy * 0.25);
       }
 
-      // Animate Main Particles + VR Gesture Control
+      // Animate Main Particles
       if (pointsRef.current) {
         const positionAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
         const colorAttr = pointsRef.current.geometry.attributes.color as THREE.BufferAttribute;
@@ -329,7 +375,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.04 + sBass * 0.1);
         }
 
-        // Layer 1: Auto-Fit Base Scale (responsive for desktop and mobile)
+        // Layer 1: Auto-Fit Base Scale
         const shortestSide = Math.min(state.size.width, state.size.height);
         const autoFitBaseScale = Math.max(0.85, Math.min(1.4, shortestSide / 620));
 
@@ -341,15 +387,14 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         const leftHandBoost = (vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0) ? 0.25 : 0;
         const bassPump = 0.92 + Math.pow(sBass, 1.1) * (0.32 + (isLucid ? 0.15 : 0)) + gestureBoost + leftHandBoost;
 
-        const targetScale = autoFitBaseScale * userMultiplier * bassPump;
-        smoothScaleRef.current += (targetScale - smoothScaleRef.current) * 0.14;
-
-        pointsRef.current.scale.set(smoothScaleRef.current, smoothScaleRef.current, smoothScaleRef.current);
+        const targetScaleVal = autoFitBaseScale * userMultiplier * bassPump;
+        smoothScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
+        pointsRef.current.scale.lerp(smoothScaleVec, 0.14);
 
         if (particleRingRef.current) {
-          const targetRingScale = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3);
-          smoothRingScaleRef.current += (targetRingScale - smoothRingScaleRef.current) * 0.14;
-          particleRingRef.current.scale.set(smoothRingScaleRef.current, smoothRingScaleRef.current, smoothRingScaleRef.current);
+          const targetRingScaleVal = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3);
+          smoothRingScaleVec.set(targetRingScaleVal, targetRingScaleVal, targetRingScaleVal);
+          particleRingRef.current.scale.lerp(smoothRingScaleVec, 0.14);
         }
 
         const headYOffset = headPos ? (headPos.y / 6) * 0.15 : 0;
@@ -484,31 +529,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     return (
       <group ref={groupRef}>
         {/* Main 3D Shape Particles */}
-        <points ref={pointsRef} geometry={geometry}>
-          <pointsMaterial
-            size={isLucid ? 0.058 : isUltraEco ? 0.065 : isEco ? 0.056 : 0.048}
-            vertexColors={true}
-            transparent={true}
-            opacity={isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity}
-            blending={THREE.AdditiveBlending}
-            depthWrite={false}
-            sizeAttenuation={true}
-          />
-        </points>
+        <points ref={pointsRef} geometry={geometry} material={mainMaterial} />
 
         {/* Concentric Cosmic Sand Particle Rings (Shown only when 3D Bars are toggled ON) */}
         {showFrequencyBars && (
-          <points ref={particleRingRef} geometry={ringGeometry}>
-            <pointsMaterial
-              size={isLucid ? 0.042 : isUltraEco ? 0.046 : isEco ? 0.040 : 0.035}
-              vertexColors={true}
-              transparent={true}
-              opacity={isLucid ? 0.95 : 0.8}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              sizeAttenuation={true}
-            />
-          </points>
+          <points ref={particleRingRef} geometry={ringGeometry} material={ringMaterial} />
         )}
       </group>
     );

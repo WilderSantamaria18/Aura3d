@@ -195,7 +195,7 @@ const SphereWithBars: React.FC<{
   );
 };
 
-export const Visualizer3D: React.FC<Visualizer3DProps> = ({
+export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
   frequencyData,
   isCapturing,
   sphereColor = '#00f2fe',
@@ -209,7 +209,19 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = ({
     <div className="relative w-full h-full min-h-[360px] bg-[#060814] rounded-3xl overflow-hidden shadow-2xl border border-white/10">
       <Canvas
         camera={{ position: [0, 1.2, 4.5], fov: 55 }}
-        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
+        gl={{
+          antialias: true,
+          alpha: false,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: true,
+        }}
+        dpr={[0.8, 1.5]}
+        onCreated={({ gl }) => {
+          gl.setClearColor(new THREE.Color('#050713'), 1.0);
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.0;
+        }}
       >
         <color attach="background" args={['#050713']} />
         <OrbitControls
@@ -238,7 +250,7 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default Visualizer3D;
 

@@ -67,7 +67,7 @@ export const usePerformanceMonitor = () => {
   const [performanceMode, setPerformanceMode] = useState<PerformanceTier>(
     hardwareInfo.current.isIntegrated ? 'eco' : 'high'
   );
-  const [fps, setFps] = useState<number>(60);
+  const fpsRef = useRef<number>(60);
 
   const frameCount = useRef(0);
   const lastFpsCheck = useRef(performance.now());
@@ -91,7 +91,7 @@ export const usePerformanceMonitor = () => {
     }
   }, []);
 
-  // Frame counting in Three.js animation cycle
+  // Frame counting in Three.js animation cycle without triggering React re-renders every second
   useFrame(() => {
     frameCount.current += 1;
     const now = performance.now();
@@ -100,7 +100,7 @@ export const usePerformanceMonitor = () => {
       const currentFps = frameCount.current;
       frameCount.current = 0;
       lastFpsCheck.current = now;
-      setFps(currentFps);
+      fpsRef.current = currentFps;
 
       fpsHistory.current.push(currentFps);
       if (fpsHistory.current.length > 5) fpsHistory.current.shift();
@@ -135,12 +135,12 @@ export const usePerformanceMonitor = () => {
   const isUltraEco = performanceMode === 'ultra_eco';
 
   const particleBudget = isUltraEco ? 500 : isEco ? 1200 : 2400;
-  const ringParticleBudget = isUltraEco ? 300 : isEco ? 800 : 2000;
+  const ringParticleBudget = isUltraEco ? 300 : isEco ? 800 : 1200;
   const enableComplexEffects = !isEco;
 
   return {
     performanceMode,
-    fps,
+    fps: fpsRef.current,
     isIntegratedGpu: hardwareInfo.current.isIntegrated,
     isMobile: hardwareInfo.current.isMobile,
     isEco,
