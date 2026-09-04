@@ -3,7 +3,6 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SphereVisualizer } from './SphereVisualizer';
-import { WaveEffect } from './WaveEffect';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 
 // ── Responsive Camera Controller (Auto-fits sphere to ~70% center on any aspect ratio) ──
@@ -62,9 +61,6 @@ export const SceneContainer: React.FC = React.memo(() => {
 
         {/* 3D Crystalline Particle Sphere */}
         <SphereVisualizer particleCount={device.particleCount} />
-
-        {/* 3D Dynamic Particle Wave Effect */}
-        <WaveEffect particleCount={device.waveParticleCount} />
 
         {/* User Orbit Controls */}
         <OrbitControls

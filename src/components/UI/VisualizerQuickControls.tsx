@@ -1,15 +1,13 @@
 import React from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { Activity, CircleDot, Eye, Bot, Shapes, Waves } from 'lucide-react';
-import type { VisualizerShape, WaveEffectMode } from '../../types/audio';
+import { Activity, CircleDot, Eye, Bot, Shapes } from 'lucide-react';
+import type { VisualizerShape } from '../../types/audio';
 
 export const VisualizerQuickControls: React.FC = React.memo(() => {
   const {
     visualizerMode,
     visualizerShape,
     setVisualizerShape,
-    waveEffectMode,
-    setWaveEffectMode,
     autoMode,
     toggleAutoMode,
     isLucid,
@@ -54,29 +52,6 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
           <option value="wave" className="bg-[#0b0e1b] text-white">Onda Sinusoidal 3D</option>
           <option value="icosahedron" className="bg-[#0b0e1b] text-white">Icosaedro Sagrado</option>
           <option value="octahedron" className="bg-[#0b0e1b] text-white">Octaedro Cuántico</option>
-        </select>
-      </div>
-
-      {/* 2. Wave Effect Selector Dropdown */}
-      <div
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
-          isLucid
-            ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300'
-            : 'bg-white/5 border-white/5 text-pink-400'
-        }`}
-      >
-        <Waves className="w-3.5 h-3.5" />
-        <select
-          value={waveEffectMode}
-          onChange={(e) => setWaveEffectMode(e.target.value as WaveEffectMode)}
-          className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer"
-          title="Modo de Onda 3D alrededor de la esfera"
-        >
-          <option value="concentric" className="bg-[#0b0e1b] text-white">Onda Concéntrica</option>
-          <option value="sinusoidal" className="bg-[#0b0e1b] text-white">Onda Sinusoidal</option>
-          <option value="spiral" className="bg-[#0b0e1b] text-white">Onda Espiral</option>
-          <option value="void" className="bg-[#0b0e1b] text-white">Onda Void</option>
-          <option value="off" className="bg-[#0b0e1b] text-white">Sin Ondas</option>
         </select>
       </div>
 

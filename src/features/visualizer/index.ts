@@ -4,7 +4,6 @@
  */
 export * from '../../components/3D/SceneContainer';
 export * from '../../components/3D/SphereVisualizer';
-export * from '../../components/3D/WaveEffect';
 export * from '../../components/Visualizers/RainbowBlobVisualizer';
 export * from '../../components/Visualizers/PartyVisualizer';
 export * from '../../components/UI/VisualizerQuickControls';

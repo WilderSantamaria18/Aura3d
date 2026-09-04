@@ -217,7 +217,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   bassBoomIntensity: 1.0,
   autoMode: false,
   isMicActive: false,
-  showFrequencyBars: true,
+  showFrequencyBars: false,
   sphereOpacity: 0.9,
   sphereRadius: StorageService.getSphereScale(),
 

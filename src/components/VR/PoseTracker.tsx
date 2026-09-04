@@ -73,7 +73,9 @@ export const PoseTracker: React.FC = () => {
     setHandGesture,
     setPoseKeypoints,
     setHandRotation,
+    sphereOpacity,
     setSphereOpacity,
+    sphereRadius,
     setSphereRadius,
     isLucid,
     lucidTheme,
@@ -99,6 +101,9 @@ export const PoseTracker: React.FC = () => {
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isNoDetection, setIsNoDetection] = useState(false);
   const [isSleeping, setIsSleeping] = useState(false);
+
+  const pinchRadiusRef = useRef<number>(1.0);
+  const lastEmittedRadiusRef = useRef<number>(1.0);
 
   const lastProcessTimeRef = useRef<number>(0);
   const lastDetectionTimeRef = useRef<number>(Date.now());
@@ -399,12 +404,6 @@ export const PoseTracker: React.FC = () => {
         setDanceEnergy(velocity);
         setHandRotation(rotation);
 
-        // Head height adjusts sphere lumens/opacity
-        if (head) {
-          const dynamicOpacity = Math.max(0.45, Math.min(1.0, 0.75 + (head.y / 6) * 0.35));
-          setSphereOpacity(dynamicOpacity);
-        }
-
         setPoseKeypoints({
           rightHand,
           leftHand,
@@ -456,15 +455,19 @@ export const PoseTracker: React.FC = () => {
               lastGestureActionTime.current = now;
             }
           } else if (gesture === 'pinch') {
-            // Smooth zoom: thumb and index distance modulates radius
+            // Smooth zoom: thumb and index distance modulates radius without frame drops
             const thumb = rawLandmarks[4];
             const index = rawLandmarks[8];
             if (thumb && index) {
               const dx = thumb.x - index.x;
               const dy = thumb.y - index.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
-              const targetRadius = Math.max(0.5, Math.min(2.0, 0.6 + dist * 5.0));
-              setSphereRadius(targetRadius);
+              const targetRadius = Math.max(0.6, Math.min(2.2, 0.5 + dist * 5.0));
+              pinchRadiusRef.current += (targetRadius - pinchRadiusRef.current) * 0.25;
+              if (Math.abs(pinchRadiusRef.current - lastEmittedRadiusRef.current) > 0.02) {
+                lastEmittedRadiusRef.current = pinchRadiusRef.current;
+                setSphereRadius(pinchRadiusRef.current);
+              }
             }
           }
 
@@ -886,9 +889,43 @@ export const PoseTracker: React.FC = () => {
 
         {/* Quick Settings Panel */}
         {showSettings && (
-          <div className="p-3 bg-black/85 border-t border-white/10 space-y-2.5 text-[10px] font-mono text-white/70">
+          <div className="p-3 bg-black/90 border-t border-white/10 space-y-3 text-[10px] font-mono text-white/70 animate-in fade-in duration-150">
+            {/* 1. Opacity Slider */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-white/90">Opacidad Esfera 3D:</span>
+                <span className="text-cyan-300 font-bold">{Math.round(sphereOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={sphereOpacity}
+                onChange={(e) => setSphereOpacity(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-white/20 rounded-lg cursor-pointer accent-cyan-400"
+              />
+            </div>
+
+            {/* 2. Radius / Scale Slider */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-white/90">Radio / Escala 3D:</span>
+                <span className="text-pink-300 font-bold">{sphereRadius.toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min="0.6"
+                max="2.2"
+                step="0.05"
+                value={sphereRadius}
+                onChange={(e) => setSphereRadius(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-white/20 rounded-lg cursor-pointer accent-pink-500"
+              />
+            </div>
+
             {vrTrackingMode === 'body' ? (
-              <>
+              <div className="pt-1 space-y-1 border-t border-white/10">
                 <div className="flex items-center justify-between">
                   <span>Mano Derecha (X):</span>
                   <span className="text-cyan-300 font-semibold">Rotación 3D Y</span>
@@ -898,16 +935,12 @@ export const PoseTracker: React.FC = () => {
                   <span className="text-pink-400 font-semibold">Pulso Subwoofer</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Cabeza (Y):</span>
-                  <span className="text-yellow-300 font-semibold">Brillo / Lumens</span>
-                </div>
-                <div className="flex items-center justify-between">
                   <span>Velocidad de Danza:</span>
                   <span className="text-emerald-300 font-semibold">Acelera Partículas</span>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="space-y-2 pt-1 border-t border-white/10">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Sensibilidad Giro:</span>
@@ -923,19 +956,19 @@ export const PoseTracker: React.FC = () => {
                     className="w-full h-1 bg-white/20 rounded-lg cursor-pointer accent-emerald-400"
                   />
                 </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span>Pantalla Completa:</span>
-                  <button
-                    onClick={toggleFullscreen}
-                    className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1"
-                  >
-                    <Maximize2 className="w-2.5 h-2.5" />
-                    <span>Fullscreen</span>
-                  </button>
-                </div>
-              </>
+              </div>
             )}
+
+            <div className="flex items-center justify-between pt-1 border-t border-white/10">
+              <span>Pantalla Completa:</span>
+              <button
+                onClick={toggleFullscreen}
+                className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1 hover:bg-cyan-500/30 transition-all"
+              >
+                <Maximize2 className="w-2.5 h-2.5" />
+                <span>Fullscreen</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

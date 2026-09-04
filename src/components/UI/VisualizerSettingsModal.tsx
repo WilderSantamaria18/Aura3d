@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   X,
   Shapes,
-  Waves,
   Sliders,
   Palette,
   Eye,
@@ -10,12 +9,10 @@ import {
   Bot,
   Activity,
   Check,
-  Zap,
-  Flame,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES, LUCID_THEMES } from '../../types/audio';
-import type { VisualizerShape, WaveEffectMode } from '../../types/audio';
+import type { VisualizerShape } from '../../types/audio';
 
 const SHAPES_CATALOG: { id: VisualizerShape; name: string; desc: string; tag: string }[] = [
   {
@@ -27,25 +24,25 @@ const SHAPES_CATALOG: { id: VisualizerShape; name: string; desc: string; tag: st
   {
     id: 'rings',
     name: 'Anillos Concéntricos',
-    desc: '5 anillos orbitales toroides que se expanden, contraen y oscilan al ritmo de los bombos.',
+    desc: '5 anillos orbitales toroides que oscilan suavemente al ritmo de la música.',
     tag: 'ORBITAL',
   },
   {
     id: 'spikes',
     name: 'Picos Radiales',
-    desc: 'Geometría erizo con picos que se alargan y proyectan con los bajos y agudos.',
+    desc: 'Geometría erizo con picos que se expanden con los bajos y agudos de forma orgánica.',
     tag: 'RADIAL',
   },
   {
     id: 'cloud',
     name: 'Nube de Partículas',
-    desc: 'Enjambre 3D browniano que se condensa con los graves y se dispersa en el espacio.',
+    desc: 'Enjambre 3D browniano que se condensa y dispersa suavemente en el espacio.',
     tag: 'SWARM',
   },
   {
     id: 'torus',
     name: 'Toroide 3D',
-    desc: 'Dona / Rosca toroidal con deformación de grosor y doble eje de rotación.',
+    desc: 'Dona / Rosca toroidal con deformación de grosor y rotación espacial.',
     tag: 'TORUS',
   },
   {
@@ -68,48 +65,12 @@ const SHAPES_CATALOG: { id: VisualizerShape; name: string; desc: string; tag: st
   },
 ];
 
-const WAVES_CATALOG: { id: WaveEffectMode; name: string; desc: string }[] = [
-  {
-    id: 'concentric',
-    name: 'Onda Concéntrica',
-    desc: 'Anillos esféricos anidados que se expanden hacia el espacio pulsando con los bajos.',
-  },
-  {
-    id: 'sinusoidal',
-    name: 'Onda Sinusoidal',
-    desc: 'Cortina ondulante vertical que fluye suavemente alrededor de la figura.',
-  },
-  {
-    id: 'spiral',
-    name: 'Onda Espiral',
-    desc: 'Brazos de vórtice en espiral que giran y se deforman con los agudos y medios.',
-  },
-  {
-    id: 'void',
-    name: 'Onda Void Aura',
-    desc: 'Aura de vacío cósmico con respiración y expansión profunda.',
-  },
-  {
-    id: 'off',
-    name: 'Sin Ondas',
-    desc: 'Desactiva el aura de ondas circundante con desvanecimiento suave.',
-  },
-];
-
 export const VisualizerSettingsModal: React.FC = () => {
   const {
     isVisualizerSettingsOpen,
     setVisualizerSettingsOpen,
     visualizerShape,
     setVisualizerShape,
-    waveEffectMode,
-    setWaveEffectMode,
-    waveEffectIntensity,
-    setWaveEffectIntensity,
-    bassBoomThreshold,
-    setBassBoomThreshold,
-    bassBoomIntensity,
-    setBassBoomIntensity,
     sphereRadius,
     setSphereRadius,
     sphereOpacity,
@@ -126,7 +87,7 @@ export const VisualizerSettingsModal: React.FC = () => {
     toggleLucidMode,
   } = usePlayerStore();
 
-  const [activeTab, setActiveTab] = useState<'shapes' | 'waves' | 'params' | 'colors'>('shapes');
+  const [activeTab, setActiveTab] = useState<'shapes' | 'params' | 'colors'>('shapes');
 
   if (!isVisualizerSettingsOpen) return null;
 
@@ -145,7 +106,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 Configuración del Visualizador 3D
               </h3>
               <p className="text-[10px] font-mono text-cyan-400/60 uppercase tracking-widest">
-                FORMAS · ONDAS · BASS BOOM · PARÁMETROS · COLOR
+                FORMAS · PARÁMETROS & ESCALA · PALETAS & COLOR
               </p>
             </div>
           </div>
@@ -162,8 +123,7 @@ export const VisualizerSettingsModal: React.FC = () => {
         <div className="flex border-b border-white/8 px-6 bg-black/40 flex-shrink-0">
           {[
             { id: 'shapes', label: 'Formas 3D', icon: Shapes },
-            { id: 'waves', label: 'Efectos de Onda', icon: Waves },
-            { id: 'params', label: 'Bajos & Parámetros', icon: Sliders },
+            { id: 'params', label: 'Parámetros & Escala', icon: Sliders },
             { id: 'colors', label: 'Paletas & Color', icon: Palette },
           ].map(({ id, label, icon: Icon }) => (
             <button
@@ -238,139 +198,15 @@ export const VisualizerSettingsModal: React.FC = () => {
             </div>
           )}
 
-          {/* ── 2. TAB: WAVES ─────────────────────────────────────────── */}
-          {activeTab === 'waves' && (
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <span className="text-xs font-mono text-cyan-400/80 uppercase tracking-wider block">
-                  Efectos de Onda Envolvente:
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {WAVES_CATALOG.map((wave) => {
-                    const isSelected = waveEffectMode === wave.id;
-                    return (
-                      <div
-                        key={wave.id}
-                        onClick={() => setWaveEffectMode(wave.id)}
-                        className={`p-4 rounded-2xl cursor-pointer border transition-all relative flex flex-col justify-between gap-2 ${
-                          isSelected
-                            ? 'bg-pink-500/15 border-pink-400/60 shadow-[0_0_20px_rgba(255,8,138,0.25)] text-pink-200'
-                            : 'bg-white/[0.03] border-white/8 hover:bg-white/[0.07] text-white/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className={`text-xs font-semibold ${isSelected ? 'text-pink-300' : 'text-white'}`}>
-                            {wave.name}
-                          </h4>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-pink-400" />}
-                        </div>
-                        <p className="text-[11px] text-white/50 leading-relaxed">
-                          {wave.desc}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Wave Intensity Slider */}
-              <div className="p-4 bg-white/[0.02] border border-white/8 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-white flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5 text-pink-400" />
-                    Intensidad de Ondas
-                  </span>
-                  <span className="text-xs font-mono text-pink-300">
-                    {Math.round(waveEffectIntensity * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1.8"
-                  step="0.05"
-                  value={waveEffectIntensity}
-                  onChange={(e) => setWaveEffectIntensity(parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ── 3. TAB: PARAMS & BASS BOOM ────────────────────────────── */}
+          {/* ── 2. TAB: PARAMS & SCALE ─────────────────────────────────── */}
           {activeTab === 'params' && (
             <div className="space-y-5">
-              {/* Sección Especial: Calibración del Bass Boom */}
-              <div className="p-4 bg-gradient-to-br from-pink-500/10 via-purple-500/5 to-cyan-500/10 border border-pink-500/30 rounded-2xl space-y-4 shadow-[0_0_20px_rgba(255,8,138,0.15)]">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <span className="text-xs font-medium text-white flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-pink-400" />
-                    Calibración del Impacto Bass Boom
-                  </span>
-                  <span className="text-[10px] font-mono text-pink-300 tracking-wider uppercase">
-                    PUNCH · ONDAS DE CHOQUE
-                  </span>
-                </div>
-
-                {/* Sensibilidad / Umbral de disparo */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/80">
-                      Sensibilidad al Disparo (Umbral de Bajo):
-                    </span>
-                    <span className="text-xs font-mono text-pink-300">
-                      {Math.round((1 - (bassBoomThreshold ?? 0.45)) * 100)}% ({bassBoomThreshold.toFixed(2)})
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.20"
-                    max="0.80"
-                    step="0.02"
-                    value={bassBoomThreshold}
-                    onChange={(e) => setBassBoomThreshold(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
-                  />
-                  <div className="flex justify-between text-[9px] font-mono text-white/40">
-                    <span>Fácil / Muy Sensible</span>
-                    <span>Solo Graves Fuertes</span>
-                  </div>
-                </div>
-
-                {/* Potencia / Multiplicador de impacto */}
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/80">
-                      Potencia del Golpe Explosivo:
-                    </span>
-                    <span className="text-xs font-mono text-cyan-300">
-                      {Math.round(bassBoomIntensity * 100)}% ({bassBoomIntensity.toFixed(1)}x)
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.0"
-                    max="2.0"
-                    step="0.05"
-                    value={bassBoomIntensity}
-                    onChange={(e) => setBassBoomIntensity(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[9px] font-mono text-white/40">
-                    <span>0% (Sin Boom)</span>
-                    <span>100% (Normal)</span>
-                    <span>200% (Explosivo)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Radio */}
+              {/* Radio / Escala */}
               <div className="p-4 bg-white/[0.03] border border-white/8 rounded-2xl space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-white flex items-center gap-2">
                     <CircleDot className="w-3.5 h-3.5 text-cyan-400" />
-                    Radio de la Geometría
+                    Radio / Escala de la Geometría
                   </span>
                   <span className="text-xs font-mono text-cyan-300">
                     {sphereRadius.toFixed(2)}x
@@ -379,7 +215,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 <input
                   type="range"
                   min="0.6"
-                  max="2.5"
+                  max="2.2"
                   step="0.05"
                   value={sphereRadius}
                   onChange={(e) => setSphereRadius(parseFloat(e.target.value))}
@@ -400,7 +236,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 </div>
                 <input
                   type="range"
-                  min="0.3"
+                  min="0.2"
                   max="1.0"
                   step="0.05"
                   value={sphereOpacity}
@@ -416,47 +252,51 @@ export const VisualizerSettingsModal: React.FC = () => {
                   onClick={() => setShowFrequencyBars(!showFrequencyBars)}
                   className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
                     showFrequencyBars
-                      ? 'bg-cyan-500/15 border-cyan-400/50 text-cyan-200'
+                      ? 'bg-cyan-500/15 border-cyan-400/50 text-cyan-200 shadow-[0_0_20px_rgba(0,242,254,0.15)]'
                       : 'bg-white/[0.03] border-white/8 text-white/50'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Activity className="w-4 h-4 text-cyan-400" />
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${showFrequencyBars ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/5 text-white/40'}`}>
+                      <Activity className="w-4 h-4" />
+                    </div>
                     <div>
-                      <h5 className="text-xs font-semibold text-white">Barras FFT 3D</h5>
-                      <p className="text-[10px] text-white/40">Anillo espectral de 2000 partículas</p>
+                      <h4 className="text-xs font-semibold text-white">Anillos de Arena FFT</h4>
+                      <p className="text-[10px] text-white/40">Ondas orbitales 3D</p>
                     </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${showFrequencyBars ? 'border-cyan-400 bg-cyan-400' : 'border-white/20'}`}>
-                    {showFrequencyBars && <Check className="w-3 h-3 text-black stroke-[3]" />}
-                  </div>
+                  <span className={`text-xs font-mono ${showFrequencyBars ? 'text-cyan-300 font-bold' : 'text-white/30'}`}>
+                    {showFrequencyBars ? 'ON' : 'OFF'}
+                  </span>
                 </div>
 
-                {/* Auto Mode Toggle */}
+                {/* Auto AI Mode Toggle */}
                 <div
                   onClick={toggleAutoMode}
                   className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
                     autoMode
-                      ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-200'
+                      ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-200 shadow-[0_0_20px_rgba(0,255,179,0.15)]'
                       : 'bg-white/[0.03] border-white/8 text-white/50'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Bot className="w-4 h-4 text-emerald-400" />
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl ${autoMode ? 'bg-emerald-400/20 text-emerald-300' : 'bg-white/5 text-white/40'}`}>
+                      <Bot className="w-4 h-4" />
+                    </div>
                     <div>
-                      <h5 className="text-xs font-semibold text-white">Modo Auto-AI</h5>
-                      <p className="text-[10px] text-white/40">Rotación de color entre canciones</p>
+                      <h4 className="text-xs font-semibold text-white">Modo Auto AI</h4>
+                      <p className="text-[10px] text-white/40">Color reactivo al tono</p>
                     </div>
                   </div>
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${autoMode ? 'border-emerald-400 bg-emerald-400' : 'border-white/20'}`}>
-                    {autoMode && <Check className="w-3 h-3 text-black stroke-[3]" />}
-                  </div>
+                  <span className={`text-xs font-mono ${autoMode ? 'text-emerald-300 font-bold' : 'text-white/30'}`}>
+                    {autoMode ? 'ON' : 'OFF'}
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── 4. TAB: COLORS & LUCID ────────────────────────────────── */}
+          {/* ── 3. TAB: COLORS & LUCID ────────────────────────────────── */}
           {activeTab === 'colors' && (
             <div className="space-y-6">
               {/* Professional Palettes */}
@@ -549,7 +389,7 @@ export const VisualizerSettingsModal: React.FC = () => {
         {/* Footer */}
         <div className="p-4 border-t border-white/8 flex items-center justify-between bg-black/40 flex-shrink-0">
           <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">
-            FORMA: {visualizerShape.toUpperCase()} &nbsp;·&nbsp; BOOM: {Math.round(bassBoomIntensity * 100)}%
+            FORMA: {visualizerShape.toUpperCase()} &nbsp;·&nbsp; ESCALA: {sphereRadius.toFixed(1)}x &nbsp;·&nbsp; OPACIDAD: {Math.round(sphereOpacity * 100)}%
           </span>
 
           <button
