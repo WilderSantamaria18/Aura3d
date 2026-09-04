@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
-import { X, Eye, EyeOff, Sliders, Activity, Zap, Flame } from 'lucide-react';
+import { X, Eye, EyeOff, Sliders, Activity, Zap, Flame, RefreshCw } from 'lucide-react';
 
 // ── MediaPipe Pose 33-point Connections (Bones) ──────────────────────────────
 const POSE_CONNECTIONS: [number, number][] = [
@@ -42,6 +42,7 @@ export const PoseTracker: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [danceEnergy, setDanceEnergy] = useState<number>(0);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   const prevLandmarksRef = useRef<{ x: number; y: number }[]>([]);
   const lastProcessTimeRef = useRef<number>(0);
@@ -93,7 +94,6 @@ export const PoseTracker: React.FC = () => {
 
       // 2. Interaction: Right Hand X controls Sphere Y Rotation
       if (rightWrist && rightWrist.visibility > 0.4) {
-        // Mirrored coordinate: (0.5 - x) * sensitivity
         const targetRotY = (0.5 - rightWrist.x) * 3.5;
         const targetRotX = (rightWrist.y - 0.5) * 1.8;
         setHandRotation({ x: targetRotX, y: targetRotY });
@@ -154,19 +154,15 @@ export const PoseTracker: React.FC = () => {
       let shadowColor = '#00f2fe';
 
       if (startIdx >= 11 && endIdx <= 21 && (startIdx % 2 === 1 || endIdx % 2 === 1)) {
-        // Left Arm -> Bass / Sub-bass reaction (Magenta / Pink)
         strokeColor = `rgba(255, 8, 138, ${0.75 + bass * 0.25})`;
         shadowColor = '#ff088a';
       } else if (startIdx >= 12 && endIdx <= 22 && (startIdx % 2 === 0 || endIdx % 2 === 0)) {
-        // Right Arm -> Treble reaction (Cyan / Aqua)
         strokeColor = `rgba(0, 242, 254, ${0.75 + highs * 0.25})`;
         shadowColor = '#00f2fe';
       } else if (startIdx >= 23 || endIdx >= 23) {
-        // Legs & Feet -> Emerald Kick
         strokeColor = isLucid ? lucidTheme.primary : `rgba(57, 255, 20, ${0.7 + energy * 0.3})`;
         shadowColor = '#39FF14';
       } else {
-        // Spine & Head -> Golden Amber
         strokeColor = 'rgba(255, 215, 0, 0.85)';
         shadowColor = '#FFD700';
       }
@@ -191,15 +187,12 @@ export const PoseTracker: React.FC = () => {
       let radius = 3.5;
 
       if (idx === 15 || idx === 16) {
-        // Wrists (Hands) - larger pulsing orb
         jointColor = idx === 15 ? '#ff088a' : '#00f2fe';
         radius = 6.5 + (idx === 15 ? bass : highs) * 5;
       } else if (idx === 0) {
-        // Head / Nose
         jointColor = '#FFD700';
         radius = 5.5 + energy * 3;
       } else if (idx === 27 || idx === 28) {
-        // Feet
         jointColor = '#39FF14';
         radius = 5.0 + bass * 4;
       }
@@ -211,7 +204,6 @@ export const PoseTracker: React.FC = () => {
       ctx.shadowBlur = 15;
       ctx.fill();
 
-      // White hot core
       ctx.beginPath();
       ctx.arc(jx, jy, radius * 0.4, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
@@ -220,33 +212,86 @@ export const PoseTracker: React.FC = () => {
     });
   };
 
-  // ── Initialize MediaPipe Pose ──────────────────────────────────────────────
+  // ── Initialize Camera & MediaPipe Pose ────────────────────────────────────
   useEffect(() => {
     if (!vrMode) {
       setPoseLandmarks(null);
+      setIsCameraReady(false);
       return;
     }
 
-    let poseInstance: any = null;
-    let cameraInstance: any = null;
     let isCancelled = false;
+    let localStream: MediaStream | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let poseInstance: any = null;
+
+    const loadScript = (src: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) {
+          resolve();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.crossOrigin = 'anonymous';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Error cargando script: ${src}`));
+        document.head.appendChild(script);
+      });
+    };
 
     const startPoseTracking = async () => {
       try {
         setErrorMessage(null);
+        setIsCameraReady(false);
 
-        // Dynamically import @mediapipe/pose and camera_utils
-        const { Pose } = await import('@mediapipe/pose');
-        const { Camera } = await import('@mediapipe/camera_utils');
+        // 1. Request webcam stream with low-light compatible constraints
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'user',
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
+            audio: false,
+          });
+        } catch {
+          // Fallback to basic video constraint
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+
+        if (isCancelled) {
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        if (videoRef.current && localStream) {
+          videoRef.current.srcObject = localStream;
+          await videoRef.current.play().catch(() => {});
+          if (!isCancelled) setIsCameraReady(true);
+        }
+
+        // 2. Load MediaPipe Pose from CDN scripts
+        await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
+        await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js');
 
         if (isCancelled) return;
 
-        poseInstance = new Pose({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const PoseClass = (window as any).Pose;
+        if (!PoseClass) {
+          throw new Error('MediaPipe Pose no disponible en el navegador');
+        }
+
+        poseInstance = new PoseClass({
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
         });
 
         poseInstance.setOptions({
-          modelComplexity: 1,
+          modelComplexity: 0, // Fast low-latency tracking
           smoothLandmarks: true,
           enableSegmentation: false,
           smoothSegmentation: false,
@@ -256,24 +301,43 @@ export const PoseTracker: React.FC = () => {
 
         poseInstance.onResults(handlePoseResults);
 
-        if (videoRef.current) {
-          cameraInstance = new Camera(videoRef.current, {
-            onFrame: async () => {
-              if (videoRef.current && poseInstance && !isCancelled) {
-                await poseInstance.send({ image: videoRef.current });
-              }
-            },
-            width: 640,
-            height: 480,
-          });
+        // 3. Process animation loop
+        let isProcessing = false;
+        const processFrame = async () => {
+          if (isCancelled) return;
 
-          await cameraInstance.start();
-          if (!isCancelled) setIsCameraReady(true);
-        }
+          if (
+            videoRef.current &&
+            videoRef.current.readyState >= 2 &&
+            poseInstance &&
+            !isProcessing
+          ) {
+            isProcessing = true;
+            try {
+              await poseInstance.send({ image: videoRef.current });
+            } catch {
+              // Ignore single frame drop
+            } finally {
+              isProcessing = false;
+            }
+          }
+
+          if (!isCancelled) {
+            animFrameIdRef.current = requestAnimationFrame(processFrame);
+          }
+        };
+
+        animFrameIdRef.current = requestAnimationFrame(processFrame);
       } catch (err: unknown) {
-        console.error('[PoseTracker] MediaPipe Pose init failed:', err);
+        console.error('[PoseTracker] Camera/Pose error:', err);
         if (!isCancelled) {
-          setErrorMessage('No se pudo acceder a la cámara o cargar MediaPipe Pose.');
+          const errMsg =
+            err instanceof DOMException && err.name === 'NotAllowedError'
+              ? 'Permiso de cámara denegado. Permite el acceso a la cámara en tu navegador.'
+              : err instanceof DOMException && err.name === 'NotReadableError'
+              ? 'La cámara está ocupada por otra app (Zoom/Teams/Meet).'
+              : 'Error al inicializar la cámara o MediaPipe Pose.';
+          setErrorMessage(errMsg);
         }
       }
     };
@@ -282,19 +346,24 @@ export const PoseTracker: React.FC = () => {
 
     return () => {
       isCancelled = true;
-      if (cameraInstance && cameraInstance.stop) {
-        try { cameraInstance.stop(); } catch {}
-      }
-      if (poseInstance && poseInstance.close) {
-        try { poseInstance.close(); } catch {}
-      }
       if (animFrameIdRef.current) {
         cancelAnimationFrame(animFrameIdRef.current);
+      }
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      if (poseInstance && poseInstance.close) {
+        try {
+          poseInstance.close();
+        } catch {}
       }
       setPoseLandmarks(null);
       setIsCameraReady(false);
     };
-  }, [vrMode, handlePoseResults, setPoseLandmarks]);
+  }, [vrMode, retryCount, handlePoseResults, setPoseLandmarks]);
 
   if (!vrMode) return null;
 
@@ -352,6 +421,7 @@ export const PoseTracker: React.FC = () => {
               ref={videoRef}
               playsInline
               muted
+              autoPlay
               className="w-full h-full object-cover scale-x-[-1]"
               style={{
                 filter: 'brightness(1.5) contrast(1.75) saturate(1.25)',
@@ -371,31 +441,40 @@ export const PoseTracker: React.FC = () => {
               <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-2">
                 <Activity className="w-6 h-6 text-cyan-400 animate-spin" />
                 <span className="text-[10px] font-mono text-cyan-300 tracking-wider">
-                  ACTIVANDO CUERPO COMPLETO...
+                  ACTIVANDO CÁMARA...
                 </span>
               </div>
             )}
 
-            {/* Error Overlay */}
+            {/* Error Overlay with Retry Button */}
             {errorMessage && (
-              <div className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center gap-1.5">
-                <span className="text-xs text-red-400 font-medium">Error de Cámara</span>
-                <span className="text-[10px] text-white/60 font-mono">{errorMessage}</span>
+              <div className="absolute inset-0 bg-black/95 p-3.5 flex flex-col items-center justify-center text-center gap-2.5">
+                <span className="text-xs text-red-400 font-bold">Error de Cámara</span>
+                <p className="text-[10px] text-white/70 font-mono leading-relaxed">{errorMessage}</p>
+                <button
+                  onClick={() => setRetryCount((c) => c + 1)}
+                  className="px-3 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 hover:bg-cyan-500/30 transition-all"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  REINTENTAR
+                </button>
               </div>
             )}
 
             {/* Dance Energy HUD Gauge */}
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-[9px] font-mono">
-              <span className="text-white/60 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-yellow-400" /> ENERGÍA DANZA:
-              </span>
-              <span
-                className="font-bold tracking-wider"
-                style={{ color: danceEnergy > 1.0 ? '#ff088a' : '#00f2fe' }}
-              >
-                {danceEnergy > 1.2 ? '🔥 MODO FIESTA' : danceEnergy > 0.4 ? '⚡ BAILANDO' : 'LISTO'}
-              </span>
-            </div>
+            {isCameraReady && !errorMessage && (
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 text-[9px] font-mono">
+                <span className="text-white/60 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-yellow-400" /> DANZA:
+                </span>
+                <span
+                  className="font-bold tracking-wider"
+                  style={{ color: danceEnergy > 1.0 ? '#ff088a' : '#00f2fe' }}
+                >
+                  {danceEnergy > 1.2 ? '🔥 MODO FIESTA' : danceEnergy > 0.4 ? '⚡ BAILANDO' : 'LISTO'}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
