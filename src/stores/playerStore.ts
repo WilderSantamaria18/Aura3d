@@ -79,9 +79,12 @@ interface PlayerState {
   bassBoomThreshold: number;
   bassBoomIntensity: number;
   autoMode: boolean;
+  dynamicColor: string;
+  baseColorHue: number;
   autoSensitivity: number;
   autoPalette: AutoPalette;
   autoFeedbackToast: boolean;
+  autoNotification: { message: string; type: 'info' | 'success' | 'warning'; id: number; color?: string } | null;
   isMicActive: boolean;
   showFrequencyBars: boolean;
   sphereOpacity: number;
@@ -149,6 +152,9 @@ interface PlayerState {
   setBassBoomIntensity: (intensity: number) => void;
   setAutoMode: (autoMode: boolean) => void;
   toggleAutoMode: () => void;
+  setDynamicColor: (color: string) => void;
+  setBaseColorHue: (hue: number) => void;
+  setAutoNotification: (notification: { message: string; type: 'info' | 'success' | 'warning'; id: number; color?: string } | null) => void;
   setAutoSensitivity: (sensitivity: number) => void;
   setAutoPalette: (palette: AutoPalette) => void;
   updateAutoPalette: (fftData: Uint8Array) => void;
@@ -262,16 +268,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   bassBoomThreshold: 0.45,
   bassBoomIntensity: 1.0,
   autoMode: false,
+  dynamicColor: '#00f2fe',
+  baseColorHue: 180,
   autoSensitivity: 1.0,
   autoPalette: {
     primary: '#00f2fe',
-    secondary: '#ff088a',
-    tertiary: '#39FF14',
-    accent: '#39FF14',
+    secondary: '#00f2fe',
+    tertiary: '#00f2fe',
+    accent: '#00f2fe',
     glow: 'rgba(0, 242, 254, 0.6)',
-    bg: 'radial-gradient(circle at 30% 30%, #0a2a43 0%, #001e33 70%, #000000 100%)',
+    bg: 'radial-gradient(circle at 30% 30%, rgba(0, 242, 254, 0.2) 0%, #03050c 80%, #000000 100%)',
   },
   autoFeedbackToast: false,
+  autoNotification: null,
   isMicActive: false,
   showFrequencyBars: false,
   sphereOpacity: 0.9,
@@ -391,12 +400,49 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setWaveEffectIntensity: (waveEffectIntensity) => set({ waveEffectIntensity }),
   setBassBoomThreshold: (bassBoomThreshold) => set({ bassBoomThreshold }),
   setBassBoomIntensity: (bassBoomIntensity) => set({ bassBoomIntensity }),
-  setAutoMode: (autoMode) => set({ autoMode, autoFeedbackToast: autoMode }),
+  setAutoMode: (autoMode) =>
+    set((state) => ({
+      autoMode,
+      autoFeedbackToast: autoMode,
+      autoNotification: autoMode
+        ? {
+            message: '🧠 Modo Inteligente ACTIVADO: Color dinámico fluido',
+            type: 'info',
+            id: Date.now(),
+            color: state.dynamicColor,
+          }
+        : null,
+    })),
   toggleAutoMode: () =>
     set((state) => {
       const nextMode = !state.autoMode;
-      return { autoMode: nextMode, autoFeedbackToast: nextMode };
+      return {
+        autoMode: nextMode,
+        autoFeedbackToast: nextMode,
+        autoNotification: nextMode
+          ? {
+              message: '🧠 Modo Inteligente ACTIVADO: Color dinámico fluido',
+              type: 'info',
+              id: Date.now(),
+              color: state.dynamicColor,
+            }
+          : null,
+      };
     }),
+  setDynamicColor: (dynamicColor) =>
+    set({
+      dynamicColor,
+      autoPalette: {
+        primary: dynamicColor,
+        secondary: dynamicColor,
+        tertiary: dynamicColor,
+        accent: dynamicColor,
+        glow: `${dynamicColor}66`,
+        bg: `radial-gradient(circle at 30% 30%, ${dynamicColor}25 0%, #03050c 80%, #000000 100%)`,
+      },
+    }),
+  setBaseColorHue: (baseColorHue) => set({ baseColorHue: ((baseColorHue % 360) + 360) % 360 }),
+  setAutoNotification: (autoNotification) => set({ autoNotification }),
   setAutoSensitivity: (autoSensitivity) => set({ autoSensitivity: Math.min(2.5, Math.max(0.1, autoSensitivity)) }),
   setAutoPalette: (autoPalette) =>
     set({
@@ -420,21 +466,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const sens = get().autoSensitivity || 1.0;
     const hue = ((maxIdx / Math.max(1, fftData.length)) * 0.85 + 0.15) * sens;
     const baseHueDeg = (hue * 360) % 360;
-    const secHueDeg = (baseHueDeg + 120) % 360;
-    const tertHueDeg = (baseHueDeg + 240) % 360;
 
     const primary = `hsl(${baseHueDeg.toFixed(0)}, 95%, 55%)`;
-    const secondary = `hsl(${secHueDeg.toFixed(0)}, 90%, 52%)`;
-    const tertiary = `hsl(${tertHueDeg.toFixed(0)}, 90%, 52%)`;
     const glow = `hsla(${baseHueDeg.toFixed(0)}, 100%, 60%, 0.6)`;
-    const bg = `radial-gradient(circle at 30% 30%, hsla(${baseHueDeg.toFixed(0)}, 75%, 15%, 0.95), hsla(${secHueDeg.toFixed(0)}, 65%, 8%, 0.9), #03050c)`;
+    const bg = `radial-gradient(circle at 30% 30%, hsla(${baseHueDeg.toFixed(0)}, 75%, 15%, 0.95), #03050c)`;
 
     set({
+      dynamicColor: primary,
       autoPalette: {
         primary,
-        secondary,
-        tertiary,
-        accent: tertiary,
+        secondary: primary,
+        tertiary: primary,
+        accent: primary,
         glow,
         bg,
       },
@@ -510,10 +553,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setCurrentTrack: (track) => set({ currentTrack: track }),
 
   playTrack: (track) => {
-    const { queue, autoMode, cyclePalette, cycleLucidTheme, isLucid } = get();
+    const { queue, autoMode, baseColorHue } = get();
     if (autoMode) {
-      if (isLucid) cycleLucidTheme();
-      else cyclePalette();
+      const nextHue = (baseColorHue + 60) % 360;
+      set({
+        baseColorHue: nextHue,
+        autoNotification: {
+          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          type: 'success',
+          id: Date.now(),
+        },
+        autoFeedbackToast: true,
+      });
     }
     const existingIndex = queue.findIndex((t) => t.id === track.id);
     if (existingIndex >= 0) {
@@ -553,12 +604,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   nextTrack: () => {
-    const { queue, queueIndex, repeatMode, isShuffled, autoMode, cyclePalette, cycleLucidTheme, isLucid } = get();
+    const { queue, queueIndex, repeatMode, isShuffled, autoMode, baseColorHue } = get();
     if (queue.length === 0) return null;
 
     if (autoMode) {
-      if (isLucid) cycleLucidTheme();
-      else cyclePalette();
+      const nextHue = (baseColorHue + 60) % 360;
+      set({
+        baseColorHue: nextHue,
+        autoNotification: {
+          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          type: 'success',
+          id: Date.now(),
+        },
+        autoFeedbackToast: true,
+      });
     }
 
     if (repeatMode === 'one') {
@@ -582,12 +641,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   previousTrack: () => {
-    const { queue, queueIndex, currentTime, autoMode, cyclePalette, cycleLucidTheme, isLucid } = get();
+    const { queue, queueIndex, currentTime, autoMode, baseColorHue } = get();
     if (queue.length === 0) return null;
 
     if (autoMode) {
-      if (isLucid) cycleLucidTheme();
-      else cyclePalette();
+      const nextHue = (baseColorHue + 300) % 360;
+      set({
+        baseColorHue: nextHue,
+        autoNotification: {
+          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          type: 'success',
+          id: Date.now(),
+        },
+        autoFeedbackToast: true,
+      });
     }
 
     if (currentTime > 3) {

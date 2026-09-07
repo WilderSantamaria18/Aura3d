@@ -89,8 +89,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const colorLucidSecondary = useMemo(() => new THREE.Color(lucidSecondary), [lucidSecondary]);
     const tempColor = useMemo(() => new THREE.Color(), []);
     const autoPrimaryColor = useMemo(() => new THREE.Color('#00f2fe'), []);
-    const autoSecondaryColor = useMemo(() => new THREE.Color('#ff088a'), []);
-    const autoAccentColor = useMemo(() => new THREE.Color('#39FF14'), []);
 
     const activePalette = PROFESSIONAL_PALETTES[currentPaletteIndex] || PROFESSIONAL_PALETTES[0];
     const palColor1 = useMemo(() => new THREE.Color(activePalette.colors[0] || '#39FF14'), [activePalette]);
@@ -377,14 +375,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       geometry.setDrawRange(0, activeParticleCount);
       ringGeometry.setDrawRange(0, ringCount);
 
-      // Auto Dynamic Harmonic Color Mode from FFT bands
+      // Auto Dynamic Fluid Single Color Mode
       if (autoMode) {
-        const ap = storeState.autoPalette;
-        if (ap) {
-          autoPrimaryColor.set(ap.primary || '#00f2fe');
-          autoSecondaryColor.set(ap.secondary || '#ff088a');
-          autoAccentColor.set(ap.accent || ap.tertiary || '#39FF14');
-        }
+        const dColor = storeState.dynamicColor || storeState.autoPalette?.primary || '#00f2fe';
+        autoPrimaryColor.set(dColor);
       }
 
       // Animate Main Particles
@@ -471,7 +465,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
             const attract = (1.0 - sBass * 0.18);
             px = (ix + brownian) * attract;
             py = (iy + brownianY) * attract;
-            pz = (iz + brownian) * attract;
+            pz = (iz + brownianY) * attract;
           } else if (visualizerShape === 'wave') {
             const waveY = Math.sin(ix * 2.5 + time * 1.8) * (0.15 + sBass * 0.4) + Math.cos(iz * 2.5 + time * 1.5) * (0.1 + sMids * 0.3);
             px = ix;
@@ -542,14 +536,12 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           positions[i3 + 1] = py;
           positions[i3 + 2] = pz;
 
-          // Smooth harmonic colors
+          // Smooth single fluid color in autoMode (no multi-color clashes)
           if (autoMode) {
             const heightNorm = (ny + 1) * 0.5;
-            const waveHarmonic = (Math.sin(time * 2.2 + nx * 3.0 + ny * 2.5) + 1) * 0.5;
-            tempColor.copy(autoPrimaryColor).lerp(autoSecondaryColor, heightNorm);
-            if (heightNorm > 0.72 || waveHarmonic > 0.82) {
-              tempColor.lerp(autoAccentColor, (heightNorm - 0.72) * 2.2 + sHighs * 0.35);
-            }
+            const waveHarmonic = (Math.sin(time * 1.8 + nx * 2.5 + ny * 2.0) + 1) * 0.5;
+            const luminanceMod = 0.75 + heightNorm * 0.35 + waveHarmonic * (0.15 + sHighs * 0.2);
+            tempColor.copy(autoPrimaryColor).multiplyScalar(luminanceMod);
             colors[i3] = tempColor.r;
             colors[i3 + 1] = tempColor.g;
             colors[i3 + 2] = tempColor.b;

@@ -9,10 +9,10 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
     visualizerShape,
     setVisualizerShape,
     autoMode,
+    dynamicColor,
     toggleAutoMode,
     autoSensitivity,
     setAutoSensitivity,
-    autoPalette,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -92,24 +92,32 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
         </select>
       </div>
 
-      {/* 2. Auto AI Dynamic Color Mode Button */}
+      {/* 2. Auto Dynamic Single Fluid Color Mode Button */}
       <div className="flex items-center gap-1">
         <button
           onClick={toggleAutoMode}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-medium transition-all ${
             autoMode
-              ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-pink-400/50 shadow-[0_0_15px_rgba(255,8,138,0.35)]'
+              ? 'bg-white/10 text-white border shadow-lg'
               : 'bg-white/5 text-white/50 hover:text-white border border-transparent'
           }`}
-          title="Modo Inteligente: detecta frecuencias y sincroniza el ecosistema armónicamente"
+          style={
+            autoMode
+              ? {
+                  borderColor: `${dynamicColor}80`,
+                  boxShadow: `0 0 15px ${dynamicColor}40`,
+                }
+              : undefined
+          }
+          title="Modo Inteligente: color dinámico fluido orgánico sin parpadeos"
         >
           {autoMode ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full animate-ping"
-                style={{ backgroundColor: autoPalette.primary }}
+                style={{ backgroundColor: dynamicColor }}
               />
-              <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-pink-400 to-emerald-300">
+              <span className="font-bold" style={{ color: dynamicColor }}>
                 Auto ON
               </span>
             </div>
@@ -125,7 +133,7 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
         {autoMode && (
           <div
             className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 border border-white/10"
-            title="Sensibilidad de Color Armónico"
+            title="Sensibilidad de variación del color dinámico"
           >
             <span className="text-[10px] text-white/60 font-mono hidden sm:inline">Sens:</span>
             <input
@@ -135,7 +143,8 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
               step="0.1"
               value={autoSensitivity || 1.0}
               onChange={(e) => setAutoSensitivity(parseFloat(e.target.value))}
-              className="w-12 sm:w-16 h-1 cursor-pointer accent-pink-400"
+              className="w-12 sm:w-16 h-1 cursor-pointer"
+              style={{ accentColor: dynamicColor }}
             />
           </div>
         )}

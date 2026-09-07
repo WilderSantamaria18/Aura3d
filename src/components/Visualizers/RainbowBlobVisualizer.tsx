@@ -52,7 +52,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     isMicActive,
     isPlaying,
     autoMode,
-    autoPalette,
+    dynamicColor,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -237,9 +237,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx.arc(cx, cy, Math.max(10, ringR), 0, Math.PI * 2);
               ctx.strokeStyle = isLucid
                 ? lucidTheme.primary
+                : autoMode
+                ? dynamicColor
                 : `hsla(${ringHue}, 100%, 65%, ${ringAlpha})`;
               ctx.lineWidth = 2.5 + (rIdx === 2 ? bass * 4 : 1);
-              ctx.shadowColor = isLucid ? lucidTheme.glow : `hsla(${ringHue}, 100%, 50%, 0.8)`;
+              ctx.shadowColor = isLucid ? lucidTheme.glow : autoMode ? dynamicColor : `hsla(${ringHue}, 100%, 50%, 0.8)`;
               ctx.shadowBlur = 15;
               ctx.stroke();
 
@@ -271,10 +273,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx.beginPath();
               ctx.moveTo(x1, y1);
               ctx.lineTo(x2, y2);
-              ctx.strokeStyle = isLucid ? lucidTheme.primary : `hsl(${barHue}, 100%, 60%)`;
+              ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : `hsl(${barHue}, 100%, 60%)`;
               ctx.lineWidth = 3.5;
               ctx.lineCap = 'round';
-              ctx.shadowColor = isLucid ? lucidTheme.glow : `hsl(${barHue}, 100%, 50%)`;
+              ctx.shadowColor = isLucid ? lucidTheme.glow : autoMode ? dynamicColor : `hsl(${barHue}, 100%, 50%)`;
               ctx.shadowBlur = 12;
               ctx.stroke();
             }
@@ -292,8 +294,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx.arc(px, py, p.size * (1 + energy * 1.5), 0, Math.PI * 2);
               ctx.fillStyle = isLucid
                 ? lucidTheme.primary
+                : autoMode
+                ? dynamicColor
                 : `hsla(${p.hue + waveTime * 20}, 90%, 65%, ${0.6 + bass * 0.4})`;
-              ctx.shadowColor = isLucid ? lucidTheme.glow : `hsla(${p.hue}, 90%, 50%, 0.8)`;
+              ctx.shadowColor = isLucid ? lucidTheme.glow : autoMode ? dynamicColor : `hsla(${p.hue}, 90%, 50%, 0.8)`;
               ctx.shadowBlur = 10;
               ctx.fill();
             });
@@ -314,6 +318,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx.ellipse(0, 0, tRadiusX, tRadiusY, 0, 0, Math.PI * 2);
               ctx.strokeStyle = isLucid
                 ? (t === 0 ? lucidTheme.primary : lucidTheme.secondary)
+                : autoMode
+                ? dynamicColor
                 : (t === 0 ? '#00f2fe' : '#ff088a');
               ctx.lineWidth = 4 + bass * 3;
               ctx.shadowColor = ctx.strokeStyle;
@@ -337,7 +343,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
               else ctx.lineTo(wx, wy);
             }
             ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.primary : '#00ffb3';
+            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : '#00ffb3';
             ctx.lineWidth = 3.5 + mids * 2;
             ctx.shadowColor = ctx.strokeStyle;
             ctx.shadowBlur = 16;
@@ -365,6 +371,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx.arc(cx, cy, sw.radius, 0, Math.PI * 2);
               ctx.strokeStyle = isLucid
                 ? `rgba(57, 255, 20, ${sw.opacity})`
+                : autoMode
+                ? dynamicColor
                 : `hsla(${sw.hue}, 100%, 65%, ${sw.opacity})`;
               ctx.lineWidth = 2.5;
               ctx.shadowColor = ctx.strokeStyle;
@@ -387,7 +395,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 if (step === 0) ctx.moveTo(sx, sy);
                 else ctx.lineTo(sx, sy);
               }
-              ctx.strokeStyle = isLucid ? lucidTheme.secondary : `hsl(${(arm * 180 + waveTime * 30) % 360}, 100%, 65%)`;
+              ctx.strokeStyle = isLucid ? lucidTheme.secondary : autoMode ? dynamicColor : `hsl(${(arm * 180 + waveTime * 30) % 360}, 100%, 65%)`;
               ctx.lineWidth = 2.5 + bass * 2;
               ctx.shadowColor = ctx.strokeStyle;
               ctx.shadowBlur = 15;
@@ -415,13 +423,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
     musicSensitivity,
     isLucid,
     lucidTheme,
+    autoMode,
+    dynamicColor,
     cloudParticles,
   ]);
 
   const haloBackground = isLucid
     ? `conic-gradient(from 0deg, ${lucidTheme.primary}, ${lucidTheme.secondary}, #ff007f, ${lucidTheme.primary})`
     : autoMode
-    ? `conic-gradient(from 0deg, ${autoPalette.primary}, ${autoPalette.secondary}, ${autoPalette.tertiary || autoPalette.accent || '#39FF14'}, ${autoPalette.primary})`
+    ? `conic-gradient(from 0deg, ${dynamicColor}, ${dynamicColor}88, ${dynamicColor}ee, ${dynamicColor})`
     : blobSettings.isRainbowMode
     ? 'conic-gradient(from 0deg, #ff088a, #8a2be2, #00f2fe, #00ffb3, #ffe600, #ff5e00, #ff088a)'
     : `conic-gradient(${blobSettings.haloColor1}, ${blobSettings.haloColor2}, ${blobSettings.haloColor1})`;
