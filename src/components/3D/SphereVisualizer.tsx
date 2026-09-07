@@ -13,6 +13,16 @@ interface SphereVisualizerProps {
 const MAX_PARTICLES = 2400;
 const MAX_RINGS = 1200;
 
+// Kick Shockwave Detector & Radial Propagation Constants
+const KICK_THRESHOLD = 0.18;
+const KICK_ATTACK_DELTA = 0.06;
+const KICK_COOLDOWN_SEC = 0.16; // 160ms (≈ ~375 BPM max)
+const WAVE_LIFETIME_SEC = 0.85; // 850ms duration
+const WAVE_MAX_RADIUS = 2.2;
+const WAVE_BAND_WIDTH = 0.28;
+const BASE_WAVE_STRENGTH = 0.42;
+const SHOCKWAVE_SLOTS = 8;
+
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
     // Stable configuration subscriptions (only re-renders on low-frequency config changes)
@@ -56,6 +66,12 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const handLandmarksRef = useRef(usePlayerStore.getState().handLandmarks);
     const userInteractingRef = useRef(usePlayerStore.getState().userInteracting);
     const vrTrackingModeRef = useRef(usePlayerStore.getState().vrTrackingMode);
+
+    // Kick Shockwave Tracking Refs
+    const prevBassRef = useRef(0);
+    const lastKickTimeRef = useRef(0);
+    const shockWavesRef = useRef<Float32Array>(new Float32Array(SHOCKWAVE_SLOTS).fill(-999));
+    const nextWaveIdxRef = useRef(0);
 
     useEffect(() => {
       const unsub = usePlayerStore.subscribe((state) => {
@@ -364,6 +380,39 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
+      // Kick transient onset & attack envelope detection
+      const attackEnv = Math.max(0, sBass - prevBassRef.current);
+      if (
+        sBass > KICK_THRESHOLD &&
+        attackEnv > KICK_ATTACK_DELTA &&
+        time - lastKickTimeRef.current > KICK_COOLDOWN_SEC
+      ) {
+        shockWavesRef.current[nextWaveIdxRef.current] = time;
+        nextWaveIdxRef.current = (nextWaveIdxRef.current + 1) % SHOCKWAVE_SLOTS;
+        lastKickTimeRef.current = time;
+      }
+      prevBassRef.current = sBass;
+
+      // Pre-calculate active shockwaves for this frame (budget scaled by eco/vr modes)
+      const activeWaves: { waveRadius: number; decay: number; waveStrength: number }[] = [];
+      const effectiveWaveStrength = isEco
+        ? BASE_WAVE_STRENGTH * 0.6
+        : isUltraEco || vrMode
+        ? BASE_WAVE_STRENGTH * 0.4
+        : BASE_WAVE_STRENGTH;
+
+      for (let w = 0; w < SHOCKWAVE_SLOTS; w++) {
+        const waveTime = shockWavesRef.current[w];
+        const age = time - waveTime;
+        if (age > 0 && age <= WAVE_LIFETIME_SEC) {
+          const progress = Math.min(1.0, Math.max(0.0, age / WAVE_LIFETIME_SEC));
+          const waveRadius = progress * WAVE_MAX_RADIUS;
+          const decay = 1.0 - progress;
+          activeWaves.push({ waveRadius, decay, waveStrength: effectiveWaveStrength });
+        }
+      }
+      const hasActiveWaves = activeWaves.length > 0;
+
       // Update material properties directly without triggering React re-renders
       mainMaterial.opacity = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
       mainMaterial.size = isLucid ? 0.058 : isUltraEco ? 0.065 : isEco ? 0.056 : 0.048;
@@ -484,6 +533,24 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
             px = nx * displacement;
             py = ny * displacement;
             pz = nz * displacement;
+          }
+
+          // Radial Kick Shockwave Displacement (Per-particle wave propagation)
+          if (hasActiveWaves) {
+            const dist = Math.sqrt(px * px + py * py + pz * pz) || 1.0;
+            let totalImpact = 0;
+            for (let w = 0; w < activeWaves.length; w++) {
+              const wave = activeWaves[w];
+              const diff = (dist - wave.waveRadius) / WAVE_BAND_WIDTH;
+              const gaussian = Math.exp(-diff * diff);
+              totalImpact += gaussian * wave.waveStrength * wave.decay;
+            }
+            if (totalImpact > 0.0001) {
+              const radialDisplacement = totalImpact * (1.0 + Math.pow(totalImpact, 0.8) * 1.2);
+              px += nx * radialDisplacement;
+              py += ny * radialDisplacement;
+              pz += nz * radialDisplacement;
+            }
           }
 
           // VR Physical Interactive Hand / Body Push
