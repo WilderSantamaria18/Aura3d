@@ -17,15 +17,15 @@ interface PerformanceMonitorProps {
 
 export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats }) => {
   const getFpsColor = (fps: number) => {
-    if (fps >= 55) return '#39FF14';
-    if (fps >= 35) return '#00f2fe';
-    return '#ff088a';
+    if (fps >= 55) return '#34d399'; // emerald-400 (alto rendimiento)
+    if (fps >= 35) return '#22d3ee'; // cyan-400 (rendimiento medio)
+    return '#fbbf24'; // amber-400 (bajo rendimiento)
   };
 
   const getLatencyColor = (ms: number) => {
-    if (ms <= 30) return '#39FF14';
-    if (ms <= 70) return '#00f2fe';
-    return '#ff088a';
+    if (ms <= 30) return '#34d399'; // emerald-400 (óptima)
+    if (ms <= 70) return '#22d3ee'; // cyan-400 (estable)
+    return '#fbbf24'; // amber-400 (alta latencia)
   };
 
   const formatUptime = (seconds: number) => {
@@ -75,7 +75,7 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
         <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
           <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
             <span className="flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 text-pink-400" />
+              <Radio className="w-3.5 h-3.5 text-cyan-400" />
               LATENCIA SOCKET
             </span>
             <span
@@ -185,8 +185,8 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
         </div>
 
         <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
-          <h3 className="text-xs font-bold text-pink-300 tracking-widest uppercase flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5" />
+          <h3 className="text-xs font-bold text-amber-300 tracking-widest uppercase flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
             DIAGNÓSTICO DE HARDWARE Y CONEXIONES
           </h3>
 
