@@ -1,20 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { SceneContainer } from './components/3D/SceneContainer';
-import { RainbowBlobVisualizer } from './components/Visualizers/RainbowBlobVisualizer';
-import { PartyVisualizer } from './components/Visualizers/PartyVisualizer';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { HeaderBar } from './components/UI/HeaderBar';
 import { NowPlayingPanel } from './components/Player/NowPlayingPanel';
 import { VisualizerQuickControls } from './components/UI/VisualizerQuickControls';
 import { Controls } from './components/Player/Controls';
 import { ProgressBar } from './components/Player/ProgressBar';
-import { LyricsOverlay } from './components/Lyrics/LyricsOverlay';
-import { EqualizerModal } from './components/UI/EqualizerModal';
-import { PlaylistSidebar } from './components/UI/PlaylistSidebar';
 import { MiniPlayer } from './components/Player/MiniPlayer';
-import { PoseTracker } from './components/VR/PoseTracker';
-import { GamificationHUD } from './components/Gamification/GamificationHUD';
-import { AdminModal } from './components/Admin/AdminModal';
 import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
 import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioEngine } from './hooks/useAudioEngine';
@@ -23,6 +14,17 @@ import { useAutoPalette } from './hooks/useAutoPalette';
 import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle, UploadCloud } from 'lucide-react';
+
+// Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
+const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
+const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
+const PartyVisualizer = lazy(() => import('./components/Visualizers/PartyVisualizer'));
+const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
+const GamificationHUD = lazy(() => import('./components/Gamification/GamificationHUD'));
+const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
+const EqualizerModal = lazy(() => import('./components/UI/EqualizerModal'));
+const PlaylistSidebar = lazy(() => import('./components/UI/PlaylistSidebar'));
+const LyricsOverlay = lazy(() => import('./components/Lyrics/LyricsOverlay'));
 
 export const App: React.FC = () => {
   const { loadFile, error } = useAudioEngine();
@@ -39,6 +41,7 @@ export const App: React.FC = () => {
   const isLyricsOpen = usePlayerStore((s) => s.isLyricsOpen);
   const isSidebarOpen = usePlayerStore((s) => s.isSidebarOpen);
   const isKaraokeFullscreen = usePlayerStore((s) => s.isKaraokeFullscreen);
+  const isAdminModalOpen = usePlayerStore((s) => s.isAdminModalOpen);
 
   const [isUiIdle, setIsUiIdle] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -182,13 +185,15 @@ export const App: React.FC = () => {
           hasStarted ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        {visualizerMode === 'sphere' ? (
-          <SceneContainer />
-        ) : visualizerMode === 'blob' ? (
-          <RainbowBlobVisualizer />
-        ) : (
-          <PartyVisualizer />
-        )}
+        <Suspense fallback={<div className="w-full h-full" />}>
+          {visualizerMode === 'sphere' ? (
+            <SceneContainer />
+          ) : visualizerMode === 'blob' ? (
+            <RainbowBlobVisualizer />
+          ) : (
+            <PartyVisualizer />
+          )}
+        </Suspense>
       </div>
 
       {/* 3. Floating Header UI */}
@@ -247,10 +252,18 @@ export const App: React.FC = () => {
       )}
 
       {/* 6. Full-Body VR Dance & Pose Tracker Camera Card */}
-      {hasStarted && <PoseTracker />}
+      {hasStarted && vrMode && (
+        <Suspense fallback={null}>
+          <PoseTracker />
+        </Suspense>
+      )}
 
       {/* 7. Real-Time Gamification & Intensity Score HUD */}
-      {hasStarted && <GamificationHUD />}
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <GamificationHUD />
+        </Suspense>
+      )}
 
       {/* Error Notification */}
       {error && (
@@ -261,10 +274,26 @@ export const App: React.FC = () => {
       )}
 
       {/* Overlays & Modals */}
-      <LyricsOverlay />
-      <EqualizerModal />
-      <PlaylistSidebar />
-      <AdminModal />
+      {(isLyricsOpen || isKaraokeFullscreen) && (
+        <Suspense fallback={null}>
+          <LyricsOverlay />
+        </Suspense>
+      )}
+      {isEqualizerOpen && (
+        <Suspense fallback={null}>
+          <EqualizerModal />
+        </Suspense>
+      )}
+      {isSidebarOpen && (
+        <Suspense fallback={null}>
+          <PlaylistSidebar />
+        </Suspense>
+      )}
+      {isAdminModalOpen && (
+        <Suspense fallback={null}>
+          <AdminModal />
+        </Suspense>
+      )}
 
       {/* Mini Player — right-side floating panel for local files */}
       {hasStarted && <MiniPlayer />}

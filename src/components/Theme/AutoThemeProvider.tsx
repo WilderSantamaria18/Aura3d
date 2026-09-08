@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
-import * as THREE from 'three';
+import { multiplyHexColor } from '../../utils/colorUtils';
 
 export const AutoThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const autoMode = usePlayerStore((s) => s.autoMode);
@@ -15,8 +15,7 @@ export const AutoThemeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     root.style.setProperty('--color-accent', dynamicColor);
 
     // Deep dark background subtly tinted with dynamic color
-    const darkBgColor = new THREE.Color(dynamicColor).multiplyScalar(0.06);
-    const bgHex = '#' + darkBgColor.getHexString();
+    const bgHex = multiplyHexColor(dynamicColor, 0.06);
     const glowHex = dynamicColor + '40'; // ~25% alpha glow
     const borderHex = dynamicColor + '55'; // ~33% alpha border
 

@@ -359,3 +359,4 @@ const TrackItem: React.FC<{
   );
 };
 
+export default PlaylistSidebar;

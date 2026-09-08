@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useVisualizer } from './useVisualizer';
-import * as THREE from 'three';
+import { hslToHex } from '../utils/colorUtils';
 
 export const useAutoPalette = () => {
   const autoMode = usePlayerStore((s) => s.autoMode);
@@ -12,7 +12,6 @@ export const useAutoPalette = () => {
 
   const currentHue = useRef(baseColorHue / 360);
   const targetHue = useRef(baseColorHue / 360);
-  const currentColor = useRef(new THREE.Color('#00f2fe'));
   const frameRef = useRef<number | undefined>(undefined);
   const lastHexRef = useRef<string>('#00f2fe');
 
@@ -56,8 +55,7 @@ export const useAutoPalette = () => {
       const lightness = Math.min(0.68, Math.max(0.42, 0.46 + energy * 0.24));
       const wrappedHue = ((currentHue.current % 1) + 1) % 1;
 
-      currentColor.current.setHSL(wrappedHue, saturation, lightness);
-      const hex = '#' + currentColor.current.getHexString();
+      const hex = hslToHex(wrappedHue, saturation, lightness);
 
       if (hex !== lastHexRef.current) {
         lastHexRef.current = hex;
