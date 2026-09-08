@@ -55,39 +55,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const smoothScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
     const smoothRingScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
 
-    // Isolated tracking & store refs to guarantee 0 React re-renders in useFrame
-    const sphereScaleRef = useRef(usePlayerStore.getState().sphereScale || 1.0);
-    const sphereOpacityRef = useRef(usePlayerStore.getState().sphereOpacity ?? 0.9);
-    const handRotationRef = useRef(usePlayerStore.getState().handRotation);
-    const handGestureRef = useRef(usePlayerStore.getState().handGesture);
-    const poseVelocityRef = useRef(usePlayerStore.getState().poseVelocity);
-    const leftHandPosRef = useRef(usePlayerStore.getState().leftHandPos);
-    const headPosRef = useRef(usePlayerStore.getState().headPos);
-    const handLandmarksRef = useRef(usePlayerStore.getState().handLandmarks);
-    const userInteractingRef = useRef(usePlayerStore.getState().userInteracting);
-    const vrTrackingModeRef = useRef(usePlayerStore.getState().vrTrackingMode);
-
     // Kick Shockwave Tracking Refs
     const prevBassRef = useRef(0);
     const lastKickTimeRef = useRef(0);
     const shockWavesRef = useRef<Float32Array>(new Float32Array(SHOCKWAVE_SLOTS).fill(-999));
     const nextWaveIdxRef = useRef(0);
-
-    useEffect(() => {
-      const unsub = usePlayerStore.subscribe((state) => {
-        sphereScaleRef.current = state.sphereScale || 1.0;
-        sphereOpacityRef.current = state.sphereOpacity ?? 0.9;
-        handRotationRef.current = state.handRotation;
-        handGestureRef.current = state.handGesture;
-        poseVelocityRef.current = state.poseVelocity;
-        leftHandPosRef.current = state.leftHandPos;
-        headPosRef.current = state.headPos;
-        handLandmarksRef.current = state.handLandmarks;
-        userInteractingRef.current = state.userInteracting;
-        vrTrackingModeRef.current = state.vrTrackingMode;
-      });
-      return () => unsub();
-    }, []);
 
     // Audio smoothing filters (Exponential Moving Averages) for natural, fluid motion
     const smoothedBassRef = useRef(0);

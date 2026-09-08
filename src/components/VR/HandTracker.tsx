@@ -51,6 +51,7 @@ export const HandTracker: React.FC = () => {
 
   const rotationHistoryRef = useRef<{ x: number; y: number }[]>([]);
   const lastGestureActionTime = useRef<number>(0);
+  const prevGestureRef = useRef<string>('unknown');
   const feedbackTimeoutRef = useRef<number | null>(null);
   const intervalIdRef = useRef<number | null>(null);
 
@@ -183,7 +184,6 @@ export const HandTracker: React.FC = () => {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handsInstance.onResults((results: any) => {
-          console.log('[HandTracker] onResults recibido, multiHandLandmarks:', results.multiHandLandmarks);
           if (!canvasRef.current || !videoRef.current) return;
           const canvas = canvasRef.current;
           const ctx = canvas.getContext('2d');
@@ -220,14 +220,18 @@ export const HandTracker: React.FC = () => {
               ctx.fill();
             }
 
-            // Update hand landmarks in global store
-            setHandLandmarks(landmarks);
-
             // 1. Detect Gesture
             const gesture = calculateGesture(landmarks);
-            console.log('[HandTracker] Gesture clasificado:', gesture);
-            setDetectedGesture(gesture);
-            setHandGesture(gesture);
+            if (gesture !== prevGestureRef.current) {
+              prevGestureRef.current = gesture;
+              setDetectedGesture(gesture);
+            }
+
+            // Batched store update
+            usePlayerStore.setState({
+              handLandmarks: landmarks,
+              handGesture: gesture,
+            });
 
             const now = Date.now();
             const sens = handSensitivity || 1.0;

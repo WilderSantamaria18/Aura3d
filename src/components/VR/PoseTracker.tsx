@@ -102,11 +102,15 @@ export const PoseTracker: React.FC = () => {
   const [showPreview, setShowPreview] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [danceEnergy, setDanceEnergy] = useState<number>(0);
+  const [danceLevel, setDanceLevel] = useState<'idle' | 'dancing' | 'party'>('idle');
+  const prevDanceLevelRef = useRef<'idle' | 'dancing' | 'party'>('idle');
+  const danceEnergyRef = useRef<number>(0);
   const [detectedGesture, setDetectedGesture] = useState<string>('unknown');
+  const prevGestureRef = useRef<string>('unknown');
   const [gestureFeedback, setGestureFeedback] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isNoDetection, setIsNoDetection] = useState(false);
+  const isNoDetectionRef = useRef<boolean>(false);
   const [isSleeping, setIsSleeping] = useState(false);
 
   const pinchRadiusRef = useRef<number>(1.0);
@@ -188,7 +192,11 @@ export const PoseTracker: React.FC = () => {
       const elapsedSinceActivity = now - lastActiveTimeRef.current;
 
       // 1. Framing timeout warning (> 2000ms without landmarks)
-      setIsNoDetection(elapsedSinceDetection > 2000 && !isSleepingRef.current);
+      const shouldWarn = elapsedSinceDetection > 2000 && !isSleepingRef.current;
+      if (shouldWarn !== isNoDetectionRef.current) {
+        isNoDetectionRef.current = shouldWarn;
+        setIsNoDetection(shouldWarn);
+      }
 
       // 2. Inactivity Sleep (> 10000ms): pauses MediaPipe to save massive CPU/battery
       if (elapsedSinceActivity > 10000 && !isSleepingRef.current) {
@@ -390,54 +398,76 @@ export const PoseTracker: React.FC = () => {
       const now = Date.now();
       lastDetectionTimeRef.current = now;
       lastActiveTimeRef.current = now;
-      setIsNoDetection(false);
+      if (isNoDetectionRef.current) {
+        isNoDetectionRef.current = false;
+        setIsNoDetection(false);
+      }
       if (isSleepingRef.current) {
         isSleepingRef.current = false;
         setIsSleeping(false);
       }
 
-      console.log('[PoseTracker] onResults recibido, modo:', vrTrackingMode, vrTrackingMode === 'body' ? !!results.poseLandmarks : results.multiHandLandmarks?.length);
-
       if (vrTrackingMode === 'body') {
         const rawLandmarks = results.poseLandmarks;
         if (!rawLandmarks || rawLandmarks.length < 33) {
-          setPoseLandmarks(null);
+          if (usePlayerStore.getState().poseLandmarks !== null) {
+            usePlayerStore.setState({
+              poseLandmarks: null,
+              poseVelocity: 0,
+            });
+          }
           return;
         }
-
-        setPoseLandmarks(rawLandmarks);
 
         // Process smoothed world coordinates with Anti-Jitter Lerp + Outlier Rejection
         const { head, rightHand, leftHand, velocity, rotation } = processPose(rawLandmarks);
 
-        setDanceEnergy(velocity);
-        setHandRotation(rotation);
-        setPoseVelocity(velocity);
+        danceEnergyRef.current = velocity;
+        const nextLevel = velocity > 1.2 ? 'party' : velocity > 0.4 ? 'dancing' : 'idle';
+        if (nextLevel !== prevDanceLevelRef.current) {
+          prevDanceLevelRef.current = nextLevel;
+          setDanceLevel(nextLevel);
+        }
 
-        setPoseKeypoints({
-          rightHand,
-          leftHand,
-          head,
-          velocity,
+        // Single batched store update (1 notification instead of 5)
+        usePlayerStore.setState({
+          poseLandmarks: rawLandmarks,
+          handRotation: rotation,
+          poseVelocity: velocity,
+          poseKeypoints: {
+            rightHand,
+            leftHand,
+            head,
+            velocity,
+          },
         });
 
-        drawBodySkeleton(rawLandmarks);
+        if (showPreview && !isSleepingRef.current) {
+          drawBodySkeleton(rawLandmarks);
+        }
       } else {
         // Hands Mode (21 points)
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
           const rawLandmarks: HandLandmark[] = results.multiHandLandmarks[0];
-          setHandLandmarks(rawLandmarks);
 
           // 1. Process smoothed rotation
           const { rotation } = processHands(rawLandmarks, handSensitivity);
-          setHandRotation(rotation);
 
           // 2. Classify Gestures
           const classified = classifyHandGesture(rawLandmarks);
           const gesture = classified.type;
-          console.log('[PoseTracker] Gesture clasificado:', gesture);
-          setDetectedGesture(gesture);
-          setHandGesture(gesture === 'none' ? 'unknown' : (gesture as any));
+
+          if (gesture !== prevGestureRef.current) {
+            prevGestureRef.current = gesture;
+            setDetectedGesture(gesture);
+          }
+
+          // Single batched store update (1 notification instead of 3)
+          usePlayerStore.setState({
+            handLandmarks: rawLandmarks,
+            handRotation: rotation,
+            handGesture: gesture === 'none' ? 'unknown' : (gesture as any),
+          });
 
           // 3. Gesture Actions with debouncing
           if (gesture === 'fist') {
@@ -490,22 +520,25 @@ export const PoseTracker: React.FC = () => {
             }
           }
 
-          drawHandSkeleton(rawLandmarks);
+          if (showPreview && !isSleepingRef.current) {
+            drawHandSkeleton(rawLandmarks);
+          }
         } else {
-          setHandLandmarks(null);
-          setDetectedGesture('unknown');
+          if (usePlayerStore.getState().handLandmarks !== null) {
+            usePlayerStore.setState({
+              handLandmarks: null,
+              handGesture: 'unknown',
+            });
+          }
+          if (prevGestureRef.current !== 'unknown') {
+            prevGestureRef.current = 'unknown';
+            setDetectedGesture('unknown');
+          }
         }
       }
     },
     [
       vrTrackingMode,
-      setPoseLandmarks,
-      setPoseVelocity,
-      setHandLandmarks,
-      setHandGesture,
-      setPoseKeypoints,
-      setHandRotation,
-      setSphereOpacity,
       visualizerMode,
       setSphereScale,
       setRainbowScale,
@@ -521,6 +554,7 @@ export const PoseTracker: React.FC = () => {
       triggerFeedback,
       drawBodySkeleton,
       drawHandSkeleton,
+      showPreview,
     ]
   );
 
@@ -660,30 +694,37 @@ export const PoseTracker: React.FC = () => {
           handleResultsRef.current(results);
         });
 
-        // 3. Ultra-Efficient 20 FPS Throttled Processing Loop (50ms interval) with Non-Blocking Lock
-        const isProcessing = { current: false };
-        const intervalId = setInterval(async () => {
-          if (isProcessing.current || !videoRef.current || !modelInstance || !vrMode) return;
-          const video = videoRef.current;
-          if (video.readyState < 2 || video.videoWidth === 0) {
-            if (Math.random() < 0.02) {
-              console.warn('[PoseTracker] Video no listo aún, readyState:', video.readyState);
-            }
+        // 3. Ultra-Efficient Self-Paced 20 FPS Processing Loop with Non-Blocking Lock
+        let isProcessing = false;
+        const processFrame = async () => {
+          if (isCancelled || !vrMode) return;
+          if (!videoRef.current || !modelInstance) {
+            intervalIdRef.current = window.setTimeout(processFrame, 50);
             return;
           }
-          if (isSleepingRef.current) return;
-
-          isProcessing.current = true;
-          try {
-            await modelInstance.send({ image: video });
-          } catch (err) {
-            console.warn('[PoseTracker] Error en send:', err);
-          } finally {
-            isProcessing.current = false;
+          const video = videoRef.current;
+          if (video.readyState < 2 || video.videoWidth === 0 || isSleepingRef.current) {
+            intervalIdRef.current = window.setTimeout(processFrame, 50);
+            return;
           }
-        }, 50); // 50ms = 20 FPS saves massive CPU
 
-        intervalIdRef.current = intervalId as unknown as number;
+          if (!isProcessing) {
+            isProcessing = true;
+            try {
+              await modelInstance.send({ image: video });
+            } catch {
+              // Frame dropped, proceed to next
+            } finally {
+              isProcessing = false;
+            }
+          }
+
+          if (!isCancelled) {
+            intervalIdRef.current = window.setTimeout(processFrame, 45);
+          }
+        };
+
+        intervalIdRef.current = window.setTimeout(processFrame, 50);
       } catch (err: unknown) {
         console.error('[VRTracker] Initialization error:', err);
         if (!isCancelled) {
@@ -703,7 +744,7 @@ export const PoseTracker: React.FC = () => {
     return () => {
       isCancelled = true;
       if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current);
+        clearTimeout(intervalIdRef.current);
         intervalIdRef.current = null;
       }
       if (animFrameIdRef.current) {
@@ -838,14 +879,14 @@ export const PoseTracker: React.FC = () => {
         {/* Video Camera + Neon Skeleton Canvas */}
         {showPreview && (
           <div className="relative aspect-[4/3] bg-black overflow-hidden">
-            {/* Camera Video with enhanced contrast for low-light tracking */}
+            {/* Camera Video */}
             <video
               ref={videoRef}
               playsInline
               muted
               autoPlay
               className="w-full h-full object-cover scale-x-[-1]"
-              style={{ filter: 'brightness(1.35) contrast(1.2) saturate(1.1)' }}
+              style={{ filter: 'contrast(1.05)' }}
             />
 
             {/* Neon Skeleton Overlay Canvas */}
@@ -918,9 +959,9 @@ export const PoseTracker: React.FC = () => {
                     </span>
                     <span
                       className="font-bold tracking-wider"
-                      style={{ color: danceEnergy > 1.0 ? '#ff088a' : '#00f2fe' }}
+                      style={{ color: danceLevel === 'party' ? '#ff088a' : '#00f2fe' }}
                     >
-                      {danceEnergy > 1.2 ? '🔥 MODO FIESTA' : danceEnergy > 0.4 ? '⚡ BAILANDO' : 'LISTO'}
+                      {danceLevel === 'party' ? '🔥 MODO FIESTA' : danceLevel === 'dancing' ? '⚡ BAILANDO' : 'LISTO'}
                     </span>
                   </>
                 ) : (
