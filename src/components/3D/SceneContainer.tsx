@@ -6,7 +6,7 @@ import { SphereVisualizer } from './SphereVisualizer';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 import { usePlayerStore } from '../../stores/playerStore';
 
-// ── Responsive Camera Controller (Auto-fits sphere to ~70% center on any aspect ratio with smooth lerp) ──
+// ── Responsive Camera Controller (Auto-fits sphere centered comfortably above bottom controls) ──
 const ResponsiveCameraController: React.FC = () => {
   const { camera, size } = useThree();
   const vrMode = usePlayerStore((s) => s.vrMode);
@@ -20,10 +20,13 @@ const ResponsiveCameraController: React.FC = () => {
     const baseDistance = 6.2;
     const targetZ = aspect < 1.0 ? baseDistance / Math.max(0.45, aspect * 0.92) : baseDistance;
     
-    // In VR mode, ensure camera is perfectly centered on origin
+    // In VR mode or on initial view, position camera with +0.35 Y lift so full sphere is framed above player bar
     if (vrMode) {
-      camera.position.set(0, 0, targetZ);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(0, 0.35, targetZ);
+      camera.lookAt(0, 0.35, 0);
+    } else {
+      camera.position.set(0, 0.35, targetZ);
+      camera.lookAt(0, 0.35, 0);
     }
     camera.updateProjectionMatrix();
   }, [camera, size.width, size.height, vrMode]);
@@ -42,13 +45,11 @@ const ResponsiveCameraController: React.FC = () => {
     if (vrMode) {
       // Smoothly keep camera centered without OrbitControls drift
       camera.position.x += (0 - camera.position.x) * 0.1;
-      camera.position.y += (0 - camera.position.y) * 0.1;
+      camera.position.y += (0.35 - camera.position.y) * 0.1;
       camera.position.z += (targetZ - camera.position.z) * 0.1;
-      camera.lookAt(0, 0, 0);
-    } else {
-      camera.position.z += (targetZ - camera.position.z) * 0.08;
+      camera.lookAt(0, 0.35, 0);
+      camera.updateProjectionMatrix();
     }
-    camera.updateProjectionMatrix();
   });
 
   return null;
@@ -66,7 +67,7 @@ export const SceneContainer: React.FC = React.memo(() => {
   return (
     <div className="absolute inset-0 w-full h-full pointer-events-auto overflow-hidden" style={{ backgroundColor: bgColor }}>
       <Canvas
-        camera={{ position: [0, 0, 6.2], fov: 50 }}
+        camera={{ position: [0, 0.35, 6.2], fov: 50 }}
         gl={{
           antialias: true,
           alpha: false,
@@ -117,6 +118,7 @@ export const SceneContainer: React.FC = React.memo(() => {
           enabled={!vrMode}
           enablePan={false}
           enableZoom={!vrMode}
+          target={[0, 0.35, 0]}
           minDistance={3.2}
           maxDistance={14}
           rotateSpeed={0.6}
