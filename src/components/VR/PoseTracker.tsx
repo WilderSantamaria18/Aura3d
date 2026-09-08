@@ -69,11 +69,7 @@ export const PoseTracker: React.FC = () => {
     vrTrackingMode,
     setVrTrackingMode,
     setPoseLandmarks,
-    setPoseVelocity,
     setHandLandmarks,
-    setHandGesture,
-    setPoseKeypoints,
-    setHandRotation,
     sphereOpacity,
     setSphereOpacity,
     visualizerMode,
@@ -434,12 +430,9 @@ export const PoseTracker: React.FC = () => {
           poseLandmarks: rawLandmarks,
           handRotation: rotation,
           poseVelocity: velocity,
-          poseKeypoints: {
-            rightHand,
-            leftHand,
-            head,
-            velocity,
-          },
+          rightHandPos: rightHand,
+          leftHandPos: leftHand,
+          headPos: head,
         });
 
         if (showPreview && !isSleepingRef.current) {

@@ -23,8 +23,6 @@ export const HandTracker: React.FC = () => {
     vrMode,
     setVrMode,
     setHandLandmarks,
-    setHandGesture,
-    setHandRotation,
     setSphereOpacity,
     visualizerMode,
     setSphereScale,
@@ -273,10 +271,10 @@ export const HandTracker: React.FC = () => {
               const rawRotY = (wrist.x - 0.5) * Math.PI * 2.5 * sens;
               const rawRotX = (wrist.y - 0.5) * Math.PI * 2.0 * sens;
               const smoothed = smoothRotation({ x: rawRotX, y: rawRotY });
-              setHandRotation(smoothed);
+              usePlayerStore.setState({ handRotation: smoothed });
             }
           } else {
-            setHandLandmarks(null);
+            usePlayerStore.setState({ handLandmarks: null });
             setDetectedGesture('unknown');
           }
         });
@@ -334,16 +332,16 @@ export const HandTracker: React.FC = () => {
           // ignore
         }
       }
-      setHandLandmarks(null);
-      setHandGesture('open');
-      setHandRotation({ x: 0, y: 0 });
+      usePlayerStore.setState({
+        handLandmarks: null,
+        handGesture: 'open',
+        handRotation: { x: 0, y: 0 },
+      });
     };
   }, [
     vrMode,
     setVrMode,
     setHandLandmarks,
-    setHandGesture,
-    setHandRotation,
     setSphereOpacity,
     visualizerMode,
     setSphereScale,
