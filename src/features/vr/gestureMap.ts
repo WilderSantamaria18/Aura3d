@@ -70,7 +70,7 @@ export const classifyHandGesture = (landmarks: IGestureLandmark[]): IGestureEven
     calcDistance(thumbTip, indexMCP) > 0.09;
 
   const pinchDist = calcDistance(thumbTip, indexTip);
-  const isPinchCandidate = pinchDist < 0.085;
+  const isPinchCandidate = pinchDist < 0.105;
 
   let gesture: GestureType = 'none';
   let confidence = 0.85;
@@ -87,7 +87,7 @@ export const classifyHandGesture = (landmarks: IGestureLandmark[]): IGestureEven
     }
   } else if (isPinchCandidate && (isMiddleExt || isRingExt || isPinkyExt || calcDistance(indexTip, indexMCP) > 0.07)) {
     gesture = 'pinch';
-    confidence = Math.max(0.6, 1.0 - pinchDist * 10);
+    confidence = Math.max(0.6, 1.0 - pinchDist * 8);
   } else if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
     gesture = 'one';
     confidence = 0.92;

@@ -504,7 +504,7 @@ export const PartyVisualizer: React.FC = () => {
       <canvas ref={canvasRef} className="w-full h-full block" />
 
       {/* Floating Studio Controls */}
-      <div className="fixed top-20 right-6 z-40 flex flex-col items-end gap-2">
+      <div className="fixed top-28 sm:top-32 right-3 sm:right-6 z-40 flex flex-col items-end gap-2">
         <button
           onClick={() => setShowSettings(!showSettings)}
           className={`px-4 py-2 rounded-none border text-[10px] font-mono tracking-[0.2em] uppercase transition-all flex items-center gap-2.5 ${

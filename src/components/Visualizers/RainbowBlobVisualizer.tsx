@@ -703,7 +703,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       </div>
 
       {/* Botón flotante para abrir panel de personalización / Configuración */}
-      <div className="fixed top-20 right-6 z-40 flex items-center gap-2">
+      <div className="fixed top-28 sm:top-32 right-3 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
         <button
           onClick={toggleVisualizerSettings}
           className="px-3.5 py-2 rounded-full backdrop-blur-xl border border-cyan-400/40 bg-cyan-500/15 text-cyan-300 text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(0,242,254,0.3)] hover:bg-cyan-500/25"

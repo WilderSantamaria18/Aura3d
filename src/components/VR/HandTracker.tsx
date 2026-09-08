@@ -284,16 +284,13 @@ export const HandTracker: React.FC = () => {
           if (isProcessing.current || !videoRef.current || !handsInstance || !vrMode) return;
           const video = videoRef.current;
           if (video.readyState < 2 || video.videoWidth === 0) {
-            if (Math.random() < 0.02) {
-              console.warn('[HandTracker] Video no listo aún, readyState:', video.readyState);
-            }
             return;
           }
           isProcessing.current = true;
           try {
             await handsInstance.send({ image: video });
-          } catch (err) {
-            console.warn('[HandTracker] Error en send:', err);
+          } catch {
+            // Frame dropped, proceed silently
           } finally {
             isProcessing.current = false;
           }

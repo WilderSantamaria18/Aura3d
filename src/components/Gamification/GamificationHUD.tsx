@@ -50,7 +50,7 @@ export const GamificationHUD: React.FC = () => {
       : '#8A99AD';
 
   return (
-    <div className="fixed top-16 sm:top-20 left-3 sm:left-6 z-40 select-none pointer-events-auto font-mono">
+    <div className="fixed top-16 sm:top-20 right-3 sm:right-6 z-40 select-none pointer-events-auto font-mono">
       {/* ── Compact Floating Badge (Always Visible) ── */}
       <div
         className={`transition-all duration-500 rounded-2xl overflow-hidden backdrop-blur-2xl border ${
@@ -120,7 +120,7 @@ export const GamificationHUD: React.FC = () => {
 
         {/* ── Expanded Full Statistics & ML Panel ── */}
         {isExpanded && (
-          <div className="p-3 border-t border-white/10 space-y-2.5 w-64 sm:w-72 animate-in fade-in zoom-in-95 duration-200 text-xs">
+          <div className="p-3 border-t border-white/10 space-y-2.5 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] animate-in fade-in zoom-in-95 duration-200 text-xs">
             {/* Intensity Progress Bar */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[10px]">

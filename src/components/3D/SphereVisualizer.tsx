@@ -425,8 +425,8 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         if (!isInteracting) {
           if (isVrActive) {
             // Direct smooth interpolation towards VR tracking rotation
-            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.15;
-            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.15;
+            pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.25;
+            pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.25;
           } else {
             // Continuous audio-reactive rotation
             pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier;

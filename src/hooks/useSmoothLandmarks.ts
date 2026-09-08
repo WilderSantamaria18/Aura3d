@@ -1,10 +1,10 @@
-﻿import { useRef, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import type { HandLandmark, PoseLandmark } from '../stores/playerStore';
 
-export const MOVEMENT_SENSITIVITY = 1.2;
-export const POSITION_LERP_FACTOR = 0.15;
-export const ROTATION_LERP_FACTOR = 0.10;
-export const OUTLIER_DISTANCE_THRESHOLD = 2.0;
+export const MOVEMENT_SENSITIVITY = 1.25;
+export const POSITION_LERP_FACTOR = 0.35;
+export const ROTATION_LERP_FACTOR = 0.28;
+export const OUTLIER_DISTANCE_THRESHOLD = 4.5;
 
 export interface WorldVector3 {
   x: number;
