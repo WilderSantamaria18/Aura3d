@@ -447,7 +447,7 @@ export const PoseTracker: React.FC = () => {
           const { rotation } = processHands(rawLandmarks, handSensitivity);
 
           // 2. Classify Gestures
-          const classified = classifyHandGesture(rawLandmarks);
+          const classified = classifyHandGesture(rawLandmarks, handSensitivity);
           const gesture = classified.type;
 
           if (gesture !== prevGestureRef.current) {
@@ -748,7 +748,16 @@ export const PoseTracker: React.FC = () => {
         localStream.getTracks().forEach((track) => track.stop());
       }
       if (videoRef.current) {
-        videoRef.current.srcObject = null;
+        if (videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          if (stream && stream.getTracks) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
+        }
+        try {
+          videoRef.current.pause();
+          videoRef.current.srcObject = null;
+        } catch {}
       }
       if (modelInstance && modelInstance.close) {
         try {

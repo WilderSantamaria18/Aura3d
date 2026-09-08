@@ -69,9 +69,13 @@ export const lerpRotation = (
   target: RotationVector2,
   factor: number = ROTATION_LERP_FACTOR
 ): RotationVector2 => {
+  const dx = target.x - current.x;
+  const dy = target.y - current.y;
+  const dist = Math.hypot(dx, dy);
+  const dynamicFactor = Math.min(0.48, factor + dist * 0.12);
   return {
-    x: current.x + (target.x - current.x) * factor,
-    y: current.y + (target.y - current.y) * factor,
+    x: current.x + dx * dynamicFactor,
+    y: current.y + dy * dynamicFactor,
   };
 };
 
@@ -112,15 +116,25 @@ export const useSmoothLandmarks = () => {
         return rawWorld;
       }
 
-      // Outlier Filter: discard spurious frame jumps (> OUTLIER_DISTANCE_THRESHOLD)
+      // Outlier Filter: prevent freeze on rapid movements by clamping maximum displacement per frame
       const jumpDistance = calcWorldDistance(currentSmoothed.current, rawWorld);
       if (jumpDistance > OUTLIER_DISTANCE_THRESHOLD) {
-        // Discard sudden jump by returning existing smoothed position without snapping
-        return currentSmoothed.current;
+        // Instead of freezing indefinitely, advance towards rawWorld clamped to max allowable step
+        const ratio = OUTLIER_DISTANCE_THRESHOLD / jumpDistance;
+        const clampedTarget = {
+          x: currentSmoothed.current.x + (rawWorld.x - currentSmoothed.current.x) * ratio,
+          y: currentSmoothed.current.y + (rawWorld.y - currentSmoothed.current.y) * ratio,
+          z: currentSmoothed.current.z + (rawWorld.z - currentSmoothed.current.z) * ratio,
+        };
+        const smoothed = lerpWorldVector(currentSmoothed.current, clampedTarget, POSITION_LERP_FACTOR * 1.5);
+        currentSmoothed.current = smoothed;
+        return smoothed;
       }
 
-      // Apply Anti-Jitter Lerp (0.15 factor)
-      const smoothed = lerpWorldVector(currentSmoothed.current, rawWorld, POSITION_LERP_FACTOR);
+      // Velocity-adaptive lerp: smooth micro-jitter when holding still, responsive when moving
+      const speedFactor = Math.min(1.0, jumpDistance / 1.5);
+      const dynamicFactor = POSITION_LERP_FACTOR + (0.50 - POSITION_LERP_FACTOR) * speedFactor;
+      const smoothed = lerpWorldVector(currentSmoothed.current, rawWorld, dynamicFactor);
       currentSmoothed.current = smoothed;
       return smoothed;
     },

@@ -75,12 +75,12 @@ export const HandTracker: React.FC = () => {
 
   // Precise Gesture Calculation based on Landmarks via pure gesture classifier
   const calculateGesture = useCallback((landmarks: HandLandmark[]): 'fist' | 'one' | 'open' | 'pinch' | 'unknown' => {
-    const classified = classifyHandGesture(landmarks);
+    const classified = classifyHandGesture(landmarks, handSensitivity);
     if (classified.type === 'fist' || classified.type === 'one' || classified.type === 'open' || classified.type === 'pinch') {
       return classified.type;
     }
     return 'unknown';
-  }, []);
+  }, [handSensitivity]);
 
   // Moving average rotation smoothing with deadzone
   const smoothRotation = useCallback((rawRot: { x: number; y: number }) => {
@@ -321,6 +321,18 @@ export const HandTracker: React.FC = () => {
       }
       if (cameraStream) {
         cameraStream.getTracks().forEach((t) => t.stop());
+      }
+      if (videoRef.current) {
+        if (videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          if (stream && stream.getTracks) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
+        }
+        try {
+          videoRef.current.pause();
+          videoRef.current.srcObject = null;
+        } catch {}
       }
       if (handsInstance) {
         try {

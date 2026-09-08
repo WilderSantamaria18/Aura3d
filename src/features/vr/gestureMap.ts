@@ -13,7 +13,10 @@ export const calcDistance = (a: IGestureLandmark, b: IGestureLandmark): number =
 /**
  * Classifies raw MediaPipe 21-point hand landmarks into high-level semantic gestures
  */
-export const classifyHandGesture = (landmarks: IGestureLandmark[]): IGestureEvent => {
+export const classifyHandGesture = (
+  landmarks: IGestureLandmark[],
+  sensitivity: number = 1.0
+): IGestureEvent => {
   if (!landmarks || landmarks.length < 21) {
     return {
       type: 'none',
@@ -47,30 +50,35 @@ export const classifyHandGesture = (landmarks: IGestureLandmark[]): IGestureEven
   const pinkyPIP = landmarks[18];
   const pinkyMCP = landmarks[17];
 
+  // Scale extension and pinch thresholds with sensitivity
+  const sens = Math.max(0.6, Math.min(1.8, sensitivity));
+  const extWristFactor = 1.04 - (sens - 1.0) * 0.03;
+  const extMcpFactor = 1.10 - (sens - 1.0) * 0.05;
+
   // Robust finger extension checks: combine wrist-distance and MCP-distance (resilient to tilt)
   const isIndexExt =
-    calcDistance(indexTip, wrist) > calcDistance(indexPIP, wrist) * 1.04 ||
-    calcDistance(indexTip, indexMCP) > calcDistance(indexPIP, indexMCP) * 1.1;
+    calcDistance(indexTip, wrist) > calcDistance(indexPIP, wrist) * extWristFactor ||
+    calcDistance(indexTip, indexMCP) > calcDistance(indexPIP, indexMCP) * extMcpFactor;
 
   const isMiddleExt =
-    calcDistance(middleTip, wrist) > calcDistance(middlePIP, wrist) * 1.04 ||
-    calcDistance(middleTip, middleMCP) > calcDistance(middlePIP, middleMCP) * 1.1;
+    calcDistance(middleTip, wrist) > calcDistance(middlePIP, wrist) * extWristFactor ||
+    calcDistance(middleTip, middleMCP) > calcDistance(middlePIP, middleMCP) * extMcpFactor;
 
   const isRingExt =
-    calcDistance(ringTip, wrist) > calcDistance(ringPIP, wrist) * 1.04 ||
-    calcDistance(ringTip, ringMCP) > calcDistance(ringPIP, ringMCP) * 1.1;
+    calcDistance(ringTip, wrist) > calcDistance(ringPIP, wrist) * extWristFactor ||
+    calcDistance(ringTip, ringMCP) > calcDistance(ringPIP, ringMCP) * extMcpFactor;
 
   const isPinkyExt =
-    calcDistance(pinkyTip, wrist) > calcDistance(pinkyPIP, wrist) * 1.04 ||
-    calcDistance(pinkyTip, pinkyMCP) > calcDistance(pinkyPIP, pinkyMCP) * 1.1;
+    calcDistance(pinkyTip, wrist) > calcDistance(pinkyPIP, wrist) * extWristFactor ||
+    calcDistance(pinkyTip, pinkyMCP) > calcDistance(pinkyPIP, pinkyMCP) * extMcpFactor;
 
   const isThumbExt =
-    calcDistance(thumbTip, pinkyMCP) > calcDistance(thumbIP, pinkyMCP) * 1.05 &&
-    calcDistance(thumbTip, thumbMCP) > calcDistance(thumbIP, thumbMCP) * 1.05 &&
-    calcDistance(thumbTip, indexMCP) > 0.09;
+    calcDistance(thumbTip, pinkyMCP) > calcDistance(thumbIP, pinkyMCP) * 1.04 &&
+    calcDistance(thumbTip, thumbMCP) > calcDistance(thumbIP, thumbMCP) * 1.04 &&
+    calcDistance(thumbTip, indexMCP) > 0.08;
 
   const pinchDist = calcDistance(thumbTip, indexTip);
-  const isPinchCandidate = pinchDist < 0.105;
+  const isPinchCandidate = pinchDist < 0.105 * sens;
 
   let gesture: GestureType = 'none';
   let confidence = 0.85;
