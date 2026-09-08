@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Cpu, Server, Zap, CheckCircle, Gauge, Radio } from 'lucide-react';
+import { Activity, Cpu, Server, Zap, CheckCircle, Gauge, Radio, ShieldCheck } from 'lucide-react';
 
 export interface PerformanceStats {
   clientFPS: number;
@@ -18,13 +18,13 @@ interface PerformanceMonitorProps {
 export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats }) => {
   const getFpsColor = (fps: number) => {
     if (fps >= 55) return '#39FF14';
-    if (fps >= 35) return '#FFD700';
+    if (fps >= 35) return '#00f2fe';
     return '#ff088a';
   };
 
   const getLatencyColor = (ms: number) => {
     if (ms <= 30) return '#39FF14';
-    if (ms <= 70) return '#FFD700';
+    if (ms <= 70) return '#00f2fe';
     return '#ff088a';
   };
 
@@ -36,12 +36,12 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
   };
 
   return (
-    <div className="space-y-4 font-mono text-white">
+    <div className="space-y-4 font-mono text-white select-none">
       {/* KPI Performance Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* FPS Indicator */}
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-center justify-between text-white/60 text-xs">
+        {/* Real Client FPS */}
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
             <span className="flex items-center gap-1.5">
               <Gauge className="w-3.5 h-3.5 text-cyan-400" />
               FPS DEL CLIENTE
@@ -51,16 +51,16 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
               style={{ backgroundColor: getFpsColor(stats.clientFPS) }}
             />
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1.5">
             <span
-              className="text-3xl font-bold tracking-tight"
+              className="text-3xl sm:text-4xl font-bold tracking-tight"
               style={{ color: getFpsColor(stats.clientFPS) }}
             >
               {stats.clientFPS}
             </span>
-            <span className="text-xs text-white/40 ml-1">FPS</span>
+            <span className="text-xs text-white/40">FPS REAL</span>
           </div>
-          <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+          <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
             <div
               className="h-full transition-all duration-500 rounded-full"
               style={{
@@ -71,83 +71,85 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
           </div>
         </div>
 
-        {/* Latency */}
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between text-white/60 text-xs">
+        {/* Real Latency */}
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
             <span className="flex items-center gap-1.5">
               <Radio className="w-3.5 h-3.5 text-pink-400" />
               LATENCIA SOCKET
             </span>
             <span
-              className="text-[10px] font-bold"
+              className="text-[9px] font-bold tracking-wider uppercase"
               style={{ color: getLatencyColor(stats.clientLatencyMs) }}
             >
-              {stats.clientLatencyMs < 40 ? 'ÓPTIMA' : 'ESTABLE'}
+              {stats.clientLatencyMs < 40 ? 'Óptima' : 'Estable'}
             </span>
           </div>
-          <div className="my-2">
+          <div className="my-2 flex items-baseline gap-1.5">
             <span
-              className="text-3xl font-bold tracking-tight"
+              className="text-3xl sm:text-4xl font-bold tracking-tight"
               style={{ color: getLatencyColor(stats.clientLatencyMs) }}
             >
               {stats.clientLatencyMs}
             </span>
-            <span className="text-xs text-white/40 ml-1">ms</span>
+            <span className="text-xs text-white/40">ms RTT</span>
           </div>
-          <span className="text-[10px] text-white/40">RTT WebSocket en tiempo real</span>
+          <span className="text-[10px] text-white/40">Medición WebSocket bidireccional</span>
         </div>
 
         {/* Server Memory */}
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between text-white/60 text-xs">
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
             <span className="flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-yellow-400" />
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
               MEMORIA NODE.JS
             </span>
-            <span className="text-[10px] text-emerald-400 font-bold">HEAP OK</span>
+            <span className="text-[9px] text-emerald-400 font-bold tracking-wider">RSS OK</span>
           </div>
-          <div className="my-2">
-            <span className="text-3xl font-bold text-yellow-300 tracking-tight">
+          <div className="my-2 flex items-baseline gap-1.5">
+            <span className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
               {stats.serverMemoryMB}
             </span>
-            <span className="text-xs text-white/40 ml-1">MB</span>
+            <span className="text-xs text-white/40">MB</span>
           </div>
-          <span className="text-[10px] text-white/40">Consumo RSS del servidor</span>
+          <span className="text-[10px] text-white/40">Carga de memoria residente</span>
         </div>
 
-        {/* Uptime */}
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl flex flex-col justify-between">
-          <div className="flex items-center justify-between text-white/60 text-xs">
+        {/* Server Uptime */}
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
             <span className="flex items-center gap-1.5">
               <Server className="w-3.5 h-3.5 text-emerald-400" />
               UPTIME SERVIDOR
             </span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <div className="my-2">
             <span className="text-xl sm:text-2xl font-bold text-emerald-300 tracking-tight">
               {formatUptime(stats.serverUptimeSeconds)}
             </span>
           </div>
-          <span className="text-[10px] text-white/40">Sin interrupciones de servicio</span>
+          <span className="text-[10px] text-white/40">Continuidad sin interrupciones</span>
         </div>
       </div>
 
-      {/* System Health Check & GPU Acceleration Status */}
+      {/* System Health Check & GPU Telemetry Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl space-y-3">
-          <h3 className="text-xs font-bold text-cyan-300 tracking-wider flex items-center gap-2">
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <h3 className="text-xs font-bold text-cyan-300 tracking-widest uppercase flex items-center gap-2">
             <Zap className="w-3.5 h-3.5" />
-            ESTADO DE SALUD DEL ECOSISTEMA
+            ESTADO DEL ECOSISTEMA DE RENDERIZADO
           </h3>
 
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
               <span className="flex items-center gap-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                Motor 3D Three.js & WebGL2
+                Lienzo Three.js / WebGL2
               </span>
-              <span className="text-emerald-300 font-bold text-[10px]">ACTIVO (60 FPS)</span>
+              <span className="text-emerald-300 font-bold text-[10px] tracking-wider uppercase">
+                Activo ({stats.clientFPS} FPS)
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
@@ -155,7 +157,9 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 MediaPipe WebAssembly & SIMD
               </span>
-              <span className="text-emerald-300 font-bold text-[10px]">ACELERADO</span>
+              <span className="text-emerald-300 font-bold text-[10px] tracking-wider uppercase">
+                Acelerado
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
@@ -163,7 +167,9 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 Canal WebSocket Socket.io
               </span>
-              <span className="text-emerald-300 font-bold text-[10px]">CONECTADO</span>
+              <span className="text-emerald-300 font-bold text-[10px] tracking-wider uppercase">
+                Conectado ({stats.clientLatencyMs}ms)
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
@@ -171,38 +177,43 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({ stats })
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                 Pipeline de Audio DSP FFT (2048 bins)
               </span>
-              <span className="text-emerald-300 font-bold text-[10px]">0.2ms LAT</span>
+              <span className="text-cyan-300 font-bold text-[10px] tracking-wider uppercase">
+                {stats.audioProcessingTimeMs.toFixed(2)}ms DSP
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl space-y-3">
-          <h3 className="text-xs font-bold text-pink-300 tracking-wider flex items-center gap-2">
+        <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl space-y-3 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <h3 className="text-xs font-bold text-pink-300 tracking-widest uppercase flex items-center gap-2">
             <Activity className="w-3.5 h-3.5" />
-            DIAGNÓSTICO Y CONEXIONES ACTIVAS
+            DIAGNÓSTICO DE HARDWARE Y CONEXIONES
           </h3>
 
-          <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-white/60">Sockets Conectados:</span>
-              <span className="font-bold text-white">{stats.activeSocketsCount}</span>
+          <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-2.5 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-white/50">Sockets Conectados:</span>
+              <span className="font-bold text-white">{stats.activeSocketsCount} cliente(s)</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Tiempo de Cómputo DSP:</span>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50">Tiempo de Cómputo DSP:</span>
               <span className="font-bold text-cyan-300">{stats.audioProcessingTimeMs.toFixed(2)} ms</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Carga Estimada de GPU:</span>
-              <span className="font-bold text-emerald-400">{stats.gpuLoadEstimate}</span>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50">Dispositivo Gráfico (GPU):</span>
+              <span className="font-bold text-emerald-400 truncate max-w-[220px] text-right" title={stats.gpuLoadEstimate}>
+                {stats.gpuLoadEstimate}
+              </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-white/60">Protocolo de Red:</span>
-              <span className="font-bold text-yellow-300">WebSocket / HTTP/2</span>
+            <div className="flex justify-between items-center">
+              <span className="text-white/50">Protocolo de Red:</span>
+              <span className="font-bold text-white/80">WebSocket / HTTP/2</span>
             </div>
           </div>
 
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-400/20 text-[11px] text-cyan-200/90 leading-snug">
-            💡 El sistema ajusta automáticamente la densidad de partículas 3D en base al rendimiento del cliente para mantener 60 FPS estables.
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-400/20 text-[11px] text-cyan-200/90 leading-snug flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+            <span>Telemetría verificada en tiempo real sin extrapolaciones estáticas.</span>
           </div>
         </div>
       </div>

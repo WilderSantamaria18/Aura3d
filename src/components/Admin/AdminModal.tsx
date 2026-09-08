@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { socketService } from '../../services/socketService';
 import { AdminDashboard } from './AdminDashboard';
-import { X, Lock, ShieldCheck, User, Key, AlertCircle, ArrowRight } from 'lucide-react';
+import { X, Lock, Shield, User, Key, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
 export const AdminModal: React.FC = () => {
   const { isAdminModalOpen, setAdminModalOpen, isLucid } = usePlayerStore();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('admin');
+  const [isCheckingToken, setIsCheckingToken] = useState(true);
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,9 +17,15 @@ export const AdminModal: React.FC = () => {
   // Check existing token on modal open
   useEffect(() => {
     if (isAdminModalOpen) {
-      socketService.verifyAdminToken().then((valid) => {
-        setIsAuthenticated(valid);
-      });
+      setIsCheckingToken(true);
+      socketService
+        .verifyAdminToken()
+        .then((valid) => {
+          setIsAuthenticated(valid);
+        })
+        .finally(() => {
+          setIsCheckingToken(false);
+        });
     }
   }, [isAdminModalOpen]);
 
@@ -26,12 +33,18 @@ export const AdminModal: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!username.trim() || !password) {
+      setErrorMessage('Por favor ingresa usuario y contraseña.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      await socketService.loginAdmin(username.trim(), password.trim());
+      await socketService.loginAdmin(username.trim(), password);
       setIsAuthenticated(true);
+      setPassword('');
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : 'Error de autenticación');
     } finally {
@@ -46,41 +59,48 @@ export const AdminModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-300 select-none">
       <div
-        className={`relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl p-4 sm:p-6 shadow-2xl transition-all border ${
+        className={`relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl p-4 sm:p-6 shadow-[0_16px_50px_rgba(0,0,0,0.8)] transition-all border ${
           isLucid
-            ? 'bg-[#060a17]/95 border-emerald-400/50 shadow-[0_0_50px_rgba(57,255,20,0.25)]'
-            : 'bg-[#090e1c]/95 border-cyan-400/40 shadow-[0_0_50px_rgba(0,242,254,0.25)]'
+            ? 'bg-[#060a17]/90 border-emerald-400/40'
+            : 'bg-[#0b0f1e]/90 border-white/10 backdrop-blur-2xl'
         }`}
       >
         {/* Close Button */}
         <button
           onClick={() => setAdminModalOpen(false)}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all z-10"
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-all z-10 focus-visible:ring-1 focus-visible:ring-cyan-400"
           title="Cerrar panel administrativo"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {isAuthenticated ? (
+        {isCheckingToken ? (
+          <div className="py-24 flex flex-col items-center justify-center gap-3 font-mono text-center">
+            <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+            <span className="text-xs text-white/50 tracking-widest uppercase">
+              Verificando credenciales de sesión...
+            </span>
+          </div>
+        ) : isAuthenticated ? (
           <AdminDashboard onLogout={handleLogout} />
         ) : (
           /* ── Admin Login Card ── */
           <div className="max-w-md mx-auto py-8 sm:py-12 flex flex-col items-center text-center font-mono">
-            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border-2 border-cyan-400/40 flex items-center justify-center text-cyan-300 mb-4 shadow-[0_0_25px_rgba(0,242,254,0.3)]">
-              <Lock className="w-8 h-8" />
+            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-300 mb-4 shadow-[0_0_20px_rgba(0,242,254,0.2)]">
+              <Lock className="w-6 h-6" />
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-widest uppercase mb-1">
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-widest uppercase mb-1">
               ACCESO ADMINISTRATIVO
             </h2>
-            <p className="text-xs text-white/50 mb-6">
-              Ingresa tus credenciales para ver telemetría y métricas en tiempo real
+            <p className="text-xs text-white/40 mb-6">
+              Autenticación requerida para telemetría, seguridad y métricas en vivo
             </p>
 
             {errorMessage && (
-              <div className="w-full mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+              <div className="w-full mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2 text-left">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -88,35 +108,36 @@ export const AdminModal: React.FC = () => {
 
             <form onSubmit={handleLogin} className="w-full space-y-3.5 text-left text-xs">
               <div>
-                <label className="text-[10px] text-white/60 uppercase tracking-wider mb-1 block">
-                  Usuario
+                <label className="text-[10px] text-white/50 uppercase tracking-widest mb-1.5 block font-bold">
+                  Usuario o Email
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="admin"
+                    placeholder="admin@auralis.app"
                     required
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                    autoFocus
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-xs"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] text-white/60 uppercase tracking-wider mb-1 block">
+                <label className="text-[10px] text-white/50 uppercase tracking-widest mb-1.5 block font-bold">
                   Contraseña
                 </label>
                 <div className="relative">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="admin123"
+                    placeholder="••••••••"
                     required
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-black/60 border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/25 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all text-xs"
                   />
                 </div>
               </div>
@@ -124,20 +145,29 @@ export const AdminModal: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-3 rounded-xl font-bold tracking-widest text-xs uppercase flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`w-full py-3 rounded-full font-bold tracking-widest text-xs uppercase flex items-center justify-center gap-2 transition-all duration-300 ${
                   isLucid
-                    ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_20px_#39FF14]'
-                    : 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white hover:from-cyan-400 hover:to-indigo-500 shadow-[0_0_25px_rgba(0,242,254,0.4)]'
+                    ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-[0_0_20px_rgba(57,255,20,0.4)]'
+                    : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 shadow-[0_0_20px_rgba(0,242,254,0.25)]'
                 }`}
               >
-                <span>{isLoading ? 'Verificando...' : 'Entrar al Dashboard'}</span>
-                <ArrowRight className="w-4 h-4" />
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Autenticando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Entrar al Dashboard</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
               <div className="pt-2 text-center text-[10px] text-white/40">
                 <span className="flex items-center justify-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                  Credenciales por defecto: <strong className="text-white">admin</strong> / <strong className="text-white">admin123</strong>
+                  <Shield className="w-3 h-3 text-cyan-400" />
+                  Acceso protegido con cifrado y tokens JWT seguros
                 </span>
               </div>
             </form>

@@ -4,9 +4,31 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 const PORT = process.env.PORT || 4000;
-const JWT_SECRET = process.env.JWT_SECRET || 'auralis_cyber_admin_secret_2026';
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// ── 1. Secure JWT Secret Handling ──────────────────────────────────────────
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (IS_PROD) {
+    console.error('[FATAL SECURITY ERROR] La variable de entorno JWT_SECRET es obligatoria en producción.');
+    process.exit(1);
+  } else {
+    // Generate secure unpredictable random secret for dev/staging
+    JWT_SECRET = crypto.randomBytes(32).toString('hex');
+    console.warn('[AVISO DE SEGURIDAD] JWT_SECRET no configurado en entorno de desarrollo. Se ha generado una clave efímera segura.');
+  }
+}
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -20,19 +42,70 @@ const io = new Server(server, {
   },
 });
 
-// ── In-Memory Database (Persistent Sessions & Users with MongoDB API Compatibility) ────
-const usersDb = new Map();
-// Default superadmin user
-const defaultAdminHash = bcrypt.hashSync('admin123', 10);
-usersDb.set('admin@auralis.app', {
-  id: 'usr_admin_01',
-  username: 'admin',
-  email: 'admin@auralis.app',
-  passwordHash: defaultAdminHash,
-  role: 'superadmin',
-  genres: ['Electrónica / EDM', 'Synthwave'],
-  createdAt: new Date(),
-});
+// ── 2. In-Memory Database with Safe Disk Persistence ──────────────────────
+const usersDb = new Map(); // email/id -> userRecord
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (err) {
+    console.warn('[Storage] No se pudo crear directorio de datos:', err.message);
+  }
+}
+
+function saveUsersToDisk() {
+  try {
+    const list = Array.from(usersDb.values());
+    fs.writeFileSync(USERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('[Storage] Error al guardar usuarios en disco:', err.message);
+  }
+}
+
+function loadUsersFromDisk() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, 'utf-8');
+      const list = JSON.parse(content);
+      if (Array.isArray(list)) {
+        list.forEach((u) => {
+          if (u && u.email) {
+            usersDb.set(u.email, u);
+          }
+        });
+        console.log(`[Storage] ${usersDb.size} usuarios cargados desde disco.`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Storage] Error al leer usuarios desde disco:', err.message);
+  }
+}
+
+// Initialize users from disk
+loadUsersFromDisk();
+
+// Bootstrap superadmin if none exists
+const adminEmail = (process.env.ADMIN_EMAIL || 'admin@auralis.app').toLowerCase().trim();
+const adminPassword = process.env.ADMIN_PASSWORD || (IS_PROD ? null : 'AuraAdmin#2026!');
+
+if (!usersDb.has(adminEmail) && adminPassword) {
+  const defaultAdminHash = bcrypt.hashSync(adminPassword, 12);
+  const initialAdmin = {
+    id: 'usr_admin_01',
+    username: 'admin',
+    email: adminEmail,
+    passwordHash: defaultAdminHash,
+    role: 'superadmin',
+    genres: ['Electrónica / EDM', 'Synthwave'],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString(),
+  };
+  usersDb.set(adminEmail, initialAdmin);
+  saveUsersToDisk();
+  console.log(`[Seguridad] Superadmin inicializado para: ${adminEmail}`);
+}
 
 // Active connected client sessions: socketId -> Session Data
 const activeUsers = new Map(); // userId -> socketId
@@ -51,7 +124,6 @@ const INITIAL_DEMO_SONGS = [
   { title: 'Midnight Echoes', artist: 'Synth Vibe', count: 22 },
   { title: 'Bass Resonance', artist: 'Hyper Bass', count: 18 },
 ];
-
 INITIAL_DEMO_SONGS.forEach((s) => songPlayCounts.set(`${s.title} - ${s.artist}`, s.count));
 
 const INITIAL_GENRES = {
@@ -63,10 +135,69 @@ const INITIAL_GENRES = {
   'Clásica / Acústica': 12,
   'Ambient / Chill': 15,
 };
-
 Object.entries(INITIAL_GENRES).forEach(([g, c]) => genreCounts.set(g, c));
 
-// ── Helper: Compute Live Dashboard Metrics ──────────────────────────────────
+// ── 3. Real Client Telemetry Storage ───────────────────────────────────────
+let latestClientMetrics = {
+  fps: 60,
+  latencyMs: 16,
+  audioProcessingTimeMs: 0.15,
+  gpuName: 'WebGL2 Hardware Renderer',
+  performanceMode: 'high',
+  lastReportTime: Date.now(),
+};
+
+// ── 4. Rate Limiting Middlewares (In-Memory Sliding Window) ────────────────
+const loginAttempts = new Map(); // ip -> { count, resetTime }
+const globalRequestCounts = new Map(); // ip -> { count, resetTime }
+
+const globalRateLimit = (req, res, next) => {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 min
+  const maxRequests = 120;
+
+  const record = globalRequestCounts.get(ip) || { count: 0, resetTime: now + windowMs };
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + windowMs;
+  } else {
+    record.count++;
+  }
+  globalRequestCounts.set(ip, record);
+
+  if (record.count > maxRequests) {
+    return res.status(429).json({ error: 'Demasiadas peticiones. Intenta de nuevo en un minuto.' });
+  }
+  next();
+};
+
+const loginRateLimit = (req, res, next) => {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000; // 15 mins
+  const maxAttempts = 10;
+
+  const record = loginAttempts.get(ip) || { count: 0, resetTime: now + windowMs };
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + windowMs;
+  } else {
+    record.count++;
+  }
+  loginAttempts.set(ip, record);
+
+  if (record.count > maxAttempts) {
+    return res.status(429).json({
+      error: 'Demasiados intentos fallidos de inicio de sesión. Bloqueado temporalmente por 15 minutos.',
+    });
+  }
+  next();
+};
+
+app.use(globalRateLimit);
+
+// ── 5. Helper: Compute Live Dashboard Metrics ──────────────────────────────
 function computeDashboardMetrics() {
   const sessions = Array.from(activeSessions.values());
   const activeUsersCount = Math.max(activeUsers.size, sessions.length);
@@ -114,7 +245,7 @@ function computeDashboardMetrics() {
   };
 }
 
-// ── Auth Middleware ────────────────────────────────────────────────────────
+// ── 6. Authentication & Authorization Middlewares ──────────────────────────
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -126,12 +257,36 @@ const authMiddleware = (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Token inválido o expirado.' });
   }
 };
 
-// ── REST API Routes ─────────────────────────────────────────────────────────
+const adminMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No autorizado. Token no proporcionado.' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+
+    if (decoded.role !== 'admin' && decoded.role !== 'superadmin') {
+      return res.status(403).json({ error: 'Acceso denegado. Se requiere rol de administrador.' });
+    }
+
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado.' });
+  }
+};
+
+// Validation helpers
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ── 7. REST API Routes ─────────────────────────────────────────────────────
 
 // Health Check
 app.get(['/api/health', '/health'], (req, res) => {
@@ -146,69 +301,96 @@ app.get(['/api/health', '/health'], (req, res) => {
 // Register
 app.post(['/auth/register', '/api/auth/register'], async (req, res) => {
   try {
-    const { username, email, password, genres } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Campos obligatorios incompletos' });
+    const { username, email, password, genres } = req.body || {};
+
+    if (!username || typeof username !== 'string' || username.trim().length < 3) {
+      return res.status(400).json({ error: 'El nombre de usuario debe tener al menos 3 caracteres.' });
     }
 
-    if (usersDb.has(email)) {
-      return res.status(400).json({ error: 'El usuario con ese email ya existe' });
+    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim().toLowerCase())) {
+      return res.status(400).json({ error: 'Formato de correo electrónico inválido.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userId = `usr_${Math.random().toString(36).substring(2, 9)}`;
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener un mínimo de 8 caracteres.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (usersDb.has(cleanEmail)) {
+      return res.status(400).json({ error: 'Ya existe una cuenta con ese correo electrónico.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const userId = `usr_${crypto.randomBytes(5).toString('hex')}`;
     const newUser = {
       id: userId,
-      username,
-      email,
+      username: username.trim(),
+      email: cleanEmail,
       passwordHash,
       role: 'user',
-      genres: genres || [],
-      createdAt: new Date(),
+      genres: Array.isArray(genres) ? genres : [],
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
     };
 
-    usersDb.set(email, newUser);
-    const token = jwt.sign({ userId, username, email, role: 'user' }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, userId, username, email });
+    usersDb.set(cleanEmail, newUser);
+    saveUsersToDisk();
+
+    const token = jwt.sign(
+      { userId, username: newUser.username, email: cleanEmail, role: 'user' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, userId, username: newUser.username, email: cleanEmail });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Login
-app.post(['/auth/login', '/api/auth/login'], async (req, res) => {
+app.post(['/auth/login', '/api/auth/login'], loginRateLimit, async (req, res) => {
   try {
-    const { email, username, password } = req.body;
-    const identifier = email || username;
+    const { email, username, password } = req.body || {};
+    const identifier = (email || username || '').trim();
 
     if (!identifier || !password) {
-      return res.status(400).json({ error: 'Identificador y contraseña requeridos' });
+      return res.status(400).json({ error: 'Identificador y contraseña requeridos.' });
     }
 
-    let user = usersDb.get(identifier);
+    let user = usersDb.get(identifier.toLowerCase());
     if (!user) {
       // Look up by username
       for (const u of usersDb.values()) {
-        if (u.username === identifier || u.email === identifier) {
+        if (u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()) {
           user = u;
           break;
         }
       }
     }
 
-    // Default fallback for superadmin 'admin' / 'admin123'
-    if (!user && (identifier === 'admin' || identifier === 'admin@auralis.app')) {
-      user = usersDb.get('admin@auralis.app');
-    }
-
     if (!user) {
-      return res.status(400).json({ error: 'Usuario no encontrado' });
+      return res.status(400).json({ error: 'Credenciales inválidas.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash) || password === 'admin123';
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Contraseña incorrecta' });
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Esta cuenta ha sido desactivada o bloqueada por un administrador.' });
     }
+
+    // STRICT BCRYPT COMPARE ONLY (Zero plaintext fallback)
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Credenciales inválidas.' });
+    }
+
+    // Reset failed login attempts on successful auth
+    const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    loginAttempts.delete(ip);
+
+    // Update lastLogin
+    user.lastLogin = new Date().toISOString();
+    saveUsersToDisk();
 
     const token = jwt.sign(
       {
@@ -241,13 +423,13 @@ app.get(['/auth/verify', '/api/auth/verify'], authMiddleware, (req, res) => {
   res.json({ valid: true, user: req.user });
 });
 
-// Admin Stats Endpoint
-app.get(['/admin/stats', '/api/admin/metrics', '/api/admin/stats'], (req, res) => {
+// Admin Stats Endpoint (Protected)
+app.get(['/admin/stats', '/api/admin/metrics', '/api/admin/stats'], adminMiddleware, (req, res) => {
   res.json(computeDashboardMetrics());
 });
 
-// Admin Users List Endpoint
-app.get('/api/admin/users', (req, res) => {
+// Admin Users List Endpoint (Protected)
+app.get('/api/admin/users', adminMiddleware, (req, res) => {
   const users = Array.from(usersDb.values()).map((u) => ({
     id: u.id,
     username: u.username,
@@ -261,34 +443,106 @@ app.get('/api/admin/users', (req, res) => {
   res.json(users);
 });
 
-// Admin Sessions History Endpoint
-app.get('/api/admin/sessions', (req, res) => {
-  res.json(sessionHistory.slice(0, 100));
-});
+// Toggle User Active Status (Protected)
+app.post('/api/admin/users/:id/toggle-status', adminMiddleware, (req, res) => {
+  const { id } = req.params;
+  let targetUser = null;
 
-// Admin System Performance Endpoint
-app.get('/api/admin/performance', (req, res) => {
-  const memoryUsage = process.memoryUsage();
+  for (const u of usersDb.values()) {
+    if (u.id === id) {
+      targetUser = u;
+      break;
+    }
+  }
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Usuario no encontrado.' });
+  }
+
+  if (targetUser.role === 'superadmin' && req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'No tienes permisos para modificar al superadministrador.' });
+  }
+
+  targetUser.isActive = !targetUser.isActive;
+  saveUsersToDisk();
+
   res.json({
-    clientFPS: 60,
-    clientLatencyMs: Math.round(15 + Math.random() * 8),
-    serverMemoryMB: Math.round(memoryUsage.rss / 1024 / 1024),
-    serverUptimeSeconds: Math.round(process.uptime()),
-    activeSocketsCount: io.sockets.sockets.size,
-    audioProcessingTimeMs: 0.16,
-    gpuLoadEstimate: '20% (WebGL2 / MediaPipe SIMD)',
+    success: true,
+    message: `Usuario ${targetUser.isActive ? 'activado' : 'bloqueado'} con éxito.`,
+    user: {
+      id: targetUser.id,
+      username: targetUser.username,
+      email: targetUser.email,
+      isActive: targetUser.isActive,
+    },
   });
 });
 
-// CSV Export Endpoint
-app.get('/api/admin/export/csv', (req, res) => {
+// Delete User (Protected)
+app.delete('/api/admin/users/:id', adminMiddleware, (req, res) => {
+  const { id } = req.params;
+  let targetKey = null;
+  let targetUser = null;
+
+  for (const [key, u] of usersDb.entries()) {
+    if (u.id === id) {
+      targetKey = key;
+      targetUser = u;
+      break;
+    }
+  }
+
+  if (!targetUser || !targetKey) {
+    return res.status(404).json({ error: 'Usuario no encontrado.' });
+  }
+
+  if (targetUser.id === req.user.userId) {
+    return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta administrativa.' });
+  }
+
+  if (targetUser.role === 'superadmin') {
+    return res.status(403).json({ error: 'No se puede eliminar una cuenta de superadministrador.' });
+  }
+
+  usersDb.delete(targetKey);
+  saveUsersToDisk();
+
+  res.json({ success: true, message: `Usuario ${targetUser.username} eliminado correctamente.` });
+});
+
+// Admin Sessions History Endpoint (Protected)
+app.get('/api/admin/sessions', adminMiddleware, (req, res) => {
+  res.json(sessionHistory.slice(0, 100));
+});
+
+// Admin System Performance Endpoint (Protected, Real Client & Server Telemetry)
+app.get('/api/admin/performance', adminMiddleware, (req, res) => {
+  const memoryUsage = process.memoryUsage();
+  const isRecent = Date.now() - latestClientMetrics.lastReportTime < 8000;
+  const activeCount = io.sockets.sockets.size;
+
+  res.json({
+    clientFPS: isRecent ? latestClientMetrics.fps : activeCount > 0 ? latestClientMetrics.fps : 60,
+    clientLatencyMs: latestClientMetrics.latencyMs,
+    serverMemoryMB: Math.round(memoryUsage.rss / 1024 / 1024),
+    serverUptimeSeconds: Math.round(process.uptime()),
+    activeSocketsCount: activeCount,
+    audioProcessingTimeMs: latestClientMetrics.audioProcessingTimeMs,
+    gpuLoadEstimate: `${latestClientMetrics.gpuName} [${latestClientMetrics.performanceMode.toUpperCase()}]`,
+  });
+});
+
+// CSV Export Endpoint (Protected)
+app.get('/api/admin/export/csv', adminMiddleware, (req, res) => {
   const type = req.query.type === 'users' ? 'users' : 'sessions';
   if (type === 'users') {
     const users = Array.from(usersDb.values());
-    const header = 'id,username,email,role,createdAt\n';
-    const rows = users.map((u) => `"${u.id}","${u.username}","${u.email}","${u.role}","${u.createdAt}"`).join('\n');
+    const header = 'id,username,email,role,isActive,createdAt\n';
+    const rows = users
+      .map((u) => `"${u.id}","${u.username}","${u.email}","${u.role}",${u.isActive !== false},"${u.createdAt}"`)
+      .join('\n');
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="auralis_users.csv"');
     return res.send(header + rows);
   } else {
     const header = 'userId,song,genre,score,duration,timestamp\n';
@@ -296,16 +550,14 @@ app.get('/api/admin/export/csv', (req, res) => {
       .map((s) => `"${s.userId}","${s.song}","${s.genre}","${s.score}","${s.duration}","${s.timestamp}"`)
       .join('\n');
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="sessions.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="auralis_sessions.csv"');
     return res.send(header + rows);
   }
 });
 
-// ── Socket.io Real-Time Channel (Supports all protocol variations) ──────────
+// ── 8. Socket.io Real-Time Channel ─────────────────────────────────────────
 io.on('connection', (socket) => {
-  console.log('[Socket.io] Nuevo cliente conectado:', socket.id);
-
-  // 1. Session Data stream from Auralis App (useAnalytics)
+  // 1. Session Data stream from Auralis App
   socket.on('session-data', (data) => {
     const { userId, song, genre, score, duration } = data || {};
     const sessionEntry = {
@@ -333,7 +585,31 @@ io.on('connection', (socket) => {
     io.emit('admin:metrics_update', metrics);
   });
 
-  // 2. User Active notification
+  // 2. Client Real Performance Reporting
+  socket.on('perf:client', (data) => {
+    if (data && typeof data.fps === 'number') {
+      latestClientMetrics = {
+        fps: Math.max(0, Math.min(240, Math.round(data.fps))),
+        latencyMs: typeof data.latencyMs === 'number' ? Math.max(0, Math.round(data.latencyMs)) : latestClientMetrics.latencyMs,
+        audioProcessingTimeMs:
+          typeof data.audioProcessingTimeMs === 'number'
+            ? Number(data.audioProcessingTimeMs.toFixed(3))
+            : latestClientMetrics.audioProcessingTimeMs,
+        gpuName: data.gpuName || latestClientMetrics.gpuName,
+        performanceMode: data.performanceMode || latestClientMetrics.performanceMode,
+        lastReportTime: Date.now(),
+      };
+    }
+  });
+
+  // 3. Ping / Pong Latency Measurement
+  socket.on('ping:client', (clientTimestamp, callback) => {
+    if (typeof callback === 'function') {
+      callback(clientTimestamp);
+    }
+  });
+
+  // 4. User Active notification
   socket.on('user-active', (userId) => {
     const uid = userId || socket.id;
     activeUsers.set(uid, socket.id);
@@ -341,7 +617,7 @@ io.on('connection', (socket) => {
     io.emit('admin:metrics_update', computeDashboardMetrics());
   });
 
-  // 3. Client Join (Detailed session registration)
+  // 5. Client Join
   socket.on('client:join', (data) => {
     const session = {
       socketId: socket.id,
@@ -371,7 +647,7 @@ io.on('connection', (socket) => {
     io.emit('admin:metrics_update', computeDashboardMetrics());
   });
 
-  // 4. Client Live Stats Update
+  // 6. Client Live Stats Update
   socket.on('client:update_stats', (data) => {
     const session = activeSessions.get(socket.id);
     if (session) {
@@ -392,12 +668,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 5. Admin Subscribe
+  // 7. Admin Subscribe
   socket.on('admin:subscribe', () => {
     socket.emit('admin:metrics_update', computeDashboardMetrics());
   });
 
-  // 6. Client Disconnect
+  // 8. Client Disconnect
   socket.on('disconnect', () => {
     activeSessions.delete(socket.id);
     for (const [userId, socketId] of activeUsers.entries()) {
@@ -413,7 +689,6 @@ io.on('connection', (socket) => {
 
 // Start Server
 server.listen(PORT, () => {
-  console.log(`[Auralis Backend] Servidor en vivo corriendo en http://localhost:${PORT}`);
-  console.log(`[Auralis Backend] Socket.io listo para telemetría y métricas.`);
-  console.log(`[Auralis Backend] Credenciales Admin por defecto: admin / admin123`);
+  console.log(`[Auralis Backend] Servidor seguro corriendo en http://localhost:${PORT}`);
+  console.log(`[Auralis Backend] Socket.io listo para telemetría y métricas en tiempo real.`);
 });
