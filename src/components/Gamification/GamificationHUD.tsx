@@ -56,7 +56,7 @@ export const GamificationHUD: React.FC = () => {
         className={`transition-all duration-500 rounded-2xl overflow-hidden backdrop-blur-2xl border ${
           isLucid
             ? 'lucid-panel'
-            : 'bg-[#090e1c]/90 border-white/15 shadow-[0_0_25px_rgba(0,0,0,0.8)]'
+            : 'bg-[#0b0f1e]/85 border-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.7)]'
         }`}
         style={
           isLucid
@@ -71,7 +71,7 @@ export const GamificationHUD: React.FC = () => {
             : {
                 boxShadow:
                   gameState.score > 70
-                    ? `0 0 30px ${scoreColor}55, 0 10px 30px rgba(0,0,0,0.8)`
+                    ? `0 0 30px ${scoreColor}40, 0 12px 32px rgba(0,0,0,0.7)`
                     : undefined,
               }
         }

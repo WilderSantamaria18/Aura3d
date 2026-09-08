@@ -72,12 +72,15 @@ export const VisualizerSettingsModal: React.FC = () => {
   const {
     isVisualizerSettingsOpen,
     setVisualizerSettingsOpen,
-    visualizerShape,
-    setVisualizerShape,
+    visualizerMode,
+    sphereShape,
+    setSphereShape,
+    blobShape,
+    setBlobShape,
     sphereScale,
     setSphereScale,
-    rainbowScale,
-    setRainbowScale,
+    blobScale,
+    setBlobScale,
     linkScales,
     setLinkScales,
     sphereOpacity,
@@ -103,6 +106,17 @@ export const VisualizerSettingsModal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'shapes' | 'params' | 'colors'>('shapes');
 
   if (!isVisualizerSettingsOpen) return null;
+
+  const isBlob = visualizerMode === 'blob';
+  const currentShape = isBlob ? blobShape : sphereShape;
+  const currentScale = isBlob ? blobScale : sphereScale;
+  const onSelectShape = (shapeId: VisualizerShape) => {
+    if (isBlob) {
+      setBlobShape(shapeId);
+    } else {
+      setSphereShape(shapeId);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl pointer-events-auto select-none">
@@ -175,7 +189,7 @@ export const VisualizerSettingsModal: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono text-cyan-400/80 uppercase tracking-wider">
-                  Selecciona la Geometría Tridimensional:
+                  Selecciona la Geometría ({isBlob ? 'Rainbow Blob 2D' : 'Esfera 3D'}):
                 </span>
                 <span className="text-[10px] font-mono text-white/40">
                   {SHAPES_CATALOG.length} FORMAS DISPONIBLES
@@ -184,11 +198,11 @@ export const VisualizerSettingsModal: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {SHAPES_CATALOG.map((shape) => {
-                  const isSelected = visualizerShape === shape.id;
+                  const isSelected = currentShape === shape.id;
                   return (
                     <div
                       key={shape.id}
-                      onClick={() => setVisualizerShape(shape.id)}
+                      onClick={() => onSelectShape(shape.id)}
                       className={`p-4 rounded-2xl cursor-pointer border transition-all relative overflow-hidden flex flex-col justify-between gap-2 group ${
                         isSelected
                           ? 'bg-gradient-to-br from-cyan-500/20 via-indigo-500/15 to-pink-500/10 border-cyan-400/60 shadow-[0_0_20px_rgba(0,242,254,0.25)]'
@@ -257,7 +271,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                     Escala Rainbow Blob (Canvas 2D)
                   </span>
                   <span className="text-xs font-mono text-pink-300">
-                    {(rainbowScale || 1.0).toFixed(2)}x
+                    {(blobScale || 1.0).toFixed(2)}x
                   </span>
                 </div>
                 <input
@@ -265,8 +279,12 @@ export const VisualizerSettingsModal: React.FC = () => {
                   min="0.5"
                   max="2.5"
                   step="0.05"
-                  value={rainbowScale || 1.0}
-                  onChange={(e) => setRainbowScale(parseFloat(e.target.value))}
+                  value={blobScale || 1.0}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setBlobScale(val);
+                    if (linkScales) setSphereScale(val);
+                  }}
                   className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
                 />
               </div>
@@ -522,7 +540,7 @@ export const VisualizerSettingsModal: React.FC = () => {
         {/* Footer */}
         <div className="p-4 border-t border-white/8 flex items-center justify-between bg-black/40 flex-shrink-0">
           <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">
-            FORMA: {visualizerShape.toUpperCase()} &nbsp;·&nbsp; ESCALA 3D: {(sphereScale || 1.0).toFixed(1)}x &nbsp;·&nbsp; OPACIDAD: {Math.round(sphereOpacity * 100)}%
+            FORMA: {currentShape.toUpperCase()} &nbsp;·&nbsp; ESCALA: {(currentScale || 1.0).toFixed(1)}x &nbsp;·&nbsp; OPACIDAD: {Math.round(sphereOpacity * 100)}%
           </span>
 
           <button

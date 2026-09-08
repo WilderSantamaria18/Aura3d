@@ -62,14 +62,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
     isBlobPanelOpen,
     setBlobPanelOpen,
     toggleVisualizerSettings,
-    visualizerShape,
-    waveEffectMode,
-    waveEffectIntensity,
-    bassBoomThreshold,
-    setBassBoomThreshold,
-    bassBoomIntensity,
-    setBassBoomIntensity,
-    rainbowScale,
+    blobShape,
+    blobWaveMode,
+    blobWaveIntensity,
+    blobBassBoomThreshold,
+    setBlobBassBoomThreshold,
+    blobBassBoomIntensity,
+    setBlobBassBoomIntensity,
+    blobScale,
     musicSensitivity,
     currentTrack,
     isMicActive,
@@ -174,10 +174,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const sMids = smoothedMidsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      // Single synchronized kick detector matching 3D Sphere
+      // Single synchronized kick detector matching 3D Sphere using isolated blob thresholds
       const attackEnv = Math.max(0, sBass - prevBass.current);
-      const intensity = bassBoomIntensity ?? 1.0;
-      const kickThresh = KICK_THRESHOLD * (bassBoomThreshold ? bassBoomThreshold / 0.45 : 1.0);
+      const intensity = blobBassBoomIntensity ?? 1.0;
+      const kickThresh = KICK_THRESHOLD * (blobBassBoomThreshold ? blobBassBoomThreshold / 0.45 : 1.0);
 
       if (
         sBass > kickThresh &&
@@ -198,7 +198,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
         shockwaves.current.push({
           startTime: now,
-          maxDistance: 380 * (waveEffectIntensity || 1) * intensity,
+          maxDistance: 380 * (blobWaveIntensity || 1) * intensity,
           opacity: Math.min(0.85, 0.75 * intensity),
           hue: (timeSec * 50 + Math.random() * 40) % 360,
         });
@@ -226,13 +226,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const boomContribution = Math.min(boomPunch * 0.4 * audioSens, 0.7);
       const totalScale = (baseScale + bassContribution + boomContribution) * sens;
       const clampedScale = Math.min(2.0, Math.max(0.45, totalScale));
-      const escala = clampedScale * rainbowScale;
+      const escala = clampedScale * blobScale;
 
       // Minimalist organic contour (clean, zero unnecessary wobbles)
       let borderRadius: string;
-      if (visualizerShape === 'sphere') {
+      if (blobShape === 'sphere') {
         borderRadius = '50%';
-      } else if (visualizerShape === 'icosahedron' || visualizerShape === 'octahedron') {
+      } else if (blobShape === 'icosahedron' || blobShape === 'octahedron') {
         borderRadius = '25% 75% 25% 75% / 75% 25% 75% 25%';
       } else {
         borderRadius = '50%';
@@ -244,10 +244,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       if (haloRef.current) {
         haloRef.current.style.borderRadius = borderRadius;
-        haloRef.current.style.transform = `scale(${escala * 1.04}) rotate(${angle}deg)`;
-        haloRef.current.style.opacity = `${isAudioActive ? 0.55 + nivel * 0.35 : 0.35}`;
-        haloRef.current.style.filter = `blur(${isAudioActive ? (12 + nivel * 16) * u : 12 * u}px)`;
-        haloRef.current.style.display = visualizerShape === 'sphere' ? 'block' : 'none';
+        haloRef.current.style.transform = `scale(${escala}) rotate(${angle}deg)`;
+        haloRef.current.style.display = blobShape === 'sphere' ? 'block' : 'none';
       }
 
       if (haloGlowRef.current) {
@@ -278,11 +276,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
           const baseCircleRadius = (blobSettings.circleSize / 2) * u * escala;
 
           // ── SHAPE 1: RINGS (5 concentric orbital rings) ───────────────────
-          if (visualizerShape === 'rings') {
+          if (blobShape === 'rings') {
             for (let rIdx = 0; rIdx < 5; rIdx++) {
               const ringR = baseCircleRadius + (rIdx + 1) * 26 * u * (1 + sBass * 0.35);
               const ringHue = isLucid ? rIdx * 45 : (rIdx * 55 + timeSec * 35) % 360;
-              const ringAlpha = 0.5 + Math.sin(timeSec * 3 + rIdx) * 0.2 + sBass * 0.3;
+              const ringAlpha = 0.45 + Math.sin(timeSec * 3 + rIdx) * 0.18 + sBass * 0.25;
 
               ctx.beginPath();
               ctx.arc(cx, cy, Math.max(10 * u, ringR), 0, Math.PI * 2);
@@ -290,14 +288,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 ? lucidTheme.primary
                 : autoMode
                 ? dynamicColor
-                : `hsla(${ringHue}, 100%, 65%, ${ringAlpha})`;
-              ctx.lineWidth = Math.max(1.5, (2.5 + (rIdx === 2 ? sBass * 3.5 : 1)) * u);
+                : `hsla(${ringHue}, 85%, 62%, ${ringAlpha})`;
+              ctx.lineWidth = Math.max(1.5, (2.2 + (rIdx === 2 ? sBass * 3.0 : 0.8)) * u);
               ctx.shadowColor = isLucid
                 ? lucidTheme.glow
                 : autoMode
                 ? dynamicColor
-                : `hsla(${ringHue}, 100%, 50%, 0.8)`;
-              ctx.shadowBlur = 14 * u;
+                : `hsla(${ringHue}, 85%, 50%, 0.6)`;
+              ctx.shadowBlur = 12 * u;
               ctx.stroke();
 
               // Orbital satellite dot
@@ -305,14 +303,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
               const sx = cx + Math.cos(satAngle) * ringR;
               const sy = cy + Math.sin(satAngle) * ringR;
               ctx.beginPath();
-              ctx.arc(sx, sy, Math.max(2, (3.2 + sBass * 2) * u), 0, Math.PI * 2);
+              ctx.arc(sx, sy, Math.max(2, (3.0 + sBass * 1.8) * u), 0, Math.PI * 2);
               ctx.fillStyle = '#ffffff';
               ctx.fill();
             }
           }
 
           // ── SHAPE 2: SPIKES (Radial Sunburst Equalizer) ───────────────────
-          if (visualizerShape === 'spikes') {
+          if (blobShape === 'spikes') {
             const barCount = 48;
             for (let i = 0; i < barCount; i++) {
               const barAngle = (i / barCount) * Math.PI * 2 + angle * 0.02;
@@ -332,24 +330,24 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 ? lucidTheme.primary
                 : autoMode
                 ? dynamicColor
-                : `hsl(${barHue}, 100%, 60%)`;
-              ctx.lineWidth = Math.max(1.5, 3 * u);
+                : `hsla(${barHue}, 85%, 60%, 0.85)`;
+              ctx.lineWidth = Math.max(1.5, 2.6 * u);
               ctx.lineCap = 'round';
               ctx.shadowColor = isLucid
                 ? lucidTheme.glow
                 : autoMode
                 ? dynamicColor
-                : `hsl(${barHue}, 100%, 50%)`;
-              ctx.shadowBlur = 10 * u;
+                : `hsla(${barHue}, 85%, 50%, 0.6)`;
+              ctx.shadowBlur = 8 * u;
               ctx.stroke();
             }
           }
 
           // ── SHAPE 3: CLOUD (Particle Swarm) ───────────────────────────────
-          if (visualizerShape === 'cloud') {
+          if (blobShape === 'cloud') {
             cloudParticles.forEach((p) => {
               p.angle += p.speed * (1 + sMids * 2);
-              const currentDist = p.dist * u * (1 - sBass * 0.12) * rainbowScale;
+              const currentDist = p.dist * u * (1 - sBass * 0.12) * blobScale;
               const px = cx + Math.cos(p.angle) * currentDist;
               const py = cy + Math.sin(p.angle) * currentDist;
 
@@ -359,19 +357,19 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 ? lucidTheme.primary
                 : autoMode
                 ? dynamicColor
-                : `hsla(${p.hue + timeSec * 20}, 90%, 65%, ${0.6 + sBass * 0.4})`;
+                : `hsla(${p.hue + timeSec * 15}, 80%, 65%, ${0.5 + sBass * 0.35})`;
               ctx.shadowColor = isLucid
                 ? lucidTheme.glow
                 : autoMode
                 ? dynamicColor
-                : `hsla(${p.hue}, 90%, 50%, 0.8)`;
-              ctx.shadowBlur = 8 * u;
+                : `hsla(${p.hue}, 80%, 50%, 0.6)`;
+              ctx.shadowBlur = 6 * u;
               ctx.fill();
             });
           }
 
           // ── SHAPE 4: TORUS (Dual rotating elliptical bands) ───────────────
-          if (visualizerShape === 'torus') {
+          if (blobShape === 'torus') {
             for (let t = 0; t < 2; t++) {
               const rotDir = t === 0 ? 1 : -1;
               const tAngle = timeSec * 1.1 * rotDir;
@@ -390,18 +388,18 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 : autoMode
                 ? dynamicColor
                 : t === 0
-                ? '#00f2fe'
-                : '#ff088a';
-              ctx.lineWidth = Math.max(2, (3.5 + sBass * 2.5) * u);
+                ? 'rgba(0, 242, 254, 0.85)'
+                : 'rgba(255, 8, 138, 0.85)';
+              ctx.lineWidth = Math.max(2, (3.2 + sBass * 2.2) * u);
               ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 16 * u;
+              ctx.shadowBlur = 12 * u;
               ctx.stroke();
               ctx.restore();
             }
           }
 
           // ── SHAPE 5: WAVE (Sinusoidal Ribbon around Void) ─────────────────
-          if (visualizerShape === 'wave') {
+          if (blobShape === 'wave') {
             const wavePoints = 120;
             ctx.beginPath();
             for (let i = 0; i <= wavePoints; i++) {
@@ -414,15 +412,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
               else ctx.lineTo(wx, wy);
             }
             ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : '#00ffb3';
-            ctx.lineWidth = Math.max(2, (3 + sMids * 2) * u);
+            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : 'rgba(0, 255, 179, 0.85)';
+            ctx.lineWidth = Math.max(2, (2.8 + sMids * 1.8) * u);
             ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 14 * u;
+            ctx.shadowBlur = 12 * u;
             ctx.stroke();
           }
 
           // ── WAVE EFFECTS: Concentric Shockwaves & Spiral ──────────────────
-          if (waveEffectMode === 'concentric' || shockwaves.current.length > 0) {
+          if (blobWaveMode === 'concentric' || shockwaves.current.length > 0) {
             shockwaves.current = shockwaves.current.filter((sw) => {
               const age = now - sw.startTime;
               if (age < 0 || age > WAVE_LIFETIME_MS) return false;
@@ -451,13 +449,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
             });
           }
 
-          if (waveEffectMode === 'spiral') {
+          if (blobWaveMode === 'spiral') {
             for (let arm = 0; arm < 2; arm++) {
               const armOffset = arm * Math.PI;
               ctx.beginPath();
               for (let step = 0; step < 60; step++) {
                 const sAngle = armOffset + (step / 60) * Math.PI * 3 + timeSec * 1.8;
-                const sDist = baseCircleRadius + step * 3.0 * u * waveEffectIntensity;
+                const sDist = baseCircleRadius + step * 3.0 * u * blobWaveIntensity;
                 const sx = cx + Math.cos(sAngle) * sDist;
                 const sy = cy + Math.sin(sAngle) * sDist;
                 if (step === 0) ctx.moveTo(sx, sy);
@@ -467,10 +465,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 ? lucidTheme.secondary
                 : autoMode
                 ? dynamicColor
-                : `hsl(${(arm * 180 + timeSec * 30) % 360}, 100%, 65%)`;
+                : `hsla(${(arm * 180 + timeSec * 30) % 360}, 85%, 65%, 0.8)`;
               ctx.lineWidth = Math.max(1.5, (2.2 + sBass * 1.8) * u);
               ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 12 * u;
+              ctx.shadowBlur = 10 * u;
               ctx.stroke();
             }
           }
@@ -491,12 +489,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
     blobSettings.scaleSensitivity,
     isPlaying,
     isMicActive,
-    visualizerShape,
-    waveEffectMode,
-    waveEffectIntensity,
-    bassBoomThreshold,
-    bassBoomIntensity,
-    rainbowScale,
+    blobShape,
+    blobWaveMode,
+    blobWaveIntensity,
+    blobBassBoomThreshold,
+    blobBassBoomIntensity,
+    blobScale,
     musicSensitivity,
     isLucid,
     lucidTheme,
@@ -604,7 +602,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const circleDimension = blobSettings.circleSize * scaleU;
 
   return (
-    <div className="absolute inset-0 w-full h-full overflow-hidden bg-black select-none">
+    <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#060813] select-none">
       {/* Fondo con Blur en Movimiento */}
       <div
         ref={fondoRef}
@@ -612,7 +610,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         style={{
           background: isLucid
             ? lucidTheme.bgGradient
-            : 'radial-gradient(circle at 25% 25%, #0a2a43 0%, #001e33 45%, #040817 75%, #000000 100%)',
+            : 'radial-gradient(circle at 30% 25%, #0c1228 0%, #080d1e 40%, #050814 75%, #020308 100%)',
           filter: `blur(${blobSettings.backgroundBlur}px)`,
           animation: 'moverFondo 16s infinite alternate ease-in-out',
           zIndex: 0,
@@ -651,11 +649,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* El Halo / Blob de Arcoíris Principal */}
         <div
           ref={haloRef}
-          className="absolute rounded-full pointer-events-none shadow-[0_0_50px_rgba(0,242,254,0.3)] transition-all duration-75"
+          className="absolute rounded-full pointer-events-none transition-all duration-75"
           style={{
             width: `${haloDimension}px`,
             height: `${haloDimension}px`,
             background: haloBackground,
+            boxShadow: isLucid
+              ? `0 0 45px ${lucidTheme.glow}`
+              : '0 0 50px rgba(0, 242, 254, 0.22), 0 0 80px rgba(255, 8, 138, 0.15)',
+            backdropFilter: 'blur(18px) saturate(160%)',
           }}
         />
 
@@ -664,15 +666,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
           ref={circleRef}
           className={`relative z-10 rounded-full flex flex-col justify-center items-center transition-all duration-75 ease-out p-4 overflow-hidden ${
             isLucid
-              ? 'border-2'
-              : 'border border-white/15 shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_20px_rgba(0,0,0,0.8)]'
+              ? 'border'
+              : 'border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.85),inset_0_0_25px_rgba(0,0,0,0.9)]'
           }`}
           style={{
             width: `${circleDimension}px`,
             height: `${circleDimension}px`,
-            backgroundColor: isLucid ? (lucidTheme.glassColor || '#050711') : blobSettings.circleColor,
-            borderColor: isLucid ? lucidTheme.borderColor : undefined,
-            boxShadow: isLucid ? `0 0 35px ${lucidTheme.glow}, inset 0 0 25px ${lucidTheme.glow}` : undefined,
+            backgroundColor: isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
+            borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.12)',
+            backdropFilter: 'blur(20px) saturate(150%)',
           }}
         >
           {/* Aurora Boreal animada sutil dentro del círculo */}
@@ -681,10 +683,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
             className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transition-opacity duration-300"
             style={{
               background: isLucid
-                ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}55 0%, ${lucidTheme.secondary}35 45%, transparent 80%)`
-                : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.45) 0%, rgba(138, 43, 226, 0.35) 45%, rgba(255, 8, 138, 0.25) 75%, transparent 95%)',
-              filter: 'blur(16px)',
-              opacity: 0.3,
+                ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}45 0%, ${lucidTheme.secondary}25 45%, transparent 80%)`
+                : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.35) 0%, rgba(138, 43, 226, 0.25) 45%, rgba(255, 8, 138, 0.20) 75%, transparent 95%)',
+              filter: 'blur(18px)',
+              opacity: 0.35,
             }}
           />
 
@@ -706,23 +708,23 @@ export const RainbowBlobVisualizer: React.FC = () => {
       <div className="fixed top-28 sm:top-32 right-3 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
         <button
           onClick={toggleVisualizerSettings}
-          className="px-3.5 py-2 rounded-full backdrop-blur-xl border border-cyan-400/40 bg-cyan-500/15 text-cyan-300 text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(0,242,254,0.3)] hover:bg-cyan-500/25"
+          className="px-3.5 py-1.5 rounded-full backdrop-blur-2xl border border-white/10 bg-[#0a0f1e]/80 text-white/80 hover:text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-500/10 text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
           title="Configurar Formas, Ondas y Parámetros del Visualizador"
         >
-          <Sliders className="w-3.5 h-3.5 text-cyan-300" />
+          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
           <span>Configuración</span>
         </button>
 
         <button
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`px-3.5 py-2 rounded-full backdrop-blur-xl border text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg ${
+          className={`px-3.5 py-1.5 rounded-full backdrop-blur-2xl border text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ${
             isBlobPanelOpen
-              ? 'bg-pink-500/20 text-pink-300 border-pink-500/40 shadow-[0_0_15px_rgba(255,8,138,0.4)]'
-              : 'bg-black/60 text-white/80 border-white/10 hover:text-white hover:bg-white/10'
+              ? 'bg-pink-500/15 text-pink-300 border-pink-500/40 shadow-[0_0_15px_rgba(255,8,138,0.25)]'
+              : 'bg-[#0a0f1e]/80 text-white/80 border-white/10 hover:text-pink-300 hover:border-pink-500/30 hover:bg-white/5'
           }`}
           title="Personalizar colores y logos"
         >
-          <Palette className="w-3.5 h-3.5 text-pink-300" />
+          <Palette className="w-3.5 h-3.5 text-pink-400" />
           <span>Estilo Halo</span>
         </button>
       </div>
@@ -730,8 +732,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       {/* Panel de Control Editable */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
-            isLucid ? 'lucid-panel' : 'bg-[#090d1c]/95 backdrop-blur-2xl border border-cyan-500/30 shadow-black/90'
+          className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-3xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.9)] space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
+            isLucid ? 'lucid-panel' : 'bg-[#0a0f1e]/90 backdrop-blur-2xl border border-white/10'
           }`}
           style={
             isLucid
@@ -909,32 +911,32 @@ export const RainbowBlobVisualizer: React.FC = () => {
             </div>
 
             {/* 4.2. Calibración del Impacto Bass Boom */}
-            <div className="p-3 bg-pink-500/10 border border-pink-500/25 rounded-2xl space-y-2.5">
+            <div className="p-3 bg-white/[0.03] border border-white/10 rounded-2xl space-y-2.5">
               <div className="flex justify-between text-[11px]">
-                <span className="text-pink-200 font-medium">Sensibilidad Disparo Boom:</span>
-                <span className="text-pink-300 font-mono">{Math.round((1 - (bassBoomThreshold ?? 0.45)) * 100)}%</span>
+                <span className="text-white/70 font-medium">Sensibilidad Disparo Boom:</span>
+                <span className="text-pink-300 font-mono">{Math.round((1 - (blobBassBoomThreshold ?? 0.45)) * 100)}%</span>
               </div>
               <input
                 type="range"
                 min="0.20"
                 max="0.80"
                 step="0.02"
-                value={bassBoomThreshold}
-                onChange={(e) => setBassBoomThreshold(parseFloat(e.target.value))}
+                value={blobBassBoomThreshold}
+                onChange={(e) => setBlobBassBoomThreshold(parseFloat(e.target.value))}
                 className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
               />
 
               <div className="flex justify-between text-[11px]">
-                <span className="text-cyan-200 font-medium">Potencia Golpe Boom:</span>
-                <span className="text-cyan-300 font-mono">{Math.round(bassBoomIntensity * 100)}%</span>
+                <span className="text-white/70 font-medium">Potencia Golpe Boom:</span>
+                <span className="text-cyan-300 font-mono">{Math.round(blobBassBoomIntensity * 100)}%</span>
               </div>
               <input
                 type="range"
                 min="0.0"
                 max="2.0"
                 step="0.05"
-                value={bassBoomIntensity}
-                onChange={(e) => setBassBoomIntensity(parseFloat(e.target.value))}
+                value={blobBassBoomIntensity}
+                onChange={(e) => setBlobBassBoomIntensity(parseFloat(e.target.value))}
                 className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
               />
             </div>

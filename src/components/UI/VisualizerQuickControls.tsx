@@ -6,8 +6,10 @@ import type { VisualizerShape } from '../../types/audio';
 export const VisualizerQuickControls: React.FC = React.memo(() => {
   const {
     visualizerMode,
-    visualizerShape,
-    setVisualizerShape,
+    sphereShape,
+    setSphereShape,
+    blobShape,
+    setBlobShape,
     autoMode,
     dynamicColor,
     toggleAutoMode,
@@ -23,8 +25,8 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
     setShowFrequencyBars,
     sphereScale,
     setSphereScale,
-    rainbowScale,
-    setRainbowScale,
+    blobScale,
+    setBlobScale,
     linkScales,
     setLinkScales,
     sphereOpacity,
@@ -36,8 +38,9 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
   if (visualizerMode === 'party') return null;
 
   const isBlob = visualizerMode === 'blob';
-  const currentScale = isBlob ? rainbowScale : sphereScale;
-  const setScale = isBlob ? setRainbowScale : setSphereScale;
+  const currentShape = isBlob ? blobShape : sphereShape;
+  const currentScale = isBlob ? blobScale : sphereScale;
+  const setScale = isBlob ? setBlobScale : setSphereScale;
   const scaleLabel = isBlob ? 'Escala Blob' : 'Escala 3D';
 
   return (
@@ -76,10 +79,17 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
       >
         <Shapes className="w-3.5 h-3.5" />
         <select
-          value={visualizerShape}
-          onChange={(e) => setVisualizerShape(e.target.value as VisualizerShape)}
+          value={currentShape}
+          onChange={(e) => {
+            const newShape = e.target.value as VisualizerShape;
+            if (isBlob) {
+              setBlobShape(newShape);
+            } else {
+              setSphereShape(newShape);
+            }
+          }}
           className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer"
-          title="Forma geométrica del visualizador 3D"
+          title={isBlob ? "Forma geométrica del Rainbow Blob 2D" : "Forma geométrica del visualizador 3D"}
         >
           <option value="sphere" className="bg-[#0b0e1b] text-white">Esfera Pulsante</option>
           <option value="rings" className="bg-[#0b0e1b] text-white">Anillos Concéntricos</option>

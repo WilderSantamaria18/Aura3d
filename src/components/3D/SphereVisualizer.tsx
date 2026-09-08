@@ -26,7 +26,7 @@ const SHOCKWAVE_SLOTS = 8;
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
     // Stable configuration subscriptions (only re-renders on low-frequency config changes)
-    const visualizerShape = usePlayerStore((s) => s.visualizerShape);
+    const sphereShape = usePlayerStore((s) => s.sphereShape || s.visualizerShape);
     const currentPaletteIndex = usePlayerStore((s) => s.currentPaletteIndex);
     const isLucid = usePlayerStore((s) => s.isLucid);
     const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
@@ -126,7 +126,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         let x = 0, y = 0, z = 0;
         let nx = 0, ny = 0, nz = 0;
 
-        if (visualizerShape === 'rings') {
+        if (sphereShape === 'rings') {
           // 5 Concentric Torus Rings on different orbital planes
           const ringIdx = i % 5;
           const ringRadii = [0.65, 0.9, 1.15, 1.4, 1.65];
@@ -148,7 +148,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
-        } else if (visualizerShape === 'spikes') {
+        } else if (sphereShape === 'spikes') {
           // Radial spikes: full sphere with 64 spikes from +1 to -1
           const yVal = 1 - (i / Math.max(1, count - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
@@ -163,7 +163,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           x = nx * spikeLen;
           y = ny * spikeLen;
           z = nz * spikeLen;
-        } else if (visualizerShape === 'cloud') {
+        } else if (sphereShape === 'cloud') {
           // Deterministic organic 3D Brownian particle swarm
           const rand1 = ((i * 12345 + 6789) % 10000) / 10000;
           const rand2 = ((i * 54321 + 9876) % 10000) / 10000;
@@ -176,7 +176,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           z = r * Math.cos(p);
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
-        } else if (visualizerShape === 'torus') {
+        } else if (sphereShape === 'torus') {
           const u = (i / Math.max(1, count)) * Math.PI * 2 * 12;
           const v = ((i % 80) / 80) * Math.PI * 2;
           const R = 0.9;
@@ -186,7 +186,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           z = (R + r * Math.cos(v)) * Math.sin(u);
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
-        } else if (visualizerShape === 'icosahedron' || visualizerShape === 'octahedron') {
+        } else if (sphereShape === 'icosahedron' || sphereShape === 'octahedron') {
           const yVal = 1 - (i / Math.max(1, count - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
@@ -194,7 +194,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           y = yVal;
           z = Math.sin(theta) * radiusAtY;
 
-          const facetFactor = visualizerShape === 'octahedron' ? 4 : 8;
+          const facetFactor = sphereShape === 'octahedron' ? 4 : 8;
           x = Math.round(x * facetFactor) / facetFactor;
           y = Math.round(y * facetFactor) / facetFactor;
           z = Math.round(z * facetFactor) / facetFactor;
@@ -202,7 +202,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
           x = nx * 1.0; y = ny * 1.0; z = nz * 1.0;
-        } else if (visualizerShape === 'wave') {
+        } else if (sphereShape === 'wave') {
           const gridSize = Math.floor(Math.sqrt(count)) || 45;
           const row = Math.floor(i / gridSize);
           const col = i % gridSize;
@@ -236,7 +236,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
 
       return { initialPositions: positions, baseNormals: normals };
-    }, [visualizerShape, activeParticleCount]);
+    }, [sphereShape, activeParticleCount]);
 
     // BufferGeometry matching activeParticleCount exactly
     const { geometry } = useMemo(() => {
@@ -335,6 +335,9 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const musicSens = storeState.musicSensitivity ?? 1.0;
       const sphereScale = storeState.sphereScale || 1.0;
       const sphereOpacity = storeState.sphereOpacity ?? 0.9;
+      const sphereWaveIntensity = storeState.sphereWaveIntensity ?? 0.85;
+      const sphereBassBoomThreshold = storeState.sphereBassBoomThreshold ?? 0.45;
+      const sphereBassBoomIntensity = storeState.sphereBassBoomIntensity ?? 1.0;
       const handRotation = storeState.handRotation || { x: 0, y: 0 };
       const handGesture = storeState.handGesture;
       const poseVelocity = storeState.poseVelocity || 0;
@@ -362,10 +365,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      // Kick transient onset & attack envelope detection
+      // Kick transient onset & attack envelope detection using isolated sphere threshold
       const attackEnv = Math.max(0, sBass - prevBassRef.current);
+      const effectiveKickThresh = KICK_THRESHOLD * (sphereBassBoomThreshold ? sphereBassBoomThreshold / 0.45 : 1.0);
       if (
-        sBass > KICK_THRESHOLD &&
+        sBass > effectiveKickThresh &&
         attackEnv > KICK_ATTACK_DELTA &&
         time - lastKickTimeRef.current > KICK_COOLDOWN_SEC
       ) {
@@ -377,11 +381,12 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
       // Pre-calculate active shockwaves for this frame (budget scaled by eco/vr modes)
       const activeWaves: { waveRadius: number; decay: number; waveStrength: number }[] = [];
+      const baseWaveStrength = BASE_WAVE_STRENGTH * (sphereWaveIntensity ?? 1.0) * (sphereBassBoomIntensity ?? 1.0);
       const effectiveWaveStrength = isEco
-        ? BASE_WAVE_STRENGTH * 0.6
+        ? baseWaveStrength * 0.6
         : isUltraEco || vrMode
-        ? BASE_WAVE_STRENGTH * 0.4
-        : BASE_WAVE_STRENGTH;
+        ? baseWaveStrength * 0.4
+        : baseWaveStrength;
 
       for (let w = 0; w < SHOCKWAVE_SLOTS; w++) {
         const waveTime = shockWavesRef.current[w];
@@ -477,32 +482,32 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           // Idle organic breathing component
           const idleBreathe = Math.sin(time * 1.3 + nx * 2.2 + ny * 1.5) * 0.04;
 
-          if (visualizerShape === 'rings') {
+          if (sphereShape === 'rings') {
             const ringIdx = i % 5;
             const ringPulse = 1.0 + Math.sin(time * 1.8 + ringIdx * 1.2) * 0.05 + (sBass * 0.35);
             const orbitWobble = Math.sin(time * 1.2 + ringIdx * 0.8) * 0.04;
             px = ix * (ringPulse + orbitWobble);
             py = iy * ringPulse + Math.sin(time * 1.5 + ringIdx) * (0.05 + sBass * 0.2);
             pz = iz * (ringPulse + orbitWobble);
-          } else if (visualizerShape === 'spikes') {
+          } else if (sphereShape === 'spikes') {
             const idleSpike = Math.sin(time * 2.0 + nx * 5.0 + ny * 5.0) * 0.04;
             const spikeStretch = 1.0 + idleSpike + sBass * 0.5 + sHighs * 0.3;
             px = ix * spikeStretch;
             py = iy * spikeStretch;
             pz = iz * spikeStretch;
-          } else if (visualizerShape === 'cloud') {
+          } else if (sphereShape === 'cloud') {
             const brownian = Math.sin(time * 1.4 + nx * 3.0) * 0.08;
             const brownianY = Math.cos(time * 1.2 + ny * 3.0) * 0.08;
             const attract = (1.0 - sBass * 0.18);
             px = (ix + brownian) * attract;
             py = (iy + brownianY) * attract;
             pz = (iz + brownianY) * attract;
-          } else if (visualizerShape === 'wave') {
+          } else if (sphereShape === 'wave') {
             const waveY = Math.sin(ix * 2.5 + time * 1.8) * (0.15 + sBass * 0.4) + Math.cos(iz * 2.5 + time * 1.5) * (0.1 + sMids * 0.3);
             px = ix;
             py = waveY;
             pz = iz;
-          } else if (visualizerShape === 'torus') {
+          } else if (sphereShape === 'torus') {
             const torusPulse = 1.0 + Math.sin(time * 1.8 + ny * 3.0) * 0.05 + sBass * 0.3;
             px = ix * torusPulse;
             py = iy * torusPulse;

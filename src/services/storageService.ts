@@ -1,4 +1,4 @@
-import type { Playlist, Track, EqualizerBand, BlobCustomSettings } from '../types/audio';
+import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode } from '../types/audio';
 
 const STORAGE_KEYS = {
   PLAYLISTS: 'auralis_playlists_v1',
@@ -14,6 +14,16 @@ const STORAGE_KEYS = {
   LUCID_PRIMARY_COLOR: 'auralis_lucid_primary_color_v1',
   LUCID_SECONDARY_COLOR: 'auralis_lucid_secondary_color_v1',
   MUSIC_SENSITIVITY: 'auralis_music_sensitivity_v1',
+  SPHERE_SHAPE: 'auralis_sphere_shape_v1',
+  SPHERE_WAVE_MODE: 'auralis_sphere_wave_mode_v1',
+  SPHERE_WAVE_INTENSITY: 'auralis_sphere_wave_intensity_v1',
+  SPHERE_BASS_BOOM_THRESHOLD: 'auralis_sphere_bass_boom_threshold_v1',
+  SPHERE_BASS_BOOM_INTENSITY: 'auralis_sphere_bass_boom_intensity_v1',
+  BLOB_SHAPE: 'auralis_blob_shape_v1',
+  BLOB_WAVE_MODE: 'auralis_blob_wave_mode_v1',
+  BLOB_WAVE_INTENSITY: 'auralis_blob_wave_intensity_v1',
+  BLOB_BASS_BOOM_THRESHOLD: 'auralis_blob_bass_boom_threshold_v1',
+  BLOB_BASS_BOOM_INTENSITY: 'auralis_blob_bass_boom_intensity_v1',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -249,6 +259,174 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.HIGH_SCORE, Math.floor(score).toString());
     } catch (e) {
       console.warn('Failed to save high score to LocalStorage', e);
+    }
+  }
+
+  // ── Sphere 3D Isolated Config Persistence ────────────────────────
+  public static getSphereShape(): VisualizerShape {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.SPHERE_SHAPE) as VisualizerShape) || 'sphere';
+    } catch {
+      return 'sphere';
+    }
+  }
+
+  public static saveSphereShape(shape: VisualizerShape): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_SHAPE, shape);
+    } catch (e) {
+      console.warn('Failed to save sphere shape to LocalStorage', e);
+    }
+  }
+
+  public static getSphereWaveMode(): WaveEffectMode {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.SPHERE_WAVE_MODE) as WaveEffectMode) || 'concentric';
+    } catch {
+      return 'concentric';
+    }
+  }
+
+  public static saveSphereWaveMode(mode: WaveEffectMode): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_WAVE_MODE, mode);
+    } catch (e) {
+      console.warn('Failed to save sphere wave mode to LocalStorage', e);
+    }
+  }
+
+  public static getSphereWaveIntensity(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SPHERE_WAVE_INTENSITY);
+      return val !== null ? parseFloat(val) : 0.85;
+    } catch {
+      return 0.85;
+    }
+  }
+
+  public static saveSphereWaveIntensity(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_WAVE_INTENSITY, val.toString());
+    } catch (e) {
+      console.warn('Failed to save sphere wave intensity to LocalStorage', e);
+    }
+  }
+
+  public static getSphereBassBoomThreshold(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SPHERE_BASS_BOOM_THRESHOLD);
+      return val !== null ? parseFloat(val) : 0.45;
+    } catch {
+      return 0.45;
+    }
+  }
+
+  public static saveSphereBassBoomThreshold(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_BASS_BOOM_THRESHOLD, val.toString());
+    } catch (e) {
+      console.warn('Failed to save sphere bass boom threshold to LocalStorage', e);
+    }
+  }
+
+  public static getSphereBassBoomIntensity(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SPHERE_BASS_BOOM_INTENSITY);
+      return val !== null ? parseFloat(val) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  }
+
+  public static saveSphereBassBoomIntensity(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SPHERE_BASS_BOOM_INTENSITY, val.toString());
+    } catch (e) {
+      console.warn('Failed to save sphere bass boom intensity to LocalStorage', e);
+    }
+  }
+
+  // ── RainbowBlob 2D Isolated Config Persistence ───────────────────
+  public static getBlobShape(): VisualizerShape {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.BLOB_SHAPE) as VisualizerShape) || 'sphere';
+    } catch {
+      return 'sphere';
+    }
+  }
+
+  public static saveBlobShape(shape: VisualizerShape): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BLOB_SHAPE, shape);
+    } catch (e) {
+      console.warn('Failed to save blob shape to LocalStorage', e);
+    }
+  }
+
+  public static getBlobWaveMode(): WaveEffectMode {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.BLOB_WAVE_MODE) as WaveEffectMode) || 'concentric';
+    } catch {
+      return 'concentric';
+    }
+  }
+
+  public static saveBlobWaveMode(mode: WaveEffectMode): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BLOB_WAVE_MODE, mode);
+    } catch (e) {
+      console.warn('Failed to save blob wave mode to LocalStorage', e);
+    }
+  }
+
+  public static getBlobWaveIntensity(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.BLOB_WAVE_INTENSITY);
+      return val !== null ? parseFloat(val) : 0.85;
+    } catch {
+      return 0.85;
+    }
+  }
+
+  public static saveBlobWaveIntensity(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BLOB_WAVE_INTENSITY, val.toString());
+    } catch (e) {
+      console.warn('Failed to save blob wave intensity to LocalStorage', e);
+    }
+  }
+
+  public static getBlobBassBoomThreshold(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.BLOB_BASS_BOOM_THRESHOLD);
+      return val !== null ? parseFloat(val) : 0.45;
+    } catch {
+      return 0.45;
+    }
+  }
+
+  public static saveBlobBassBoomThreshold(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BLOB_BASS_BOOM_THRESHOLD, val.toString());
+    } catch (e) {
+      console.warn('Failed to save blob bass boom threshold to LocalStorage', e);
+    }
+  }
+
+  public static getBlobBassBoomIntensity(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.BLOB_BASS_BOOM_INTENSITY);
+      return val !== null ? parseFloat(val) : 1.0;
+    } catch {
+      return 1.0;
+    }
+  }
+
+  public static saveBlobBassBoomIntensity(val: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BLOB_BASS_BOOM_INTENSITY, val.toString());
+    } catch (e) {
+      console.warn('Failed to save blob bass boom intensity to LocalStorage', e);
     }
   }
 }

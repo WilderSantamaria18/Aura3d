@@ -71,13 +71,29 @@ interface PlayerState {
   isShuffled: boolean;
   crossfadeDuration: number;
 
-  // Visualizer and Input mode
+  // Shared / Active Visualizer mode
   visualizerMode: VisualizerMode;
   visualizerShape: VisualizerShape;
   waveEffectMode: WaveEffectMode;
   waveEffectIntensity: number;
   bassBoomThreshold: number;
   bassBoomIntensity: number;
+
+  // Independent Sphere 3D Slice
+  sphereShape: VisualizerShape;
+  sphereWaveMode: WaveEffectMode;
+  sphereWaveIntensity: number;
+  sphereBassBoomThreshold: number;
+  sphereBassBoomIntensity: number;
+
+  // Independent Blob 2D Slice
+  blobShape: VisualizerShape;
+  blobWaveMode: WaveEffectMode;
+  blobWaveIntensity: number;
+  blobBassBoomThreshold: number;
+  blobBassBoomIntensity: number;
+  blobScale: number;
+
   autoMode: boolean;
   dynamicColor: string;
   baseColorHue: number;
@@ -150,6 +166,19 @@ interface PlayerState {
   setWaveEffectIntensity: (intensity: number) => void;
   setBassBoomThreshold: (threshold: number) => void;
   setBassBoomIntensity: (intensity: number) => void;
+
+  setSphereShape: (shape: VisualizerShape) => void;
+  setSphereWaveMode: (mode: WaveEffectMode) => void;
+  setSphereWaveIntensity: (intensity: number) => void;
+  setSphereBassBoomThreshold: (threshold: number) => void;
+  setSphereBassBoomIntensity: (intensity: number) => void;
+
+  setBlobShape: (shape: VisualizerShape) => void;
+  setBlobWaveMode: (mode: WaveEffectMode) => void;
+  setBlobWaveIntensity: (intensity: number) => void;
+  setBlobBassBoomThreshold: (threshold: number) => void;
+  setBlobBassBoomIntensity: (intensity: number) => void;
+  setBlobScale: (scale: number) => void;
   setAutoMode: (autoMode: boolean) => void;
   toggleAutoMode: () => void;
   setDynamicColor: (color: string) => void;
@@ -262,11 +291,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   crossfadeDuration: 3,
 
   visualizerMode: 'sphere',
-  visualizerShape: 'sphere',
-  waveEffectMode: 'concentric',
-  waveEffectIntensity: 0.85,
-  bassBoomThreshold: 0.45,
-  bassBoomIntensity: 1.0,
+  visualizerShape: StorageService.getSphereShape(),
+  waveEffectMode: StorageService.getSphereWaveMode(),
+  waveEffectIntensity: StorageService.getSphereWaveIntensity(),
+  bassBoomThreshold: StorageService.getSphereBassBoomThreshold(),
+  bassBoomIntensity: StorageService.getSphereBassBoomIntensity(),
+
+  // Sphere 3D Isolated Config
+  sphereShape: StorageService.getSphereShape(),
+  sphereWaveMode: StorageService.getSphereWaveMode(),
+  sphereWaveIntensity: StorageService.getSphereWaveIntensity(),
+  sphereBassBoomThreshold: StorageService.getSphereBassBoomThreshold(),
+  sphereBassBoomIntensity: StorageService.getSphereBassBoomIntensity(),
+
+  // Blob 2D Isolated Config
+  blobShape: StorageService.getBlobShape(),
+  blobWaveMode: StorageService.getBlobWaveMode(),
+  blobWaveIntensity: StorageService.getBlobWaveIntensity(),
+  blobBassBoomThreshold: StorageService.getBlobBassBoomThreshold(),
+  blobBassBoomIntensity: StorageService.getBlobBassBoomIntensity(),
+  blobScale: StorageService.getRainbowScale(),
   autoMode: false,
   dynamicColor: '#00f2fe',
   baseColorHue: 180,
@@ -394,12 +438,154 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({ currentPaletteIndex: next });
   },
 
-  setVisualizerMode: (visualizerMode) => set({ visualizerMode }),
-  setVisualizerShape: (visualizerShape) => set({ visualizerShape }),
-  setWaveEffectMode: (waveEffectMode) => set({ waveEffectMode }),
-  setWaveEffectIntensity: (waveEffectIntensity) => set({ waveEffectIntensity }),
-  setBassBoomThreshold: (bassBoomThreshold) => set({ bassBoomThreshold }),
-  setBassBoomIntensity: (bassBoomIntensity) => set({ bassBoomIntensity }),
+  setVisualizerMode: (visualizerMode) => {
+    const state = get();
+    const activeShape = visualizerMode === 'blob' ? state.blobShape : state.sphereShape;
+    const activeWaveMode = visualizerMode === 'blob' ? state.blobWaveMode : state.sphereWaveMode;
+    const activeWaveIntensity = visualizerMode === 'blob' ? state.blobWaveIntensity : state.sphereWaveIntensity;
+    const activeBoomThreshold = visualizerMode === 'blob' ? state.blobBassBoomThreshold : state.sphereBassBoomThreshold;
+    const activeBoomIntensity = visualizerMode === 'blob' ? state.blobBassBoomIntensity : state.sphereBassBoomIntensity;
+    set({
+      visualizerMode,
+      visualizerShape: activeShape,
+      waveEffectMode: activeWaveMode,
+      waveEffectIntensity: activeWaveIntensity,
+      bassBoomThreshold: activeBoomThreshold,
+      bassBoomIntensity: activeBoomIntensity,
+    });
+  },
+
+  setVisualizerShape: (visualizerShape) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveBlobShape(visualizerShape);
+      set({ blobShape: visualizerShape, visualizerShape });
+    } else {
+      StorageService.saveSphereShape(visualizerShape);
+      set({ sphereShape: visualizerShape, visualizerShape });
+    }
+  },
+
+  setWaveEffectMode: (waveEffectMode) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveBlobWaveMode(waveEffectMode);
+      set({ blobWaveMode: waveEffectMode, waveEffectMode });
+    } else {
+      StorageService.saveSphereWaveMode(waveEffectMode);
+      set({ sphereWaveMode: waveEffectMode, waveEffectMode });
+    }
+  },
+
+  setWaveEffectIntensity: (waveEffectIntensity) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveBlobWaveIntensity(waveEffectIntensity);
+      set({ blobWaveIntensity: waveEffectIntensity, waveEffectIntensity });
+    } else {
+      StorageService.saveSphereWaveIntensity(waveEffectIntensity);
+      set({ sphereWaveIntensity: waveEffectIntensity, waveEffectIntensity });
+    }
+  },
+
+  setBassBoomThreshold: (bassBoomThreshold) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveBlobBassBoomThreshold(bassBoomThreshold);
+      set({ blobBassBoomThreshold: bassBoomThreshold, bassBoomThreshold });
+    } else {
+      StorageService.saveSphereBassBoomThreshold(bassBoomThreshold);
+      set({ sphereBassBoomThreshold: bassBoomThreshold, bassBoomThreshold });
+    }
+  },
+
+  setBassBoomIntensity: (bassBoomIntensity) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveBlobBassBoomIntensity(bassBoomIntensity);
+      set({ blobBassBoomIntensity: bassBoomIntensity, bassBoomIntensity });
+    } else {
+      StorageService.saveSphereBassBoomIntensity(bassBoomIntensity);
+      set({ sphereBassBoomIntensity: bassBoomIntensity, bassBoomIntensity });
+    }
+  },
+
+  setSphereShape: (sphereShape) => {
+    StorageService.saveSphereShape(sphereShape);
+    set((state) => ({
+      sphereShape,
+      visualizerShape: state.visualizerMode === 'sphere' ? sphereShape : state.visualizerShape,
+    }));
+  },
+  setSphereWaveMode: (sphereWaveMode) => {
+    StorageService.saveSphereWaveMode(sphereWaveMode);
+    set((state) => ({
+      sphereWaveMode,
+      waveEffectMode: state.visualizerMode === 'sphere' ? sphereWaveMode : state.waveEffectMode,
+    }));
+  },
+  setSphereWaveIntensity: (sphereWaveIntensity) => {
+    StorageService.saveSphereWaveIntensity(sphereWaveIntensity);
+    set((state) => ({
+      sphereWaveIntensity,
+      waveEffectIntensity: state.visualizerMode === 'sphere' ? sphereWaveIntensity : state.waveEffectIntensity,
+    }));
+  },
+  setSphereBassBoomThreshold: (sphereBassBoomThreshold) => {
+    StorageService.saveSphereBassBoomThreshold(sphereBassBoomThreshold);
+    set((state) => ({
+      sphereBassBoomThreshold,
+      bassBoomThreshold: state.visualizerMode === 'sphere' ? sphereBassBoomThreshold : state.bassBoomThreshold,
+    }));
+  },
+  setSphereBassBoomIntensity: (sphereBassBoomIntensity) => {
+    StorageService.saveSphereBassBoomIntensity(sphereBassBoomIntensity);
+    set((state) => ({
+      sphereBassBoomIntensity,
+      bassBoomIntensity: state.visualizerMode === 'sphere' ? sphereBassBoomIntensity : state.bassBoomIntensity,
+    }));
+  },
+
+  setBlobShape: (blobShape) => {
+    StorageService.saveBlobShape(blobShape);
+    set((state) => ({
+      blobShape,
+      visualizerShape: state.visualizerMode === 'blob' ? blobShape : state.visualizerShape,
+    }));
+  },
+  setBlobWaveMode: (blobWaveMode) => {
+    StorageService.saveBlobWaveMode(blobWaveMode);
+    set((state) => ({
+      blobWaveMode,
+      waveEffectMode: state.visualizerMode === 'blob' ? blobWaveMode : state.waveEffectMode,
+    }));
+  },
+  setBlobWaveIntensity: (blobWaveIntensity) => {
+    StorageService.saveBlobWaveIntensity(blobWaveIntensity);
+    set((state) => ({
+      blobWaveIntensity,
+      waveEffectIntensity: state.visualizerMode === 'blob' ? blobWaveIntensity : state.waveEffectIntensity,
+    }));
+  },
+  setBlobBassBoomThreshold: (blobBassBoomThreshold) => {
+    StorageService.saveBlobBassBoomThreshold(blobBassBoomThreshold);
+    set((state) => ({
+      blobBassBoomThreshold,
+      bassBoomThreshold: state.visualizerMode === 'blob' ? blobBassBoomThreshold : state.bassBoomThreshold,
+    }));
+  },
+  setBlobBassBoomIntensity: (blobBassBoomIntensity) => {
+    StorageService.saveBlobBassBoomIntensity(blobBassBoomIntensity);
+    set((state) => ({
+      blobBassBoomIntensity,
+      bassBoomIntensity: state.visualizerMode === 'blob' ? blobBassBoomIntensity : state.bassBoomIntensity,
+    }));
+  },
+  setBlobScale: (blobScale) => {
+    const clamped = Math.min(2.5, Math.max(0.5, blobScale));
+    StorageService.saveRainbowScale(clamped);
+    set({ blobScale: clamped, rainbowScale: clamped });
+  },
   setAutoMode: (autoMode) =>
     set((state) => ({
       autoMode,
