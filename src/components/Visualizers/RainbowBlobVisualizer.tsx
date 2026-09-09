@@ -14,17 +14,17 @@ import {
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
 
 // ── Constantes Inmutables del Sistema ──────────────────────────────────────────
-const BLOB_SCALE = 0.5; // Multiplicador visual constante e inmutable (0.5x)
+const BLOB_SCALE = 0.5; // Escala constante del halo exterior (multiplicador visual 0.5x)
 const KICK_THRESHOLD = 0.18;
 const KICK_ATTACK_DELTA = 0.06;
 const KICK_COOLDOWN_MS = 160;
 const WAVE_LIFETIME_MS = 850;
 const MAX_ACTIVE_SHOCKWAVES = 3;
-const RADIAL_BARS_COUNT = 72;
+const INNER_PARTICLES_COUNT = 30;
 
 interface ActiveShockwave {
   startTime: number;
-  maxRadius: number;
+  maxDistance: number;
   strength: number;
 }
 
@@ -48,6 +48,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
     audioSpeed,
     setAudioSpeed,
     musicSensitivity,
+    blobWaveIntensity,
+    blobBassBoomIntensity,
     currentTrack,
     isMicActive,
     isPlaying,
@@ -63,14 +65,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
   const [scaleU, setScaleU] = useState<number>(computeScaleFactor);
 
-  // Referencias a elementos DOM de cada capa
+  // Referencias a los elementos DOM de las capas concéntricas
   const containerRef = useRef<HTMLDivElement>(null);
   const haloGlowRef = useRef<HTMLDivElement>(null);
   const haloPrincipalRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const innerCircleRef = useRef<HTMLDivElement>(null);
 
-  // Estados reactivos de física para render 60FPS
+  // Estados de física e interpolación para el render loop a 60FPS
   const prevBass = useRef(0);
   const lastKickTimeRef = useRef(0);
   const kickImpulseRef = useRef(0);
@@ -80,14 +82,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const smoothedEnergyRef = useRef(0);
   const haloRotationRef = useRef(0);
   const shockwavesRef = useRef<ActiveShockwave[]>([]);
-  const fftBarsRef = useRef<Float32Array>(new Float32Array(RADIAL_BARS_COUNT));
+  const fftBarsRef = useRef<Float32Array>(new Float32Array(72));
 
   // Dimensiones base del sistema (700px responsive)
   const containerSize = Math.round(700 * scaleU);
-  const haloSize = Math.round(containerSize * 0.72);
+  const haloSize = Math.round(containerSize * 0.76);
   const innerCircleSize = Math.round((blobSettings.circleSize || 320) * scaleU * BLOB_SCALE);
 
-  // Listener responsivo para reescalado adaptativo
+  // Listener para redimensionamiento del canvas y escala de pantalla
   useEffect(() => {
     const handleResize = () => {
       const u = computeScaleFactor();
@@ -109,23 +111,23 @@ export const RainbowBlobVisualizer: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Loop principal de animación y reactividad a 60FPS
+  // Loop de Renderizado en Canvas 2D a 60FPS
   useEffect(() => {
     let animId: number;
-    let phase = 0;
 
     const render = () => {
       const { bass, mids, energy, raw } = getSmoothedData();
       const isAudioActive = isPlaying || isMicActive;
       const speedMultiplier = clamp(audioSpeed || musicSensitivity || 0.75, 0.5, 1.0);
       const now = performance.now();
+      const timeSeconds = now * 0.001;
 
-      // Detección de accesibilidad
+      // Respetar preferencia de reducción de movimiento
       const prefersReducedMotion =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Filtro EMA (Exponential Moving Average)
+      // Suavizado EMA de bandas
       smoothedBassRef.current += (bass - smoothedBassRef.current) * 0.22;
       smoothedMidsRef.current += (mids - smoothedMidsRef.current) * 0.22;
       smoothedEnergyRef.current += (energy - smoothedEnergyRef.current) * 0.22;
@@ -134,9 +136,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const sMids = isAudioActive ? smoothedMidsRef.current * speedMultiplier : 0;
       const sEnergy = isAudioActive ? smoothedEnergyRef.current * speedMultiplier : 0;
 
-      phase += (0.015 + sBass * 0.02) * speedMultiplier;
-
-      // ── Detección de Kick & Shockwaves Concéntricas ──
+      // ── 1. Detección de Kick (Envelope Follower) ──
       const attackEnv = Math.max(0, sBass - prevBass.current);
       if (
         sBass > KICK_THRESHOLD &&
@@ -144,30 +144,36 @@ export const RainbowBlobVisualizer: React.FC = () => {
         now - lastKickTimeRef.current > KICK_COOLDOWN_MS
       ) {
         lastKickTimeRef.current = now;
-        kickImpulseRef.current = 1.0; // Ataque rápido para el pulso del núcleo
+        kickImpulseRef.current = 1.0; // Disparo rápido para el pulso del núcleo
 
-        if (shockwavesRef.current.length < MAX_ACTIVE_SHOCKWAVES) {
+        if (!prefersReducedMotion && shockwavesRef.current.length < MAX_ACTIVE_SHOCKWAVES) {
+          const intensity = blobWaveIntensity ?? 1.0;
+          const boomIntensity = blobBassBoomIntensity ?? 1.0;
+          const calculatedDistance = 380 * intensity * boomIntensity * scaleU;
+
           shockwavesRef.current.push({
             startTime: now,
-            maxRadius: (containerSize / 2) * 0.88,
-            strength: 0.5 + sBass * 0.5,
+            maxDistance: calculatedDistance,
+            strength: 0.6 + sBass * 0.4,
           });
         }
       }
       prevBass.current = sBass;
 
-      // ── Pulso Sutil del Núcleo (0.98 a 1.02) ──
-      const targetPulse = prefersReducedMotion
+      // ── 2. Pulso del Núcleo (0.98 a 1.02 con ataque rápido 0.1s y decaimiento 0.5s) ──
+      const targetScale = prefersReducedMotion
         ? 1.0
         : 1.0 + kickImpulseRef.current * 0.02 - (sBass > 0.35 ? 0.01 : 0);
-      pulseRef.current += (targetPulse - pulseRef.current) * 0.22;
-      kickImpulseRef.current *= 0.85;
+      
+      const pulseLerpFactor = kickImpulseRef.current > 0.3 ? 0.25 : 0.08;
+      pulseRef.current += (targetScale - pulseRef.current) * pulseLerpFactor;
+      kickImpulseRef.current *= 0.92;
 
       if (innerCircleRef.current) {
         innerCircleRef.current.style.transform = `translate(-50%, -50%) scale(${pulseRef.current})`;
       }
 
-      // ── Halo Exterior (Escala Fija 0.5, Rotación Máx ±5°, Opacidad 0.3–0.5) ──
+      // ── 3. Halo Exterior (Escala Fija 0.5, Rotación ±5°, Opacidad 0.3–0.5) ──
       if (haloPrincipalRef.current) {
         if (!prefersReducedMotion) {
           haloRotationRef.current += (sBass * 5.0 - haloRotationRef.current) * 0.08;
@@ -178,12 +184,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
         haloPrincipalRef.current.style.opacity = `${0.3 + sEnergy * 0.2}`;
       }
 
+      // ── 4. Halo Glow Exterior (Blur 24px, Opacidad 0.4–0.6) ──
       if (haloGlowRef.current) {
         haloGlowRef.current.style.transform = `translate(-50%, -50%) scale(${BLOB_SCALE})`;
-        haloGlowRef.current.style.opacity = `${0.25 + sEnergy * 0.25}`;
+        haloGlowRef.current.style.opacity = `${0.4 + sEnergy * 0.2}`;
       }
 
-      // ── Capa Canvas 2D (Detrás del Círculo Interior, Encima del Halo) ──
+      // ── 5. Capa Canvas 2D (Ondas, Barras Radiales y Partículas Internas) ──
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -198,18 +205,18 @@ export const RainbowBlobVisualizer: React.FC = () => {
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
 
-          // Radio exacto del borde exterior del círculo interior en coordenadas canvas
+          // Radio base: perímetro exacto del círculo interior
           const baseR = (innerCircleSize / 2) * dpr;
 
-          // Resolución de colores temáticos
+          // Colores resueltos según modo lúcido o normal
           const primaryColor = isLucid
             ? (lucidPrimaryColor || lucidTheme.primary || '#00f2fe')
             : '#ffffff';
           const secondaryColor = isLucid
             ? (lucidSecondaryColor || lucidTheme.secondary || '#ff088a')
-            : 'rgba(255, 255, 255, 0.4)';
+            : 'rgba(255, 255, 255, 0.5)';
 
-          // 1. Shockwaves Concéntricas
+          // ── A. Shockwaves Concéntricas al Disparar Kick ──
           for (let i = shockwavesRef.current.length - 1; i >= 0; i--) {
             const sw = shockwavesRef.current[i];
             const age = now - sw.startTime;
@@ -218,28 +225,34 @@ export const RainbowBlobVisualizer: React.FC = () => {
               continue;
             }
             const progress = age / WAVE_LIFETIME_MS;
-            const currentR = baseR + progress * (sw.maxRadius * dpr - baseR);
-            const alpha = (1.0 - progress) * sw.strength * (isLucid ? 0.4 : 0.22);
+            const currentR = baseR + progress * (sw.maxDistance * dpr);
+            const alpha = 0.85 * Math.pow(1 - progress, 1.4) * sw.strength;
 
             ctx.beginPath();
             ctx.arc(cx, cy, currentR, 0, Math.PI * 2);
             ctx.strokeStyle = primaryColor;
             ctx.globalAlpha = alpha;
-            ctx.lineWidth = Math.max(1, (1.0 - progress) * 2.4 * dpr);
+            ctx.lineWidth = Math.max(1, (1.0 - progress) * 2.5 * dpr);
             ctx.stroke();
           }
 
-          // 2. 72 Barras Radiales de Frecuencia con Lerp Suavizado
-          const angleStep = (Math.PI * 2) / RADIAL_BARS_COUNT;
+          // ── B. Barras Radiales (72 líneas, 48 en pantallas móviles < 768px) ──
+          const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+          const barCount = isMobile ? 48 : 72;
+          const angleStep = (Math.PI * 2) / barCount;
           const fft = fftBarsRef.current;
+          const barLerpFactor = clamp(0.15 + speedMultiplier * 0.2, 0.15, 0.4);
 
-          for (let i = 0; i < RADIAL_BARS_COUNT; i++) {
-            const rawVal = isAudioActive && raw[i % raw.length] ? raw[i % raw.length] / 255 : 0;
-            fft[i] += (rawVal - fft[i]) * 0.22;
-            const barLen = (2 + fft[i] * (16 + sMids * 10) * speedMultiplier) * dpr;
+          for (let i = 0; i < barCount; i++) {
+            const rawIndex = Math.floor((i / barCount) * (raw.length || 1));
+            const rawVal = isAudioActive && raw[rawIndex] ? raw[rawIndex] / 255 : 0;
+            fft[i] += (rawVal - fft[i]) * barLerpFactor;
+
+            const maxBarLen = (24 + sMids * 16) * dpr;
+            const barLen = (3 * dpr) + fft[i] * maxBarLen;
             const a = i * angleStep;
 
-            const r1 = baseR + 2 * dpr;
+            const r1 = baseR + (2 * dpr);
             const r2 = r1 + barLen;
 
             const x1 = cx + Math.cos(a) * r1;
@@ -247,30 +260,34 @@ export const RainbowBlobVisualizer: React.FC = () => {
             const x2 = cx + Math.cos(a) * r2;
             const y2 = cy + Math.sin(a) * r2;
 
-            const alpha = 0.12 + fft[i] * (isLucid ? 0.7 : 0.5);
+            const alpha = 0.25 + fft[i] * 0.65;
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
             ctx.strokeStyle = primaryColor;
-            ctx.globalAlpha = alpha;
-            ctx.lineWidth = 1.3 * dpr;
+            ctx.globalAlpha = isLucid ? alpha : alpha * 0.85;
+            ctx.lineWidth = 2 * dpr;
             ctx.lineCap = 'round';
             ctx.stroke();
           }
 
-          // 3. Partículas Internas Sutiles (Dentro del núcleo)
-          const innerCount = 14;
-          for (let k = 0; k < innerCount; k++) {
-            const a = (k / innerCount) * Math.PI * 2 + phase * 0.5;
-            const r = baseR * 0.76 + Math.sin(phase * 1.6 + k) * (2.5 + sBass * 3.5) * dpr;
-            const px = cx + Math.cos(a) * r;
-            const py = cy + Math.sin(a) * r;
+          // ── C. 30 Partículas Internas dentro del Núcleo ──
+          if (!prefersReducedMotion) {
+            const baseDist = baseR * 0.55;
+            for (let k = 0; k < INNER_PARTICLES_COUNT; k++) {
+              const angle = (k / INNER_PARTICLES_COUNT) * Math.PI * 2;
+              const dist = baseDist + (sBass * 20 * dpr) * Math.sin(timeSeconds * 2.5 + angle);
+              const px = cx + Math.cos(angle) * dist;
+              const py = cy + Math.sin(angle) * dist;
+              const pSize = (2 + (k % 3)) * dpr;
+              const pAlpha = 0.3 + sBass * 0.3;
 
-            ctx.beginPath();
-            ctx.arc(px, py, 1.2 * dpr, 0, Math.PI * 2);
-            ctx.fillStyle = secondaryColor;
-            ctx.globalAlpha = 0.18 + sBass * 0.3;
-            ctx.fill();
+              ctx.beginPath();
+              ctx.arc(px, py, pSize, 0, Math.PI * 2);
+              ctx.fillStyle = secondaryColor;
+              ctx.globalAlpha = pAlpha;
+              ctx.fill();
+            }
           }
 
           ctx.restore();
@@ -288,8 +305,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
     isMicActive,
     audioSpeed,
     musicSensitivity,
+    blobWaveIntensity,
+    blobBassBoomIntensity,
     containerSize,
     innerCircleSize,
+    scaleU,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -318,29 +338,32 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   const activeImage = blobSettings.customLogoUrl || currentTrack?.coverUrl;
 
-  // ── Estilos Dinámicos según Modo Lúcido ─────────────────────────────────────
+  // ── Gradientes del Halo Principal y Halo Glow (Arcoíris / Lúcido) ───────────
   const haloPrincipalBg = useMemo(() => {
     if (isLucid) {
       const p = lucidPrimaryColor || lucidTheme.primary || '#00f2fe';
       const s = lucidSecondaryColor || lucidTheme.secondary || '#ff088a';
-      return `conic-gradient(from 0deg, ${p}55 0%, ${s}33 50%, ${p}55 100%)`;
+      return `conic-gradient(from 0deg, ${p}, ${s}, ${p})`;
     }
-    return 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 60%, transparent 75%)';
-  }, [isLucid, lucidTheme, lucidPrimaryColor, lucidSecondaryColor]);
+    // Halo arcoíris clásico con colores vivos
+    return 'conic-gradient(from 0deg, #ff088a, #8a2be2, #00f2fe, #00ffb3, #ffe600, #ff5e00, #ff088a)';
+  }, [isLucid, lucidPrimaryColor, lucidSecondaryColor, lucidTheme]);
 
-  const haloGlowShadow = useMemo(() => {
+  const haloGlowBg = useMemo(() => {
     if (isLucid) {
-      const glowCol = lucidTheme.glow || lucidPrimaryColor || lucidTheme.primary || 'rgba(0, 242, 254, 0.3)';
-      return `0 0 30px ${glowCol}4d`;
+      const p = lucidPrimaryColor || lucidTheme.primary || '#00f2fe';
+      const s = lucidSecondaryColor || lucidTheme.secondary || '#ff088a';
+      return `radial-gradient(circle, ${p}66 0%, ${s}33 50%, transparent 75%)`;
     }
-    return '0 0 30px rgba(255, 255, 255, 0.04)';
-  }, [isLucid, lucidTheme, lucidPrimaryColor]);
+    // Glow suave difuminado con la gama cromática del arcoíris
+    return 'radial-gradient(circle, #ff088a66 0%, #00f2fe44 40%, #ffe60033 65%, transparent 80%)';
+  }, [isLucid, lucidPrimaryColor, lucidSecondaryColor, lucidTheme]);
 
   const innerCircleBg = useMemo(() => {
     if (isLucid) {
       return lucidTheme.glassColor || 'rgba(10, 15, 28, 0.7)';
     }
-    return 'rgba(255, 255, 255, 0.03)';
+    return 'rgba(255, 255, 255, 0.04)';
   }, [isLucid, lucidTheme]);
 
   const innerCircleBorder = useMemo(() => {
@@ -352,14 +375,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden select-none bg-[#0A0A0F]">
-      {/* ── Capa 1: Fondo Base con Desenfoque Sutil ── */}
+      {/* ── Capa 1: Fondo Base Sólido / Gradiente Sutil ── */}
       <div
         className="fixed inset-0 pointer-events-none transition-all duration-500"
         style={{
           background: isLucid && lucidTheme.bgGradient
             ? lucidTheme.bgGradient
             : 'radial-gradient(circle at 50% 50%, #121218 0%, #0A0A0F 70%, #060609 100%)',
-          filter: 'blur(8px)',
           zIndex: 0,
         }}
       />
@@ -377,7 +399,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           height: `${containerSize}px`,
         }}
       >
-        {/* ── Capa 2: Halo Glow (Difuminado, Escala Fija 0.5x) ── */}
+        {/* ── Capa 2: Halo Glow Exterior Radial Difuminado (Blur 24px, Opacidad 0.4–0.6) ── */}
         <div
           ref={haloGlowRef}
           className="rounded-full pointer-events-none transition-opacity duration-150"
@@ -388,13 +410,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
             transform: `translate(-50%, -50%) scale(${BLOB_SCALE})`,
             width: `${haloSize}px`,
             height: `${haloSize}px`,
-            boxShadow: haloGlowShadow,
+            background: haloGlowBg,
+            filter: 'blur(24px)',
+            opacity: 0.4,
             mixBlendMode: isLucid ? 'screen' : 'normal',
             zIndex: 1,
           }}
         />
 
-        {/* ── Capa 3: Halo Principal (con Blur, Transparencia, Escala Fija 0.5x) ── */}
+        {/* ── Capa 3: Halo Principal (con Conic-Gradient, Blur 18px Saturate 140%, Escala Fija 0.5x) ── */}
         <div
           ref={haloPrincipalRef}
           className="rounded-full pointer-events-none transition-opacity duration-150"
@@ -408,12 +432,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
             background: haloPrincipalBg,
             backdropFilter: 'blur(18px) saturate(140%)',
             WebkitBackdropFilter: 'blur(18px) saturate(140%)',
+            opacity: 0.3,
             mixBlendMode: isLucid ? 'screen' : 'normal',
             zIndex: 2,
           }}
         />
 
-        {/* ── Capa 4: Canvas de Efectos (Ondas, 72 Barras, Shockwaves) ── */}
+        {/* ── Capa 4: Canvas 2D de Efectos (Ondas, 72 Barras, Shockwaves, Partículas) ── */}
         <canvas
           ref={canvasRef}
           className="pointer-events-none"
@@ -428,7 +453,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           }}
         />
 
-        {/* ── Capa 5: Círculo Interior (Núcleo con Backdrop-Filter y Micro-Pulso) ── */}
+        {/* ── Capa 5: Círculo Interior (Núcleo Oscuro Translúcido con Backdrop-Filter y Pulso) ── */}
         <div
           ref={innerCircleRef}
           className="rounded-full flex items-center justify-center pointer-events-auto cursor-pointer"
@@ -467,7 +492,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
               zIndex: 20,
             }}
           >
-            <div className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center bg-black/20">
+            <div
+              className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center bg-black/20"
+              style={{ clipPath: 'circle(50% at center)' }}
+            >
               {activeImage ? (
                 <img
                   src={activeImage}
@@ -481,7 +509,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 <div
                   className="w-full h-full rounded-full flex flex-col items-center justify-center transition-colors"
                   style={{
-                    color: isLucid ? (lucidPrimaryColor || lucidTheme.primary) : 'rgba(255, 255, 255, 0.45)',
+                    color: isLucid ? (lucidPrimaryColor || lucidTheme.primary) : 'rgba(255, 255, 255, 0.55)',
                   }}
                 >
                   <Disc3 className="w-[60%] h-[60%] stroke-[1.2] group-hover:scale-105 transition-transform" />
@@ -501,7 +529,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       {/* ── Botón Disparador del Panel Flotante ── */}
       <button
         onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-        className="absolute top-4 right-4 z-40 p-2.5 rounded-xl bg-[#0A0A0F]/80 backdrop-blur-md border border-white/[0.08] text-white/70 hover:text-white hover:border-white/20 transition-all duration-180 ease-out shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+        className="absolute top-4 right-4 z-40 p-2.5 rounded-xl bg-[#0A0A0F]/80 backdrop-blur-md border border-white/[0.08] text-white/70 hover:text-white hover:border-white/20 transition-all duration-180 ease-out shadow-lg focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
         title="Personalizar Círculo Visualizador"
         aria-label="Personalizar Círculo"
       >
@@ -534,7 +562,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={resetBlobSettings}
-                  className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-white"
+                  className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                   title="Restablecer valores"
                   aria-label="Restablecer"
                 >
@@ -542,7 +570,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setBlobPanelOpen(false)}
-                  className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-white"
+                  className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                   aria-label="Cerrar panel"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -580,7 +608,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     />
                   </Slider.Track>
                   <Slider.Thumb
-                    className="block w-4 h-4 bg-white rounded-full shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="block w-4 h-4 bg-white rounded-full shadow-md focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                     aria-label="Audio Speed"
                   />
                 </Slider.Root>
@@ -611,7 +639,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     />
                   </Slider.Track>
                   <Slider.Thumb
-                    className="block w-4 h-4 bg-white rounded-full shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="block w-4 h-4 bg-white rounded-full shadow-md focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                     aria-label="Circle Diameter"
                   />
                 </Slider.Root>
@@ -638,7 +666,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                       <Slider.Range className="absolute bg-white rounded-full h-full" />
                     </Slider.Track>
                     <Slider.Thumb
-                      className="block w-3.5 h-3.5 bg-white rounded-full shadow-md focus:outline-none"
+                      className="block w-3.5 h-3.5 bg-white rounded-full shadow-md focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                       aria-label="Pos X"
                     />
                   </Slider.Root>
@@ -663,7 +691,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                       <Slider.Range className="absolute bg-white rounded-full h-full" />
                     </Slider.Track>
                     <Slider.Thumb
-                      className="block w-3.5 h-3.5 bg-white rounded-full shadow-md focus:outline-none"
+                      className="block w-3.5 h-3.5 bg-white rounded-full shadow-md focus:outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                       aria-label="Pos Y"
                     />
                   </Slider.Root>
@@ -678,7 +706,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor={fileInputId}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 text-[11px] cursor-pointer transition-colors duration-180"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 text-[11px] cursor-pointer transition-colors duration-180 focus-within:outline focus-within:outline-1 focus-within:outline-white/50 focus-within:outline-offset-2"
                   >
                     <Upload className="w-3.5 h-3.5 text-white/60" />
                     <span>Upload Logo</span>
@@ -694,7 +722,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   {blobSettings.customLogoUrl && (
                     <button
                       onClick={handleRemoveCustomLogo}
-                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs transition-colors duration-180"
+                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs transition-colors duration-180 focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/50 focus-visible:outline-offset-2"
                       title="Eliminar logo personalizado"
                       aria-label="Eliminar logo"
                     >
