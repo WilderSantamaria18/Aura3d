@@ -5,17 +5,12 @@ import { useVisualizer } from '../../hooks/useVisualizer';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES } from '../../types/audio';
-import { SphereHalo, type SphereAudioRefData } from './SphereHalo';
-import { SphereInnerAurora } from './SphereInnerAurora';
-import { SphereOrbitalRings } from './SphereOrbitalRings';
-import { SphereFrequencySpikes } from './SphereFrequencySpikes';
 
 interface SphereVisualizerProps {
   particleCount?: number;
 }
 
 const MAX_PARTICLES = 2400;
-const MAX_RINGS = 1200;
 
 // Kick Shockwave Detector & Radial Propagation Constants
 const KICK_THRESHOLD = 0.18;
@@ -57,7 +52,7 @@ const getShapeId = (shape?: string): number => {
   }
 };
 
-// --- GPU SHADERS: Main Sphere Particles ---
+// --- GPU SHADERS: Pure Sea-Sand Particles ---
 const MainSphereShader = {
   vertexShader: `
     uniform float uTime;
@@ -197,51 +192,9 @@ const MainSphereShader = {
   `,
 };
 
-// --- GPU SHADERS: Secondary Particle Rings ---
-const RingParticleShader = {
-  vertexShader: `
-    uniform float uTime;
-    uniform float uBass;
-    uniform float uWaveDist;
-    uniform float uSize;
-    uniform float uPixelRatio;
-
-    attribute vec3 color;
-    varying vec4 vColor;
-
-    void main() {
-      float dist = length(position);
-      vec3 norm = dist > 0.001 ? position / dist : vec3(0.0, 1.0, 0.0);
-      float harmonic = sin(uTime * 1.8 + dist * 2.2) * (0.04 + uBass * 0.18);
-      float newDist = dist + uWaveDist + harmonic;
-      vec3 pos = norm * newDist;
-
-      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-      gl_Position = projectionMatrix * mvPosition;
-      float pointDist = max(0.4, -mvPosition.z);
-      gl_PointSize = clamp(uSize * (300.0 / pointDist) * uPixelRatio, 1.0, 24.0);
-
-      vColor = vec4(color, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform float uOpacity;
-    varying vec4 vColor;
-
-    void main() {
-      vec2 coord = gl_PointCoord - vec2(0.5);
-      float dist = length(coord);
-      if (dist > 0.5) discard;
-      float alpha = smoothstep(0.5, 0.10, dist) * vColor.a * uOpacity;
-      float core = smoothstep(0.20, 0.0, dist) * 0.35;
-      gl_FragColor = vec4(vColor.rgb * (1.0 + core), alpha);
-    }
-  `,
-};
-
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
-    // Stable configuration subscriptions (only re-renders on low-frequency config changes)
+    // Stable configuration subscriptions
     const sphereShape = usePlayerStore((s) => s.sphereShape || s.visualizerShape);
     const currentPaletteIndex = usePlayerStore((s) => s.currentPaletteIndex);
     const isLucid = usePlayerStore((s) => s.isLucid);
@@ -250,30 +203,15 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const autoMode = usePlayerStore((s) => s.autoMode);
     const dynamicColor = usePlayerStore((s) => s.dynamicColor || '#00f2fe');
     const vrMode = usePlayerStore((s) => s.vrMode);
-    const showFrequencyBars = usePlayerStore((s) => s.showFrequencyBars);
 
-    const { isEco, isUltraEco, ringParticleBudget } = usePerformanceMonitor();
+    const { isEco, isUltraEco } = usePerformanceMonitor();
 
-    // Maintain full ~2400 particle resolution across all tiers to eliminate pixelation.
-    // Optimization is achieved by GPU Shader execution & omitting secondary layers in eco,
-    // NOT by decimating particle density.
+    // Maintain full ~2400 particle resolution across all tiers to eliminate pixelation
     const activeParticleCount = Math.min(particleCount, MAX_PARTICLES);
-    const ringCount = Math.min(ringParticleBudget || MAX_RINGS, MAX_RINGS);
 
     const groupRef = useRef<THREE.Group>(null);
     const pointsRef = useRef<THREE.Points>(null);
-    const particleRingRef = useRef<THREE.Points>(null);
     const smoothScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
-    const smoothRingScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
-
-    // Shared high-performance audio data ref for subcomponents (0 React re-renders)
-    const audioRef = useRef<SphereAudioRefData>({
-      sBass: 0,
-      sMids: 0,
-      sHighs: 0,
-      sEnergy: 0,
-      raw: new Uint8Array(64),
-    });
 
     // Kick Shockwave Tracking Refs
     const prevBassRef = useRef(0);
@@ -281,7 +219,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const shockWavesRef = useRef<Float32Array>(new Float32Array(SHOCKWAVE_SLOTS).fill(-999));
     const nextWaveIdxRef = useRef(0);
 
-    // Audio smoothing filters (Exponential Moving Averages) for natural, fluid motion
+    // Audio smoothing filters (EMA)
     const smoothedBassRef = useRef(0);
     const smoothedMidsRef = useRef(0);
     const smoothedHighsRef = useRef(0);
@@ -289,12 +227,9 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
     const { getSmoothedData } = useVisualizer(0.2);
 
-    // Color instances for smooth palette handling
-    const colorCyan = useMemo(() => new THREE.Color('#00f2fe'), []);
-    const colorEmerald = useMemo(() => new THREE.Color('#00ffb3'), []);
+    // Color instances for palette handling
     const colorLucidPrimary = useMemo(() => new THREE.Color(lucidPrimary), [lucidPrimary]);
     const colorLucidSecondary = useMemo(() => new THREE.Color(lucidSecondary), [lucidSecondary]);
-    const tempColor = useMemo(() => new THREE.Color(), []);
     const autoPrimaryColor = useMemo(() => new THREE.Color(dynamicColor), [dynamicColor]);
 
     const activePalette = PROFESSIONAL_PALETTES[currentPaletteIndex] || PROFESSIONAL_PALETTES[0];
@@ -333,30 +268,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         },
         transparent: true,
         blending: THREE.AdditiveBlending,
-        depthWrite: false, // Eliminates z-fighting and enhances blending speed
-        depthTest: true,
-      });
-    }, [shockwavesUniform, sphereShape]);
-
-    // High-performance GPU ShaderMaterial for secondary particle rings
-    const ringShaderMaterial = useMemo(() => {
-      return new THREE.ShaderMaterial({
-        vertexShader: RingParticleShader.vertexShader,
-        fragmentShader: RingParticleShader.fragmentShader,
-        uniforms: {
-          uTime: { value: 0 },
-          uBass: { value: 0 },
-          uWaveDist: { value: 0 },
-          uSize: { value: 0.038 },
-          uOpacity: { value: 0.8 },
-          uPixelRatio: { value: 1.0 },
-        },
-        transparent: true,
-        blending: THREE.AdditiveBlending,
         depthWrite: false,
         depthTest: true,
       });
-    }, []);
+    }, [shockwavesUniform, sphereShape]);
 
     // Generate normalized base points for activeParticleCount (Unit Scale = 1.0)
     // Run ONLY on shape or count changes, NEVER in frame loop!
@@ -539,56 +454,17 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       return { geometry: geo };
     }, [initialPositions, baseNormals, precalculatedColors, activeParticleCount]);
 
-    // Permanent single BufferGeometry for Legacy Concentric Rings (Static usage)
-    const { ringGeometry } = useMemo(() => {
-      const positions = new Float32Array(ringCount * 3);
-      const colors = new Float32Array(ringCount * 3);
-
-      for (let i = 0; i < ringCount; i++) {
-        const rand1 = ((i * 12345 + 6789) % 10000) / 10000;
-        const rand2 = ((i * 54321 + 9876) % 10000) / 10000;
-        const rand3 = ((i * 31415 + 9265) % 10000) / 10000;
-
-        const rad = 1.35 + rand1 * 1.75;
-        const theta = rand2 * Math.PI * 2;
-        const phi = Math.acos(2 * rand3 - 1);
-
-        positions[i * 3] = rad * Math.sin(phi) * Math.cos(theta);
-        positions[i * 3 + 1] = (rad * 0.4) * Math.sin(phi) * Math.sin(theta);
-        positions[i * 3 + 2] = rad * Math.cos(phi);
-
-        tempColor.copy(colorCyan).lerp(colorEmerald, rand1);
-        colors[i * 3] = tempColor.r;
-        colors[i * 3 + 1] = tempColor.g;
-        colors[i * 3 + 2] = tempColor.b;
-      }
-
-      const geo = new THREE.BufferGeometry();
-      const posAttr = new THREE.BufferAttribute(positions, 3);
-      posAttr.setUsage(THREE.StaticDrawUsage);
-      const colAttr = new THREE.BufferAttribute(colors, 3);
-      colAttr.setUsage(THREE.StaticDrawUsage);
-
-      geo.setAttribute('position', posAttr);
-      geo.setAttribute('color', colAttr);
-      geo.setDrawRange(0, ringCount);
-
-      return { ringGeometry: geo };
-    }, [ringCount, colorCyan, colorEmerald, tempColor]);
-
     // Cleanup WebGL resources on unmount
     useEffect(() => {
       return () => {
         geometry.dispose();
-        ringGeometry.dispose();
         mainShaderMaterial.dispose();
-        ringShaderMaterial.dispose();
       };
-    }, [geometry, ringGeometry, mainShaderMaterial, ringShaderMaterial]);
+    }, [geometry, mainShaderMaterial]);
 
     // High-performance animation loop: 0 CPU particle loops, 0 buffer re-allocations
     useFrame((state, delta) => {
-      const { bass, mids, highs, energy, raw } = getSmoothedData();
+      const { bass, mids, highs, energy } = getSmoothedData();
       const time = state.clock.getElapsedTime();
       const dpr = state.viewport.dpr || 1;
 
@@ -626,13 +502,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sMids = smoothedMidsRef.current;
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
-
-      // Synchronize shared audio data ref for subcomponents (SphereHalo, Aurora, Rings, Spikes)
-      audioRef.current.sBass = sBass;
-      audioRef.current.sMids = sMids;
-      audioRef.current.sHighs = sHighs;
-      audioRef.current.sEnergy = sEnergy;
-      audioRef.current.raw = raw;
 
       // Kick transient onset & attack envelope detection
       const attackEnv = Math.max(0, sBass - prevBassRef.current);
@@ -701,12 +570,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         smoothScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
         pointsRef.current.scale.lerp(smoothScaleVec, 0.14);
 
-        if (particleRingRef.current) {
-          const targetRingScaleVal = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3) * danceBoost;
-          smoothRingScaleVec.set(targetRingScaleVal, targetRingScaleVal, targetRingScaleVal);
-          particleRingRef.current.scale.lerp(smoothRingScaleVec, 0.14);
-        }
-
         // VR Push vectors setup
         const vrPush1 = mainShaderMaterial.uniforms.uVRPush1.value as THREE.Vector4;
         const vrPush2 = mainShaderMaterial.uniforms.uVRPush2.value as THREE.Vector4;
@@ -744,53 +607,17 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         u.uNumShockwaves.value = activeWaveCount;
         u.uPixelRatio.value = dpr;
       }
-
-      // Animate secondary particle rings in GPU
-      if (particleRingRef.current && showFrequencyBars && !isEco) {
-        particleRingRef.current.rotation.y += delta * 0.15 * (isLucid ? 1.4 : 1.0);
-        const ru = ringShaderMaterial.uniforms;
-        ru.uTime.value = time;
-        ru.uBass.value = sBass;
-        ru.uWaveDist.value = sEnergy * (isLucid ? 0.65 : 0.45);
-        ru.uOpacity.value = isLucid ? 0.95 : 0.8;
-        ru.uSize.value = isLucid ? 0.042 : 0.035;
-        ru.uPixelRatio.value = dpr;
-      }
     });
 
     return (
       <group ref={groupRef}>
-        {/* 1. Outer Rainbow Conic Halo (Exterior reactive glowing aura) */}
-        {!isUltraEco && <SphereHalo audioRef={audioRef} />}
-
-        {/* 2. Inner Radial Aurora Boreal (Core volume breathing with music) */}
-        {!isUltraEco && <SphereInnerAurora audioRef={audioRef} />}
-
-        {/* 3. Main 3D Shape Particles (GPU accelerated ShaderMaterial) */}
+        {/* Pure Elegant 3D Shape Particles ("Arena de Mar") */}
         <points
           ref={pointsRef}
           renderOrder={1}
           geometry={geometry}
           material={mainShaderMaterial}
         />
-
-        {/* 4. 5 Orbital Concentric Rings with White Satellites */}
-        {!isUltraEco && <SphereOrbitalRings audioRef={audioRef} />}
-
-        {/* 5. Radial Frequency Equalizer Spikes (48 bars FFT) */}
-        {showFrequencyBars && !isUltraEco && (
-          <SphereFrequencySpikes audioRef={audioRef} />
-        )}
-
-        {/* 6. Legacy Sand Particle Rings (Active only in High quality mode when frequency bars toggled) */}
-        {showFrequencyBars && !isEco && (
-          <points
-            ref={particleRingRef}
-            renderOrder={2}
-            geometry={ringGeometry}
-            material={ringShaderMaterial}
-          />
-        )}
       </group>
     );
   }
