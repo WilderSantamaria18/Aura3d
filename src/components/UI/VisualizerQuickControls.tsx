@@ -228,14 +228,14 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
           <input
             type="range"
             min="0.5"
-            max="1.5"
+            max="1.0"
             step="0.05"
-            value={musicSensitivity || 1.0}
+            value={musicSensitivity || 0.75}
             onChange={(e) => setMusicSensitivity(parseFloat(e.target.value))}
             className={`w-14 sm:w-18 h-1 rounded-lg cursor-pointer transition-all ${
               isLucid ? 'accent-emerald-400 shadow-[0_0_10px_#39FF14]' : 'bg-white/10 accent-emerald-400'
             }`}
-            title={`Sensibilidad Musical: ${(musicSensitivity || 1.0).toFixed(2)}x (Doble clic para restablecer a 1.0x)`}
+            title={`Sensibilidad Musical: ${(musicSensitivity || 0.75).toFixed(2)}x (Doble clic para restablecer a 0.75x)`}
           />
         </div>
       )}

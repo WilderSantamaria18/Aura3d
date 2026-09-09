@@ -348,9 +348,9 @@ export const VisualizerSettingsModal: React.FC = () => {
                 <input
                   type="range"
                   min="0.5"
-                  max="1.5"
+                  max="1.0"
                   step="0.05"
-                  value={musicSensitivity || 1.0}
+                  value={musicSensitivity || 0.75}
                   onChange={(e) => setMusicSensitivity(parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-emerald-400"
                 />
