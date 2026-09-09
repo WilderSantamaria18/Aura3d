@@ -332,7 +332,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   rainbowScale: StorageService.getRainbowScale() || 1.0,
   linkScales: StorageService.getLinkScales(),
   sphereRadius: StorageService.getSphereScale() || 1.0,
-  musicSensitivity: StorageService.getMusicSensitivity() || 1.0,
+  musicSensitivity: Math.min(1.5, Math.max(0.5, StorageService.getMusicSensitivity() || 1.0)),
 
   blobSettings: StorageService.getBlobSettings(),
   isBlobPanelOpen: false,
@@ -709,7 +709,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     get().setSphereScale(radius);
   },
   setMusicSensitivity: (sensitivity) => {
-    const clamped = Math.min(3.0, Math.max(0.0, sensitivity));
+    const clamped = Math.min(1.5, Math.max(0.5, sensitivity));
     StorageService.saveMusicSensitivity(clamped);
     set({ musicSensitivity: clamped });
   },

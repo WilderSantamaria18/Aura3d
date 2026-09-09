@@ -218,15 +218,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       }
 
       const nivel = isAudioActive ? sBass : 0;
-      const boostVal = blobSettings.bassBoost;
-      const idleBreathing = isAudioActive ? 0 : Math.sin(timeSec * 1.5) * 0.03;
-      const sens = (blobSettings.scaleSensitivity ?? 1.0) * audioSens;
-      const baseScale = 0.75 + idleBreathing;
-      const bassContribution = Math.pow(nivel, 1.2) * (0.5 + boostVal * 0.2);
-      const boomContribution = Math.min(boomPunch * 0.4 * audioSens, 0.7);
-      const totalScale = (baseScale + bassContribution + boomContribution) * sens;
-      const clampedScale = Math.min(2.0, Math.max(0.45, totalScale));
-      const escala = clampedScale * blobScale;
+      // Requisito 1: Escala fija del círculo = 0.5x constante en TODO momento
+      const escala = 0.5;
 
       // Minimalist organic contour (clean, zero unnecessary wobbles)
       let borderRadius: string;
@@ -529,12 +522,16 @@ export const RainbowBlobVisualizer: React.FC = () => {
     updateBlobSettings({ customLogoUrl: null });
   };
 
+  const haloDimension = blobSettings.haloSize * scaleU;
+  const circleDimension = blobSettings.circleSize * scaleU;
+
   // Render active center logo (custom image, Spotify/local track cover, or SVG vector logo)
   const renderCenterLogo = () => {
     const activeImage = blobSettings.customLogoUrl || currentTrack?.coverUrl;
+    // Escala del logo = 60-75% del círculo (calculado proporcionalmente como 68% de circleDimension)
+    const discSize = Math.round(circleDimension * 0.68);
 
     if (activeImage) {
-      const discSize = Math.max(64, Math.min(112, 100 * scaleU));
       return (
         <div className="relative flex items-center justify-center group cursor-pointer z-10">
           {/* Subtle ambient bloom behind logo */}
@@ -542,14 +539,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
             className="absolute inset-0 rounded-full pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity"
             style={{
               backgroundImage: `url(${activeImage})`,
-              backgroundSize: 'cover',
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
               filter: 'blur(12px)',
-              transform: 'scale(1.1)',
+              transform: 'scale(1.05)',
             }}
           />
 
-          {/* Crisp center circular disc */}
+          {/* Crisp center circular disc contorneado perfectamente con clip-path: circle(50%) */}
           <div
             onClick={() => {
               setTempImageForCrop(activeImage);
@@ -558,14 +556,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
             style={{
               width: `${discSize}px`,
               height: `${discSize}px`,
+              clipPath: 'circle(50%)',
             }}
-            className="relative rounded-full overflow-hidden border border-white/30 shadow-[0_0_20px_rgba(0,242,254,0.4)] animate-[spin_24s_linear_infinite] group-hover:scale-105 transition-transform"
+            className="relative rounded-full overflow-hidden border border-white/30 shadow-[0_0_20px_rgba(0,242,254,0.4)] animate-[spin_24s_linear_infinite] group-hover:scale-105 transition-transform flex items-center justify-center bg-black/40"
             title="Haz clic para recortar, aplicar filtros neón y efectos al logo/carátula"
           >
             <img
               src={activeImage}
               alt="Carátula / Logo"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-1"
             />
             {/* Vinyl inner groove rings overlay */}
             <div className="absolute inset-0 rounded-full border border-white/20 pointer-events-none" />
@@ -579,27 +578,25 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
     const activePreset = LOGO_PRESETS.find((p) => p.id === blobSettings.logoStyle) || LOGO_PRESETS[0];
     const IconComponent = activePreset.icon;
-    const iconBoxSize = Math.max(54, Math.min(96, 84 * scaleU));
+    const iconBoxSize = Math.round(circleDimension * 0.65);
 
     return (
       <div
         style={{
           width: `${iconBoxSize}px`,
           height: `${iconBoxSize}px`,
+          clipPath: 'circle(50%)',
           ...(isLucid ? { color: lucidTheme.primary, boxShadow: `0 0 20px ${lucidTheme.glow}` } : {}),
         }}
-        className="rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,254,0.3)] transform hover:scale-105 transition-transform z-10"
+        className="rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,254,0.3)] transform hover:scale-105 transition-transform z-10 overflow-hidden"
       >
         <IconComponent
-          className="w-7 h-7 sm:w-10 sm:h-10 drop-shadow-[0_0_10px_currentColor]"
+          className="w-1/2 h-1/2 drop-shadow-[0_0_10px_currentColor]"
           style={isLucid ? { color: lucidTheme.primary } : undefined}
         />
       </div>
     );
   };
-
-  const haloDimension = blobSettings.haloSize * scaleU;
-  const circleDimension = blobSettings.circleSize * scaleU;
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#060813] select-none">

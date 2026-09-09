@@ -214,29 +214,31 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
         </button>
       </div>
 
-      {/* 5. Music Sensitivity Slider */}
-      <div
-        className="flex items-center gap-1.5 cursor-pointer"
-        onDoubleClick={() => setMusicSensitivity(1.0)}
-        title="Sensibilidad Musical: Doble clic para restablecer a 1.0x"
-      >
-        <Zap className={`w-3.5 h-3.5 ${isLucid ? 'text-emerald-400' : 'text-emerald-400'}`} />
-        <span className="hidden sm:inline text-[11px] text-white/50">
-          Audio <span className="font-mono text-emerald-300">{(musicSensitivity || 1.0).toFixed(1)}x</span>
-        </span>
-        <input
-          type="range"
-          min="0.0"
-          max="2.5"
-          step="0.05"
-          value={musicSensitivity || 1.0}
-          onChange={(e) => setMusicSensitivity(parseFloat(e.target.value))}
-          className={`w-14 sm:w-18 h-1 rounded-lg cursor-pointer transition-all ${
-            isLucid ? 'accent-emerald-400 shadow-[0_0_10px_#39FF14]' : 'bg-white/10 accent-emerald-400'
-          }`}
-          title={`Sensibilidad Musical: ${(musicSensitivity || 1.0).toFixed(2)}x (Doble clic para restablecer a 1.0x)`}
-        />
-      </div>
+      {/* 5. Music Sensitivity Slider (Visible ONLY in blob / circular mode) */}
+      {isBlob && (
+        <div
+          className="flex items-center gap-1.5 cursor-pointer"
+          onDoubleClick={() => setMusicSensitivity(1.0)}
+          title="Sensibilidad Musical: Doble clic para restablecer a 1.0x"
+        >
+          <Zap className={`w-3.5 h-3.5 ${isLucid ? 'text-emerald-400' : 'text-emerald-400'}`} />
+          <span className="hidden sm:inline text-[11px] text-white/50">
+            Audio <span className="font-mono text-emerald-300">{(musicSensitivity || 1.0).toFixed(1)}x</span>
+          </span>
+          <input
+            type="range"
+            min="0.5"
+            max="1.5"
+            step="0.05"
+            value={musicSensitivity || 1.0}
+            onChange={(e) => setMusicSensitivity(parseFloat(e.target.value))}
+            className={`w-14 sm:w-18 h-1 rounded-lg cursor-pointer transition-all ${
+              isLucid ? 'accent-emerald-400 shadow-[0_0_10px_#39FF14]' : 'bg-white/10 accent-emerald-400'
+            }`}
+            title={`Sensibilidad Musical: ${(musicSensitivity || 1.0).toFixed(2)}x (Doble clic para restablecer a 1.0x)`}
+          />
+        </div>
+      )}
 
       {/* 6. Opacity Slider */}
       <div className="flex items-center gap-2">
