@@ -70,6 +70,7 @@ export const PoseTracker: React.FC = () => {
     setVrTrackingMode,
     setPoseLandmarks,
     setHandLandmarks,
+    setMultiHandLandmarks,
     sphereOpacity,
     setSphereOpacity,
     visualizerMode,
@@ -442,6 +443,9 @@ export const PoseTracker: React.FC = () => {
         // Hands Mode (21 points)
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
           const rawLandmarks: HandLandmark[] = results.multiHandLandmarks[0];
+          const multiHands: HandLandmark[][] = results.multiHandLandmarks.map((hand: HandLandmark[]) =>
+            hand.map((lm) => ({ x: lm.x, y: lm.y, z: lm.z }))
+          );
 
           // 1. Process smoothed rotation
           const { rotation } = processHands(rawLandmarks, handSensitivity);
@@ -458,6 +462,7 @@ export const PoseTracker: React.FC = () => {
           // Single batched store update (1 notification instead of 3)
           usePlayerStore.setState({
             handLandmarks: rawLandmarks,
+            multiHandLandmarks: multiHands,
             handRotation: rotation,
             handGesture: gesture === 'none' ? 'unknown' : (gesture as any),
           });
@@ -520,6 +525,7 @@ export const PoseTracker: React.FC = () => {
           if (usePlayerStore.getState().handLandmarks !== null) {
             usePlayerStore.setState({
               handLandmarks: null,
+              multiHandLandmarks: null,
               handGesture: 'unknown',
             });
           }
@@ -676,7 +682,7 @@ export const PoseTracker: React.FC = () => {
           });
 
           modelInstance.setOptions({
-            maxNumHands: 1,
+            maxNumHands: 2,
             modelComplexity: 0,
             minDetectionConfidence: 0.4,
             minTrackingConfidence: 0.4,
@@ -766,10 +772,11 @@ export const PoseTracker: React.FC = () => {
       }
       setPoseLandmarks(null);
       setHandLandmarks(null);
+      setMultiHandLandmarks(null);
       setIsCameraReady(false);
       resetSmoothing();
     };
-  }, [vrMode, vrTrackingMode, retryCount, setPoseLandmarks, setHandLandmarks, resetSmoothing]);
+  }, [vrMode, vrTrackingMode, retryCount, setPoseLandmarks, setHandLandmarks, setMultiHandLandmarks, resetSmoothing]);
 
   if (!vrMode) return null;
 

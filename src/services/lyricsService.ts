@@ -68,7 +68,107 @@ export class LyricsService {
   }
 
   /**
-   * Fetches lyrics from lyrics.ovh public API
+   * Fetches synchronized or plain lyrics from LRCLIB (https://lrclib.net/)
+   * With fallback to lyrics.ovh if LRCLIB returns no matches.
+   */
+  public static async fetchFromLRCLIB(
+    artist: string,
+    title: string,
+    album?: string,
+    duration?: number
+  ): Promise<LyricsData> {
+    const cleanArtist = artist.trim();
+    const cleanTitle = title.trim();
+
+    if (!cleanArtist || !cleanTitle) {
+      return { synced: false, lines: [], source: 'none' };
+    }
+
+    try {
+      // 1. Try exact match on LRCLIB /api/get
+      const params = new URLSearchParams({
+        track_name: cleanTitle,
+        artist_name: cleanArtist,
+      });
+
+      if (album && album.trim()) {
+        params.append('album_name', album.trim());
+      }
+      if (duration && duration > 0) {
+        params.append('duration', String(Math.round(duration)));
+      }
+
+      let res = await fetch(`https://lrclib.net/api/get?${params.toString()}`);
+
+      // If 404 with album/duration constraints, retry without album and duration for broader match
+      if (!res.ok && (album || duration)) {
+        const relaxedParams = new URLSearchParams({
+          track_name: cleanTitle,
+          artist_name: cleanArtist,
+        });
+        res = await fetch(`https://lrclib.net/api/get?${relaxedParams.toString()}`);
+      }
+
+      // If still not found, try search endpoint
+      if (!res.ok) {
+        const searchRes = await fetch(
+          `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
+        );
+        if (searchRes.ok) {
+          const list = await searchRes.json();
+          if (Array.isArray(list) && list.length > 0) {
+            const firstWithLyrics = list.find((item) => item.syncedLyrics || item.plainLyrics) || list[0];
+            if (firstWithLyrics?.syncedLyrics) {
+              const parsed = this.parseLRC(firstWithLyrics.syncedLyrics);
+              return { ...parsed, source: 'api' };
+            }
+            if (firstWithLyrics?.plainLyrics) {
+              const lines = firstWithLyrics.plainLyrics
+                .split('\n')
+                .filter((l: string) => l.trim().length > 0)
+                .map((text: string, idx: number) => ({
+                  id: idx + 1,
+                  time: idx * 4,
+                  text: text.trim(),
+                }));
+              return { synced: false, lines, source: 'api' };
+            }
+          }
+        }
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        // Prefer syncedLyrics with LRC timestamps
+        if (data.syncedLyrics) {
+          const parsed = this.parseLRC(data.syncedLyrics);
+          return { ...parsed, source: 'api' };
+        }
+
+        // Fallback to plainLyrics if synced not available
+        if (data.plainLyrics) {
+          const lines = data.plainLyrics
+            .split('\n')
+            .filter((l: string) => l.trim().length > 0)
+            .map((text: string, idx: number) => ({
+              id: idx + 1,
+              time: idx * 4,
+              text: text.trim(),
+            }));
+          return { synced: false, lines, source: 'api' };
+        }
+      }
+
+      // 2. Fallback to lyrics.ovh if LRCLIB had no lyrics
+      return await this.fetchFromLyricsOvh(cleanArtist, cleanTitle);
+    } catch (error) {
+      console.warn('[LyricsService] Error al obtener letras de LRCLIB, intentando lyrics.ovh fallback:', error);
+      return await this.fetchFromLyricsOvh(cleanArtist, cleanTitle);
+    }
+  }
+
+  /**
+   * Fetches lyrics from lyrics.ovh public API (Fallback)
    */
   public static async fetchFromLyricsOvh(artist: string, title: string): Promise<LyricsData> {
     try {
@@ -85,10 +185,9 @@ export class LyricsService {
         return { synced: false, lines: [], source: 'none' };
       }
 
-      // Check if the returned text is LRC format or plain text
       return this.parseLRC(data.lyrics);
     } catch (error) {
-      console.warn('Could not fetch lyrics from lyrics.ovh:', error);
+      console.warn('[LyricsService] Could not fetch lyrics from lyrics.ovh:', error);
       return { synced: false, lines: [], source: 'none' };
     }
   }

@@ -1,7 +1,22 @@
 export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system';
 export type VisualizerMode = 'sphere' | 'blob' | 'party';
-export type VisualizerShape = 'sphere' | 'rings' | 'spikes' | 'cloud' | 'torus' | 'wave' | 'icosahedron' | 'octahedron';
+export type VisualizerShape =
+  | 'sphere'
+  | 'rings'
+  | 'spikes'
+  | 'cloud'
+  | 'torus'
+  | 'wave'
+  | 'kaleidoscope'
+  | 'vortex'
+  | 'fractal'
+  | 'nebula'
+  | 'bars'
+  | 'laser'
+  | 'icosahedron'
+  | 'octahedron';
 export type WaveEffectMode = 'concentric' | 'sinusoidal' | 'spiral' | 'void' | 'off';
+
 
 export interface LucidTheme {
   id: string;

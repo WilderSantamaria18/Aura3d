@@ -11,9 +11,15 @@ import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useAnalytics } from './hooks/useAnalytics';
 import { useAutoPalette } from './hooks/useAutoPalette';
+import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle, UploadCloud } from 'lucide-react';
+import { DynamicAmbientBackground } from './components/Visualizers/DynamicAmbientBackground';
+import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
+import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
+import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
+
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
@@ -28,8 +34,10 @@ const LyricsOverlay = lazy(() => import('./components/Lyrics/LyricsOverlay'));
 
 export const App: React.FC = () => {
   const { loadFile, error } = useAudioEngine();
+  useSpotifyPlayer();
   useAnalytics();
   useAutoPalette();
+  useStudioKeyboardShortcuts();
   const hasStarted = usePlayerStore((s) => s.hasStarted);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
@@ -168,23 +176,27 @@ export const App: React.FC = () => {
           : undefined,
       } as React.CSSProperties}
     >
-      {/* 1. Initial Landing Screen */}
+      {/* 0. Dynamic Blurred Ambient Color Mesh Background */}
+      <DynamicAmbientBackground />
+
+      {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
       <div
-        className={`absolute inset-0 z-50 transition-all duration-700 ease-in-out ${
+        className={`absolute inset-0 z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           hasStarted
-            ? 'opacity-0 pointer-events-none scale-105 blur-sm'
-            : 'opacity-100 pointer-events-auto scale-100 blur-0'
+            ? '-translate-y-full opacity-0 pointer-events-none scale-[0.98] blur-[2px]'
+            : 'translate-y-0 opacity-100 pointer-events-auto scale-100 blur-0'
         }`}
       >
         <LandingScreen />
       </div>
 
-      {/* 2. Visualizer in Fullscreen Center (Active when started: Sphere, Blob, or Party) */}
+      {/* 2. Visualizer in Fullscreen Center (Emerges with gentle scale-in parallax) */}
       <div
-        className={`absolute inset-0 w-full h-full min-h-[55dvh] transition-opacity duration-700 ${
-          hasStarted ? 'opacity-100' : 'opacity-0'
+        className={`absolute inset-0 w-full h-full min-h-[55dvh] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
+
         <Suspense fallback={<div className="w-full h-full" />}>
           {visualizerMode === 'sphere' ? (
             <SceneContainer />
@@ -232,15 +244,15 @@ export const App: React.FC = () => {
 
           {/* Main Glassmorphic Player Bar */}
           <div
-            className={`w-[clamp(320px,94vw,900px)] rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-2xl flex flex-col gap-2 sm:gap-3 pointer-events-auto transition-all duration-500 ${
-              isLucid ? 'lucid-panel' : 'bg-[#090e1c]/85 backdrop-blur-2xl border border-white/10'
+            className={`w-[clamp(320px,94vw,840px)] rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 flex flex-col gap-2 pointer-events-auto transition-all duration-300 ${
+              isLucid ? 'lucid-panel' : 'bg-[#060811]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.8)]'
             }`}
             style={
               isLucid
                 ? {
                     backgroundColor: lucidTheme.glassColor,
                     borderColor: lucidTheme.borderColor,
-                    boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
+                    boxShadow: `0 20px 50px rgba(0,0,0,0.8), 0 0 35px ${lucidTheme.glow}`,
                   }
                 : undefined
             }
@@ -297,6 +309,12 @@ export const App: React.FC = () => {
 
       {/* Mini Player — right-side floating panel for local files */}
       {hasStarted && <MiniPlayer />}
+
+      {/* Keyboard Shortcuts Studio HUD */}
+      <KeyboardShortcutsModal />
+
+      {/* 3D Air Virtual Instruments Controls HUD */}
+      {hasStarted && <AirInstrumentControls />}
 
 
       {/* Global Drag & Drop Overlay */}

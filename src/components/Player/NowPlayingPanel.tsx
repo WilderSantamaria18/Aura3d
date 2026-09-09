@@ -9,153 +9,134 @@ export const NowPlayingPanel: React.FC = () => {
     isMicActive,
     isLucid,
     lucidTheme,
-    visualizerMode,
     favorites,
     toggleFavorite,
     isNowPlayingExpanded,
     setNowPlayingExpanded,
+    isSpotifyConnected,
   } = usePlayerStore();
 
   const isFav = currentTrack ? favorites.some((t) => t.id === currentTrack.id) : false;
 
   return (
     <div
-      className={`fixed top-16 sm:top-20 left-2 sm:left-6 z-30 transition-all duration-500 pointer-events-auto select-none ${
-        isNowPlayingExpanded
-          ? 'translate-x-0 opacity-100'
-          : '-translate-x-[calc(100%-2.5rem)] opacity-70 hover:opacity-100'
-      }`}
+      className="fixed top-14 sm:top-16 left-2 sm:left-6 z-30 transition-all duration-300 pointer-events-auto select-none"
     >
       <div
-        className={`relative rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 flex items-center gap-2.5 sm:gap-3.5 w-[clamp(240px,28vw,380px)] max-w-[calc(100vw-1.5rem)] transition-all duration-400 ${
+        className={`flex items-center gap-2.5 transition-all duration-300 ${
+          isNowPlayingExpanded
+            ? 'px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl max-w-[calc(100vw-4rem)] sm:max-w-[280px]'
+            : 'p-1 rounded-xl'
+        } ${
           isLucid
-            ? 'bg-[#080b18]/85 backdrop-blur-2xl border'
-            : visualizerMode === 'party'
-            ? 'bg-[#150a1d]/85 backdrop-blur-2xl border border-pink-500/40 shadow-[0_0_25px_rgba(255,0,127,0.3)]'
-            : 'bg-black/75 backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/80'
+            ? 'backdrop-blur-2xl border'
+            : 'bg-[#070a14]/92 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.6)]'
         }`}
         style={
           isLucid
             ? {
-                borderColor: `${lucidTheme.primary}60`,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.8), 0 0 25px ${lucidTheme.glow}`,
+                backgroundColor: lucidTheme.glassColor || 'rgba(7, 10, 20, 0.92)',
+                borderColor: `${lucidTheme.primary}40`,
+                boxShadow: `0 8px 24px rgba(0,0,0,0.7), 0 0 20px ${lucidTheme.glow}`,
               }
             : undefined
         }
       >
-        {/* Album Artwork / Disc */}
-        <div
-          className={`relative w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg transition-all ${
-            isLucid
-              ? 'border'
-              : visualizerMode === 'party'
-              ? 'bg-gradient-to-tr from-yellow-500/25 to-pink-500/25 border border-pink-500/30'
-              : 'bg-gradient-to-tr from-cyan-500/20 to-pink-500/20 border border-white/10'
+        {/* Album Artwork / Disc (Tap to expand if collapsed) */}
+        <button
+          type="button"
+          onClick={() => !isNowPlayingExpanded && setNowPlayingExpanded(true)}
+          className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/[0.04] border border-white/[0.08] transition-transform ${
+            !isNowPlayingExpanded ? 'hover:scale-105 cursor-pointer' : ''
           }`}
-          style={
-            isLucid
-              ? {
-                  backgroundColor: `${lucidTheme.primary}15`,
-                  borderColor: `${lucidTheme.primary}45`,
-                  boxShadow: `0 0 15px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
+          title={!isNowPlayingExpanded ? 'Expandir información de pista' : undefined}
         >
           {currentTrack?.coverUrl ? (
             <img
               src={currentTrack.coverUrl}
               alt={currentTrack.title}
               className={`w-full h-full object-cover ${
-                isPlaying ? 'animate-[spin_12s_linear_infinite]' : ''
+                isPlaying ? 'animate-[spin_16s_linear_infinite]' : ''
               }`}
             />
           ) : isMicActive ? (
-            <Radio className="w-6 h-6 text-pink-400 animate-pulse" />
+            <Radio className="w-4 h-4 text-emerald-400" />
           ) : (
             <Disc
-              className={`w-7 h-7 ${isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''}`}
-              style={{
-                color: isLucid
-                  ? lucidTheme.primary
-                  : visualizerMode === 'party'
-                  ? '#ff088a'
-                  : '#00f2fe',
-              }}
+              className={`w-4 h-4 text-white/50 ${
+                isPlaying ? 'animate-[spin_8s_linear_infinite]' : ''
+              }`}
             />
           )}
 
           {/* Center spindle dot */}
-          <div className="absolute w-2.5 h-2.5 rounded-full bg-black border border-white/30" />
-        </div>
+          <div className="absolute w-2 h-2 rounded-full bg-black/80 border border-white/30" />
+        </button>
 
         {/* Track details (visible when expanded) */}
         {isNowPlayingExpanded && (
-          <div className="flex-1 min-w-0 pr-2">
+          <div className="flex-1 min-w-0 pr-1">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span
-                className="w-1.5 h-1.5 rounded-full animate-ping"
-                style={{
-                  backgroundColor: isLucid
-                    ? lucidTheme.primary
-                    : visualizerMode === 'party'
-                    ? '#ff088a'
-                    : '#00f2fe',
-                }}
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isSpotifyConnected
+                    ? 'bg-[#1DB954] animate-pulse'
+                    : isPlaying || isMicActive
+                    ? 'bg-emerald-400'
+                    : 'bg-white/30'
+                }`}
               />
               <span
-                className="text-[10px] uppercase font-mono tracking-widest flex items-center gap-1"
-                style={{
-                  color: isLucid
-                    ? lucidTheme.primary
-                    : visualizerMode === 'party'
-                    ? '#ff69b4'
-                    : '#00f2fe',
-                }}
+                className={`text-[9px] uppercase font-mono tracking-widest font-medium ${
+                  isSpotifyConnected ? 'text-[#1DB954]' : 'text-emerald-400/90'
+                }`}
               >
-                {isMicActive
-                  ? '[ LIVE MIC ]'
-                  : visualizerMode === 'party'
-                  ? '[ 3D STUDIO ]'
-                  : isLucid
-                  ? `[ ${lucidTheme.name.toUpperCase()} ]`
-                  : '[ REPRODUCIENDO ]'}
+                {isSpotifyConnected
+                  ? isPlaying
+                    ? 'SPOTIFY SYNC'
+                    : 'SPOTIFY PAUSADO'
+                  : isMicActive
+                  ? 'LIVE MIC'
+                  : isPlaying
+                  ? 'REPRODUCIENDO'
+                  : 'PAUSADO'}
               </span>
             </div>
 
-            <h4 className="text-white font-medium text-xs sm:text-sm truncate drop-shadow">
-              {isMicActive ? 'Audio del Micrófono' : currentTrack?.title || 'Sin pista'}
+            <h4 className="text-white font-medium text-xs truncate max-w-[130px] sm:max-w-[170px] leading-tight">
+              {isMicActive ? 'Micrófono en vivo' : currentTrack?.title || 'Sin pista'}
             </h4>
-            <p className="text-white/50 text-[11px] truncate tracking-wide font-mono">
-              {isMicActive ? 'Captura en vivo' : currentTrack?.artist || 'Auralis Core'}
+            <p className="text-white/40 text-[10px] truncate font-mono mt-0.5 max-w-[130px] sm:max-w-[170px]">
+              {isMicActive ? 'Captura activa' : currentTrack?.artist || 'Aura3D Engine'}
             </p>
           </div>
         )}
 
-        {/* Action button: Like & Toggle */}
-        <div className="flex items-center gap-1">
+        {/* Action buttons: Like & Collapse Toggle */}
+        <div className="flex items-center gap-0.5">
           {isNowPlayingExpanded && currentTrack && !isMicActive && (
             <button
               onClick={() => toggleFavorite(currentTrack)}
-              className={`p-2 rounded-full transition-all ${
+              className={`p-1.5 rounded-md transition-colors ${
                 isFav
-                  ? 'text-pink-500 scale-110'
-                  : 'text-white/40 hover:text-pink-400 hover:scale-105'
+                  ? 'text-rose-500'
+                  : 'text-white/30 hover:text-white/70 hover:bg-white/[0.04]'
               }`}
+              title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             >
-              <Heart className={`w-4 h-4 ${isFav ? 'fill-pink-500' : ''}`} />
+              <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`} />
             </button>
           )}
 
           <button
             onClick={() => setNowPlayingExpanded(!isNowPlayingExpanded)}
-            className="p-1.5 text-white/40 hover:text-white rounded-full hover:bg-white/5 transition-colors"
-            title={isNowPlayingExpanded ? 'Contraer panel' : 'Expandir panel'}
+            className="p-1 text-white/30 hover:text-white rounded-md hover:bg-white/[0.04] transition-colors"
+            title={isNowPlayingExpanded ? 'Contraer' : 'Expandir'}
           >
             {isNowPlayingExpanded ? (
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
@@ -165,3 +146,4 @@ export const NowPlayingPanel: React.FC = () => {
 };
 
 export default NowPlayingPanel;
+

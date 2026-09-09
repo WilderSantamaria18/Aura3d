@@ -49,6 +49,13 @@ interface PlayerState {
   leftHandPos: { x: number; y: number; z: number } | null;
   headPos: { x: number; y: number; z: number } | null;
 
+  // 3D Air Virtual Instruments
+  isAirInstrumentsActive: boolean;
+  airInstrumentType: 'synth' | 'drums' | 'theremin';
+  airSynthScale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese';
+  lastTriggeredNote: string | null;
+  multiHandLandmarks: HandLandmark[][] | null;
+
   // Professional Palettes
   currentPaletteIndex: number;
 
@@ -159,6 +166,12 @@ interface PlayerState {
   setPoseLandmarks: (landmarks: PoseLandmark[] | null) => void;
   setPoseVelocity: (velocity: number) => void;
   setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number } | null; leftHand?: { x: number; y: number; z: number } | null; head?: { x: number; y: number; z: number } | null; velocity?: number }) => void;
+  setAirInstrumentsActive: (active: boolean) => void;
+  toggleAirInstruments: () => void;
+  setAirInstrumentType: (type: 'synth' | 'drums' | 'theremin') => void;
+  setAirSynthScale: (scale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese') => void;
+  setLastTriggeredNote: (note: string | null) => void;
+  setMultiHandLandmarks: (multiHands: HandLandmark[][] | null) => void;
   setCurrentPaletteIndex: (index: number) => void;
   cyclePalette: () => void;
   setVisualizerMode: (mode: VisualizerMode) => void;
@@ -239,8 +252,28 @@ interface PlayerState {
   setDetectedGenre: (genre: string, confidence?: number) => void;
   setAdminModalOpen: (isOpen: boolean) => void;
   toggleAdminModal: () => void;
+  isShortcutsModalOpen: boolean;
+  setShortcutsModalOpen: (isOpen: boolean) => void;
+  toggleShortcutsModal: () => void;
+  bpm: number;
+  isBeatPulse: boolean;
+  setBpm: (bpm: number) => void;
+  triggerBeatPulse: () => void;
+  resetBeatPulse: () => void;
   setAnalyser: (analyser: AnalyserNode | null, audioContext?: AudioContext | null) => void;
   setUserInteracting: (interacting: boolean) => void;
+  isSpotifyConnected: boolean;
+  setSpotifyConnected: (connected: boolean) => void;
+  updateFromSpotify: (trackData: {
+    title: string;
+    artist: string;
+    album: string;
+    duration: number;
+    coverUrl: string;
+    spotifyUri: string;
+    currentTime: number;
+    isPlaying: boolean;
+  }) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -249,6 +282,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   userInteracting: false,
 
   hasStarted: false,
+  isSpotifyConnected: false,
 
   isLucid: false,
   lucidPrimaryColor: StorageService.getLucidPrimaryColor(),
@@ -273,6 +307,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   leftHandPos: null,
   headPos: null,
 
+  // 3D Air Virtual Instruments
+  isAirInstrumentsActive: false,
+  airInstrumentType: 'synth',
+  airSynthScale: 'pentatonic_minor',
+  lastTriggeredNote: null,
+  multiHandLandmarks: null,
+
   currentPaletteIndex: 0,
 
   currentTrack: null,
@@ -292,7 +333,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isShuffled: false,
   crossfadeDuration: 3,
 
-  visualizerMode: 'sphere',
+  visualizerMode: StorageService.getVisualizerMode(),
   visualizerShape: StorageService.getSphereShape(),
   waveEffectMode: StorageService.getSphereWaveMode(),
   waveEffectIntensity: StorageService.getSphereWaveIntensity(),
@@ -358,6 +399,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   detectedGenre: 'Detectando...',
   genreConfidence: 0.85,
   isAdminModalOpen: false,
+  isShortcutsModalOpen: false,
+  bpm: 0,
+  isBeatPulse: false,
 
   setHasStarted: (hasStarted) => set({ hasStarted }),
   setIsLucid: (isLucid) => set({ isLucid }),
@@ -434,6 +478,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       poseVelocity: data.velocity !== undefined ? data.velocity : state.poseVelocity,
     })),
 
+  setAirInstrumentsActive: (isAirInstrumentsActive) => set({ isAirInstrumentsActive }),
+  toggleAirInstruments: () => set((state) => ({ isAirInstrumentsActive: !state.isAirInstrumentsActive })),
+  setAirInstrumentType: (airInstrumentType) => set({ airInstrumentType }),
+  setAirSynthScale: (airSynthScale) => set({ airSynthScale }),
+  setLastTriggeredNote: (lastTriggeredNote) => set({ lastTriggeredNote }),
+  setMultiHandLandmarks: (multiHandLandmarks) => set({ multiHandLandmarks }),
+
   setCurrentPaletteIndex: (currentPaletteIndex) => set({ currentPaletteIndex }),
   cyclePalette: () => {
     const { currentPaletteIndex } = get();
@@ -442,6 +493,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setVisualizerMode: (visualizerMode) => {
+    StorageService.saveVisualizerMode(visualizerMode);
     const state = get();
     const activeShape = visualizerMode === 'blob' ? state.blobShape : state.sphereShape;
     const activeWaveMode = visualizerMode === 'blob' ? state.blobWaveMode : state.sphereWaveMode;
@@ -974,11 +1026,53 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setDetectedGenre: (detectedGenre, genreConfidence = 0.85) => set({ detectedGenre, genreConfidence }),
   setAdminModalOpen: (isAdminModalOpen) => set({ isAdminModalOpen }),
   toggleAdminModal: () => set((state) => ({ isAdminModalOpen: !state.isAdminModalOpen })),
-  setAnalyser: (analyser, audioContext) => set((state) => ({
+  setShortcutsModalOpen: (isShortcutsModalOpen) => set({ isShortcutsModalOpen }),
+  toggleShortcutsModal: () => set((state) => ({ isShortcutsModalOpen: !state.isShortcutsModalOpen })),
+  setBpm: (bpm) => set({ bpm }),
+  triggerBeatPulse: () => set({ isBeatPulse: true }),
+  resetBeatPulse: () => set({ isBeatPulse: false }),
+  setAnalyser: (analyser: AnalyserNode | null, audioContext?: AudioContext | null) => set((state) => ({
     analyser,
     audioContext: audioContext !== undefined ? audioContext : state.audioContext,
   })),
   setUserInteracting: (userInteracting) => set({ userInteracting }),
+  setSpotifyConnected: (connected) => set({ isSpotifyConnected: connected }),
+  updateFromSpotify: (data) => {
+    set((state) => {
+      const prevTrack = state.currentTrack;
+      const isSameTrack = prevTrack?.spotifyUri === data.spotifyUri;
+
+      const track: Track = isSameTrack && prevTrack
+        ? {
+            ...prevTrack,
+            title: data.title || prevTrack.title,
+            artist: data.artist || prevTrack.artist,
+            album: data.album || prevTrack.album,
+            duration: data.duration || prevTrack.duration,
+            coverUrl: data.coverUrl || prevTrack.coverUrl,
+            spotifyUri: data.spotifyUri,
+          }
+        : {
+            id: 'spotify_' + (data.spotifyUri ? data.spotifyUri.replace(/[^a-zA-Z0-9]/g, '_') : Date.now()),
+            title: data.title || 'Pista de Spotify',
+            artist: data.artist || 'Spotify Artist',
+            album: data.album || '',
+            duration: data.duration || 0,
+            sourceType: 'spotify',
+            coverUrl: data.coverUrl || '',
+            spotifyUri: data.spotifyUri,
+            addedAt: Date.now(),
+          };
+
+      return {
+        currentTrack: track,
+        currentTime: data.currentTime,
+        duration: data.duration || state.duration,
+        isPlaying: data.isPlaying,
+        isSpotifyConnected: true,
+      };
+    });
+  },
 }));
 
 // Expose store globally for QA console tests

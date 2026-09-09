@@ -15,10 +15,15 @@ import {
   PartyPopper,
   Camera,
   Shield,
+  Keyboard,
+  Piano,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { LucidToggle } from './LucidToggle';
+import { VideoRecorderButton } from './VideoRecorderButton';
+import { BpmMeter } from './BpmMeter';
 
 export const HeaderBar: React.FC = () => {
   const {
@@ -39,16 +44,23 @@ export const HeaderBar: React.FC = () => {
     currentTrack,
     isLucid,
     lucidTheme,
+    lucidPrimaryColor,
+    isSpotifyConnected,
+    toggleShortcutsModal,
+    isAirInstrumentsActive,
+    setAirInstrumentsActive,
+    setVrMode,
+    setVrTrackingMode,
   } = usePlayerStore();
 
   const { toggleMicrophone, startSystemCapture, isCapturing } = useAudioEngine();
+  const { connectSpotify, disconnectSpotify } = useSpotifyPlayer();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
-      // Force instant resize event to trigger Three.js camera & Canvas re-projections
       window.dispatchEvent(new Event('resize'));
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -72,8 +84,8 @@ export const HeaderBar: React.FC = () => {
 
   const handleShare = async () => {
     const shareText = currentTrack
-      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis 🎧✨`
-      : 'Disfrutando de Auralis - Reproductor Inmersivo Web 🎧✨';
+      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis 🎧`
+      : 'Disfrutando de Auralis - Reproductor Inmersivo Web 🎧';
 
     if (navigator.share) {
       try {
@@ -92,335 +104,274 @@ export const HeaderBar: React.FC = () => {
     }
   };
 
+  const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-2.5 sm:px-6 py-2.5 sm:py-4 pointer-events-auto select-none gap-2">
-      {/* Brand logo & Studio badge */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+    <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3 pointer-events-auto select-none gap-2 font-sans">
+      {/* ── Left: Brand identity & Current Track info ── */}
+      <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
         <div
-          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center backdrop-blur-md shadow-sm transition-all duration-300 ${
-            isLucid
-              ? 'border'
-              : 'bg-black/60 border border-white/15'
-          }`}
-          style={
-            isLucid
-              ? {
-                  backgroundColor: `${lucidTheme.primary}18`,
-                  borderColor: `${lucidTheme.primary}60`,
-                  boxShadow: `0 0 15px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
+          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#0A0A0F]/90 backdrop-blur-md border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-colors"
+          style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
         >
           <Disc3
-            className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-[spin_12s_linear_infinite]"
-            style={{ color: isLucid ? lucidTheme.primary : '#00f2fe' }}
+            className="w-4 h-4"
+            style={{ color: activeAccent }}
           />
         </div>
-        <div className="hidden min-[480px]:flex items-center gap-1.5">
-          <h1
-            className={`font-medium tracking-[0.18em] text-xs sm:text-sm uppercase transition-colors ${
-              isLucid ? 'text-white drop-shadow' : 'text-white'
-            }`}
-          >
-            Auralis
-          </h1>
-          <span
-            className="text-[8px] sm:text-[9px] tracking-widest uppercase font-mono px-1 py-0.5 rounded border transition-colors"
-            style={
-              isLucid
-                ? {
-                    color: lucidTheme.primary,
-                    borderColor: `${lucidTheme.primary}40`,
-                    backgroundColor: `${lucidTheme.primary}10`,
-                  }
-                : {
-                    color: 'rgba(103, 232, 249, 0.7)',
-                    borderColor: 'rgba(34, 211, 238, 0.2)',
-                    backgroundColor: 'rgba(34, 211, 238, 0.05)',
-                  }
-            }
-          >
-            PRO
-          </span>
+
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-medium tracking-[0.14em] text-xs uppercase text-white/90">
+              Auralis
+            </span>
+            <span className="text-[8px] tracking-wider uppercase font-mono px-1 py-0.2 rounded border border-white/[0.1] text-white/40 bg-white/[0.03]">
+              Studio
+            </span>
+          </div>
+
+          {currentTrack && (
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-white/50 truncate max-w-[220px]">
+              <span className="truncate text-white/80 font-medium">{currentTrack.title}</span>
+              <span className="text-white/30">•</span>
+              <span className="truncate">{currentTrack.artist}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Visualizer Mode Switcher Tabs (Esfera 3D, Rainbow Void, Modo Fiesta) */}
-      <div
-        className={`flex items-center p-0.5 sm:p-1 rounded-full shadow-lg transition-all flex-shrink-0 ${
-          isLucid
-            ? 'lucid-panel'
-            : 'bg-black/60 backdrop-blur-xl border border-white/10'
-        }`}
-        style={
-          isLucid
-            ? {
-                backgroundColor: lucidTheme.glassColor,
-                borderColor: lucidTheme.borderColor,
-                boxShadow: `0 0 20px ${lucidTheme.glow}`,
-              }
-            : undefined
-        }
-      >
-        {/* Tab 1: Esfera 3D */}
+      {/* ── Center: Visualizer Mode Segmented Switch ── */}
+      <div className="flex items-center p-0.5 rounded-xl bg-[#0A0A0F]/90 backdrop-blur-md border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex-shrink-0">
         <button
           onClick={() => setVisualizerMode('sphere')}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium tracking-wide transition-all ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'sphere'
-              ? isLucid
-                ? 'text-white border shadow-md'
-                : 'bg-gradient-to-r from-cyan-500/30 to-indigo-500/30 text-cyan-200 border border-cyan-400/40 shadow-[0_0_12px_rgba(0,242,254,0.25)]'
-              : 'text-white/60 hover:text-white/90'
+              ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+              : 'text-white/50 hover:text-white/80 border border-transparent'
           }`}
-          style={
-            visualizerMode === 'sphere' && isLucid
-              ? {
-                  background: `linear-gradient(90deg, ${lucidTheme.primary}35, ${lucidTheme.secondary}35)`,
-                  borderColor: `${lucidTheme.primary}80`,
-                  color: lucidTheme.primary,
-                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
+          title="Modo Esfera 3D"
         >
-          <Globe2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-          <span className="hidden min-[420px]:inline">Esfera</span>
-          <span className="inline min-[420px]:hidden">3D</span>
+          <Globe2 className="w-3.5 h-3.5" />
+          <span className="hidden min-[480px]:inline">Esfera 3D</span>
         </button>
 
-        {/* Tab 2: Rainbow Void */}
         <button
           onClick={() => setVisualizerMode('blob')}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium tracking-wide transition-all ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'blob'
-              ? isLucid
-                ? 'text-white border shadow-md'
-                : 'bg-gradient-to-r from-pink-500/30 to-yellow-500/30 text-pink-200 border border-pink-400/40 shadow-[0_0_12px_rgba(255,8,138,0.25)]'
-              : 'text-white/60 hover:text-white/90'
+              ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+              : 'text-white/50 hover:text-white/80 border border-transparent'
           }`}
-          style={
-            visualizerMode === 'blob' && isLucid
-              ? {
-                  background: `linear-gradient(90deg, ${lucidTheme.secondary}35, ${lucidTheme.primary}35)`,
-                  borderColor: `${lucidTheme.secondary}80`,
-                  color: lucidTheme.secondary,
-                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
+          title="Modo Rainbow Void 2D"
         >
-          <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-          <span className="hidden min-[420px]:inline">Rainbow</span>
-          <span className="inline min-[420px]:hidden">Void</span>
+          <Sparkles className="w-3.5 h-3.5" />
+          <span className="hidden min-[480px]:inline">Rainbow Void</span>
         </button>
 
-        {/* Tab 3: Modo Fiesta */}
         <button
           onClick={() => setVisualizerMode('party')}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium tracking-wide transition-all ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'party'
-              ? 'bg-gradient-to-r from-yellow-500/30 via-pink-500/30 to-purple-500/30 text-yellow-200 border border-pink-500/50 shadow-[0_0_15px_rgba(255,0,127,0.35)] animate-pulse'
-              : 'text-white/60 hover:text-white/90'
+              ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+              : 'text-white/50 hover:text-white/80 border border-transparent'
           }`}
+          title="Modo Fiesta 3D"
         >
-          <PartyPopper className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-pink-400" />
-          <span className="hidden min-[420px]:inline">Fiesta</span>
-          <span className="inline min-[420px]:hidden">3D</span>
+          <PartyPopper className="w-3.5 h-3.5" />
+          <span className="hidden min-[480px]:inline">Fiesta 3D</span>
         </button>
       </div>
 
-      {/* Right Controls & Utilities */}
-      <div
-        className={`flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-full shadow-lg flex-wrap transition-all ${
-          isLucid
-            ? 'lucid-panel'
-            : 'bg-black/60 backdrop-blur-xl border border-white/10'
-        }`}
-        style={
-          isLucid
-            ? {
-                backgroundColor: lucidTheme.glassColor,
-                borderColor: lucidTheme.borderColor,
-                boxShadow: `0 0 20px ${lucidTheme.glow}`,
-              }
-            : undefined
-        }
-      >
+      {/* ── Right: Studio Action Rack Cluster ── */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-[#0A0A0F]/90 backdrop-blur-md border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.5)] flex-shrink-0">
+        {/* Real-time BPM & Beat Pulse Meter */}
+        <BpmMeter />
+
         {/* Lucid Mode Toggle */}
         <LucidToggle />
 
-        {/* Dual VR Tracking Mode Toggle (Body / Hands) */}
+        {/* VR Tracking Toggle */}
         <button
           onClick={toggleVrMode}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-1.5 ${
+          className={`px-2 py-1.5 rounded-lg text-[11px] font-medium tracking-wide uppercase transition-colors flex items-center gap-1.5 border ${
             vrMode
-              ? vrTrackingMode === 'body'
-                ? 'bg-pink-500/25 text-pink-300 border border-pink-400/50 shadow-[0_0_15px_rgba(255,8,138,0.4)] animate-pulse'
-                : 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 shadow-[0_0_15px_rgba(0,255,179,0.4)] animate-pulse'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'bg-transparent text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          title={
-            vrMode
-              ? `VR Activo (${vrTrackingMode === 'body' ? 'Cuerpo 33P' : '2 Manos 21P'}). Clic para desactivar.`
-              : 'Activar Interacción VR (Cuerpo 33P / 2 Manos 21P)'
-          }
+          title={vrMode ? `VR Activo (${vrTrackingMode === 'body' ? 'Cuerpo' : 'Manos'})` : 'Activar Interacción VR'}
         >
           <Camera className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">
-            {vrMode ? (vrTrackingMode === 'body' ? 'VR CUERPO' : 'VR MANOS') : 'VR CAM'}
+          <span className="hidden lg:inline text-[10px]">
+            {vrMode ? (vrTrackingMode === 'body' ? 'VR CUERPO' : 'VR MANOS') : 'VR'}
           </span>
         </button>
 
-        {/* System Audio Screen / Tab Capture */}
+        {/* 3D Air Virtual Instruments Button */}
         <button
-          onClick={startSystemCapture}
-          className={`p-2 rounded-full transition-all text-xs flex items-center gap-1 ${
-            isCapturing
-              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-[0_0_10px_rgba(0,255,179,0.3)]'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-emerald-300 hover:bg-white/5'
+          onClick={() => {
+            const next = !isAirInstrumentsActive;
+            setAirInstrumentsActive(next);
+            if (next && !vrMode) {
+              setVrTrackingMode('hands');
+              setVrMode(true);
+            }
+          }}
+          className={`px-2 py-1.5 rounded-lg text-[11px] font-medium tracking-wide uppercase transition-colors flex items-center gap-1.5 border ${
+            isAirInstrumentsActive
+              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-[0_0_12px_rgba(0,242,254,0.3)]'
+              : 'bg-transparent text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          title="Capturar audio del sistema o pestaña del navegador"
+          title={isAirInstrumentsActive ? 'Instrumentos 3D Activos (Tecla I)' : 'Tocar Instrumentos 3D en el Aire (Tecla I)'}
         >
-          <Cast className="w-4 h-4" />
+          <Piano className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden xl:inline text-[10px]">
+            {isAirInstrumentsActive ? 'AIR 3D' : 'AIR'}
+          </span>
         </button>
 
-        {/* Live Microphone Input Toggle */}
+        {/* System Audio Screen Capture */}
+        <button
+          onClick={startSystemCapture}
+          className={`p-1.5 rounded-lg transition-colors border ${
+            isCapturing
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
+          }`}
+          title="Capturar audio del sistema o pestaña"
+          aria-label="Capturar audio"
+        >
+          <Cast className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Live Microphone Input */}
         <button
           onClick={toggleMicrophone}
-          className={`p-2 rounded-full transition-all relative ${
+          className={`p-1.5 rounded-lg transition-colors relative border ${
             isMicActive
-              ? 'bg-pink-500/20 text-pink-400 border border-pink-500/40 shadow-[0_0_12px_rgba(255,8,138,0.4)]'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          title={isMicActive ? 'Desactivar micrófono en vivo' : 'Capturar audio del micrófono en vivo'}
+          title={isMicActive ? 'Desactivar micrófono' : 'Capturar audio del micrófono'}
+          aria-label="Micrófono"
         >
-          <Mic className={`w-4 h-4 ${isMicActive ? 'animate-pulse' : ''}`} />
+          <Mic className="w-3.5 h-3.5" />
           {isMicActive && (
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-pink-500 animate-ping" />
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-400" />
           )}
         </button>
 
-        <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+        {/* Spotify Integration Toggle */}
+        <button
+          onClick={isSpotifyConnected ? disconnectSpotify : connectSpotify}
+          className={`p-1.5 rounded-lg transition-colors relative border ${
+            isSpotifyConnected
+              ? 'bg-[#1DB954]/15 text-[#1DB954] border-[#1DB954]/40 shadow-[0_0_10px_rgba(29,185,84,0.3)]'
+              : 'text-white/50 hover:text-[#1DB954] border-transparent hover:bg-white/[0.04]'
+          }`}
+          title={isSpotifyConnected ? 'Spotify Sincronizado (Clic para desconectar)' : 'Conectar Spotify para letras en tiempo real'}
+          aria-label="Spotify"
+        >
+          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
+          </svg>
+          {isSpotifyConnected && (
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-ping" />
+          )}
+        </button>
 
-        {/* Library / Queue */}
+        <div className="w-px h-3.5 bg-white/[0.08] mx-0.5 hidden sm:block" />
+
+        {/* Sidebar / Library */}
         <button
           onClick={() => setSidebarOpen(!isSidebarOpen)}
-          className={`p-2 rounded-full transition-all ${
+          className={`p-1.5 rounded-lg transition-colors border ${
             isSidebarOpen
-              ? isLucid
-                ? 'border shadow-md'
-                : 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          style={
-            isSidebarOpen && isLucid
-              ? {
-                  backgroundColor: `${lucidTheme.primary}25`,
-                  borderColor: `${lucidTheme.primary}60`,
-                  color: lucidTheme.primary,
-                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
-          title="Biblioteca y Cola"
+          title="Biblioteca y Cola de Reproducción"
+          aria-label="Biblioteca"
         >
-          <ListMusic className="w-4 h-4" />
+          <ListMusic className="w-3.5 h-3.5" />
         </button>
 
-        {/* Equalizer */}
+        {/* Equalizer Modal Toggle */}
         <button
           onClick={() => setEqualizerOpen(!isEqualizerOpen)}
-          className={`p-2 rounded-full transition-all ${
+          className={`p-1.5 rounded-lg transition-colors border ${
             isEqualizerOpen
-              ? isLucid
-                ? 'border shadow-md'
-                : 'bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          style={
-            isEqualizerOpen && isLucid
-              ? {
-                  backgroundColor: `${lucidTheme.primary}25`,
-                  borderColor: `${lucidTheme.primary}60`,
-                  color: lucidTheme.primary,
-                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
-          title="Ecualizador"
+          title="Ecualizador de Estudio"
+          aria-label="Ecualizador"
         >
-          <Sliders className="w-4 h-4" />
+          <Sliders className="w-3.5 h-3.5" />
         </button>
 
-        {/* Lyrics */}
+        {/* Lyrics Toggle */}
         <button
           onClick={() => setLyricsOpen(!isLyricsOpen)}
-          className={`p-2 rounded-full transition-all ${
+          className={`p-1.5 rounded-lg transition-colors border ${
             isLyricsOpen
-              ? isLucid
-                ? 'border shadow-md'
-                : 'bg-pink-500/20 text-pink-400 shadow-[0_0_10px_rgba(255,8,138,0.3)]'
-              : isLucid
-              ? 'text-white/70 hover:text-white hover:bg-white/10'
-              : 'text-white/60 hover:text-white hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          style={
-            isLyricsOpen && isLucid
-              ? {
-                  backgroundColor: `${lucidTheme.secondary}25`,
-                  borderColor: `${lucidTheme.secondary}60`,
-                  color: lucidTheme.secondary,
-                  boxShadow: `0 0 12px ${lucidTheme.glow}`,
-                }
-              : undefined
-          }
-          title="Letras Karaoke"
+          title="Letras Sincronizadas"
+          aria-label="Letras"
         >
-          <AlignLeft className="w-4 h-4" />
+          <AlignLeft className="w-3.5 h-3.5" />
         </button>
 
-        {/* Admin Dashboard */}
+        {/* Admin Dashboard Toggle */}
         <button
           onClick={toggleAdminModal}
-          className={`p-2 rounded-full transition-all ${
+          className={`p-1.5 rounded-lg transition-colors border ${
             isAdminModalOpen
-              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(0,242,254,0.4)] animate-pulse'
-              : 'text-white/60 hover:text-cyan-300 hover:bg-white/5'
+              ? 'bg-white/10 text-white border-white/20'
+              : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
           }`}
-          title="Panel de Administración en Tiempo Real (Telemetría / ML)"
+          title="Panel de Telemetría y ML"
+          aria-label="Admin"
         >
-          <Shield className="w-4 h-4" />
+          <Shield className="w-3.5 h-3.5" />
         </button>
 
-        {/* Share */}
+        {/* Share Button */}
         <button
           onClick={handleShare}
-          className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/5 transition-all"
+          className="p-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
           title="Compartir"
+          aria-label="Compartir"
         >
-          {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
         </button>
 
-        {/* Fullscreen */}
+        {/* Video & Clip Recorder */}
+        <VideoRecorderButton />
+
+        {/* Keyboard Shortcuts Guide */}
+        <button
+          onClick={toggleShortcutsModal}
+          className="p-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
+          title="Atajos de teclado de estudio (?)"
+          aria-label="Atajos de teclado"
+        >
+          <Keyboard className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Fullscreen Button */}
         <button
           onClick={toggleFullscreen}
-          className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/5 transition-all"
+          className="p-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
           title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          aria-label="Pantalla completa"
         >
-          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
         </button>
       </div>
     </header>
   );
 };
+
+export default HeaderBar;
