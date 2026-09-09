@@ -109,6 +109,7 @@ interface PlayerState {
   linkScales: boolean;
   sphereRadius: number; // backward compatibility alias
   musicSensitivity: number;
+  audioSpeed: number;
 
   // Blob Customizer settings
   blobSettings: BlobCustomSettings;
@@ -196,6 +197,7 @@ interface PlayerState {
   setLinkScales: (link: boolean) => void;
   setSphereRadius: (radius: number) => void;
   setMusicSensitivity: (sensitivity: number) => void;
+  setAudioSpeed: (speed: number) => void;
   setBlobSettings: (settings: BlobCustomSettings) => void;
   updateBlobSettings: (partial: Partial<BlobCustomSettings>) => void;
   resetBlobSettings: () => void;
@@ -333,6 +335,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   linkScales: StorageService.getLinkScales(),
   sphereRadius: StorageService.getSphereScale() || 1.0,
   musicSensitivity: Math.min(1.0, Math.max(0.5, StorageService.getMusicSensitivity() || 0.75)),
+  audioSpeed: Math.min(1.0, Math.max(0.5, StorageService.getMusicSensitivity() || 0.75)),
 
   blobSettings: StorageService.getBlobSettings(),
   isBlobPanelOpen: false,
@@ -711,7 +714,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setMusicSensitivity: (sensitivity) => {
     const clamped = Math.min(1.0, Math.max(0.5, sensitivity));
     StorageService.saveMusicSensitivity(clamped);
-    set({ musicSensitivity: clamped });
+    set({ musicSensitivity: clamped, audioSpeed: clamped });
+  },
+  setAudioSpeed: (speed) => {
+    const clamped = Math.min(1.0, Math.max(0.5, speed));
+    StorageService.saveMusicSensitivity(clamped);
+    set({ audioSpeed: clamped, musicSensitivity: clamped });
   },
 
   setBlobSettings: (blobSettings) => {
