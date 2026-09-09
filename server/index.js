@@ -9,6 +9,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Native .env support for Node.js 20.12+ / 24+
+if (typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // Ignore if .env is absent
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
@@ -421,6 +430,405 @@ app.post(['/auth/login', '/api/auth/login'], loginRateLimit, async (req, res) =>
 // Verify Token
 app.get(['/auth/verify', '/api/auth/verify'], authMiddleware, (req, res) => {
   res.json({ valid: true, user: req.user });
+});
+
+// Guest / Client Anonymous Session Token for Instant Spotify Usage
+app.post(['/auth/session', '/api/auth/session'], (req, res) => {
+  const userId = `usr_${crypto.randomBytes(8).toString('hex')}`;
+  const token = jwt.sign(
+    { userId, username: 'AuraUser', role: 'user' },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+  res.json({ token, userId });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── 8. SPOTIFY OAUTH 2.0 (PKCE) & TRANSPORT CONTROLS (ZERO-TOKEN FRONTEND) ───
+// ═════════════════════════════════════════════════════════════════════════════
+
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:4000/api/spotify/callback';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const SPOTIFY_SCOPES = [
+  'user-read-playback-state',
+  'user-modify-playback-state',
+  'user-read-currently-playing',
+].join(' ');
+
+// In-Memory Spotify Auth Sessions: state -> { userId, codeVerifier, createdAt }
+const spotifyAuthSessions = new Map();
+
+// In-Memory Spotify Tokens: userId -> { accessToken, refreshToken, expiresAt }
+// NEVER exposed to client/frontend
+const userSpotifyTokens = new Map();
+
+// Periodically clean up stale PKCE auth sessions (> 10 mins old)
+setInterval(() => {
+  const now = Date.now();
+  for (const [state, sess] of spotifyAuthSessions.entries()) {
+    if (now - sess.createdAt > 10 * 60 * 1000) {
+      spotifyAuthSessions.delete(state);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// PKCE Cryptographic Helpers using native node:crypto
+function generateCodeVerifier() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function generateCodeChallenge(verifier) {
+  return crypto.createHash('sha256').update(verifier).digest('base64url');
+}
+
+/**
+ * Retrieve a valid Spotify Access Token for the user.
+ * Automatically refreshes using refresh_token when expired.
+ */
+async function getValidSpotifyToken(userId) {
+  const tokenData = userSpotifyTokens.get(userId);
+  if (!tokenData || !tokenData.refreshToken) {
+    return null;
+  }
+
+  // Return existing token if valid for more than 45 seconds
+  if (tokenData.accessToken && tokenData.expiresAt > Date.now() + 45000) {
+    return tokenData.accessToken;
+  }
+
+  // Refresh token with Spotify API
+  try {
+    const bodyParams = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: tokenData.refreshToken,
+      client_id: SPOTIFY_CLIENT_ID,
+    });
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    if (SPOTIFY_CLIENT_SECRET) {
+      headers['Authorization'] =
+        'Basic ' + Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+    }
+
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers,
+      body: bodyParams.toString(),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error('[Spotify Refresh Error]', response.status, errBody);
+      if (response.status === 400 || response.status === 401) {
+        userSpotifyTokens.delete(userId);
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    tokenData.accessToken = data.access_token;
+    if (data.refresh_token) {
+      tokenData.refreshToken = data.refresh_token;
+    }
+    tokenData.expiresAt = Date.now() + (data.expires_in - 60) * 1000;
+    userSpotifyTokens.set(userId, tokenData);
+    return tokenData.accessToken;
+  } catch (err) {
+    console.error('[Spotify Refresh Exception]', err);
+    return null;
+  }
+}
+
+/**
+ * Execute an authenticated Spotify API request with automatic 401 retry on token expiry
+ */
+async function spotifyApiRequest(userId, endpoint, method = 'GET', body = null) {
+  let token = await getValidSpotifyToken(userId);
+  if (!token) {
+    return { status: 401, data: { error: 'spotify_not_connected' } };
+  }
+
+  const exec = async (t) => {
+    const opts = {
+      method,
+      headers: {
+        Authorization: `Bearer ${t}`,
+      },
+    };
+    if (body && (method === 'POST' || method === 'PUT')) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(`https://api.spotify.com/v1${endpoint}`, opts);
+  };
+
+  let res = await exec(token);
+
+  // If 401, token might have been invalidated; force refresh and retry once
+  if (res.status === 401) {
+    const tokenData = userSpotifyTokens.get(userId);
+    if (tokenData) tokenData.expiresAt = 0;
+    token = await getValidSpotifyToken(userId);
+    if (token) {
+      res = await exec(token);
+    }
+  }
+
+  if (res.status === 204) {
+    return { status: 204, data: null };
+  }
+
+  const text = await res.text();
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = { text };
+  }
+  return { status: res.status, data: parsed };
+}
+
+// ── Endpoints de Spotify ───────────────────────────────────────────────────
+
+/**
+ * POST /api/spotify/auth
+ * Genera code_verifier y code_challenge (PKCE), guarda la sesión asociada al usuario y devuelve la auth URL
+ */
+app.post('/api/spotify/auth', authMiddleware, (req, res) => {
+  if (!SPOTIFY_CLIENT_ID) {
+    return res.status(500).json({
+      error: 'SPOTIFY_CLIENT_ID no configurado en el servidor. Por favor define SPOTIFY_CLIENT_ID en variables de entorno.',
+    });
+  }
+
+  const userId = req.user.userId || req.user.id;
+  const verifier = generateCodeVerifier();
+  const challenge = generateCodeChallenge(verifier);
+  const state = crypto.randomBytes(16).toString('hex');
+
+  spotifyAuthSessions.set(state, {
+    userId,
+    codeVerifier: verifier,
+    createdAt: Date.now(),
+  });
+
+  const authUrl =
+    'https://accounts.spotify.com/authorize?' +
+    new URLSearchParams({
+      response_type: 'code',
+      client_id: SPOTIFY_CLIENT_ID,
+      scope: SPOTIFY_SCOPES,
+      redirect_uri: SPOTIFY_REDIRECT_URI,
+      state: state,
+      code_challenge_method: 'S256',
+      code_challenge: challenge,
+    }).toString();
+
+  res.json({ authUrl, state });
+});
+
+/**
+ * GET /api/spotify/callback
+ * Intercambia el código de autorización por access_token y refresh_token con el code_verifier
+ */
+app.get('/api/spotify/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  if (error) {
+    console.error('[Spotify Auth Callback Error]', error);
+    return res.redirect(`${FRONTEND_URL}/?spotify_error=${encodeURIComponent(String(error))}`);
+  }
+
+  if (!code || !state) {
+    return res.redirect(`${FRONTEND_URL}/?spotify_error=missing_code_or_state`);
+  }
+
+  const session = spotifyAuthSessions.get(String(state));
+  if (!session) {
+    return res.redirect(`${FRONTEND_URL}/?spotify_error=invalid_or_expired_state`);
+  }
+
+  spotifyAuthSessions.delete(String(state));
+
+  try {
+    const bodyParams = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: String(code),
+      redirect_uri: SPOTIFY_REDIRECT_URI,
+      client_id: SPOTIFY_CLIENT_ID,
+      code_verifier: session.codeVerifier,
+    });
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    if (SPOTIFY_CLIENT_SECRET) {
+      headers['Authorization'] =
+        'Basic ' + Buffer.from(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`).toString('base64');
+    }
+
+    const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers,
+      body: bodyParams.toString(),
+    });
+
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      console.error('[Spotify Token Exchange Error]', tokenRes.status, errBody);
+      return res.redirect(`${FRONTEND_URL}/?spotify_error=token_exchange_failed`);
+    }
+
+    const tokenData = await tokenRes.json();
+
+    // Guardar tokens de forma segura en memoria/backend exclusivamente
+    userSpotifyTokens.set(session.userId, {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      expiresAt: Date.now() + (tokenData.expires_in - 60) * 1000,
+    });
+
+    console.log(`[Spotify] Usuario autenticado correctamente: ${session.userId}`);
+    res.redirect(`${FRONTEND_URL}/?spotify=connected`);
+  } catch (err) {
+    console.error('[Spotify Callback Exception]', err);
+    res.redirect(`${FRONTEND_URL}/?spotify_error=server_exception`);
+  }
+});
+
+/**
+ * GET /api/spotify/status
+ * Verifica si el usuario actual tiene conexión activa con Spotify
+ */
+app.get('/api/spotify/status', authMiddleware, (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const isConnected = userSpotifyTokens.has(userId);
+  res.json({ isConnected });
+});
+
+/**
+ * GET /api/spotify/current
+ * Obtiene la pista actual en reproducción en Spotify
+ */
+app.get('/api/spotify/current', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const result = await spotifyApiRequest(userId, '/me/player/currently-playing');
+
+  if (result.status === 401) {
+    return res.status(401).json({ error: 'Spotify no conectado o sesión expirada' });
+  }
+
+  if (result.status === 204 || !result.data || !result.data.item) {
+    return res.status(204).end();
+  }
+
+  const { is_playing, progress_ms, item } = result.data;
+  const artistsStr = item.artists ? item.artists.map((a) => a.name).join(', ') : 'Spotify Artist';
+  const cover = item.album?.images?.[0]?.url || '';
+
+  const trackInfo = {
+    isPlaying: !!is_playing,
+    is_playing: !!is_playing,
+    progressMs: progress_ms || 0,
+    progress_ms: progress_ms || 0,
+    title: item.name || 'Sin título',
+    artist: artistsStr,
+    artists: artistsStr,
+    album: {
+      name: item.album?.name || '',
+      images: item.album?.images || [],
+    },
+    duration: Math.round((item.duration_ms || 0) / 1000),
+    duration_ms: item.duration_ms || 0,
+    coverUrl: cover,
+    spotifyUri: item.uri || '',
+    spotify_uri: item.uri || '',
+  };
+
+  res.json(trackInfo);
+});
+
+/**
+ * POST /api/spotify/play
+ * Reanuda la reproducción en el dispositivo activo de Spotify
+ */
+app.post('/api/spotify/play', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const result = await spotifyApiRequest(userId, '/me/player/play', 'PUT');
+  if (result.status >= 200 && result.status < 300) {
+    return res.json({ success: true });
+  }
+  res.status(result.status || 500).json(result.data || { error: 'Error al reanudar reproducción' });
+});
+
+/**
+ * POST /api/spotify/pause
+ * Pausa la reproducción en Spotify
+ */
+app.post('/api/spotify/pause', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const result = await spotifyApiRequest(userId, '/me/player/pause', 'PUT');
+  if (result.status >= 200 && result.status < 300) {
+    return res.json({ success: true });
+  }
+  res.status(result.status || 500).json(result.data || { error: 'Error al pausar reproducción' });
+});
+
+/**
+ * POST /api/spotify/next
+ * Salta a la siguiente pista en Spotify
+ */
+app.post('/api/spotify/next', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const result = await spotifyApiRequest(userId, '/me/player/next', 'POST');
+  if (result.status >= 200 && result.status < 300) {
+    return res.json({ success: true });
+  }
+  res.status(result.status || 500).json(result.data || { error: 'Error al pasar a la siguiente pista' });
+});
+
+/**
+ * POST /api/spotify/previous
+ * Vuelve a la pista anterior en Spotify
+ */
+app.post('/api/spotify/previous', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const result = await spotifyApiRequest(userId, '/me/player/previous', 'POST');
+  if (result.status >= 200 && result.status < 300) {
+    return res.json({ success: true });
+  }
+  res.status(result.status || 500).json(result.data || { error: 'Error al volver a la pista anterior' });
+});
+
+/**
+ * POST /api/spotify/seek
+ * Busca una posición en milisegundos en Spotify
+ */
+app.post('/api/spotify/seek', authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const { position_ms } = req.body || {};
+  const pos = Math.max(0, Math.round(position_ms || 0));
+  const result = await spotifyApiRequest(userId, `/me/player/seek?position_ms=${pos}`, 'PUT');
+  if (result.status >= 200 && result.status < 300) {
+    return res.json({ success: true, position_ms: pos });
+  }
+  res.status(result.status || 500).json(result.data || { error: 'Error al ajustar posición' });
+});
+
+/**
+ * POST /api/spotify/disconnect
+ * Cierra la sesión de Spotify en el servidor eliminando los tokens del usuario
+ */
+app.post('/api/spotify/disconnect', authMiddleware, (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  userSpotifyTokens.delete(userId);
+  res.json({ success: true });
 });
 
 // Admin Stats Endpoint (Protected)

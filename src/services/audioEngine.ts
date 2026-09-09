@@ -47,6 +47,7 @@ export class AudioEngine {
   private systemStream: MediaStream | null = null;
   private systemSourceNode: MediaStreamAudioSourceNode | null = null;
   private isSystemActive = false;
+  private recordDestination: MediaStreamAudioDestinationNode | null = null;
 
   private eqFilters: BiquadFilterNode[] = [];
   private bands: EqualizerBand[] = [...DEFAULT_EQ_BANDS];
@@ -177,6 +178,38 @@ export class AudioEngine {
 
     this.isInitialized = true;
     usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
+  }
+
+  /**
+   * Provides a dedicated MediaStream destination for high-quality audio recording
+   * synchronized with visualizer stream without affecting live speaker output.
+   */
+  public getAudioStreamDestination(): MediaStreamAudioDestinationNode | null {
+    if (!this.audioContext) return null;
+    if (!this.recordDestination) {
+      this.recordDestination = this.audioContext.createMediaStreamDestination();
+      if (this.analyser) {
+        this.analyser.connect(this.recordDestination);
+      }
+    }
+    return this.recordDestination;
+  }
+
+  /**
+   * Connect any external sound generator (e.g. 3D Air Synthesizer / Cyber Drums)
+   * into the master EQ and Analyser chain so visualizers react in real-time.
+   */
+  public connectAudioNode(node: AudioNode): void {
+    if (!this.audioContext) return;
+    if (this.eqFilters.length > 0) {
+      node.connect(this.eqFilters[0]);
+    } else if (this.masterGain) {
+      node.connect(this.masterGain);
+    }
+  }
+
+  public getContext(): AudioContext | null {
+    return this.audioContext;
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode } from '../types/audio';
+import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode, VisualizerMode } from '../types/audio';
 
 const STORAGE_KEYS = {
   PLAYLISTS: 'auralis_playlists_v1',
@@ -24,6 +24,8 @@ const STORAGE_KEYS = {
   BLOB_WAVE_INTENSITY: 'auralis_blob_wave_intensity_v1',
   BLOB_BASS_BOOM_THRESHOLD: 'auralis_blob_bass_boom_threshold_v1',
   BLOB_BASS_BOOM_INTENSITY: 'auralis_blob_bass_boom_intensity_v1',
+  VISUALIZER_MODE: 'auralis_visualizer_mode_v1',
+  ACTIVE_EQ_PRESET_ID: 'auralis_active_eq_preset_id_v1',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -208,6 +210,39 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.EQ_PRESET, JSON.stringify(bands));
     } catch (e) {
       console.warn('Failed to save EQ preset to LocalStorage', e);
+    }
+  }
+
+  public static getVisualizerMode(): VisualizerMode {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.VISUALIZER_MODE) as VisualizerMode;
+      return val === 'sphere' || val === 'blob' || val === 'party' ? val : 'sphere';
+    } catch {
+      return 'sphere';
+    }
+  }
+
+  public static saveVisualizerMode(mode: VisualizerMode): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.VISUALIZER_MODE, mode);
+    } catch (e) {
+      console.warn('Failed to save visualizer mode to LocalStorage', e);
+    }
+  }
+
+  public static getActiveEqPresetId(): string {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.ACTIVE_EQ_PRESET_ID) || 'flat';
+    } catch {
+      return 'flat';
+    }
+  }
+
+  public static saveActiveEqPresetId(id: string): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_EQ_PRESET_ID, id);
+    } catch (e) {
+      console.warn('Failed to save active EQ preset ID to LocalStorage', e);
     }
   }
 

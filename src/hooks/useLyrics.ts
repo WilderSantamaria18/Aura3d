@@ -31,10 +31,15 @@ export const useLyrics = () => {
       return;
     }
 
-    // 2. Otherwise fetch from public lyrics API
+    // 2. Otherwise fetch from LRCLIB synchronized lyrics API (with fallback)
     if (currentTrack.artist && currentTrack.title && currentTrack.sourceType !== 'demo') {
       setIsLoading(true);
-      LyricsService.fetchFromLyricsOvh(currentTrack.artist, currentTrack.title)
+      LyricsService.fetchFromLRCLIB(
+        currentTrack.artist,
+        currentTrack.title,
+        currentTrack.album,
+        currentTrack.duration
+      )
         .then((res) => {
           setLyricsData(res);
         })

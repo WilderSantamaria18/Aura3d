@@ -11,7 +11,6 @@ interface SphereVisualizerProps {
 }
 
 const MAX_PARTICLES = 2400;
-const MAX_RINGS = 1200;
 
 // Kick Shockwave Detector & Radial Propagation Constants
 const KICK_THRESHOLD = 0.18;
@@ -20,40 +19,199 @@ const KICK_COOLDOWN_SEC = 0.16; // 160ms (≈ ~375 BPM max)
 const WAVE_LIFETIME_SEC = 0.85; // 850ms duration
 const WAVE_MAX_RADIUS = 2.2;
 const WAVE_BAND_WIDTH = 0.28;
+const INV_WAVE_BAND_WIDTH = 1.0 / WAVE_BAND_WIDTH;
 const BASE_WAVE_STRENGTH = 0.42;
 const SHOCKWAVE_SLOTS = 8;
 
+// Shape numeric identifiers for GPU vertex shader branching
+const SHAPE_DEFAULT = 0;
+const SHAPE_WAVE = 1;
+const SHAPE_RINGS = 2;
+const SHAPE_SPIKES = 3;
+const SHAPE_CLOUD = 4;
+const SHAPE_TORUS = 5;
+const SHAPE_FACETED = 6;
+
+const getShapeId = (shape?: string): number => {
+  switch (shape) {
+    case 'wave':
+      return SHAPE_WAVE;
+    case 'rings':
+      return SHAPE_RINGS;
+    case 'spikes':
+      return SHAPE_SPIKES;
+    case 'cloud':
+      return SHAPE_CLOUD;
+    case 'torus':
+      return SHAPE_TORUS;
+    case 'icosahedron':
+    case 'octahedron':
+      return SHAPE_FACETED;
+    default:
+      return SHAPE_DEFAULT;
+  }
+};
+
+// --- GPU SHADERS: Pure Sea-Sand Particles ---
+const MainSphereShader = {
+  vertexShader: `
+    uniform float uTime;
+    uniform float uBass;
+    uniform float uMids;
+    uniform float uHighs;
+    uniform float uEnergy;
+    uniform int uShape;
+    uniform float uSize;
+    uniform float uAudioGlow;
+    uniform float uHeadYOffset;
+    uniform float uInvWaveBandWidth;
+    uniform int uNumShockwaves;
+    uniform vec2 uShockwaves[8]; // x: waveRadius, y: strengthDecay
+    uniform vec4 uVRPush1; // xyz: world pos, w: force
+    uniform vec4 uVRPush2; // xyz: world pos, w: force
+    uniform float uPixelRatio;
+
+    attribute vec3 color;
+
+    varying vec4 vColor;
+
+    void main() {
+      vec3 pos = position;
+      vec3 n = normal;
+
+      pos.y += uHeadYOffset;
+
+      if (uShape == 1) {
+        // Wave (Onda Sinusoidal 3D) - Fluid water & soft sand ripple
+        float w1 = sin(pos.x * 2.0 + uTime * 1.25) * (0.13 + uBass * 0.32);
+        float w2 = cos(pos.z * 2.0 + uTime * 1.10) * (0.09 + uMids * 0.25);
+        float w3 = sin((pos.x + pos.z) * 1.3 + uTime * 0.85) * 0.05;
+        pos.y = w1 + w2 + w3;
+      } else if (uShape == 2) {
+        // Rings
+        float ringPulse = 1.0 + sin(uTime * 1.8 + length(pos.xz) * 2.2) * 0.05 + uBass * 0.32;
+        float orbitWobble = sin(uTime * 1.2 + pos.y * 3.0) * 0.04;
+        pos.x *= (ringPulse + orbitWobble);
+        pos.y = pos.y * ringPulse + sin(uTime * 1.5) * (0.05 + uBass * 0.2);
+        pos.z *= (ringPulse + orbitWobble);
+      } else if (uShape == 3) {
+        // Spikes
+        float idleSpike = sin(uTime * 2.0 + n.x * 5.0 + n.y * 5.0) * 0.04;
+        float spikeStretch = 1.0 + idleSpike + uBass * 0.45 + uHighs * 0.28;
+        pos = pos * spikeStretch;
+      } else if (uShape == 4) {
+        // Cloud
+        float brownianX = sin(uTime * 1.4 + n.x * 3.0) * 0.07;
+        float brownianY = cos(uTime * 1.2 + n.y * 3.0) * 0.07;
+        float attract = 1.0 - uBass * 0.16;
+        pos = (pos + vec3(brownianX, brownianY, brownianY)) * attract;
+      } else if (uShape == 5) {
+        // Torus
+        float torusPulse = 1.0 + sin(uTime * 1.8 + n.y * 3.0) * 0.05 + uBass * 0.28;
+        pos *= torusPulse;
+      } else if (uShape == 6) {
+        // Faceted (icosahedron / octahedron)
+        float facetPulse = 1.0 + sin(uTime * 1.5) * 0.03 + uBass * 0.25;
+        pos *= facetPulse;
+      } else {
+        // Default Fibonacci Crystalline Sphere - Organic breathing & smooth rippling
+        float idleBreathe = sin(uTime * 1.1 + n.x * 1.8 + n.y * 1.4) * 0.038;
+        float surfaceWave1 = sin(n.x * 2.6 + uTime * 1.25 + n.y * 1.6) * 0.052;
+        float surfaceWave2 = cos(n.z * 2.6 + uTime * 1.05 + n.x * 1.6) * 0.052;
+        float bassPulse = pow(max(0.0, uBass), 1.25) * 0.22;
+        float midsMod = (surfaceWave1 + surfaceWave2) * (0.18 + uMids * 0.35);
+        float displacement = 1.0 + idleBreathe + midsMod + bassPulse;
+        pos = n * displacement;
+      }
+
+      // Kick Shockwave Displacement in GPU
+      if (uNumShockwaves > 0) {
+        float dist = length(pos);
+        if (dist > 0.0001) {
+          float totalImpact = 0.0;
+          for (int i = 0; i < 8; i++) {
+            if (i >= uNumShockwaves) break;
+            float diff = (dist - uShockwaves[i].x) * uInvWaveBandWidth;
+            if (abs(diff) < 2.5) {
+              totalImpact += exp(-diff * diff) * uShockwaves[i].y;
+            }
+          }
+          if (totalImpact > 0.0001) {
+            float radialDisplacement = totalImpact * (1.0 + totalImpact * 1.2);
+            pos += n * radialDisplacement;
+          }
+        }
+      }
+
+      // VR Physical Interactive Push
+      if (uVRPush1.w > 0.0) {
+        vec3 d = pos - uVRPush1.xyz;
+        float d2 = dot(d, d);
+        if (d2 < 2.2) {
+          float force = (1.0 - sqrt(d2) / 1.48) * uVRPush1.w;
+          pos += normalize(d + 0.001) * force;
+        }
+      }
+      if (uVRPush2.w > 0.0) {
+        vec3 d = pos - uVRPush2.xyz;
+        float d2 = dot(d, d);
+        if (d2 < 2.2) {
+          float force = (1.0 - sqrt(d2) / 1.48) * uVRPush2.w;
+          pos += normalize(d + 0.001) * force;
+        }
+      }
+
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+
+      // Distance attenuated point size with soft bounds
+      float pointDist = max(0.4, -mvPosition.z);
+      gl_PointSize = clamp(uSize * (360.0 / pointDist) * uPixelRatio, 1.5, 32.0);
+
+      vColor = vec4(color * uAudioGlow, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float uOpacity;
+    varying vec4 vColor;
+
+    void main() {
+      // Soft circular particle disc ("arena del mar" aesthetic)
+      vec2 coord = gl_PointCoord - vec2(0.5);
+      float dist = length(coord);
+      if (dist > 0.5) discard;
+
+      // Soft anti-aliased edge falloff
+      float alpha = smoothstep(0.5, 0.08, dist) * vColor.a * uOpacity;
+      // Subtle luminous sand core
+      float core = smoothstep(0.22, 0.0, dist) * 0.42;
+      vec3 finalColor = vColor.rgb * (1.0 + core);
+
+      gl_FragColor = vec4(finalColor, alpha);
+    }
+  `,
+};
+
 export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
   ({ particleCount = 2400 }) => {
-    // Stable configuration subscriptions (only re-renders on low-frequency config changes)
+    // Stable configuration subscriptions
     const sphereShape = usePlayerStore((s) => s.sphereShape || s.visualizerShape);
     const currentPaletteIndex = usePlayerStore((s) => s.currentPaletteIndex);
     const isLucid = usePlayerStore((s) => s.isLucid);
     const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
     const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
     const autoMode = usePlayerStore((s) => s.autoMode);
+    const dynamicColor = usePlayerStore((s) => s.dynamicColor || '#00f2fe');
     const vrMode = usePlayerStore((s) => s.vrMode);
-    const showFrequencyBars = usePlayerStore((s) => s.showFrequencyBars);
 
-    const {
-      isEco,
-      isUltraEco,
-      particleBudget,
-      ringParticleBudget,
-    } = usePerformanceMonitor();
+    const { isEco, isUltraEco } = usePerformanceMonitor();
 
-    // Reduce particles in VR mode to guarantee 60 FPS
-    const effectiveParticleCount = vrMode ? Math.min(particleCount, 800) : particleCount;
-    const effectiveRingCount = vrMode ? Math.min(ringParticleBudget, 300) : ringParticleBudget;
-
-    const activeParticleCount = Math.max(50, Math.min(effectiveParticleCount, particleBudget, MAX_PARTICLES));
-    const ringCount = Math.max(30, Math.min(effectiveRingCount, MAX_RINGS));
+    // Maintain full ~2400 particle resolution across all tiers to eliminate pixelation
+    const activeParticleCount = Math.min(particleCount, MAX_PARTICLES);
 
     const groupRef = useRef<THREE.Group>(null);
     const pointsRef = useRef<THREE.Points>(null);
-    const particleRingRef = useRef<THREE.Points>(null);
     const smoothScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
-    const smoothRingScaleVec = useMemo(() => new THREE.Vector3(1, 1, 1), []);
 
     // Kick Shockwave Tracking Refs
     const prevBassRef = useRef(0);
@@ -61,7 +219,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
     const shockWavesRef = useRef<Float32Array>(new Float32Array(SHOCKWAVE_SLOTS).fill(-999));
     const nextWaveIdxRef = useRef(0);
 
-    // Audio smoothing filters (Exponential Moving Averages) for natural, fluid motion
+    // Audio smoothing filters (EMA)
     const smoothedBassRef = useRef(0);
     const smoothedMidsRef = useRef(0);
     const smoothedHighsRef = useRef(0);
@@ -69,53 +227,54 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
 
     const { getSmoothedData } = useVisualizer(0.2);
 
-    // Color instances for smooth lerping
-    const colorCyan = useMemo(() => new THREE.Color('#00f2fe'), []);
-    const colorMagenta = useMemo(() => new THREE.Color('#ff088a'), []);
-    const colorEmerald = useMemo(() => new THREE.Color('#00ffb3'), []);
+    // Color instances for palette handling
     const colorLucidPrimary = useMemo(() => new THREE.Color(lucidPrimary), [lucidPrimary]);
     const colorLucidSecondary = useMemo(() => new THREE.Color(lucidSecondary), [lucidSecondary]);
-    const tempColor = useMemo(() => new THREE.Color(), []);
-    const autoPrimaryColor = useMemo(() => new THREE.Color('#00f2fe'), []);
+    const autoPrimaryColor = useMemo(() => new THREE.Color(dynamicColor), [dynamicColor]);
 
     const activePalette = PROFESSIONAL_PALETTES[currentPaletteIndex] || PROFESSIONAL_PALETTES[0];
     const palColor1 = useMemo(() => new THREE.Color(activePalette.colors[0] || '#39FF14'), [activePalette]);
     const palColor2 = useMemo(() => new THREE.Color(activePalette.colors[1] || '#00E5FF'), [activePalette]);
     const palColor3 = useMemo(() => new THREE.Color(activePalette.colors[2] || '#9D00FF'), [activePalette]);
 
-    // Pre-allocated static PointsMaterials with explicit depth settings
-    const mainMaterial = useMemo(
-      () =>
-        new THREE.PointsMaterial({
-          size: 0.052,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.9,
-          blending: THREE.AdditiveBlending,
-          depthWrite: true,
-          depthTest: true,
-          sizeAttenuation: true,
-        }),
+    // Shockwave GPU uniform array references
+    const shockwavesUniform = useMemo(
+      () => Array.from({ length: 8 }, () => new THREE.Vector2(0, 0)),
       []
     );
 
-    const ringMaterial = useMemo(
-      () =>
-        new THREE.PointsMaterial({
-          size: 0.038,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.8,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          depthTest: true,
-          sizeAttenuation: true,
-        }),
-      []
-    );
+    // High-performance GPU ShaderMaterial for main particles
+    const mainShaderMaterial = useMemo(() => {
+      return new THREE.ShaderMaterial({
+        vertexShader: MainSphereShader.vertexShader,
+        fragmentShader: MainSphereShader.fragmentShader,
+        uniforms: {
+          uTime: { value: 0 },
+          uBass: { value: 0 },
+          uMids: { value: 0 },
+          uHighs: { value: 0 },
+          uEnergy: { value: 0 },
+          uShape: { value: getShapeId(sphereShape) },
+          uSize: { value: 0.052 },
+          uOpacity: { value: 0.9 },
+          uAudioGlow: { value: 1.0 },
+          uHeadYOffset: { value: 0.0 },
+          uInvWaveBandWidth: { value: INV_WAVE_BAND_WIDTH },
+          uNumShockwaves: { value: 0 },
+          uShockwaves: { value: shockwavesUniform },
+          uVRPush1: { value: new THREE.Vector4(0, 0, 0, 0) },
+          uVRPush2: { value: new THREE.Vector4(0, 0, 0, 0) },
+          uPixelRatio: { value: 1.0 },
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+      });
+    }, [shockwavesUniform, sphereShape]);
 
     // Generate normalized base points for activeParticleCount (Unit Scale = 1.0)
-    // Distributes particles across 100% of the geometry from North to South pole
+    // Run ONLY on shape or count changes, NEVER in frame loop!
     const { initialPositions, baseNormals } = useMemo(() => {
       const count = activeParticleCount;
       const positions = new Float32Array(count * 3);
@@ -127,7 +286,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         let nx = 0, ny = 0, nz = 0;
 
         if (sphereShape === 'rings') {
-          // 5 Concentric Torus Rings on different orbital planes
           const ringIdx = i % 5;
           const ringRadii = [0.65, 0.9, 1.15, 1.4, 1.65];
           const ringR = ringRadii[ringIdx] * 0.8;
@@ -149,7 +307,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const len = Math.sqrt(x * x + y * y + z * z) || 1;
           nx = x / len; ny = y / len; nz = z / len;
         } else if (sphereShape === 'spikes') {
-          // Radial spikes: full sphere with 64 spikes from +1 to -1
           const yVal = 1 - (i / Math.max(1, count - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
@@ -164,7 +321,6 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           y = ny * spikeLen;
           z = nz * spikeLen;
         } else if (sphereShape === 'cloud') {
-          // Deterministic organic 3D Brownian particle swarm
           const rand1 = ((i * 12345 + 6789) % 10000) / 10000;
           const rand2 = ((i * 54321 + 9876) % 10000) / 10000;
           const rand3 = ((i * 31415 + 9265) % 10000) / 10000;
@@ -208,10 +364,10 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           const col = i % gridSize;
           x = ((col - gridSize / 2) / (gridSize / 2)) * 1.6;
           z = ((row - gridSize / 2) / (gridSize / 2)) * 1.6;
-          y = Math.sin(x * 2.0) * Math.cos(z * 2.0) * 0.3;
+          y = 0; // Wave y-displacement calculated in vertex shader
           nx = 0; ny = 1; nz = 0;
         } else {
-          // Default Fibonacci Crystalline Sphere (Full 360° Sphere from Pole to Pole)
+          // Default Fibonacci Crystalline Sphere
           const yVal = 1 - (i / Math.max(1, count - 1)) * 2;
           const radiusAtY = Math.sqrt(Math.max(0, 1 - yVal * yVal));
           const theta = phi * i;
@@ -238,99 +394,81 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       return { initialPositions: positions, baseNormals: normals };
     }, [sphereShape, activeParticleCount]);
 
-    // BufferGeometry matching activeParticleCount exactly
-    const { geometry } = useMemo(() => {
-      const geo = new THREE.BufferGeometry();
-      const posArray = new Float32Array(initialPositions);
-      const colArray = new Float32Array(activeParticleCount * 3);
+    // Static Base Colors Precalculation Function
+    // Run ONLY on mode/palette/count changes, NEVER on per-frame loops!
+    const precalculatedColors = useMemo(() => {
+      const colors = new Float32Array(activeParticleCount * 3);
+      const helper = new THREE.Color();
 
       for (let i = 0; i < activeParticleCount; i++) {
-        const t = (posArray[i * 3 + 1] + 1) * 0.5;
-        tempColor.copy(colorCyan).lerp(colorMagenta, t);
-        colArray[i * 3] = tempColor.r;
-        colArray[i * 3 + 1] = tempColor.g;
-        colArray[i * 3 + 2] = tempColor.b;
+        const i3 = i * 3;
+        const ny = baseNormals[i3 + 1];
+        const nx = baseNormals[i3];
+        const heightNorm = (ny + 1) * 0.5;
+
+        if (autoMode) {
+          const waveHarmonic = (Math.sin(nx * 2.5 + ny * 2.0) + 1) * 0.5;
+          const luminanceMod = 0.78 + heightNorm * 0.28 + waveHarmonic * 0.15;
+          helper.copy(autoPrimaryColor).multiplyScalar(luminanceMod);
+        } else if (isLucid) {
+          helper.copy(colorLucidPrimary).lerp(colorLucidSecondary, heightNorm);
+        } else {
+          helper.copy(palColor1).lerp(palColor2, heightNorm).lerp(palColor3, Math.abs(nx) * 0.4);
+        }
+
+        colors[i3] = helper.r;
+        colors[i3 + 1] = helper.g;
+        colors[i3 + 2] = helper.b;
       }
 
-      const posAttr = new THREE.BufferAttribute(posArray, 3);
-      posAttr.setUsage(THREE.DynamicDrawUsage);
-      const colAttr = new THREE.BufferAttribute(colArray, 3);
-      colAttr.setUsage(THREE.DynamicDrawUsage);
+      return colors;
+    }, [
+      activeParticleCount,
+      baseNormals,
+      autoMode,
+      isLucid,
+      autoPrimaryColor,
+      colorLucidPrimary,
+      colorLucidSecondary,
+      palColor1,
+      palColor2,
+      palColor3,
+    ]);
+
+    // BufferGeometry with static usage for zero CPU->GPU per-frame transfer
+    const { geometry } = useMemo(() => {
+      const geo = new THREE.BufferGeometry();
+      const posAttr = new THREE.BufferAttribute(initialPositions, 3);
+      posAttr.setUsage(THREE.StaticDrawUsage);
+
+      const normAttr = new THREE.BufferAttribute(baseNormals, 3);
+      normAttr.setUsage(THREE.StaticDrawUsage);
+
+      const colAttr = new THREE.BufferAttribute(precalculatedColors, 3);
+      colAttr.setUsage(THREE.StaticDrawUsage);
 
       geo.setAttribute('position', posAttr);
+      geo.setAttribute('normal', normAttr);
       geo.setAttribute('color', colAttr);
       geo.setDrawRange(0, activeParticleCount);
       return { geometry: geo };
-    }, [initialPositions, activeParticleCount, colorCyan, colorMagenta, tempColor]);
+    }, [initialPositions, baseNormals, precalculatedColors, activeParticleCount]);
 
-    // Permanent single BufferGeometry for Concentric Rings
-    const { ringBasePositions, ringGeometry } = useMemo(() => {
-      const positions = new Float32Array(ringCount * 3);
-      const basePositions = new Float32Array(ringCount * 3);
-      const colors = new Float32Array(ringCount * 3);
-
-      for (let i = 0; i < ringCount; i++) {
-        const rand1 = ((i * 12345 + 6789) % 10000) / 10000;
-        const rand2 = ((i * 54321 + 9876) % 10000) / 10000;
-        const rand3 = ((i * 31415 + 9265) % 10000) / 10000;
-
-        const rad = 1.35 + rand1 * 1.75; // Offset > 1.35 to eliminate Z-fighting with core (1.0)
-        const theta = rand2 * Math.PI * 2;
-        const phi = Math.acos(2 * rand3 - 1);
-
-        const x = rad * Math.sin(phi) * Math.cos(theta);
-        const y = (rad * 0.4) * Math.sin(phi) * Math.sin(theta);
-        const z = rad * Math.cos(phi);
-
-        positions[i * 3] = x;
-        positions[i * 3 + 1] = y;
-        positions[i * 3 + 2] = z;
-
-        basePositions[i * 3] = x;
-        basePositions[i * 3 + 1] = y;
-        basePositions[i * 3 + 2] = z;
-
-        tempColor.copy(colorCyan).lerp(colorEmerald, rand1);
-        colors[i * 3] = tempColor.r;
-        colors[i * 3 + 1] = tempColor.g;
-        colors[i * 3 + 2] = tempColor.b;
-      }
-
-      const geo = new THREE.BufferGeometry();
-      const posAttr = new THREE.BufferAttribute(positions, 3);
-      posAttr.setUsage(THREE.DynamicDrawUsage);
-      const colAttr = new THREE.BufferAttribute(colors, 3);
-      colAttr.setUsage(THREE.DynamicDrawUsage);
-
-      geo.setAttribute('position', posAttr);
-      geo.setAttribute('color', colAttr);
-      geo.setDrawRange(0, ringCount);
-
-      return {
-        ringPositions: positions,
-        ringBasePositions: basePositions,
-        ringColors: colors,
-        ringGeometry: geo,
-      };
-    }, [ringCount, colorCyan, colorEmerald, tempColor]);
-
-    // Cleanup resources on unmount
+    // Cleanup WebGL resources on unmount
     useEffect(() => {
       return () => {
         geometry.dispose();
-        ringGeometry.dispose();
-        mainMaterial.dispose();
-        ringMaterial.dispose();
+        mainShaderMaterial.dispose();
       };
-    }, [geometry, ringGeometry, mainMaterial, ringMaterial]);
+    }, [geometry, mainShaderMaterial]);
 
-    // Ultra-smooth animation loop directly manipulating Three.js objects (0 React state re-renders)
+    // High-performance animation loop: 0 CPU particle loops, 0 buffer re-allocations
     useFrame((state, delta) => {
-      // Direct live audio read on every frame (0 frame skip, instant 60 FPS beat reaction)
       const { bass, mids, highs, energy } = getSmoothedData();
       const time = state.clock.getElapsedTime();
+      const dpr = state.viewport.dpr || 1;
 
-      // Read freshest store state directly every frame (0-latency tracking reaction)
+      // Read store configuration
       const storeState = usePlayerStore.getState();
       const musicSens = storeState.musicSensitivity ?? 1.0;
       const sphereScale = storeState.sphereScale || 1.0;
@@ -349,7 +487,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const vrTrackingMode = storeState.vrTrackingMode;
       const isVrActive = storeState.vrMode;
 
-      // Exponential moving average filter scaled by music sensitivity
+      // Exponential moving average filter scaled by sensitivity
       const effectiveBass = bass * musicSens;
       const effectiveMids = mids * musicSens;
       const effectiveHighs = highs * musicSens;
@@ -365,7 +503,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      // Kick transient onset & attack envelope detection using isolated sphere threshold
+      // Kick transient onset & attack envelope detection
       const attackEnv = Math.max(0, sBass - prevBassRef.current);
       const effectiveKickThresh = KICK_THRESHOLD * (sphereBassBoomThreshold ? sphereBassBoomThreshold / 0.45 : 1.0);
       if (
@@ -379,304 +517,107 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
       prevBassRef.current = sBass;
 
-      // Pre-calculate active shockwaves for this frame (budget scaled by eco/vr modes)
-      const activeWaves: { waveRadius: number; decay: number; waveStrength: number }[] = [];
-      const baseWaveStrength = BASE_WAVE_STRENGTH * (sphereWaveIntensity ?? 1.0) * (sphereBassBoomIntensity ?? 1.0);
-      const effectiveWaveStrength = isEco
-        ? baseWaveStrength * 0.6
-        : isUltraEco || vrMode
-        ? baseWaveStrength * 0.4
-        : baseWaveStrength;
+      // Pack active shockwaves into GPU uniforms
+      let activeWaveCount = 0;
+      if (!isUltraEco) {
+        const baseWaveStrength = BASE_WAVE_STRENGTH * (sphereWaveIntensity ?? 1.0) * (sphereBassBoomIntensity ?? 1.0);
+        const effectiveWaveStrength = isEco ? baseWaveStrength * 0.5 : vrMode ? baseWaveStrength * 0.4 : baseWaveStrength;
 
-      for (let w = 0; w < SHOCKWAVE_SLOTS; w++) {
-        const waveTime = shockWavesRef.current[w];
-        const age = time - waveTime;
-        if (age > 0 && age <= WAVE_LIFETIME_SEC) {
-          const progress = Math.min(1.0, Math.max(0.0, age / WAVE_LIFETIME_SEC));
-          const waveRadius = progress * WAVE_MAX_RADIUS;
-          const decay = 1.0 - progress;
-          activeWaves.push({ waveRadius, decay, waveStrength: effectiveWaveStrength });
+        for (let w = 0; w < SHOCKWAVE_SLOTS; w++) {
+          const waveTime = shockWavesRef.current[w];
+          const age = time - waveTime;
+          if (age > 0 && age <= WAVE_LIFETIME_SEC) {
+            const progress = age / WAVE_LIFETIME_SEC;
+            const waveRadius = progress * WAVE_MAX_RADIUS;
+            const decay = 1.0 - progress;
+            shockwavesUniform[activeWaveCount].set(waveRadius, effectiveWaveStrength * decay);
+            activeWaveCount++;
+            if (activeWaveCount >= 8) break;
+          }
         }
       }
-      const hasActiveWaves = activeWaves.length > 0;
 
-      // Update material properties directly without triggering React re-renders
-      mainMaterial.opacity = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
-      mainMaterial.size = isLucid ? 0.058 : isUltraEco ? 0.065 : isEco ? 0.056 : 0.048;
-
-      ringMaterial.opacity = isLucid ? 0.95 : 0.8;
-      ringMaterial.size = isLucid ? 0.042 : isUltraEco ? 0.046 : isEco ? 0.040 : 0.035;
-
-      // Update draw range instantly with 0 shader recompilation
-      geometry.setDrawRange(0, activeParticleCount);
-      ringGeometry.setDrawRange(0, ringCount);
-
-      // Auto Dynamic Fluid Single Color Mode
-      if (autoMode) {
-        const dColor = storeState.dynamicColor || storeState.autoPalette?.primary || '#00f2fe';
-        autoPrimaryColor.set(dColor);
+      // Fill remaining uniform slots
+      for (let w = activeWaveCount; w < 8; w++) {
+        shockwavesUniform[w].set(0, 0);
       }
 
-      // Animate Main Particles
+      // Base continuous rotation & VR Tracking
+      const rotMultiplier = isLucid ? 1.6 : 1.0;
       if (pointsRef.current) {
-        const positionAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
-        const colorAttr = pointsRef.current.geometry.attributes.color as THREE.BufferAttribute;
-        const positions = positionAttr.array as Float32Array;
-        const colors = colorAttr.array as Float32Array;
-
-        // Base continuous rotation & VR Tracking (Paused while user is dragging OrbitControls)
-        const rotMultiplier = isLucid ? 1.6 : 1.0;
-
         if (!isInteracting) {
           if (isVrActive) {
-            // Direct smooth interpolation towards VR tracking rotation
             pointsRef.current.rotation.y += (handRotation.y - pointsRef.current.rotation.y) * 0.25;
             pointsRef.current.rotation.x += (handRotation.x - pointsRef.current.rotation.x) * 0.25;
           } else {
-            // Continuous audio-reactive rotation
             pointsRef.current.rotation.y += delta * (0.12 + sMids * 0.45) * rotMultiplier;
             pointsRef.current.rotation.x = Math.sin(time * 0.25) * (0.08 + sMids * 0.15);
             pointsRef.current.rotation.z = Math.cos(time * 0.2) * (0.04 + sBass * 0.1);
           }
         }
 
-        // Layer 1: Auto-Fit Base Scale
+        // Layer 1: Auto-Fit Base Scale & Breathing Pump
         const shortestSide = Math.min(state.size.width, state.size.height);
         const autoFitBaseScale = Math.max(0.85, Math.min(1.4, shortestSide / 620));
-
-        // Layer 2: User Multiplier from localStorage / Pinch Slider
         const userMultiplier = sphereScale || 1.0;
 
-        // Soft music breathing pump + dance energy boost + gesture boosts
         const danceBoost = isVrActive ? 1.0 + poseVelocity * 0.55 : 1.0;
-        const gestureBoost = (handGesture === 'closed' || handGesture === 'fist') ? 0.25 : 0;
-        const leftHandBoost = (vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0) ? 0.35 : 0;
-        const bassPump = (0.92 + Math.pow(sBass, 1.1) * (0.32 + (isLucid ? 0.15 : 0)) + gestureBoost + leftHandBoost) * danceBoost;
+        const gestureBoost = handGesture === 'closed' || handGesture === 'fist' ? 0.25 : 0;
+        const leftHandBoost = vrTrackingMode === 'body' && leftHandPos && leftHandPos.y < 0 ? 0.35 : 0;
+        const bassPump = (0.92 + Math.pow(Math.max(0, sBass), 1.1) * (0.32 + (isLucid ? 0.15 : 0)) + gestureBoost + leftHandBoost) * danceBoost;
 
         const targetScaleVal = autoFitBaseScale * userMultiplier * bassPump;
         smoothScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
         pointsRef.current.scale.lerp(smoothScaleVec, 0.14);
 
-        if (particleRingRef.current) {
-          const targetRingScaleVal = autoFitBaseScale * userMultiplier * (1.0 + sBass * 0.2 + leftHandBoost * 0.3) * danceBoost;
-          smoothRingScaleVec.set(targetRingScaleVal, targetRingScaleVal, targetRingScaleVal);
-          particleRingRef.current.scale.lerp(smoothRingScaleVec, 0.14);
-        }
+        // VR Push vectors setup
+        const vrPush1 = mainShaderMaterial.uniforms.uVRPush1.value as THREE.Vector4;
+        const vrPush2 = mainShaderMaterial.uniforms.uVRPush2.value as THREE.Vector4;
+        vrPush1.set(0, 0, 0, 0);
+        vrPush2.set(0, 0, 0, 0);
 
-        const headYOffset = headPos ? (headPos.y / 6) * 0.15 : 0;
-
-        // Natural and smooth particle displacement loop
-        for (let i = 0; i < activeParticleCount; i++) {
-          const i3 = i * 3;
-          const nx = baseNormals[i3];
-          const ny = baseNormals[i3 + 1];
-          const nz = baseNormals[i3 + 2];
-          const ix = initialPositions[i3];
-          const iy = initialPositions[i3 + 1];
-          const iz = initialPositions[i3 + 2];
-
-          let px = ix;
-          let py = iy + headYOffset;
-          let pz = iz;
-
-          // Idle organic breathing component
-          const idleBreathe = Math.sin(time * 1.3 + nx * 2.2 + ny * 1.5) * 0.04;
-
-          if (sphereShape === 'rings') {
-            const ringIdx = i % 5;
-            const ringPulse = 1.0 + Math.sin(time * 1.8 + ringIdx * 1.2) * 0.05 + (sBass * 0.35);
-            const orbitWobble = Math.sin(time * 1.2 + ringIdx * 0.8) * 0.04;
-            px = ix * (ringPulse + orbitWobble);
-            py = iy * ringPulse + Math.sin(time * 1.5 + ringIdx) * (0.05 + sBass * 0.2);
-            pz = iz * (ringPulse + orbitWobble);
-          } else if (sphereShape === 'spikes') {
-            const idleSpike = Math.sin(time * 2.0 + nx * 5.0 + ny * 5.0) * 0.04;
-            const spikeStretch = 1.0 + idleSpike + sBass * 0.5 + sHighs * 0.3;
-            px = ix * spikeStretch;
-            py = iy * spikeStretch;
-            pz = iz * spikeStretch;
-          } else if (sphereShape === 'cloud') {
-            const brownian = Math.sin(time * 1.4 + nx * 3.0) * 0.08;
-            const brownianY = Math.cos(time * 1.2 + ny * 3.0) * 0.08;
-            const attract = (1.0 - sBass * 0.18);
-            px = (ix + brownian) * attract;
-            py = (iy + brownianY) * attract;
-            pz = (iz + brownianY) * attract;
-          } else if (sphereShape === 'wave') {
-            const waveY = Math.sin(ix * 2.5 + time * 1.8) * (0.15 + sBass * 0.4) + Math.cos(iz * 2.5 + time * 1.5) * (0.1 + sMids * 0.3);
-            px = ix;
-            py = waveY;
-            pz = iz;
-          } else if (sphereShape === 'torus') {
-            const torusPulse = 1.0 + Math.sin(time * 1.8 + ny * 3.0) * 0.05 + sBass * 0.3;
-            px = ix * torusPulse;
-            py = iy * torusPulse;
-            pz = iz * torusPulse;
-          } else {
-            // Default Smooth Fibonacci Crystalline Sphere
-            const wave1 = Math.sin(nx * 3.2 + time * 1.4 + ny * 2.0) * 0.06;
-            const wave2 = Math.cos(nz * 3.2 + time * 1.2 + nx * 2.0) * 0.06;
-            const displacement = 1.0 + idleBreathe + (wave1 + wave2) * (0.2 + sMids * 0.4) + Math.pow(sBass, 1.2) * 0.25;
-            px = nx * displacement;
-            py = ny * displacement;
-            pz = nz * displacement;
-          }
-
-          // Radial Kick Shockwave Displacement (Per-particle wave propagation)
-          if (hasActiveWaves) {
-            const dist = Math.sqrt(px * px + py * py + pz * pz) || 1.0;
-            let totalImpact = 0;
-            for (let w = 0; w < activeWaves.length; w++) {
-              const wave = activeWaves[w];
-              const diff = (dist - wave.waveRadius) / WAVE_BAND_WIDTH;
-              const gaussian = Math.exp(-diff * diff);
-              totalImpact += gaussian * wave.waveStrength * wave.decay;
+        if (isVrActive) {
+          if (vrTrackingMode === 'body') {
+            if (rightHandPos) {
+              vrPush1.set(rightHandPos.x * 0.25, rightHandPos.y * 0.25, (rightHandPos.z || 0) * 0.25, 0.25);
             }
-            if (totalImpact > 0.0001) {
-              const radialDisplacement = totalImpact * (1.0 + Math.pow(totalImpact, 0.8) * 1.2);
-              px += nx * radialDisplacement;
-              py += ny * radialDisplacement;
-              pz += nz * radialDisplacement;
+            if (leftHandPos) {
+              vrPush2.set(leftHandPos.x * 0.25, leftHandPos.y * 0.25, (leftHandPos.z || 0) * 0.25, 0.25 + sBass * 0.3);
             }
-          }
-
-          // VR Physical Interactive Hand / Body Push
-          if (isVrActive) {
-            if (vrTrackingMode === 'body') {
-              if (rightHandPos) {
-                const dx = px - rightHandPos.x * 0.25;
-                const dy = py - rightHandPos.y * 0.25;
-                const dz = pz - (rightHandPos.z || 0) * 0.25;
-                const d2 = dx * dx + dy * dy + dz * dz;
-                if (d2 < 2.2) {
-                  const force = (1.0 - Math.sqrt(d2) / 1.48) * 0.25;
-                  const invDist = 1.0 / Math.sqrt(d2 + 0.01);
-                  px += dx * invDist * force;
-                  py += dy * invDist * force;
-                  pz += dz * invDist * force;
-                }
-              }
-              if (leftHandPos) {
-                const dx = px - leftHandPos.x * 0.25;
-                const dy = py - leftHandPos.y * 0.25;
-                const dz = pz - (leftHandPos.z || 0) * 0.25;
-                const d2 = dx * dx + dy * dy + dz * dz;
-                if (d2 < 2.2) {
-                  const force = (1.0 - Math.sqrt(d2) / 1.48) * (0.25 + sBass * 0.3);
-                  const invDist = 1.0 / Math.sqrt(d2 + 0.01);
-                  px += dx * invDist * force;
-                  py += dy * invDist * force;
-                  pz += dz * invDist * force;
-                }
-              }
-            } else if (handLandmarks && handLandmarks.length > 0) {
-              // Hands Mode: index fingertip (8) and wrist (0) interactive push
-              const tip = handLandmarks[8] || handLandmarks[0];
-              const hx = (1.0 - tip.x - 0.5) * 2.8;
-              const hy = (0.5 - tip.y) * 2.8;
-              const dx = px - hx;
-              const dy = py - hy;
-              const d2 = dx * dx + dy * dy;
-              if (d2 < 2.0) {
-                const force = (1.0 - Math.sqrt(d2) / 1.41) * 0.35;
-                const invDist = 1.0 / Math.sqrt(d2 + 0.01);
-                px += dx * invDist * force;
-                py += dy * invDist * force;
-              }
-            }
-          }
-
-          positions[i3] = px;
-          positions[i3 + 1] = py;
-          positions[i3 + 2] = pz;
-
-          // Smooth single fluid color in autoMode (no multi-color clashes)
-          if (autoMode) {
-            const heightNorm = (ny + 1) * 0.5;
-            const waveHarmonic = (Math.sin(time * 1.8 + nx * 2.5 + ny * 2.0) + 1) * 0.5;
-            const luminanceMod = 0.75 + heightNorm * 0.35 + waveHarmonic * (0.15 + sHighs * 0.2);
-            tempColor.copy(autoPrimaryColor).multiplyScalar(luminanceMod);
-            colors[i3] = tempColor.r;
-            colors[i3 + 1] = tempColor.g;
-            colors[i3 + 2] = tempColor.b;
-          } else if (isLucid) {
-            const heightNorm = (ny + 1) * 0.5;
-            const waveColor = (Math.sin(time * 2.0 + nx * 2.5 + ny * 2.5) + 1) * 0.5;
-            tempColor.copy(colorLucidPrimary).lerp(colorLucidSecondary, heightNorm).lerp(colorMagenta, waveColor * (sHighs + 0.2));
-            colors[i3] = tempColor.r;
-            colors[i3 + 1] = tempColor.g;
-            colors[i3 + 2] = tempColor.b;
-          } else {
-            const heightNorm = (ny + 1) * 0.5;
-            const waveColor = (Math.sin(time * 1.5 + nx * 2.0 + ny * 2.0) + 1) * 0.5;
-            tempColor.copy(palColor1).lerp(palColor2, heightNorm).lerp(palColor3, waveColor * (sHighs + 0.15));
-            colors[i3] = tempColor.r;
-            colors[i3 + 1] = tempColor.g;
-            colors[i3 + 2] = tempColor.b;
+          } else if (handLandmarks && handLandmarks.length > 0) {
+            const tip = handLandmarks[8] || handLandmarks[0];
+            const hx = (1.0 - tip.x - 0.5) * 2.8;
+            const hy = (0.5 - tip.y) * 2.8;
+            vrPush1.set(hx, hy, 0, 0.35);
           }
         }
 
-        positionAttr.needsUpdate = true;
-        colorAttr.needsUpdate = true;
-      }
-
-      // Animate Concentric Particle Rings (Organic Sand FFT Waves)
-      if (particleRingRef.current && showFrequencyBars) {
-        particleRingRef.current.rotation.y += delta * 0.15 * (isLucid ? 1.4 : 1.0);
-        const ringPosAttr = particleRingRef.current.geometry.attributes.position as THREE.BufferAttribute;
-        const ringPositionsArray = ringPosAttr.array as Float32Array;
-
-        const targetWaveDist = sEnergy * (isLucid ? 0.65 : 0.45);
-
-        for (let i = 0; i < ringCount; i++) {
-          const i3 = i * 3;
-          const bx = ringBasePositions[i3];
-          const by = ringBasePositions[i3 + 1];
-          const bz = ringBasePositions[i3 + 2];
-
-          const dist = Math.sqrt(bx * bx + by * by + bz * bz) || 1;
-          const normX = bx / dist;
-          const normY = by / dist;
-          const normZ = bz / dist;
-
-          const harmonic = Math.sin(time * 2.0 + dist * 2.5) * (0.05 + sBass * 0.2);
-          const newDist = dist + targetWaveDist + harmonic;
-
-          let handForceX = 0;
-          let handForceY = 0;
-          if (isVrActive) {
-            if (vrTrackingMode === 'body' && (rightHandPos || leftHandPos)) {
-              const hPos = rightHandPos || leftHandPos;
-              if (hPos) {
-                handForceX = (hPos.x * 0.3 - bx) * 0.05;
-                handForceY = (hPos.y * 0.3 - by) * 0.05;
-              }
-            } else if (handLandmarks && handLandmarks.length > 0) {
-              const handX = (1.0 - handLandmarks[0].x - 0.5) * 3;
-              const handY = (0.5 - handLandmarks[0].y) * 3;
-              handForceX = (handX - bx) * 0.05;
-              handForceY = (handY - by) * 0.05;
-            }
-          }
-
-          ringPositionsArray[i3] = normX * newDist + handForceX;
-          ringPositionsArray[i3 + 1] = normY * newDist + handForceY;
-          ringPositionsArray[i3 + 2] = normZ * newDist;
-        }
-
-        ringPosAttr.needsUpdate = true;
+        // Update GPU Uniforms (Instant, 0 CPU loop)
+        const u = mainShaderMaterial.uniforms;
+        u.uTime.value = time;
+        u.uBass.value = sBass;
+        u.uMids.value = sMids;
+        u.uHighs.value = sHighs;
+        u.uEnergy.value = sEnergy;
+        u.uShape.value = getShapeId(sphereShape);
+        u.uSize.value = isLucid ? 0.058 : isUltraEco ? 0.054 : isEco ? 0.050 : 0.046;
+        u.uOpacity.value = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
+        u.uAudioGlow.value = 1.0 + sHighs * 0.35 + (sBass > 0.45 ? 0.2 : 0.0);
+        u.uHeadYOffset.value = headPos ? (headPos.y / 6) * 0.15 : 0;
+        u.uNumShockwaves.value = activeWaveCount;
+        u.uPixelRatio.value = dpr;
       }
     });
 
     return (
       <group ref={groupRef}>
-        {/* Main 3D Shape Particles */}
-        <points ref={pointsRef} renderOrder={0} geometry={geometry} material={mainMaterial} />
-
-        {/* Concentric Cosmic Sand Particle Rings (Shown only when 3D Bars are toggled ON) */}
-        {showFrequencyBars && (
-          <points ref={particleRingRef} renderOrder={1} geometry={ringGeometry} material={ringMaterial} />
-        )}
+        {/* Pure Elegant 3D Shape Particles ("Arena de Mar") */}
+        <points
+          ref={pointsRef}
+          renderOrder={1}
+          geometry={geometry}
+          material={mainShaderMaterial}
+        />
       </group>
     );
   }

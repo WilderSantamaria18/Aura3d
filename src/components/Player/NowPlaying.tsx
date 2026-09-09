@@ -34,37 +34,37 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
   const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <div className="w-full h-full bg-[#080b18]/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col justify-between select-none">
+    <div className="w-full h-full bg-[#070a14]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-2xl flex flex-col justify-between select-none">
       {/* Top Header Badge */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/10">
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-          <span className="text-xs font-mono tracking-widest text-cyan-300 uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="text-[11px] font-mono tracking-wider text-white/70 uppercase">
             {label}
           </span>
         </div>
 
-        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/50">
+        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-white/50">
           {isCapturing ? 'Activo' : 'En Espera'}
         </span>
       </div>
 
       {/* Main Vinyl / Artwork Preview */}
-      <div className="my-auto py-6 flex flex-col items-center text-center space-y-4">
-        <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-cyan-500/20 via-pink-500/10 to-indigo-500/20 border border-white/15 p-1 flex items-center justify-center shadow-2xl shadow-cyan-950/60">
+      <div className="my-auto py-5 flex flex-col items-center text-center space-y-4">
+        <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full bg-[#0a0e1a] border border-white/[0.1] p-1 flex items-center justify-center shadow-xl">
           {/* Outer grooved vinyl rings */}
-          <div className="w-full h-full rounded-full border border-white/10 flex items-center justify-center bg-[#050711]">
-            <div className="w-[75%] h-[75%] rounded-full border border-white/5 flex items-center justify-center">
-              <div className="w-[50%] h-[50%] rounded-full bg-gradient-to-tr from-cyan-400 to-pink-500 flex items-center justify-center p-[2px] shadow-lg">
-                <div className="w-full h-full bg-[#090d1c] rounded-full flex items-center justify-center">
+          <div className="w-full h-full rounded-full border border-white/[0.06] flex items-center justify-center bg-[#05070d]">
+            <div className="w-[78%] h-[78%] rounded-full border border-white/[0.04] flex items-center justify-center">
+              <div className="w-[52%] h-[52%] rounded-full bg-[#121626] border border-white/[0.08] flex items-center justify-center p-[2px]">
+                <div className="w-full h-full bg-[#0a0d17] rounded-full flex items-center justify-center">
                   {isCapturing ? (
                     <Disc3
-                      className={`w-8 h-8 text-cyan-300 ${
+                      className={`w-7 h-7 text-white/70 ${
                         isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''
                       }`}
                     />
                   ) : (
-                    <Music className="w-8 h-8 text-white/30" />
+                    <Music className="w-6 h-6 text-white/30" />
                   )}
                 </div>
               </div>
@@ -72,31 +72,31 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
           </div>
 
           {/* Center spindle */}
-          <div className="absolute w-3 h-3 rounded-full bg-black border border-white/40" />
+          <div className="absolute w-2.5 h-2.5 rounded-full bg-black border border-white/40" />
         </div>
 
         {/* Track Title and Artist */}
         <div className="space-y-1 max-w-full px-4">
-          <h3 className="text-white font-medium text-lg sm:text-xl truncate tracking-wide drop-shadow">
+          <h3 className="text-white font-medium text-base sm:text-lg truncate tracking-tight">
             {title}
           </h3>
-          <p className="text-cyan-200/50 text-xs sm:text-sm truncate font-light tracking-widest uppercase">
+          <p className="text-white/40 text-xs truncate font-mono">
             {artist}
           </p>
         </div>
       </div>
 
       {/* Playback Progress & Bottom Controls */}
-      <div className="space-y-4 pt-4 border-t border-white/10">
+      <div className="space-y-3 pt-3 border-t border-white/[0.06]">
         {duration > 0 && (
           <div className="space-y-1.5">
-            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-cyan-400 to-pink-500 rounded-full shadow-[0_0_10px_rgba(0,242,254,0.5)] transition-all"
+                className="h-full bg-white rounded-full transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] font-mono text-white/40">
+            <div className="flex justify-between text-[10px] font-mono tabular-nums text-white/40">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
@@ -104,11 +104,11 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
         )}
 
         {/* Playback Buttons */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-2.5">
           {onStop && isCapturing && (
             <button
               onClick={onStop}
-              className="p-3 rounded-2xl bg-white/5 hover:bg-pink-500/20 text-white/60 hover:text-pink-400 border border-white/10 transition-all"
+              className="p-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white border border-white/[0.08] transition-colors"
               title="Detener audio"
             >
               <Square className="w-4 h-4" />
@@ -118,7 +118,7 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
           {onTogglePlay && isCapturing && (
             <button
               onClick={onTogglePlay}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-pink-500 text-slate-950 font-bold text-xs uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(0,242,254,0.4)] hover:scale-105 active:scale-95 transition-all"
+              className="px-5 py-2.5 rounded-lg bg-white text-black font-semibold text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-neutral-200 active:scale-95 transition-all shadow-md"
             >
               {isPlaying ? (
                 <>
@@ -138,4 +138,5 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
 };
 
 export default NowPlaying;
+
 

@@ -4,6 +4,8 @@ import { useLyrics } from '../../hooks/useLyrics';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
 
+import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
+
 export const LyricsOverlay: React.FC = () => {
   const {
     isLyricsOpen,
@@ -12,10 +14,12 @@ export const LyricsOverlay: React.FC = () => {
     currentTrack,
     isPlaying,
     currentTime,
+    isSpotifyConnected,
   } = usePlayerStore();
 
   const { lyricsData } = useLyrics();
   const { seek } = useAudioEngine();
+  const { seek: spotifySeek } = useSpotifyPlayer();
 
   if (!isLyricsOpen) return null;
 
@@ -33,7 +37,13 @@ export const LyricsOverlay: React.FC = () => {
         isPlaying={isPlaying}
         title={currentTrack?.title || 'Sin título'}
         artist={currentTrack?.artist || 'Artista desconocido'}
-        onSeek={(time) => seek(time)}
+        onSeek={(time) => {
+          if (isSpotifyConnected) {
+            spotifySeek(Math.round(time * 1000));
+          } else {
+            seek(time);
+          }
+        }}
         onClose={() => setLyricsOpen(false)}
       />
     </div>

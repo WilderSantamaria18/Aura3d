@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useVisualizer } from '../../hooks/useVisualizer';
 import { usePlayerStore } from '../../stores/playerStore';
 import {
@@ -19,6 +19,8 @@ import {
   Edit3,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
+import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
+import type { VisualizerShape } from '../../types/audio';
 
 // Preset Vector Logo Styles
 const LOGO_PRESETS = [
@@ -51,7 +53,8 @@ const clamp = (val: number, min: number, max: number): number =>
 const computeScaleFactor = (): number => {
   if (typeof window === 'undefined') return 1.0;
   const minDim = Math.min(window.innerWidth, window.innerHeight);
-  return clamp(minDim / 700, 0.45, 1.0);
+  // Fluid responsive clamp: scales smoothly from 0.42 on 320px mobile up to 1.0 on desktop
+  return clamp(minDim / 680, 0.42, 1.0);
 };
 
 export const RainbowBlobVisualizer: React.FC = () => {
@@ -63,6 +66,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     setBlobPanelOpen,
     toggleVisualizerSettings,
     blobShape,
+    setBlobShape,
     blobWaveMode,
     blobWaveIntensity,
     blobBassBoomThreshold,
@@ -90,7 +94,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
 
-  // Unitary scale factor u: clamp(min(innerWidth, innerHeight) / 700, 0.45, 1.0)
+  // Unitary scale factor u: responsive clamp
   const [scaleU, setScaleU] = useState<number>(computeScaleFactor);
   const scaleURef = useRef<number>(computeScaleFactor());
 
@@ -102,16 +106,16 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const fondoRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Swarm particles for 'cloud' shape
-  const cloudParticles = useMemo(() => {
-    return Array.from({ length: 90 }, () => ({
+  // Swarm particles for 'cloud' shape (initialized once at mount to preserve render purity)
+  const [cloudParticles] = useState(() =>
+    Array.from({ length: 90 }, () => ({
       angle: Math.random() * Math.PI * 2,
       dist: 130 + Math.random() * 120,
       speed: (Math.random() - 0.5) * 0.03,
       size: 2 + Math.random() * 3.5,
       hue: Math.random() * 360,
-    }));
-  }, []);
+    }))
+  );
 
   // Shockwave rings & kick synchronization refs
   const shockwaves = useRef<ActiveShockwave[]>([]);
@@ -205,8 +209,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       }
       prevBass.current = sBass;
 
-      boomImpulse.current *= 0.84;
-      boomFlash.current *= 0.78;
+      boomImpulse.current *= 0.88;
+      boomFlash.current *= 0.80;
       const boomPunch = boomImpulse.current * intensity;
 
       if (isAudioActive) {
@@ -222,8 +226,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const idleBreathing = isAudioActive ? 0 : Math.sin(timeSec * 1.5) * 0.03;
       const sens = (blobSettings.scaleSensitivity ?? 1.0) * audioSens;
       const baseScale = 0.75 + idleBreathing;
-      const bassContribution = Math.pow(nivel, 1.2) * (0.5 + boostVal * 0.2);
-      const boomContribution = Math.min(boomPunch * 0.4 * audioSens, 0.7);
+      const bassContribution = Math.pow(nivel, 1.2) * (0.4 + boostVal * 0.22);
+      const boomContribution = Math.min(boomPunch * 0.28 * audioSens, 0.65);
       const totalScale = (baseScale + bassContribution + boomContribution) * sens;
       const clampedScale = Math.min(2.0, Math.max(0.45, totalScale));
       const escala = clampedScale * blobScale;
@@ -245,8 +249,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
       if (haloRef.current) {
         haloRef.current.style.borderRadius = borderRadius;
         haloRef.current.style.transform = `scale(${escala}) rotate(${angle}deg)`;
-        haloRef.current.style.display = blobShape === 'sphere' ? 'block' : 'none';
+        haloRef.current.style.display = 'block';
       }
+
 
       if (haloGlowRef.current) {
         haloGlowRef.current.style.borderRadius = borderRadius;
@@ -419,6 +424,191 @@ export const RainbowBlobVisualizer: React.FC = () => {
             ctx.stroke();
           }
 
+          // ── SHAPE 6: KALEIDOSCOPE (8-blade crystal prisms) ─────────────────
+          if (blobShape === 'kaleidoscope') {
+            const blades = 12;
+            for (let b = 0; b < blades; b++) {
+              const bAngle = (b / blades) * Math.PI * 2 + angle * 0.03;
+              const bLen = (22 + (raw[(b * 5) % raw.length] || 0) * 0.38 * (1 + sMids * 1.5)) * u;
+              const x1 = cx + Math.cos(bAngle) * baseCircleRadius;
+              const y1 = cy + Math.sin(bAngle) * baseCircleRadius;
+              const xTip = cx + Math.cos(bAngle) * (baseCircleRadius + bLen);
+              const yTip = cy + Math.sin(bAngle) * (baseCircleRadius + bLen);
+              const perpAngle = bAngle + Math.PI / 2;
+              const wing = 9 * u * (1 + sBass * 0.6);
+              const xLeft = cx + Math.cos(bAngle) * (baseCircleRadius + bLen * 0.5) + Math.cos(perpAngle) * wing;
+              const yLeft = cy + Math.sin(bAngle) * (baseCircleRadius + bLen * 0.5) + Math.sin(perpAngle) * wing;
+              const xRight = cx + Math.cos(bAngle) * (baseCircleRadius + bLen * 0.5) - Math.cos(perpAngle) * wing;
+              const yRight = cy + Math.sin(bAngle) * (baseCircleRadius + bLen * 0.5) - Math.sin(perpAngle) * wing;
+
+              ctx.beginPath();
+              ctx.moveTo(x1, y1);
+              ctx.lineTo(xLeft, yLeft);
+              ctx.lineTo(xTip, yTip);
+              ctx.lineTo(xRight, yRight);
+              ctx.closePath();
+              const bladeHue = (b * 30 + timeSec * 40) % 360;
+              ctx.fillStyle = isLucid ? `${lucidTheme.primary}44` : `hsla(${bladeHue}, 85%, 60%, 0.35)`;
+              ctx.fill();
+              ctx.strokeStyle = isLucid ? lucidTheme.primary : `hsla(${bladeHue}, 90%, 75%, 0.85)`;
+              ctx.lineWidth = Math.max(1.2, 1.8 * u);
+              ctx.stroke();
+            }
+          }
+
+          // ── SHAPE 7: VORTEX (Hypnotic Gravitational Dual Spirals) ───────────
+          if (blobShape === 'vortex') {
+            const spiralArms = 3;
+            for (let sa = 0; sa < spiralArms; sa++) {
+              const armBase = (sa / spiralArms) * Math.PI * 2;
+              ctx.beginPath();
+              for (let st = 0; st < 80; st++) {
+                const ratio = st / 80;
+                const vRadius = baseCircleRadius + Math.pow(ratio, 1.3) * 125 * u * (1 + sBass * 0.35);
+                const vAngle = armBase + ratio * Math.PI * 4 + timeSec * 2.5;
+                const vx = cx + Math.cos(vAngle) * vRadius;
+                const vy = cy + Math.sin(vAngle) * vRadius;
+                if (st === 0) ctx.moveTo(vx, vy);
+                else ctx.lineTo(vx, vy);
+              }
+              const vHue = (sa * 120 + timeSec * 35) % 360;
+              ctx.strokeStyle = isLucid ? lucidTheme.secondary : `hsla(${vHue}, 85%, 65%, 0.85)`;
+              ctx.lineWidth = Math.max(1.5, (2.4 + sBass * 2.5) * u);
+              ctx.shadowColor = ctx.strokeStyle;
+              ctx.shadowBlur = 10 * u;
+              ctx.stroke();
+            }
+          }
+
+          // ── SHAPE 8: FRACTAL (Sacred Geometry Mandala Flower) ───────────────
+          if (blobShape === 'fractal') {
+            const rings = 4;
+            for (let r = 0; r < rings; r++) {
+              const petals = 6 + r * 2;
+              const fRadius = baseCircleRadius + (r + 1) * 22 * u * (1 + sBass * 0.25);
+              const petalAmp = (10 + sMids * 20) * u;
+              ctx.beginPath();
+              for (let p = 0; p <= 120; p++) {
+                const theta = (p / 120) * Math.PI * 2;
+                const rMod = fRadius + Math.cos(theta * petals + timeSec * (1.5 - r * 0.3)) * petalAmp;
+                const fx = cx + Math.cos(theta) * rMod;
+                const fy = cy + Math.sin(theta) * rMod;
+                if (p === 0) ctx.moveTo(fx, fy);
+                else ctx.lineTo(fx, fy);
+              }
+              ctx.closePath();
+              const fHue = (r * 60 + timeSec * 25) % 360;
+              ctx.strokeStyle = isLucid
+                ? r % 2 === 0
+                  ? lucidTheme.primary
+                  : lucidTheme.secondary
+                : `hsla(${fHue}, 85%, 65%, ${0.75 - r * 0.1})`;
+              ctx.lineWidth = Math.max(1.2, 1.8 * u);
+              ctx.shadowColor = ctx.strokeStyle;
+              ctx.shadowBlur = 8 * u;
+              ctx.stroke();
+            }
+          }
+
+          // ── SHAPE 9: NEBULA (Chromatic Aurora Clouds) ──────────────────────
+          if (blobShape === 'nebula') {
+            for (let nIdx = 0; nIdx < 16; nIdx++) {
+              const nAngle = (nIdx / 16) * Math.PI * 2 + timeSec * 0.6;
+              const nDist = baseCircleRadius + (18 + Math.sin(timeSec * 2 + nIdx) * 16) * u * (1 + sBass * 0.3);
+              const nx = cx + Math.cos(nAngle) * nDist;
+              const ny = cy + Math.sin(nAngle) * nDist;
+              const nRad = Math.max(14 * u, (24 + sMids * 30) * u);
+              const nGrad = ctx.createRadialGradient(nx, ny, 2 * u, nx, ny, nRad);
+              const nHue = (nIdx * 25 + timeSec * 20) % 360;
+              nGrad.addColorStop(0, isLucid ? `${lucidTheme.primary}66` : `hsla(${nHue}, 90%, 65%, 0.45)`);
+              nGrad.addColorStop(1, 'transparent');
+              ctx.beginPath();
+              ctx.arc(nx, ny, nRad, 0, Math.PI * 2);
+              ctx.fillStyle = nGrad;
+              ctx.fill();
+            }
+          }
+
+          // ── SHAPE 10: BARS (64-Band Circular Graphic Spectrum) ──────────────
+          if (blobShape === 'bars') {
+            const totalBars = 64;
+            for (let b = 0; b < totalBars; b++) {
+              const bAngle = (b / totalBars) * Math.PI * 2 - Math.PI / 2;
+              const bVal = raw[Math.floor((b / totalBars) * raw.length * 0.7)] || 0;
+              const bLen = Math.max(4 * u, (bVal / 255) * 85 * u * (1 + sBass * 0.4));
+              const bx1 = cx + Math.cos(bAngle) * (baseCircleRadius + 4 * u);
+              const by1 = cy + Math.sin(bAngle) * (baseCircleRadius + 4 * u);
+              const bx2 = cx + Math.cos(bAngle) * (baseCircleRadius + 4 * u + bLen);
+              const by2 = cy + Math.sin(bAngle) * (baseCircleRadius + 4 * u + bLen);
+
+              const bHue = Math.floor(200 + (b / totalBars) * 160) % 360;
+              ctx.beginPath();
+              ctx.moveTo(bx1, by1);
+              ctx.lineTo(bx2, by2);
+              ctx.strokeStyle = isLucid ? lucidTheme.primary : `hsla(${bHue}, 90%, 62%, 0.9)`;
+              ctx.lineWidth = Math.max(1.5, 2.8 * u);
+              ctx.lineCap = 'round';
+              ctx.stroke();
+
+              // Peak hold dot
+              const px = cx + Math.cos(bAngle) * (baseCircleRadius + 8 * u + bLen);
+              const py = cy + Math.sin(bAngle) * (baseCircleRadius + 8 * u + bLen);
+              ctx.beginPath();
+              ctx.arc(px, py, Math.max(1.2, 1.8 * u), 0, Math.PI * 2);
+              ctx.fillStyle = '#ffffff';
+              ctx.fill();
+            }
+          }
+
+          // ── SHAPE 11: LASER (Kinetic Strobe Rays) ───────────────────────────
+          if (blobShape === 'laser') {
+            const laserCount = 8;
+            for (let l = 0; l < laserCount; l++) {
+              const lAngle = (l / laserCount) * Math.PI * 2 + angle * 0.01;
+              const isKickL = (l % 2 === 0 ? sBass : sEnergy) > 0.4;
+              const lLen = (30 + (isKickL ? 95 : 25) * (1 + sBass * 0.6)) * u;
+              const lx1 = cx + Math.cos(lAngle) * baseCircleRadius;
+              const ly1 = cy + Math.sin(lAngle) * baseCircleRadius;
+              const lx2 = cx + Math.cos(lAngle) * (baseCircleRadius + lLen);
+              const ly2 = cy + Math.sin(lAngle) * (baseCircleRadius + lLen);
+
+              ctx.beginPath();
+              ctx.moveTo(lx1, ly1);
+              ctx.lineTo(lx2, ly2);
+              ctx.strokeStyle = isKickL ? '#ffffff' : isLucid ? lucidTheme.primary : `hsla(${(l * 45 + timeSec * 50) % 360}, 90%, 65%, 0.85)`;
+              ctx.lineWidth = Math.max(1.5, (isKickL ? 3.5 : 2.0) * u);
+              ctx.shadowColor = ctx.strokeStyle;
+              ctx.shadowBlur = isKickL ? 16 * u : 8 * u;
+              ctx.stroke();
+            }
+          }
+
+          // ── SHAPE 12: ICOSAHEDRON / OCTAHEDRON (Geometric Crystal Lattice) ──
+          if (blobShape === 'icosahedron' || blobShape === 'octahedron') {
+            const vertices = blobShape === 'octahedron' ? 8 : 12;
+            ctx.beginPath();
+            for (let v = 0; v < vertices; v++) {
+              const vAngle = (v / vertices) * Math.PI * 2 + timeSec * 0.9;
+              const vRadius = baseCircleRadius + (18 + (v % 2 === 0 ? sBass * 32 : sMids * 22)) * u;
+              const vx = cx + Math.cos(vAngle) * vRadius;
+              const vy = cy + Math.sin(vAngle) * vRadius;
+              if (v === 0) ctx.moveTo(vx, vy);
+              else ctx.lineTo(vx, vy);
+
+              // Cross chord to opposing vertex for crystal facet
+              const oppAngle = vAngle + Math.PI * 0.6;
+              const ox = cx + Math.cos(oppAngle) * (baseCircleRadius + 8 * u);
+              const oy = cy + Math.sin(oppAngle) * (baseCircleRadius + 8 * u);
+              ctx.lineTo(ox, oy);
+              ctx.moveTo(vx, vy);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = isLucid ? lucidTheme.primary : 'rgba(0, 242, 254, 0.80)';
+            ctx.lineWidth = Math.max(1.2, 1.8 * u);
+            ctx.stroke();
+          }
+
+
           // ── WAVE EFFECTS: Concentric Shockwaves & Spiral ──────────────────
           if (blobWaveMode === 'concentric' || shockwaves.current.length > 0) {
             shockwaves.current = shockwaves.current.filter((sw) => {
@@ -426,8 +616,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               if (age < 0 || age > WAVE_LIFETIME_MS) return false;
 
               const progress = Math.min(1.0, Math.max(0.0, age / WAVE_LIFETIME_MS));
-              const currentRadius = baseCircleRadius + progress * sw.maxDistance * u;
-              const decay = Math.pow(1.0 - progress, 1.4);
+              const currentRadius = baseCircleRadius + Math.pow(progress, 0.75) * sw.maxDistance * u;
+              const decay = Math.pow(1.0 - progress, 1.5);
               const alpha = decay * sw.opacity;
 
               if (alpha > 0.01) {
@@ -439,9 +629,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   : autoMode
                   ? dynamicColor
                   : `hsla(${sw.hue}, 95%, 65%, ${alpha})`;
-                ctx.lineWidth = Math.max(1, 1.8 * u);
+                ctx.lineWidth = Math.max(1, 1.6 * u);
                 ctx.shadowColor = ctx.strokeStyle;
-                ctx.shadowBlur = 10 * u;
+                ctx.shadowBlur = 8 * u;
                 ctx.stroke();
                 ctx.restore();
               }
@@ -529,14 +719,21 @@ export const RainbowBlobVisualizer: React.FC = () => {
     updateBlobSettings({ customLogoUrl: null });
   };
 
+  const haloDimension = blobSettings.haloSize * scaleU;
+  const circleDimension = blobSettings.circleSize * scaleU;
+
   // Render active center logo (custom image, Spotify/local track cover, or SVG vector logo)
   const renderCenterLogo = () => {
     const activeImage = blobSettings.customLogoUrl || currentTrack?.coverUrl;
+    // Strict proportional sizing: exactly 68% of the void circle
+    const discSize = Math.round(circleDimension * 0.68);
 
     if (activeImage) {
-      const discSize = Math.max(64, Math.min(112, 100 * scaleU));
       return (
-        <div className="relative flex items-center justify-center group cursor-pointer z-10">
+        <div
+          className="relative flex items-center justify-center group cursor-pointer z-10 select-none"
+          style={{ width: `${discSize}px`, height: `${discSize}px` }}
+        >
           {/* Subtle ambient bloom behind logo */}
           <div
             className="absolute inset-0 rounded-full pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity"
@@ -544,12 +741,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
               backgroundImage: `url(${activeImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(12px)',
-              transform: 'scale(1.1)',
+              filter: 'blur(16px)',
+              transform: 'scale(1.12)',
             }}
           />
 
-          {/* Crisp center circular disc */}
+          {/* Crisp center circular disc with vinyl grooves */}
           <div
             onClick={() => {
               setTempImageForCrop(activeImage);
@@ -559,19 +756,26 @@ export const RainbowBlobVisualizer: React.FC = () => {
               width: `${discSize}px`,
               height: `${discSize}px`,
             }}
-            className="relative rounded-full overflow-hidden border border-white/30 shadow-[0_0_20px_rgba(0,242,254,0.4)] animate-[spin_24s_linear_infinite] group-hover:scale-105 transition-transform"
-            title="Haz clic para recortar, aplicar filtros neón y efectos al logo/carátula"
+            className="relative rounded-full overflow-hidden border border-white/20 shadow-2xl animate-[spin_24s_linear_infinite] group-hover:scale-105 transition-transform"
+            title="Haz clic para recortar, aplicar filtros y efectos al logo/carátula"
           >
             <img
               src={activeImage}
               alt="Carátula / Logo"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover rounded-full"
             />
-            {/* Vinyl inner groove rings overlay */}
-            <div className="absolute inset-0 rounded-full border border-white/20 pointer-events-none" />
-            <div className="absolute inset-2.5 rounded-full border border-white/10 pointer-events-none" />
-            <div className="absolute inset-5 rounded-full border border-white/10 pointer-events-none" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-black border border-cyan-400 pointer-events-none shadow-[0_0_6px_#00f2fe]" />
+            {/* Proportional Vinyl inner groove rings overlay */}
+            <div className="absolute inset-0 rounded-full border border-white/25 pointer-events-none" />
+            <div className="absolute inset-[15%] rounded-full border border-white/10 pointer-events-none" />
+            <div className="absolute inset-[30%] rounded-full border border-white/10 pointer-events-none" />
+            <div className="absolute inset-[45%] rounded-full border border-white/10 pointer-events-none" />
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black border border-white/60 pointer-events-none shadow-sm"
+              style={{
+                width: `${Math.max(6, Math.round(discSize * 0.09))}px`,
+                height: `${Math.max(6, Math.round(discSize * 0.09))}px`,
+              }}
+            />
           </div>
         </div>
       );
@@ -579,38 +783,40 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
     const activePreset = LOGO_PRESETS.find((p) => p.id === blobSettings.logoStyle) || LOGO_PRESETS[0];
     const IconComponent = activePreset.icon;
-    const iconBoxSize = Math.max(54, Math.min(96, 84 * scaleU));
+    const iconBoxSize = Math.round(circleDimension * 0.58);
+    const iconSize = Math.max(18, Math.round(iconBoxSize * 0.5));
 
     return (
       <div
         style={{
           width: `${iconBoxSize}px`,
           height: `${iconBoxSize}px`,
-          ...(isLucid ? { color: lucidTheme.primary, boxShadow: `0 0 20px ${lucidTheme.glow}` } : {}),
+          ...(isLucid ? { color: lucidTheme.primary, borderColor: `${lucidTheme.primary}50` } : {}),
         }}
-        className="rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center shadow-[0_0_20px_rgba(0,242,254,0.3)] transform hover:scale-105 transition-transform z-10"
+        className="rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center transform hover:scale-105 transition-transform z-10 shadow-md"
       >
         <IconComponent
-          className="w-7 h-7 sm:w-10 sm:h-10 drop-shadow-[0_0_10px_currentColor]"
-          style={isLucid ? { color: lucidTheme.primary } : undefined}
+          style={{
+            width: `${iconSize}px`,
+            height: `${iconSize}px`,
+            color: isLucid ? lucidTheme.primary : undefined,
+          }}
+          className="text-white/80"
         />
       </div>
     );
   };
 
-  const haloDimension = blobSettings.haloSize * scaleU;
-  const circleDimension = blobSettings.circleSize * scaleU;
-
   return (
-    <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#060813] select-none">
-      {/* Fondo con Blur en Movimiento */}
+    <div className="absolute inset-0 w-full h-full overflow-hidden bg-transparent select-none">
+      {/* Fondo con Blur en Movimiento y Aurora Dinámica */}
       <div
         ref={fondoRef}
         className="fixed -top-12 -left-12 w-[125%] h-[125%] pointer-events-none transition-all duration-500"
         style={{
           background: isLucid
             ? lucidTheme.bgGradient
-            : 'radial-gradient(circle at 30% 25%, #0c1228 0%, #080d1e 40%, #050814 75%, #020308 100%)',
+            : 'radial-gradient(ellipse at 50% 50%, rgba(12, 18, 38, 0.45) 0%, rgba(5, 8, 18, 0.75) 60%, rgba(2, 4, 10, 0.95) 100%)',
           filter: `blur(${blobSettings.backgroundBlur}px)`,
           animation: 'moverFondo 16s infinite alternate ease-in-out',
           zIndex: 0,
@@ -655,37 +861,43 @@ export const RainbowBlobVisualizer: React.FC = () => {
             height: `${haloDimension}px`,
             background: haloBackground,
             boxShadow: isLucid
-              ? `0 0 45px ${lucidTheme.glow}`
-              : '0 0 50px rgba(0, 242, 254, 0.22), 0 0 80px rgba(255, 8, 138, 0.15)',
+              ? `0 0 35px ${lucidTheme.glow}`
+              : '0 0 45px rgba(0, 242, 254, 0.20), 0 0 70px rgba(255, 8, 138, 0.12)',
             backdropFilter: 'blur(18px) saturate(160%)',
           }}
         />
 
-        {/* El Círculo Interior (The Void) con Efecto Aurora */}
+        {/* El Círculo Interior (The Void) con Efecto Aurora y Micro-surcos Proporcionales */}
         <div
           ref={circleRef}
-          className={`relative z-10 rounded-full flex flex-col justify-center items-center transition-all duration-75 ease-out p-4 overflow-hidden ${
+          className={`relative z-10 rounded-full flex flex-col justify-center items-center transition-all duration-75 ease-out overflow-hidden ${
             isLucid
               ? 'border'
-              : 'border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.85),inset_0_0_25px_rgba(0,0,0,0.9)]'
+              : 'border border-white/[0.08] shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(0,0,0,0.95)]'
           }`}
           style={{
             width: `${circleDimension}px`,
             height: `${circleDimension}px`,
             backgroundColor: isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
-            borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.12)',
+            borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.10)',
             backdropFilter: 'blur(20px) saturate(150%)',
           }}
         >
+          {/* Micro-surcos concéntricos de audio hardware proporcionales */}
+          <div className="absolute inset-[6%] rounded-full border border-white/[0.03] pointer-events-none" />
+          <div className="absolute inset-[14%] rounded-full border border-white/[0.02] pointer-events-none" />
+          <div className="absolute inset-[22%] rounded-full border border-white/[0.02] pointer-events-none" />
+
+
           {/* Aurora Boreal animada sutil dentro del círculo */}
           <div
             ref={auroraRef}
             className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transition-opacity duration-300"
             style={{
               background: isLucid
-                ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}45 0%, ${lucidTheme.secondary}25 45%, transparent 80%)`
-                : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.35) 0%, rgba(138, 43, 226, 0.25) 45%, rgba(255, 8, 138, 0.20) 75%, transparent 95%)',
-              filter: 'blur(18px)',
+                ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}40 0%, ${lucidTheme.secondary}20 45%, transparent 80%)`
+                : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.28) 0%, rgba(138, 43, 226, 0.20) 45%, rgba(255, 8, 138, 0.16) 75%, transparent 95%)',
+              filter: 'blur(20px)',
               opacity: 0.35,
             }}
           />
@@ -694,46 +906,46 @@ export const RainbowBlobVisualizer: React.FC = () => {
           {renderCenterLogo()}
 
           {/* Información de pista sutil en el interior */}
-          {circleDimension >= 140 && (
+          {circleDimension >= 130 && (
             <div className="mt-2 text-center max-w-[85%] pointer-events-none z-10">
-              <p className="text-white/80 font-light tracking-[0.2em] text-[10px] sm:text-xs uppercase truncate">
-                {isMicActive ? 'Micrófono en vivo' : currentTrack?.title || 'Auralis Void'}
+              <p className="text-white/70 font-light tracking-wider text-[10px] sm:text-[11px] font-mono uppercase truncate">
+                {isMicActive ? 'Micrófono en vivo' : currentTrack?.title || 'Aura3D Void'}
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Botón flotante para abrir panel de personalización / Configuración */}
-      <div className="fixed top-28 sm:top-32 right-3 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+      {/* Botones flotantes de estudio: Configuración & Estilo Halo */}
+      <div className="fixed top-14 sm:top-16 right-3 sm:right-6 z-30 flex items-center gap-2 flex-wrap justify-end">
         <button
           onClick={toggleVisualizerSettings}
-          className="px-3.5 py-1.5 rounded-full backdrop-blur-2xl border border-white/10 bg-[#0a0f1e]/80 text-white/80 hover:text-cyan-300 hover:border-cyan-400/40 hover:bg-cyan-500/10 text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+          className="px-3 py-1.5 rounded-lg backdrop-blur-xl border border-white/[0.08] bg-[#070a14]/90 text-white/80 hover:text-white hover:bg-white/[0.06] text-xs font-mono tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg active:scale-95"
           title="Configurar Formas, Ondas y Parámetros del Visualizador"
         >
-          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+          <Sliders className="w-3.5 h-3.5 text-white/60" />
           <span>Configuración</span>
         </button>
 
         <button
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`px-3.5 py-1.5 rounded-full backdrop-blur-2xl border text-xs font-medium tracking-wider uppercase transition-all flex items-center gap-2 shadow-[0_4px_20px_rgba(0,0,0,0.5)] ${
+          className={`px-3 py-1.5 rounded-lg backdrop-blur-xl border text-xs font-mono tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg active:scale-95 ${
             isBlobPanelOpen
-              ? 'bg-pink-500/15 text-pink-300 border-pink-500/40 shadow-[0_0_15px_rgba(255,8,138,0.25)]'
-              : 'bg-[#0a0f1e]/80 text-white/80 border-white/10 hover:text-pink-300 hover:border-pink-500/30 hover:bg-white/5'
+              ? 'bg-white/15 text-white border-white/30'
+              : 'bg-[#070a14]/90 text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
           }`}
           title="Personalizar colores y logos"
         >
-          <Palette className="w-3.5 h-3.5 text-pink-400" />
+          <Palette className="w-3.5 h-3.5 text-white/60" />
           <span>Estilo Halo</span>
         </button>
       </div>
 
-      {/* Panel de Control Editable */}
+      {/* Panel de Control Editable (Studio Inspector) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-3xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.9)] space-y-4 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
-            isLucid ? 'lucid-panel' : 'bg-[#0a0f1e]/90 backdrop-blur-2xl border border-white/10'
+          className={`fixed bottom-20 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-2xl p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.85)] space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
+            isLucid ? 'lucid-panel' : 'bg-[#070a14]/98 backdrop-blur-2xl border border-white/[0.08]'
           }`}
           style={
             isLucid
@@ -745,10 +957,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
               : undefined
           }
         >
-          <div className="flex items-center justify-between pb-3 border-b border-white/10">
+          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <Palette className="w-4 h-4 text-cyan-400" />
-              <h4 className="text-white text-sm font-semibold tracking-wide">
+              <Palette className="w-4 h-4 text-white/60" />
+              <h4 className="text-white text-sm font-medium tracking-wide">
                 Estilo de Halo y Void
               </h4>
             </div>
@@ -756,14 +968,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
             <div className="flex items-center gap-1">
               <button
                 onClick={resetBlobSettings}
-                className="p-1.5 text-white/50 hover:text-pink-400 rounded-full hover:bg-white/5 transition-colors"
+                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
                 title="Restablecer valores"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setBlobPanelOpen(false)}
-                className="p-1.5 text-white/50 hover:text-white rounded-full hover:bg-white/5 transition-colors"
+                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -773,28 +985,28 @@ export const RainbowBlobVisualizer: React.FC = () => {
           <div className="space-y-3.5 text-xs text-white/80">
             {/* Modo Lúcido Neón Selector */}
             {isLucid && (
-              <div className="p-3 bg-white/5 rounded-2xl border border-white/10 space-y-2">
-                <span className="text-[11px] font-mono text-cyan-300 font-medium block">
-                  Colores del Modo Lúcido (Neón Activo):
+              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                <span className="text-[11px] font-mono text-white/70 font-medium block">
+                  Colores del Modo Lúcido:
                 </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 bg-black/40 px-2 py-1.5 rounded-lg border border-white/[0.08]">
                     <input
                       type="color"
                       value={lucidPrimaryColor}
                       onChange={(e) => setLucidPrimaryColor(e.target.value)}
-                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
-                      title="Color Neón Primario"
+                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      title="Color Primario"
                     />
                     <span className="text-[10px] font-mono text-white/80 uppercase">{lucidPrimaryColor}</span>
                   </div>
-                  <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10">
+                  <div className="flex items-center gap-2 bg-black/40 px-2 py-1.5 rounded-lg border border-white/[0.08]">
                     <input
                       type="color"
                       value={lucidSecondaryColor}
                       onChange={(e) => setLucidSecondaryColor(e.target.value)}
-                      className="w-6 h-6 rounded-lg cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
-                      title="Color Neón Secundario"
+                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
+                      title="Color Secundario"
                     />
                     <span className="text-[10px] font-mono text-white/80 uppercase">{lucidSecondaryColor}</span>
                   </div>
@@ -802,43 +1014,68 @@ export const RainbowBlobVisualizer: React.FC = () => {
               </div>
             )}
 
+            {/* 0. Selector Exclusivo de Efectos para Rainbow Void */}
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-pink-400" />
+                  Efecto Cinético Void:
+                </span>
+                <span className="text-[9px] font-mono text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20 uppercase">
+                  {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || '2D VOID'}
+                </span>
+              </div>
+              <select
+                value={blobShape}
+                onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
+                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-pink-400 cursor-pointer"
+                title="Selecciona el efecto cinético procedural del Rainbow Void"
+              >
+                {RAINBOW_VOID_EFFECTS.map((fx) => (
+                  <option key={fx.id} value={fx.id} className="bg-[#0b0e1b] text-white">
+                    {fx.name} ({fx.tag})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* 1. Modo Arcoíris vs Colores Personalizados */}
             <div className="flex items-center justify-between py-1">
-              <span className="text-cyan-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-pink-400" /> Arcoíris Completo:
+              <span className="text-white/70 flex items-center gap-1.5 font-mono text-xs">
+                <Sparkles className="w-3.5 h-3.5 text-white/50" /> Modo Arcoíris:
               </span>
               <button
                 onClick={() =>
                   updateBlobSettings({ isRainbowMode: !blobSettings.isRainbowMode })
                 }
-                className={`px-3 py-1 rounded-full text-xs transition-all ${
+                className={`px-3 py-1 rounded-md text-xs font-mono tracking-wider transition-all ${
                   blobSettings.isRainbowMode
-                    ? 'bg-gradient-to-r from-pink-500 to-cyan-400 text-black font-semibold shadow-[0_0_10px_rgba(0,242,254,0.4)]'
-                    : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'bg-white/[0.06] text-white/60 hover:bg-white/[0.1]'
                 }`}
               >
-                {blobSettings.isRainbowMode ? 'Activado' : 'Personalizado'}
+                {blobSettings.isRainbowMode ? 'ACTIVO' : 'MANUAL'}
               </button>
             </div>
 
             {!blobSettings.isRainbowMode && (
-              <div className="grid grid-cols-2 gap-3 p-3 bg-white/5 rounded-2xl border border-white/5">
+              <div className="grid grid-cols-2 gap-2.5 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.06]">
                 <div>
-                  <label className="block text-[11px] text-white/60 mb-1">Color 1:</label>
+                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 1:</label>
                   <input
                     type="color"
                     value={blobSettings.haloColor1}
                     onChange={(e) => updateBlobSettings({ haloColor1: e.target.value })}
-                    className="w-full h-8 bg-transparent rounded-lg cursor-pointer border border-white/10"
+                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-white/60 mb-1">Color 2:</label>
+                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 2:</label>
                   <input
                     type="color"
                     value={blobSettings.haloColor2}
                     onChange={(e) => updateBlobSettings({ haloColor2: e.target.value })}
-                    className="w-full h-8 bg-transparent rounded-lg cursor-pointer border border-white/10"
+                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
                   />
                 </div>
               </div>
@@ -846,9 +1083,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
             {/* 2. Tamaño del Halo */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/60">Tamaño del Halo Exterior:</span>
-                <span className="text-cyan-400 font-mono">{blobSettings.haloSize}px</span>
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/50">Diámetro Halo Exterior:</span>
+                <span className="text-white/80 tabular-nums">{blobSettings.haloSize}px</span>
               </div>
               <input
                 type="range"
@@ -856,15 +1093,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 max="600"
                 value={blobSettings.haloSize}
                 onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value) })}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
             </div>
 
             {/* 3. Tamaño del Círculo Central */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/60">Tamaño del Núcleo (Void):</span>
-                <span className="text-pink-400 font-mono">{blobSettings.circleSize}px</span>
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/50">Diámetro Núcleo (Void):</span>
+                <span className="text-white/80 tabular-nums">{blobSettings.circleSize}px</span>
               </div>
               <input
                 type="range"
@@ -872,15 +1109,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 max="400"
                 value={blobSettings.circleSize}
                 onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value) })}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
             </div>
 
             {/* 4. Potencia de Reacción al Bajo */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/60">Sensibilidad al Bajo:</span>
-                <span className="text-emerald-400 font-mono">{blobSettings.bassBoost}x</span>
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/50">Reacción al Bajo (Bass):</span>
+                <span className="text-white/80 tabular-nums">{blobSettings.bassBoost}x</span>
               </div>
               <input
                 type="range"
@@ -889,15 +1126,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 step="0.1"
                 value={blobSettings.bassBoost}
                 onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-emerald-400"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
             </div>
 
             {/* 4.1. Sensibilidad de Tamaño Dinámico */}
             <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/60">Sensibilidad de Tamaño:</span>
-                <span className="text-cyan-400 font-mono">{(blobSettings.scaleSensitivity ?? 1.0).toFixed(2)}x</span>
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/50">Sensibilidad de Escala:</span>
+                <span className="text-white/80 tabular-nums">{(blobSettings.scaleSensitivity ?? 1.0).toFixed(2)}x</span>
               </div>
               <input
                 type="range"
@@ -906,15 +1143,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 step="0.05"
                 value={blobSettings.scaleSensitivity ?? 1.0}
                 onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
             </div>
 
             {/* 4.2. Calibración del Impacto Bass Boom */}
-            <div className="p-3 bg-white/[0.03] border border-white/10 rounded-2xl space-y-2.5">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/70 font-medium">Sensibilidad Disparo Boom:</span>
-                <span className="text-pink-300 font-mono">{Math.round((1 - (blobBassBoomThreshold ?? 0.45)) * 100)}%</span>
+            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/60">Umbral Disparo Kick:</span>
+                <span className="text-white/80 tabular-nums">{Math.round((1 - (blobBassBoomThreshold ?? 0.45)) * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -923,12 +1160,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 step="0.02"
                 value={blobBassBoomThreshold}
                 onChange={(e) => setBlobBassBoomThreshold(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
 
-              <div className="flex justify-between text-[11px]">
-                <span className="text-white/70 font-medium">Potencia Golpe Boom:</span>
-                <span className="text-cyan-300 font-mono">{Math.round(blobBassBoomIntensity * 100)}%</span>
+              <div className="flex justify-between text-[11px] font-mono">
+                <span className="text-white/60">Potencia Subwoofer Kick:</span>
+                <span className="text-white/80 tabular-nums">{Math.round(blobBassBoomIntensity * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -937,17 +1174,17 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 step="0.05"
                 value={blobBassBoomIntensity}
                 onChange={(e) => setBlobBassBoomIntensity(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
               />
             </div>
 
             {/* 5. Selección de Logo Central */}
-            <div className="pt-2 border-t border-white/10 space-y-2">
-              <label className="block text-[11px] text-cyan-200 font-medium">
-                Logo Central del Núcleo:
+            <div className="pt-2 border-t border-white/[0.06] space-y-2">
+              <label className="block text-[11px] font-mono text-white/60">
+                Logotipo Central del Núcleo:
               </label>
 
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1.5">
                 {LOGO_PRESETS.map((preset) => {
                   const Icon = preset.icon;
                   const isSelected =
@@ -956,14 +1193,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     <button
                       key={preset.id}
                       onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
-                      className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 transition-all ${
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
                         isSelected
-                          ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
-                          : 'bg-white/5 border-white/5 text-white/40 hover:text-white hover:bg-white/10'
+                          ? 'bg-white/[0.1] border-white text-white shadow-sm'
+                          : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
                       }`}
                       title={preset.name}
                     >
-                      <Icon className="w-5 h-5" />
+                      <Icon className="w-4 h-4" />
+                      <span className="text-[9px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
                     </button>
                   );
                 })}
@@ -972,9 +1210,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
               {/* Botón de Subida de Logo Propio y Edición */}
               <div className="pt-2 flex flex-col gap-2">
                 <div className="flex gap-2">
-                  <label className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-[11px] text-white/80">
-                    <Upload className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir Imagen PNG/SVG'}</span>
+                  <label className="flex-1 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-mono text-white/80 hover:text-white">
+                    <Upload className="w-3.5 h-3.5 text-white/60" />
+                    <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -991,20 +1229,20 @@ export const RainbowBlobVisualizer: React.FC = () => {
                           setTempImageForCrop(blobSettings.customLogoUrl);
                           setIsCropModalOpen(true);
                         }}
-                        className="py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-300 rounded-xl text-[11px] font-medium transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,242,254,0.2)]"
+                        className="py-2 px-3 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
                         title="Abrir editor de recorte y filtros"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
-                        <span>Editar / Filtros</span>
+                        <span>Editar</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleRemoveCustomLogo}
-                        className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl transition-colors"
+                        className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
                         title="Eliminar logo personalizado"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </>
                   )}

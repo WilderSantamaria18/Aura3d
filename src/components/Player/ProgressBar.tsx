@@ -1,10 +1,12 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 
 export const ProgressBar: React.FC = React.memo(() => {
-  const { currentTime, duration, isLucid, lucidTheme } = usePlayerStore();
-  const { seek } = useAudioEngine();
+  const { currentTime, duration, isLucid, lucidTheme, isSpotifyConnected } = usePlayerStore();
+  const { seek: engineSeek } = useAudioEngine();
+  const { seek: spotifySeek } = useSpotifyPlayer();
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
   const barRef = useRef<HTMLDivElement>(null);
@@ -42,61 +44,98 @@ export const ProgressBar: React.FC = React.memo(() => {
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (isDragging) {
       setIsDragging(false);
-      seek(dragTime);
+      if (isSpotifyConnected) {
+        spotifySeek(Math.round(dragTime * 1000));
+      } else {
+        engineSeek(dragTime);
+      }
       try {
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {
         // pointer capture fallback
       }
     }
-  }, [isDragging, dragTime, seek]);
+  }, [isDragging, dragTime, isSpotifyConnected, spotifySeek, engineSeek]);
 
   const progressPct = getPercentage();
+
+  // Hover timestamp preview
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPos, setHoverPos] = useState<number>(0);
+
+  const handlePointerHover = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!barRef.current || !duration) return;
+    const rect = barRef.current.getBoundingClientRect();
+    const pos = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHoverPos(pos * 100);
+    setHoverTime(pos * duration);
+  };
+
+  const handlePointerLeave = () => {
+    setHoverTime(null);
+  };
 
   return (
     <div
       className="w-full flex items-center gap-3 text-xs select-none"
-      style={{ color: isLucid ? lucidTheme.primary : 'rgba(165, 243, 252, 0.7)' }}
+      style={{ color: isLucid ? lucidTheme.primary : 'rgba(255, 255, 255, 0.45)' }}
     >
-      <span className="w-10 text-right tabular-nums">{formatTime(isDragging ? dragTime : currentTime)}</span>
+      <span className="w-10 text-right font-mono text-[11px] tabular-nums text-white/50">
+        {formatTime(isDragging ? dragTime : currentTime)}
+      </span>
 
       <div
         ref={barRef}
         onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
+        onPointerMove={(e) => {
+          handlePointerMove(e);
+          handlePointerHover(e);
+        }}
+        onPointerLeave={handlePointerLeave}
         onPointerUp={handlePointerUp}
-        className="relative flex-1 h-3 group flex items-center cursor-pointer"
+        className="relative flex-1 h-5 group flex items-center cursor-pointer"
       >
         {/* Track background */}
-        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden transition-all group-hover:h-1.5 backdrop-blur-sm">
-          {/* Progress fill with glowing gradient */}
+        <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-all duration-150 group-hover:h-1.5">
+          {/* Progress fill */}
           <div
-            className="h-full rounded-full relative"
+            className="h-full rounded-full transition-[width] duration-75"
             style={{
               width: `${progressPct}%`,
               background: isLucid
                 ? `linear-gradient(90deg, ${lucidTheme.primary}, ${lucidTheme.secondary})`
-                : 'linear-gradient(to right, #00f2fe, #6366f1, #ff088a)',
-              boxShadow: isLucid
-                ? `0 0 12px ${lucidTheme.glow}`
-                : '0 0 12px rgba(0,242,254,0.5)',
+                : '#ffffff',
             }}
           />
         </div>
 
+        {/* Hover preview line & tooltip */}
+        {hoverTime !== null && !isDragging && (
+          <div
+            className="absolute -top-6 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black/90 border border-white/15 text-[10px] font-mono text-white/90 tabular-nums pointer-events-none shadow-md"
+            style={{ left: `${hoverPos}%` }}
+          >
+            {formatTime(hoverTime)}
+          </div>
+        )}
+
         {/* Scrub thumb */}
         <div
-          className="absolute w-3 h-3 rounded-full transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          className={`absolute w-3 h-3 rounded-full -translate-x-1/2 transition-opacity pointer-events-none shadow-[0_1px_4px_rgba(0,0,0,0.6)] ${
+            isDragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'
+          }`}
           style={{
             left: `${progressPct}%`,
-            backgroundColor: isLucid ? lucidTheme.primary : '#00f2fe',
-            boxShadow: isLucid ? `0 0 10px ${lucidTheme.glow}` : '0 0 10px #00f2fe',
+            backgroundColor: isLucid ? lucidTheme.primary : '#ffffff',
           }}
         />
       </div>
 
-      <span className="w-10 text-left tabular-nums">{formatTime(duration)}</span>
+      <span className="w-10 text-left font-mono text-[11px] tabular-nums text-white/40">
+        {formatTime(duration)}
+      </span>
     </div>
   );
 });
+
 

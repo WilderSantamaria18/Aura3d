@@ -3,6 +3,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SphereVisualizer } from './SphereVisualizer';
+import { AirInstruments3D } from './AirInstruments3D';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 import { usePlayerStore } from '../../stores/playerStore';
 
@@ -58,6 +59,7 @@ const ResponsiveCameraController: React.FC = () => {
 export const SceneContainer: React.FC = React.memo(() => {
   const device = useDeviceCapabilities();
   const vrMode = usePlayerStore((s) => s.vrMode);
+  const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
   const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
@@ -113,11 +115,14 @@ export const SceneContainer: React.FC = React.memo(() => {
         {/* 3D Crystalline Particle Sphere */}
         <SphereVisualizer particleCount={device.particleCount} />
 
-        {/* User Orbit Controls (Disabled during VR tracking to prevent motion conflicts) */}
+        {/* 3D Air Virtual Instruments */}
+        <AirInstruments3D />
+
+        {/* User Orbit Controls (Disabled during VR tracking or Air Instruments to prevent motion conflicts) */}
         <OrbitControls
-          enabled={!vrMode}
+          enabled={!vrMode && !isAirInstrumentsActive}
           enablePan={false}
-          enableZoom={!vrMode}
+          enableZoom={!vrMode && !isAirInstrumentsActive}
           target={[0, 0.35, 0]}
           minDistance={3.2}
           maxDistance={14}

@@ -10,62 +10,62 @@ export const VolumeControl: React.FC = () => {
     setVolume(val);
   };
 
+  const currentVol = isMuted ? 0 : volume;
+
   const getIcon = () => {
     if (isMuted || volume === 0) {
       return (
-        <VolumeX
-          className="w-4 h-4 transition-colors"
-          style={{ color: isLucid ? lucidTheme.secondary : '#ff088a' }}
-        />
+        <VolumeX className="w-4 h-4 text-rose-400/80 transition-colors" />
       );
     }
     if (volume < 0.5) {
       return (
         <Volume1
-          className="w-4 h-4 transition-colors"
-          style={{ color: isLucid ? lucidTheme.primary : '#00f2fe' }}
+          className="w-4 h-4 text-white/60 group-hover:text-white transition-colors"
+          style={isLucid ? { color: lucidTheme.primary } : undefined}
         />
       );
     }
     return (
       <Volume2
-        className="w-4 h-4 transition-colors"
-        style={{ color: isLucid ? lucidTheme.primary : '#00f2fe' }}
+        className="w-4 h-4 text-white/70 group-hover:text-white transition-colors"
+        style={isLucid ? { color: lucidTheme.primary } : undefined}
       />
     );
   };
 
   return (
-    <div className="flex items-center gap-2 group">
+    <div className="flex items-center gap-2 group select-none">
       <button
         onClick={toggleMute}
-        className="p-1.5 transition-colors rounded-full hover:bg-white/5"
+        className="p-1.5 transition-colors rounded-md text-white/50 hover:text-white hover:bg-white/[0.06] active:scale-95"
         title={isMuted ? 'Desmutear' : 'Mutear'}
       >
         {getIcon()}
       </button>
 
-      <div className="w-20 sm:w-24 flex items-center">
+      <div className="w-16 sm:w-20 flex items-center">
         <input
           type="range"
           min="0"
           max="1"
           step="0.01"
-          value={isMuted ? 0 : volume}
+          value={currentVol}
           onChange={handleVolumeChange}
-          className="w-full h-1 bg-white/15 rounded-lg appearance-none cursor-pointer transition-all"
+          className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer transition-all hover:bg-white/20"
           style={
             isLucid
-              ? {
-                  accentColor: lucidTheme.primary,
-                }
-              : {
-                  accentColor: '#00f2fe',
-                }
+              ? { accentColor: lucidTheme.primary }
+              : { accentColor: '#ffffff' }
           }
         />
       </div>
+
+      <span className="w-7 text-right font-mono text-[10px] tabular-nums text-white/40">
+        {Math.round(currentVol * 100)}%
+      </span>
     </div>
   );
 };
+
 

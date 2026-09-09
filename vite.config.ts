@@ -8,6 +8,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:4000',
+        ws: true,
+      },
+    },
+  },
   build: {
     // 3D WebGL vendor bundle (Three.js + R3F + Drei + three-stdlib) is ~900 KB minified (240 KB gzip).
     // It is code-split via React.lazy and only fetched when 3D scene is mounted.
