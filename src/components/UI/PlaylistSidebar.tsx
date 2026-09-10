@@ -6,7 +6,6 @@ import {
   ListMusic,
   Plus,
   Trash2,
-  Play,
   Upload,
   FolderPlus,
 } from 'lucide-react';
@@ -27,8 +26,6 @@ export const PlaylistSidebar: React.FC = () => {
     createPlaylist,
     addToPlaylist,
     removeFromPlaylist,
-    isLucid,
-    lucidTheme,
   } = usePlayerStore();
 
   const { loadFile } = useAudioEngine();
@@ -57,40 +54,56 @@ export const PlaylistSidebar: React.FC = () => {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file) => {
+        if (file.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac)$/i.test(file.name)) {
+          loadFile(file);
+        }
+      });
+    }
+  };
+
   const activePlaylist = playlists.find((p) => p.id === selectedPlaylistId);
 
   return (
     <div
-      className="fixed inset-y-0 left-0 z-50 w-80 sm:w-96 bg-[#070a14]/98 border-r backdrop-blur-2xl shadow-2xl flex flex-col transition-all duration-300 pointer-events-auto select-none animate-in slide-in-from-left duration-200"
-      style={
-        isLucid
-          ? {
-              borderRightColor: `${lucidTheme.primary}45`,
-              boxShadow: `12px 0 48px rgba(0,0,0,0.8), 0 0 35px ${lucidTheme.glow}`,
-            }
-          : {
-              borderRightColor: 'rgba(255, 255, 255, 0.08)',
-              boxShadow: '12px 0 48px rgba(0,0,0,0.9)',
-            }
-      }
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="fixed inset-y-0 left-0 z-50 w-80 sm:w-96 bg-[#090d18]/98 border-r border-white/[0.08] backdrop-blur-2xl shadow-[16px_0_48px_rgba(0,0,0,0.85)] flex flex-col transition-all duration-300 pointer-events-auto select-none animate-in slide-in-from-left duration-200"
+      style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
+      <div className="p-3.5 border-b border-white/[0.06] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <ListMusic className="w-4 h-4 text-white/60" />
-          <h3 className="text-white font-medium text-sm tracking-wide">Biblioteca Musical</h3>
+          <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+            <ListMusic className="w-3.5 h-3.5 text-[#00e5ff]" />
+          </div>
+          <div>
+            <h3 className="text-white font-medium text-xs sm:text-sm tracking-wide">Biblioteca de Estudio</h3>
+            <p className="text-[10px] font-mono text-white/40">Gestor de colas y reproducción</p>
+          </div>
         </div>
 
         <button
           onClick={() => setSidebarOpen(false)}
-          className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.06] transition-colors"
+          className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors"
+          aria-label="Cerrar biblioteca"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] px-4 pt-1 gap-1 text-xs">
+      <div className="flex border-b border-white/[0.06] px-3 pt-1.5 gap-1 text-xs">
         <button
           onClick={() => {
             setActiveTab('queue');
@@ -98,16 +111,9 @@ export const PlaylistSidebar: React.FC = () => {
           }}
           className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
             activeTab === 'queue'
-              ? isLucid
-                ? 'border-white text-white font-semibold'
-                : 'border-white text-white font-semibold'
+              ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
           }`}
-          style={
-            activeTab === 'queue' && isLucid
-              ? { borderColor: lucidTheme.primary, color: lucidTheme.primary }
-              : undefined
-          }
         >
           <Music className="w-3.5 h-3.5" /> Cola ({queue.length})
         </button>
@@ -119,44 +125,33 @@ export const PlaylistSidebar: React.FC = () => {
           }}
           className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
             activeTab === 'favorites'
-              ? isLucid
-                ? 'border-white text-white font-semibold'
-                : 'border-white text-white font-semibold'
+              ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
           }`}
-          style={
-            activeTab === 'favorites' && isLucid
-              ? { borderColor: lucidTheme.secondary, color: lucidTheme.secondary }
-              : undefined
-          }
         >
           <Heart className="w-3.5 h-3.5" /> Favoritos ({favorites.length})
         </button>
 
         <button
-          onClick={() => setActiveTab('playlists')}
+          onClick={() => {
+            setActiveTab('playlists');
+            setSelectedPlaylistId(null);
+          }}
           className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
             activeTab === 'playlists'
-              ? isLucid
-                ? 'border-white text-white font-semibold'
-                : 'border-white text-white font-semibold'
+              ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
           }`}
-          style={
-            activeTab === 'playlists' && isLucid
-              ? { borderColor: lucidTheme.primary, color: lucidTheme.primary }
-              : undefined
-          }
         >
           <ListMusic className="w-3.5 h-3.5" /> Playlists ({playlists.length})
         </button>
       </div>
 
-      {/* Action Bar */}
-      <div className="p-3 bg-white/[0.02] border-b border-white/[0.06] flex items-center gap-2">
-        <label className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-xs font-mono text-white/80 hover:text-white cursor-pointer transition-all active:scale-98">
-          <Upload className="w-3.5 h-3.5 text-white/60" />
-          <span>Agregar MP3 / WAV</span>
+      {/* Action Bar / Audio File Pick */}
+      <div className="p-3 bg-white/[0.01] border-b border-white/[0.04] flex items-center gap-2">
+        <label className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-xl text-xs font-mono text-white/80 hover:text-white cursor-pointer transition-all active:scale-98">
+          <Upload className="w-3.5 h-3.5 text-[#00e5ff]" />
+          <span>Importar Audio Local</span>
           <input
             type="file"
             accept="audio/*,.mp3,.wav,.ogg,.flac"
@@ -171,9 +166,13 @@ export const PlaylistSidebar: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
         {/* QUEUE TAB */}
         {activeTab === 'queue' && (
-          <div>
+          <div className="space-y-1">
             {queue.length === 0 ? (
-              <p className="text-white/30 text-xs text-center py-10 font-mono">Cola vacía</p>
+              <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center space-y-2 my-4">
+                <Upload className="w-6 h-6 text-white/30 mx-auto" />
+                <p className="text-xs text-white/70 font-medium">Arrastra tus archivos de audio aquí</p>
+                <p className="text-[10px] text-white/40 font-mono">Formatos: MP3, WAV, FLAC, OGG</p>
+              </div>
             ) : (
               queue.map((track, idx) => (
                 <TrackItem
@@ -190,11 +189,11 @@ export const PlaylistSidebar: React.FC = () => {
 
         {/* FAVORITES TAB */}
         {activeTab === 'favorites' && (
-          <div>
+          <div className="space-y-1">
             {favorites.length === 0 ? (
               <div className="text-center py-12 space-y-2">
-                <Heart className="w-7 h-7 text-white/20 mx-auto" />
-                <p className="text-white/30 text-xs font-mono">Sin favoritos guardados</p>
+                <Heart className="w-6 h-6 text-white/20 mx-auto" />
+                <p className="text-white/40 text-xs font-mono">Sin favoritos guardados</p>
               </div>
             ) : (
               favorites.map((track) => (
@@ -231,7 +230,7 @@ export const PlaylistSidebar: React.FC = () => {
                       placeholder="Nombre de la playlist..."
                       value={newPlaylistName}
                       onChange={(e) => setNewPlaylistName(e.target.value)}
-                      className="flex-1 px-3 py-1.5 bg-black/50 border border-white/20 rounded-lg text-xs text-white focus:outline-none focus:border-white/40"
+                      className="flex-1 px-3 py-1.5 bg-black/50 border border-white/20 rounded-lg text-xs text-white focus:outline-none focus:border-white/40 font-mono"
                       autoFocus
                     />
                     <button
@@ -253,36 +252,41 @@ export const PlaylistSidebar: React.FC = () => {
                     <div
                       key={pl.id}
                       onClick={() => setSelectedPlaylistId(pl.id)}
-                      className="p-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl cursor-pointer border border-white/[0.06] flex items-center justify-between group transition-colors"
+                      className="p-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] flex items-center justify-between cursor-pointer transition-colors"
                     >
-                      <div>
-                        <h5 className="text-white text-xs font-medium">{pl.name}</h5>
-                        <p className="text-white/40 text-[10px] font-mono mt-0.5">{pl.tracks.length} pistas</p>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                          <ListMusic className="w-4 h-4 text-white/50" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-white">{pl.name}</p>
+                          <p className="text-[10px] text-white/40 font-mono">
+                            {pl.tracks.length} {pl.tracks.length === 1 ? 'canción' : 'canciones'}
+                          </p>
+                        </div>
                       </div>
-                      <Play className="w-3.5 h-3.5 text-white/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   ))
                 )}
               </>
             ) : (
-              // INSIDE A PLAYLIST
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pb-1">
                   <button
                     onClick={() => setSelectedPlaylistId(null)}
-                    className="text-xs text-white/60 hover:text-white transition-colors"
+                    className="text-xs text-[#00e5ff] hover:underline font-mono"
                   >
-                    ← Volver
+                    ← Volver a playlists
                   </button>
-                  <h4 className="text-white text-xs font-semibold">{activePlaylist?.name}</h4>
+                  <span className="text-xs font-medium text-white">{activePlaylist?.name}</span>
                 </div>
 
                 {currentTrack && activePlaylist && (
                   <button
                     onClick={() => addToPlaylist(activePlaylist.id, currentTrack)}
-                    className="w-full py-2 bg-white/[0.04] hover:bg-white/[0.08] rounded-lg text-xs text-white/80 border border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full py-2 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl text-xs text-white/80 border border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors font-mono"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Agregar pista actual
+                    <Plus className="w-3.5 h-3.5 text-[#00e5ff]" /> Agregar pista actual
                   </button>
                 )}
 
@@ -319,9 +323,14 @@ const TrackItem: React.FC<{
       }`}
     >
       <div onClick={onPlay} className="flex-1 min-w-0 cursor-pointer flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-md bg-white/[0.05] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+        <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
           {isActive ? (
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            /* Mini-ecualizador animado de 3 barras */
+            <div className="flex items-end gap-[1.5px] h-3 w-3 justify-center">
+              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.6s_ease-in-out_infinite] h-full" />
+              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.15s] h-2/3" />
+              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.3s] h-4/5" />
+            </div>
           ) : (
             <Music className="w-3.5 h-3.5 text-white/30 group-hover:text-white/70" />
           )}
@@ -336,8 +345,9 @@ const TrackItem: React.FC<{
         {onRemove && (
           <button
             onClick={onRemove}
-            className="p-1 text-white/30 hover:text-rose-400 rounded hover:bg-white/[0.05] transition-colors"
-            title="Eliminar"
+            className="p-1 text-white/30 hover:text-rose-400 rounded-lg hover:bg-white/[0.05] transition-colors"
+            title="Eliminar de la cola"
+            aria-label="Eliminar"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -348,4 +358,3 @@ const TrackItem: React.FC<{
 };
 
 export default PlaylistSidebar;
-

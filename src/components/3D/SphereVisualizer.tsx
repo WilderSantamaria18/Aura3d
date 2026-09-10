@@ -5,6 +5,7 @@ import { useVisualizer } from '../../hooks/useVisualizer';
 import { usePerformanceMonitor } from '../../hooks/usePerformanceMonitor';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES } from '../../types/audio';
+import { aiSceneDirector } from '../../services/aiSceneDirectorService';
 
 interface SphereVisualizerProps {
   particleCount?: number;
@@ -543,7 +544,8 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       }
 
       // Base continuous rotation & VR Tracking
-      const rotMultiplier = isLucid ? 1.6 : 1.0;
+      const aiMetrics = autoMode ? aiSceneDirector.getMetrics() : null;
+      const rotMultiplier = (isLucid ? 1.6 : 1.0) * (aiMetrics ? aiMetrics.rotationSpeedMultiplier : 1.0);
       if (pointsRef.current) {
         if (!isInteracting) {
           if (isVrActive) {
@@ -593,12 +595,13 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         }
 
         // Update GPU Uniforms (Instant, 0 CPU loop)
+        const turb = aiMetrics ? aiMetrics.turbulenceFactor : 1.0;
         const u = mainShaderMaterial.uniforms;
         u.uTime.value = time;
-        u.uBass.value = sBass;
-        u.uMids.value = sMids;
-        u.uHighs.value = sHighs;
-        u.uEnergy.value = sEnergy;
+        u.uBass.value = sBass * turb;
+        u.uMids.value = sMids * turb;
+        u.uHighs.value = sHighs * turb;
+        u.uEnergy.value = sEnergy * turb;
         u.uShape.value = getShapeId(sphereShape);
         u.uSize.value = isLucid ? 0.058 : isUltraEco ? 0.054 : isEco ? 0.050 : 0.046;
         u.uOpacity.value = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;

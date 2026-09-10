@@ -183,19 +183,46 @@ export const EqualizerModal: React.FC = () => {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
-    // Línea de referencia 0dB
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    // Líneas de referencia dB (+12, 0, -12)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.setLineDash([3, 4]);
+    
+    // +12 dB
+    const yPlus12 = H / 2 - (12 / 12) * (H * 0.4);
+    ctx.beginPath();
+    ctx.moveTo(36, yPlus12);
+    ctx.lineTo(W - 16, yPlus12);
+    ctx.stroke();
+
+    // 0 dB (Línea central más visible)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.beginPath();
     ctx.moveTo(36, H / 2);
     ctx.lineTo(W - 16, H / 2);
     ctx.stroke();
+
+    // -12 dB
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    const yMinus12 = H / 2 - (-12 / 12) * (H * 0.4);
+    ctx.beginPath();
+    ctx.moveTo(36, yMinus12);
+    ctx.lineTo(W - 16, yMinus12);
+    ctx.stroke();
     ctx.setLineDash([]);
+
+    // Etiquetas de dB en el lateral izquierdo
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('+12', 30, yPlus12);
+    ctx.fillText('0dB', 30, H / 2);
+    ctx.fillText('-12', 30, yMinus12);
 
     // Puntos de spline para las 10 bandas
     const points: { x: number; y: number }[] = [];
-    const marginL = 36;
+    const marginL = 40;
     const availW = W - marginL - 16;
 
     eqBands.forEach((band, idx) => {
@@ -209,7 +236,7 @@ export const EqualizerModal: React.FC = () => {
 
     // Relleno de área bajo la curva
     const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
-    fillGrad.addColorStop(0, isLucid ? `${activeColor}25` : 'rgba(255, 255, 255, 0.1)');
+    fillGrad.addColorStop(0, isLucid ? `${activeColor}20` : 'rgba(0, 229, 255, 0.12)');
     fillGrad.addColorStop(1, 'transparent');
 
     ctx.beginPath();
@@ -247,7 +274,7 @@ export const EqualizerModal: React.FC = () => {
       const cp2y = p2.y - (p3.y - p1.y) / 6;
       ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
-    ctx.strokeStyle = isLucid ? activeColor : '#ffffff';
+    ctx.strokeStyle = isLucid ? activeColor : '#00e5ff';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -255,7 +282,7 @@ export const EqualizerModal: React.FC = () => {
     points.forEach((p) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = isLucid ? activeColor : '#ffffff';
+      ctx.fillStyle = isLucid ? activeColor : '#00e5ff';
       ctx.fill();
     });
   }, [eqBands, isLucid, activeColor, isBypassed]);
@@ -265,26 +292,26 @@ export const EqualizerModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md pointer-events-auto select-none font-sans">
       <div
-        className="w-full max-w-3xl border border-white/[0.08] rounded-2xl p-4 sm:p-6 shadow-[0_24px_64px_rgba(0,0,0,0.8)] relative flex flex-col max-h-[92vh] overflow-hidden bg-[#0A0A0F]"
-        style={{ fontFeatureSettings: "'ss01'" }}
+        className="w-full max-w-3xl border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] relative flex flex-col max-h-[92vh] overflow-hidden bg-[#090d18]"
+        style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/80">
-              <Sliders className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/80">
+              <Sliders className="w-4 h-4 text-[#00e5ff]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-white font-medium text-sm sm:text-base tracking-wide">
-                  Master Equalizer Studio
-                </h3>
-                <span className="text-[9px] font-mono tracking-widest px-1.5 py-0.2 rounded border border-white/[0.1] bg-white/[0.03] text-white/50 uppercase">
-                  10-Band Biquad DSP
+                <h2 className="text-white font-medium text-sm sm:text-base tracking-wide">
+                  Ecualizador de Estudio
+                </h2>
+                <span className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.02] text-white/50 uppercase">
+                  DSP BIQUAD 10 BANDAS
                 </span>
               </div>
               <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
-                Respuesta de frecuencia en tiempo real · 20Hz - 20kHz
+                Calibración de frecuencia en tiempo real · 20Hz - 20kHz
               </p>
             </div>
           </div>
@@ -293,15 +320,16 @@ export const EqualizerModal: React.FC = () => {
             {/* Bypass Button */}
             <button
               onClick={handleToggleBypass}
-              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium tracking-wide uppercase border transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-medium tracking-wider uppercase border transition-colors flex items-center gap-1.5 ${
                 isBypassed
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                  : 'bg-white/[0.04] text-white/60 border-white/[0.08] hover:text-white hover:bg-white/[0.08]'
+                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  : 'bg-white/[0.03] text-white/70 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
               }`}
               title="Alternar entre Ecualizador Activo y Bypass 0dB (A/B Test)"
             >
+              <span className={`w-1.5 h-1.5 rounded-full ${isBypassed ? 'bg-amber-400 animate-pulse' : 'bg-[#00e5ff]'}`} />
               {isBypassed ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              <span>{isBypassed ? 'Bypass ON' : 'EQ Activo'}</span>
+              <span>{isBypassed ? 'Bypass' : 'Activo'}</span>
             </button>
 
             <button
@@ -314,26 +342,26 @@ export const EqualizerModal: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Scrollable Body ── */}
-        <div className="flex-1 overflow-y-auto space-y-4 py-3.5 scrollbar-thin scrollbar-thumb-white/10 pr-1">
-          {/* 1. Curva de Respuesta de Frecuencia */}
-          <div className="p-3 bg-white/[0.02] rounded-xl border border-white/[0.06]">
-            <div className="flex items-center justify-between pb-1 px-1 text-[10px] font-mono text-white/50 uppercase">
+        {/* ── Continuous Studio Surface (No Nested Cards) ── */}
+        <div className="flex-1 overflow-y-auto space-y-4 py-3 scrollbar-thin scrollbar-thumb-white/10 pr-1">
+          {/* 1. Curva de Respuesta de Frecuencia (Plano integrado) */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-1 text-[10px] font-mono text-white/40 uppercase">
               <span className="flex items-center gap-1.5">
-                <Activity className="w-3 h-3 text-white/60" />
-                Respuesta Analítica en Decibelios
+                <Activity className="w-3 h-3 text-[#00e5ff]/70" />
+                Respuesta Espectral (dB vs Hz)
               </span>
-              <span>{isBypassed ? 'Modo Bypass (0dB)' : 'Procesamiento Activo'}</span>
+              <span>{isBypassed ? 'Modo Bypass Flat' : 'Filtros Activos'}</span>
             </div>
-            <div className="w-full relative pt-1">
+            <div className="w-full relative pt-0.5 bg-black/30 rounded-xl border border-white/[0.04] p-1.5">
               <canvas ref={canvasRef} className="w-full block rounded-lg" />
             </div>
           </div>
 
           {/* 2. Matriz de Presets de Estudio */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs px-1">
-              <span className="font-mono text-white/50 uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+              <span className="font-mono text-white/40 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
                 <Zap className="w-3 h-3 text-white/40" /> Presets de Estudio:
               </span>
               <div className="flex items-center gap-2">
@@ -354,23 +382,23 @@ export const EqualizerModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
               {EQ_PRESETS.map((preset) => {
                 const isSelected = activePresetId === preset.id && !isBypassed;
                 return (
                   <button
                     key={preset.id}
                     onClick={() => handleApplyPreset(preset)}
-                    className={`px-2.5 py-2 rounded-xl border text-left flex flex-col justify-between transition-colors ${
+                    className={`px-2 py-1.5 rounded-lg border text-left flex flex-col justify-between transition-colors ${
                       isSelected
-                        ? 'bg-white/10 border-white/25 text-white shadow-sm'
-                        : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.06] text-white/70'
+                        ? 'bg-white/10 border-white/20 text-white'
+                        : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05] text-white/60 hover:text-white/90'
                     }`}
                   >
                     <span className="text-[11px] font-medium leading-tight truncate">
                       {preset.name}
                     </span>
-                    <span className="text-[8px] font-mono text-white/40 tracking-wider uppercase mt-1">
+                    <span className="text-[8px] font-mono text-white/40 tracking-wider uppercase mt-0.5">
                       {preset.tag}
                     </span>
                   </button>
@@ -379,29 +407,29 @@ export const EqualizerModal: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Faders Verticales de Precisión (10 Bandas) */}
+          {/* 3. Faders Verticales de Precisión (Consola de Audio Continua) */}
           <div className="pt-2 border-t border-white/[0.06]">
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-5 sm:grid-cols-10 divide-x divide-white/[0.04] bg-black/20 rounded-xl border border-white/[0.04]">
               {eqBands.map((band, idx) => {
                 const cat = BAND_CATEGORIES[idx] || { tag: 'MID' };
 
                 return (
                   <div
                     key={band.id}
-                    className="flex flex-col items-center py-2 px-1 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors"
+                    className="flex flex-col items-center py-2.5 px-1 hover:bg-white/[0.02] transition-colors"
                   >
-                    <span className="text-[8px] font-mono text-white/30 tracking-widest uppercase">
+                    <span className="text-[8px] font-mono text-white/40 tracking-wider uppercase">
                       {cat.tag}
                     </span>
 
-                    <span className="text-[11px] font-mono font-medium tabular-nums mt-1 text-white/90">
+                    <span className="text-[11px] font-mono font-medium tabular-nums mt-0.5 text-white/90">
                       {band.gain > 0 ? `+${band.gain.toFixed(1)}` : band.gain.toFixed(1)}
                     </span>
 
-                    {/* Fader Vertical */}
+                    {/* Fader Vertical de Audio */}
                     <div className="h-32 sm:h-36 flex items-center justify-center my-1 relative w-full">
                       {/* Notch Central 0dB */}
-                      <div className="absolute w-4 h-[1px] bg-white/25 pointer-events-none z-0" />
+                      <div className="absolute w-4 h-[1px] bg-white/20 pointer-events-none z-0" />
                       
                       <input
                         type="range"
@@ -420,7 +448,7 @@ export const EqualizerModal: React.FC = () => {
                           setActivePresetId('custom');
                           StorageService.saveActiveEqPresetId('custom');
                         }}
-                        className="w-28 sm:w-32 h-1 bg-white/10 rounded appearance-none cursor-pointer accent-white -rotate-90 origin-center z-10 disabled:opacity-30"
+                        className="w-28 sm:w-32 h-1.5 bg-white/[0.08] rounded-full appearance-none cursor-pointer accent-[#00e5ff] -rotate-90 origin-center z-10 disabled:opacity-30"
                       />
                     </div>
 
@@ -432,7 +460,7 @@ export const EqualizerModal: React.FC = () => {
                           StorageService.saveActiveEqPresetId('custom');
                         }}
                         disabled={isBypassed || band.gain <= -12}
-                        className="w-4 h-4 flex items-center justify-center rounded bg-white/[0.04] text-white/50 hover:text-white text-[9px] disabled:opacity-20"
+                        className="w-4 h-4 flex items-center justify-center rounded bg-white/[0.04] text-white/50 hover:text-white text-[9px] disabled:opacity-20 transition-colors"
                         title="Bajar 0.5dB"
                       >
                         -
@@ -443,7 +471,7 @@ export const EqualizerModal: React.FC = () => {
                           setActivePresetId('custom');
                         }}
                         disabled={isBypassed || band.gain >= 12}
-                        className="w-4 h-4 flex items-center justify-center rounded bg-white/[0.04] text-white/50 hover:text-white text-[9px] disabled:opacity-20"
+                        className="w-4 h-4 flex items-center justify-center rounded bg-white/[0.04] text-white/50 hover:text-white text-[9px] disabled:opacity-20 transition-colors"
                         title="Subir 0.5dB"
                       >
                         +

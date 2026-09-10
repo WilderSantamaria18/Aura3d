@@ -17,6 +17,7 @@ import {
   Zap,
   Globe2,
   Edit3,
+  ChevronDown,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
@@ -226,11 +227,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const idleBreathing = isAudioActive ? 0 : Math.sin(timeSec * 1.5) * 0.03;
       const sens = (blobSettings.scaleSensitivity ?? 1.0) * audioSens;
       const baseScale = 0.75 + idleBreathing;
-      const bassContribution = Math.pow(nivel, 1.2) * (0.4 + boostVal * 0.22);
-      const boomContribution = Math.min(boomPunch * 0.28 * audioSens, 0.65);
+      const bassContribution = Math.pow(nivel, 1.25) * (0.45 + boostVal * 0.25);
+      const boomContribution = Math.min(boomPunch * 0.32 * audioSens, 0.70);
       const totalScale = (baseScale + bassContribution + boomContribution) * sens;
-      const clampedScale = Math.min(2.0, Math.max(0.45, totalScale));
-      const escala = clampedScale * blobScale;
+      const clampedScale = Math.min(1.8, Math.max(0.40, totalScale));
+      // Rainbow Void reference fixed scale at 0.5x
+      const escala = clampedScale * 0.5;
 
       // Minimalist organic contour (clean, zero unnecessary wobbles)
       let borderRadius: string;
@@ -916,35 +918,60 @@ export const RainbowBlobVisualizer: React.FC = () => {
         </div>
       </div>
 
-      {/* Botones flotantes de estudio: Configuración & Estilo Halo */}
-      <div className="fixed top-14 sm:top-16 right-3 sm:right-6 z-30 flex items-center gap-2 flex-wrap justify-end">
+      {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes */}
+      <div className="fixed top-16 sm:top-18 right-3 sm:right-6 z-30 flex items-center pointer-events-auto select-none">
         <button
-          onClick={toggleVisualizerSettings}
-          className="px-3 py-1.5 rounded-lg backdrop-blur-xl border border-white/[0.08] bg-[#070a14]/90 text-white/80 hover:text-white hover:bg-white/[0.06] text-xs font-mono tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg active:scale-95"
-          title="Configurar Formas, Ondas y Parámetros del Visualizador"
-        >
-          <Sliders className="w-3.5 h-3.5 text-white/60" />
-          <span>Configuración</span>
-        </button>
-
-        <button
+          type="button"
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`px-3 py-1.5 rounded-lg backdrop-blur-xl border text-xs font-mono tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg active:scale-95 ${
+          className={`group flex items-center gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl backdrop-blur-xl border transition-all duration-200 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] active:scale-95 ${
             isBlobPanelOpen
-              ? 'bg-white/15 text-white border-white/30'
-              : 'bg-[#070a14]/90 text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
+              ? 'bg-white/15 text-white border-white/30 shadow-[0_0_20px_rgba(0,229,255,0.25)]'
+              : 'bg-[#090d18]/90 text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06] hover:border-white/20'
           }`}
-          title="Personalizar colores y logos"
+          style={
+            isLucid
+              ? {
+                  borderColor: isBlobPanelOpen ? `${lucidPrimaryColor}80` : `${lucidPrimaryColor}30`,
+                  boxShadow: isBlobPanelOpen ? `0 0 25px ${lucidTheme.glow}` : undefined,
+                }
+              : undefined
+          }
+          title={isBlobPanelOpen ? 'Cerrar panel de estilo Halo' : 'Abrir configuración y estilo del Halo'}
+          aria-label="Configuración y Estilo de Halo"
         >
-          <Palette className="w-3.5 h-3.5 text-white/60" />
-          <span>Estilo Halo</span>
+          {/* Micro icono estilizado */}
+          <div
+            className="w-5 h-5 rounded-lg flex items-center justify-center transition-colors"
+            style={{
+              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+            }}
+          >
+            <Sliders
+              className="w-3 h-3 transition-transform group-hover:rotate-45 duration-300"
+              style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
+            />
+          </div>
+
+          <span className="text-xs font-medium tracking-wide text-white/90">
+            Estilo Halo
+          </span>
+
+          <span className="hidden sm:inline-block text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
+            AJUSTES
+          </span>
+
+          <ChevronDown
+            className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-white/40 transition-transform duration-200 ${
+              isBlobPanelOpen ? 'rotate-180 text-white' : 'group-hover:text-white/70'
+            }`}
+          />
         </button>
       </div>
 
       {/* Panel de Control Editable (Studio Inspector) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed bottom-20 sm:bottom-24 left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-40 rounded-2xl p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.85)] space-y-4 max-h-[75vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-bottom-2 duration-200 ${
+          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-40 rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 ${
             isLucid ? 'lucid-panel' : 'bg-[#070a14]/98 backdrop-blur-2xl border border-white/[0.08]'
           }`}
           style={
@@ -959,13 +986,33 @@ export const RainbowBlobVisualizer: React.FC = () => {
         >
           <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
             <div className="flex items-center gap-2">
-              <Palette className="w-4 h-4 text-white/60" />
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center"
+                style={{
+                  backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+                }}
+              >
+                <Palette
+                  className="w-3.5 h-3.5"
+                  style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
+                />
+              </div>
               <h4 className="text-white text-sm font-medium tracking-wide">
                 Estilo de Halo y Void
               </h4>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={toggleVisualizerSettings}
+                className="px-2 py-1 rounded-lg text-[10px] font-mono tracking-wider uppercase bg-white/[0.04] border border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center gap-1"
+                title="Abrir Calibración Avanzada de Shaders y Frecuencias"
+              >
+                <Sliders className="w-3 h-3 text-[#00e5ff]" />
+                <span className="hidden min-[400px]:inline">Configuración</span>
+              </button>
+
               <button
                 onClick={resetBlobSettings}
                 className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
@@ -976,6 +1023,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
               <button
                 onClick={() => setBlobPanelOpen(false)}
                 className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
+                aria-label="Cerrar panel"
               >
                 <X className="w-4 h-4" />
               </button>

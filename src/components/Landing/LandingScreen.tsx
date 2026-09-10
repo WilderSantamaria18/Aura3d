@@ -25,8 +25,8 @@ import { StudioLaunchDeck } from './StudioLaunchDeck';
  * de forma secuencial, limpia y fluida.
  */
 export const LandingScreen: React.FC = () => {
-  const { setHasStarted, togglePlay, isAudioUnlocked } = usePlayerStore();
-  const { unlockAudio, loadFile, toggleMicrophone } = useAudioEngine();
+  const { setHasStarted } = usePlayerStore();
+  const { unlockAudio, loadFile, toggleMicrophone, togglePlayPause } = useAudioEngine();
 
   const [activeStage, setActiveStage] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
@@ -77,10 +77,11 @@ export const LandingScreen: React.FC = () => {
   const handleStartExperience = async () => {
     setIsTransitioningOut(true);
     await unlockAudio();
-    setTimeout(() => {
+    setTimeout(async () => {
       setHasStarted(true);
-      if (!isAudioUnlocked) {
-        togglePlay();
+      const state = usePlayerStore.getState();
+      if (!state.isPlaying) {
+        await togglePlayPause();
       }
     }, 450);
   };

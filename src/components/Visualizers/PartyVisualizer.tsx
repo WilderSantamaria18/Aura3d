@@ -504,45 +504,43 @@ export const PartyVisualizer: React.FC = () => {
       <canvas ref={canvasRef} className="w-full h-full block" />
 
       {/* Floating Studio Controls */}
-      <div className="fixed top-28 sm:top-32 right-3 sm:right-6 z-40 flex flex-col items-end gap-2">
+      <div className="fixed top-24 sm:top-28 right-3 sm:right-6 z-40 flex flex-col items-end gap-2">
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className={`px-4 py-2 rounded-none border text-[10px] font-mono tracking-[0.2em] uppercase transition-all flex items-center gap-2.5 ${
+          className={`px-3 py-1.5 rounded-xl border text-[10px] font-mono tracking-[0.14em] uppercase transition-all flex items-center gap-2 select-none ${
             showSettings
-              ? 'bg-cyan-950/60 text-cyan-300 border-cyan-400/50 shadow-[0_0_16px_rgba(0,242,254,0.3)]'
-              : 'bg-black/70 text-white/40 border-white/10 hover:text-cyan-300 hover:border-cyan-400/30'
+              ? 'bg-[#101524] text-[#00e5ff] border-[#00e5ff]/40 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)]'
+              : 'bg-[#080b14]/90 text-white/60 border-white/[0.08] hover:text-white hover:border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.4)]'
           }`}
+          aria-expanded={showSettings}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-          STUDIO CONFIG
+          <span className={`w-1.5 h-1.5 rounded-full ${showSettings ? 'bg-[#00e5ff]' : 'bg-white/40'}`} />
+          CONFIG ESTUDIO
         </button>
 
         {showSettings && (
-          <div className="bg-[#05070f]/98 backdrop-blur-2xl border border-cyan-400/20 rounded-none p-4 w-60 shadow-[0_0_40px_rgba(0,0,0,0.8)] space-y-4">
+          <div className="bg-[#090d18]/95 backdrop-blur-xl border border-white/[0.08] rounded-xl p-4 w-64 shadow-[0_16px_40px_-6px_rgba(0,0,0,0.8)] space-y-4">
             {/* Panel header */}
-            <div className="flex items-center gap-2 border-b border-cyan-400/15 pb-2.5">
-              <span className="w-1.5 h-4 bg-cyan-400" />
-              <span className="text-[9px] font-mono tracking-[0.3em] text-cyan-400/80 uppercase">
-                SYSTEM / DISPLAY
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+              <span className="text-[10px] font-mono tracking-[0.15em] text-white/70 uppercase font-medium">
+                SISTEMA / MONITOR
+              </span>
+              <span className="text-[9px] font-mono text-[#00e5ff] uppercase px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
+                3D AUDIO
               </span>
             </div>
 
             {/* RGB Intensity */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono tracking-[0.2em] text-white/40 uppercase">
-                  RGB INTENSITY
+                <span className="text-[10px] font-mono tracking-wider text-white/50 uppercase">
+                  ILUMINACIÓN RGB
                 </span>
-                <span className="text-[10px] font-mono text-cyan-300">
-                  {(rgbIntensity * 100).toFixed(0)}
-                  <span className="text-white/30">%</span>
+                <span className="text-[11px] font-mono tabular-nums text-white/90 font-medium">
+                  {(rgbIntensity * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="relative h-[3px] bg-white/8 w-full">
-                <div
-                  className="absolute top-0 left-0 h-full bg-cyan-400 shadow-[0_0_6px_rgba(0,242,254,0.7)]"
-                  style={{ width: `${((rgbIntensity - 0.2) / 1.8) * 100}%` }}
-                />
+              <div className="relative flex items-center">
                 <input
                   type="range"
                   min="0.2"
@@ -550,27 +548,22 @@ export const PartyVisualizer: React.FC = () => {
                   step="0.05"
                   value={rgbIntensity}
                   onChange={(e) => setRgbIntensity(parseFloat(e.target.value))}
-                  className="absolute inset-0 w-full opacity-0 cursor-pointer h-4 -top-2"
+                  className="w-full h-1.5 bg-white/[0.08] rounded-full appearance-none cursor-pointer accent-[#00e5ff]"
                 />
               </div>
             </div>
 
             {/* Monitor Size */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono tracking-[0.2em] text-white/40 uppercase">
-                  MONITOR SIZE
+                <span className="text-[10px] font-mono tracking-wider text-white/50 uppercase">
+                  TAMAÑO MONITORES
                 </span>
-                <span className="text-[10px] font-mono text-cyan-300">
-                  {(speakerSize * 100).toFixed(0)}
-                  <span className="text-white/30">%</span>
+                <span className="text-[11px] font-mono tabular-nums text-white/90 font-medium">
+                  {(speakerSize * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="relative h-[3px] bg-white/8 w-full">
-                <div
-                  className="absolute top-0 left-0 h-full bg-pink-400 shadow-[0_0_6px_rgba(255,8,138,0.7)]"
-                  style={{ width: `${((speakerSize - 0.5) / 1.1) * 100}%` }}
-                />
+              <div className="relative flex items-center">
                 <input
                   type="range"
                   min="0.5"
@@ -578,19 +571,15 @@ export const PartyVisualizer: React.FC = () => {
                   step="0.05"
                   value={speakerSize}
                   onChange={(e) => setSpeakerSize(parseFloat(e.target.value))}
-                  className="absolute inset-0 w-full opacity-0 cursor-pointer h-4 -top-2"
+                  className="w-full h-1.5 bg-white/[0.08] rounded-full appearance-none cursor-pointer accent-white"
                 />
               </div>
             </div>
 
             {/* Status readout */}
-            <div className="border-t border-white/8 pt-2.5 flex items-center justify-between">
-              <span className="text-[8px] font-mono tracking-widest text-white/25 uppercase">
-                RENDERER
-              </span>
-              <span className="text-[8px] font-mono text-cyan-400/60 tracking-wider">
-                CANVAS 2D / ACTIVE
-              </span>
+            <div className="border-t border-white/[0.06] pt-2 flex items-center justify-between text-[9px] font-mono text-white/40">
+              <span className="tracking-wider uppercase">RENDERER</span>
+              <span className="text-white/70 tracking-wider">CANVAS 2D / 60FPS</span>
             </div>
           </div>
         )}

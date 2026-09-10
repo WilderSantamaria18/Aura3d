@@ -11,6 +11,7 @@ export const VolumeControl: React.FC = () => {
   };
 
   const currentVol = isMuted ? 0 : volume;
+  const dbText = isMuted || currentVol <= 0.001 ? '-∞ dB' : `${(20 * Math.log10(currentVol)).toFixed(1)} dB`;
 
   const getIcon = () => {
     if (isMuted || volume === 0) {
@@ -38,7 +39,7 @@ export const VolumeControl: React.FC = () => {
     <div className="flex items-center gap-2 group select-none">
       <button
         onClick={toggleMute}
-        className="p-1.5 transition-colors rounded-md text-white/50 hover:text-white hover:bg-white/[0.06] active:scale-95"
+        className="p-1.5 transition-colors rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] active:scale-95"
         title={isMuted ? 'Desmutear' : 'Mutear'}
       >
         {getIcon()}
@@ -52,17 +53,18 @@ export const VolumeControl: React.FC = () => {
           step="0.01"
           value={currentVol}
           onChange={handleVolumeChange}
-          className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer transition-all hover:bg-white/20"
+          className="w-full h-1 bg-white/[0.08] rounded-full appearance-none cursor-pointer transition-all hover:bg-white/[0.15] accent-white"
           style={
             isLucid
               ? { accentColor: lucidTheme.primary }
-              : { accentColor: '#ffffff' }
+              : undefined
           }
+          title={`Volumen: ${Math.round(currentVol * 100)}% (${dbText})`}
         />
       </div>
 
-      <span className="w-7 text-right font-mono text-[10px] tabular-nums text-white/40">
-        {Math.round(currentVol * 100)}%
+      <span className="w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors">
+        {dbText}
       </span>
     </div>
   );

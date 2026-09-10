@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, Sparkles, CircleDot, Image as ImageIcon, Trash2, Activity } from 'lucide-react';
+import { Palette, Sparkles, CircleDot, Image as ImageIcon, Trash2 } from 'lucide-react';
 
 interface ControlsProps {
   sphereColor: string;
@@ -11,10 +11,6 @@ interface ControlsProps {
   onImageUpload: (file: File) => void;
   imageUrl: string | null;
   onRemoveImage: () => void;
-  showBars?: boolean;
-  onToggleBars?: () => void;
-  barColor?: string;
-  onBarColorChange?: (color: string) => void;
 }
 
 export const Controls: React.FC<ControlsProps> = ({
@@ -27,10 +23,6 @@ export const Controls: React.FC<ControlsProps> = ({
   onImageUpload,
   imageUrl,
   onRemoveImage,
-  showBars = true,
-  onToggleBars,
-  barColor = '#00E5FF',
-  onBarColorChange,
 }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,34 +81,7 @@ export const Controls: React.FC<ControlsProps> = ({
         </span>
       </div>
 
-      {/* 4. Bars Toggle & Color */}
-      {onToggleBars && (
-        <div className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-2xl border border-white/5">
-          <button
-            onClick={onToggleBars}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-all ${
-              showBars
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30'
-                : 'text-white/40 hover:text-white'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>Barras 3D</span>
-          </button>
-
-          {onBarColorChange && (
-            <input
-              type="color"
-              value={barColor}
-              onChange={(e) => onBarColorChange(e.target.value)}
-              className="w-7 h-5 rounded cursor-pointer bg-transparent border-none"
-              title="Color de las barras"
-            />
-          )}
-        </div>
-      )}
-
-      {/* 5. Custom Texture Image Upload */}
+      {/* Custom Texture Image Upload */}
       <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-2xl border border-white/5">
         <label className="flex items-center gap-1.5 px-2.5 py-1 text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 rounded-xl cursor-pointer transition-all">
           <ImageIcon className="w-3.5 h-3.5" />

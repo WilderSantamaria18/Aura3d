@@ -19,6 +19,10 @@ import { DynamicAmbientBackground } from './components/Visualizers/DynamicAmbien
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
 import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
+import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
+import { QuickstartStudioModal } from './components/UI/QuickstartStudioModal';
+import { UserProfileModal } from './components/UI/UserProfileModal';
+import { SystemRequirementsModal } from './components/UI/SystemRequirementsModal';
 
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
@@ -26,7 +30,6 @@ const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const PartyVisualizer = lazy(() => import('./components/Visualizers/PartyVisualizer'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
-const GamificationHUD = lazy(() => import('./components/Gamification/GamificationHUD'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
 const EqualizerModal = lazy(() => import('./components/UI/EqualizerModal'));
 const PlaylistSidebar = lazy(() => import('./components/UI/PlaylistSidebar'));
@@ -50,10 +53,23 @@ export const App: React.FC = () => {
   const isSidebarOpen = usePlayerStore((s) => s.isSidebarOpen);
   const isKaraokeFullscreen = usePlayerStore((s) => s.isKaraokeFullscreen);
   const isAdminModalOpen = usePlayerStore((s) => s.isAdminModalOpen);
+  const isSysReqModalOpen = usePlayerStore((s) => s.isSysReqModalOpen);
+  const setSysReqModalOpen = usePlayerStore((s) => s.setSysReqModalOpen);
 
   const [isUiIdle, setIsUiIdle] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [showLanding, setShowLanding] = useState(!hasStarted);
   const idleTimerRef = useRef<number | null>(null);
+
+  // Lazy unmount landing screen after exit transition to free GPU memory
+  useEffect(() => {
+    if (hasStarted) {
+      const timer = window.setTimeout(() => setShowLanding(false), 1100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLanding(true);
+    }
+  }, [hasStarted]);
 
   // Reset idle timer on any user interaction
   const resetIdleTimer = useCallback(() => {
@@ -180,32 +196,35 @@ export const App: React.FC = () => {
       <DynamicAmbientBackground />
 
       {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
-      <div
-        className={`absolute inset-0 z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          hasStarted
-            ? '-translate-y-full opacity-0 pointer-events-none scale-[0.98] blur-[2px]'
-            : 'translate-y-0 opacity-100 pointer-events-auto scale-100 blur-0'
-        }`}
-      >
-        <LandingScreen />
-      </div>
+      {showLanding && (
+        <div
+          className={`absolute inset-0 z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            hasStarted
+              ? '-translate-y-full opacity-0 pointer-events-none scale-[0.98] blur-[2px]'
+              : 'translate-y-0 opacity-100 pointer-events-auto scale-100 blur-0'
+          }`}
+        >
+          <LandingScreen />
+        </div>
+      )}
 
-      {/* 2. Visualizer in Fullscreen Center (Emerges with gentle scale-in parallax) */}
+      {/* 2. Visualizer in Fullscreen Center (Mounts only when user enters to preserve 100% GPU for landing) */}
       <div
         className={`absolute inset-0 w-full h-full min-h-[55dvh] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
-
-        <Suspense fallback={<div className="w-full h-full" />}>
-          {visualizerMode === 'sphere' ? (
-            <SceneContainer />
-          ) : visualizerMode === 'blob' ? (
-            <RainbowBlobVisualizer />
-          ) : (
-            <PartyVisualizer />
-          )}
-        </Suspense>
+        {hasStarted && (
+          <Suspense fallback={<div className="w-full h-full" />}>
+            {visualizerMode === 'sphere' ? (
+              <SceneContainer />
+            ) : visualizerMode === 'blob' ? (
+              <RainbowBlobVisualizer />
+            ) : (
+              <PartyVisualizer />
+            )}
+          </Suspense>
+        )}
       </div>
 
       {/* 3. Floating Header UI */}
@@ -270,12 +289,7 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* 7. Real-Time Gamification & Intensity Score HUD */}
-      {hasStarted && (
-        <Suspense fallback={null}>
-          <GamificationHUD />
-        </Suspense>
-      )}
+
 
       {/* Error Notification */}
       {error && (
@@ -312,6 +326,21 @@ export const App: React.FC = () => {
 
       {/* Keyboard Shortcuts Studio HUD */}
       <KeyboardShortcutsModal />
+
+      {/* WebGL Context Loss Auto-Recovery Toast */}
+      <WebGLContextHandler />
+
+      {/* Studio First-Run Quickstart Onboarding */}
+      <QuickstartStudioModal />
+
+      {/* User Profile & Performance Settings Modal */}
+      <UserProfileModal />
+
+      {/* Recommended System Requirements Diagnostics Modal */}
+      <SystemRequirementsModal
+        isOpen={isSysReqModalOpen}
+        onClose={() => setSysReqModalOpen(false)}
+      />
 
       {/* 3D Air Virtual Instruments Controls HUD */}
       {hasStarted && <AirInstrumentControls />}

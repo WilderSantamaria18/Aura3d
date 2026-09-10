@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useVisualizer } from './useVisualizer';
 import { hslToHex } from '../utils/colorUtils';
+import { aiSceneDirector } from '../services/aiSceneDirectorService';
 
 export const useAutoPalette = () => {
   const autoMode = usePlayerStore((s) => s.autoMode);
@@ -21,7 +22,10 @@ export const useAutoPalette = () => {
   }, [baseColorHue]);
 
   useEffect(() => {
-    if (!autoMode) {
+    if (autoMode) {
+      aiSceneDirector.start();
+    } else {
+      aiSceneDirector.stop();
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = undefined;

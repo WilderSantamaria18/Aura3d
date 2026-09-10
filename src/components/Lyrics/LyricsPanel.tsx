@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import type { LyricsLine } from '../../utils/parseLRC';
-import { AlignLeft, Music2, Sparkles, X } from 'lucide-react';
-import { usePlayerStore } from '../../stores/playerStore';
+import { AlignLeft, Music2, X } from 'lucide-react';
 
 interface LyricsPanelProps {
   lyrics: LyricsLine[];
@@ -22,7 +21,6 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   onSeek,
   onClose,
 }) => {
-  const { isLucid, lucidTheme } = usePlayerStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -55,53 +53,34 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
   return (
     <div
-      className={`w-full h-full backdrop-blur-2xl border rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between select-none relative overflow-hidden transition-all duration-300 ${
-        isLucid ? 'lucid-panel' : 'bg-[#080b18]/90'
-      }`}
-      style={
-        isLucid
-          ? {
-              backgroundColor: lucidTheme.glassColor,
-              borderColor: lucidTheme.borderColor,
-              boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
-            }
-          : {
-              borderColor: 'rgba(255, 255, 255, 0.1)',
-            }
-      }
+      className="w-full h-full backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] flex flex-col justify-between select-none relative overflow-hidden transition-all duration-300 bg-[#090d18]/95"
+      style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
       {/* Header with Title, Artist & Close button */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center gap-2 max-w-[80%]">
-          <div
-            className="p-1.5 rounded-lg border"
-            style={{
-              backgroundColor: isLucid ? `${lucidTheme.primary}20` : 'rgba(255,8,138,0.2)',
-              color: isLucid ? lucidTheme.primary : '#ff088a',
-              borderColor: isLucid ? `${lucidTheme.primary}40` : 'rgba(255,8,138,0.3)',
-            }}
-          >
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center gap-2.5 max-w-[80%]">
+          <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#00e5ff]">
             <AlignLeft className="w-4 h-4" />
           </div>
           <div className="truncate">
-            <h3 className="text-white font-medium text-sm sm:text-base truncate leading-tight">
+            <h3 className="text-white font-medium text-sm sm:text-base truncate leading-tight tracking-tight">
               {title}
             </h3>
-            <p className="text-cyan-200/50 text-[11px] sm:text-xs truncate font-light tracking-wider">
+            <p className="text-white/50 text-[11px] truncate font-mono tracking-wider mt-0.5">
               {artist}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] text-cyan-300 font-mono">
-            <Sparkles className="w-3 h-3 text-pink-400" />
-            <span>KARAOKE</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-mono tracking-widest px-2 py-0.5 rounded border border-white/[0.08] bg-white/[0.02] text-white/50 uppercase">
+            LETRAS
+          </span>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+              aria-label="Cerrar letras"
             >
               <X className="w-4 h-4" />
             </button>
@@ -109,22 +88,22 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         </div>
       </div>
 
-      {/* Synchronized Lyrics Scroll Container */}
+      {/* Synchronized Lyrics Scroll Container with Depth of Field */}
       <div
         ref={containerRef}
-        className="flex-1 my-3 overflow-y-auto px-2 py-4 space-y-2.5 scrollbar-thin scrollbar-thumb-white/10 scroll-smooth"
+        className="flex-1 my-2 overflow-y-auto px-1 py-4 space-y-2 scrollbar-none scroll-smooth"
         style={{
-          maskImage: 'linear-gradient(to bottom, transparent, black 12%, black 88%, transparent)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 12%, black 88%, transparent)',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
         }}
       >
         {(!lyrics || lyrics.length === 0) ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 text-white/40 space-y-2">
-            <Music2 className="w-10 h-10 text-white/20 animate-pulse" />
-            <p className="text-xs italic tracking-wider">
+            <Music2 className="w-8 h-8 text-white/20 animate-pulse" />
+            <p className="text-xs tracking-wider font-mono">
               {isPlaying ? 'Letras no disponibles para esta pista' : 'Esperando reproducción...'}
             </p>
-            <p className="text-[10px] text-white/30 uppercase font-mono">
+            <p className="text-[10px] text-white/30 font-mono">
               Arrastra un archivo .lrc junto a tu canción
             </p>
           </div>
@@ -132,29 +111,21 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           lyrics.map((line, index) => {
             const isActive = index === activeIndex;
             const distance = Math.abs(index - activeIndex);
-            const opacity = isActive ? 1 : Math.max(0.25, 0.7 - distance * 0.15);
+            const opacity = isActive ? 1 : Math.max(0.18, 0.65 - distance * 0.15);
+            const blurAmount = isActive ? 0 : Math.min(2, distance * 0.5);
 
             return (
               <div
                 key={index}
                 onClick={() => onSeek && onSeek(line.time)}
-                className={`py-2 px-3.5 rounded-2xl cursor-pointer transition-all duration-300 transform ${
+                className={`py-2 px-3 rounded-xl cursor-pointer transition-all duration-300 ${
                   isActive
-                    ? isLucid
-                      ? 'text-white font-semibold text-base sm:text-lg border-l-4 scale-[1.02]'
-                      : 'bg-gradient-to-r from-pink-500/20 via-cyan-500/15 to-transparent text-white font-semibold text-base sm:text-lg border-l-4 border-pink-400 shadow-[0_0_20px_rgba(255,8,138,0.25)] scale-[1.02]'
-                    : 'text-white/60 hover:text-white hover:bg-white/5 text-xs sm:text-sm font-normal scale-100 border-l-4 border-transparent'
+                    ? 'bg-white/[0.06] text-white font-semibold text-base sm:text-lg tracking-tight scale-[1.01]'
+                    : 'text-white/60 hover:text-white hover:bg-white/[0.03] text-xs sm:text-sm font-normal'
                 }`}
                 style={{
                   opacity,
-                  borderColor: isActive && isLucid ? lucidTheme.primary : undefined,
-                  background: isActive && isLucid ? `linear-gradient(90deg, ${lucidTheme.primary}25, transparent)` : undefined,
-                  boxShadow: isActive && isLucid ? `0 0 20px ${lucidTheme.glow}` : undefined,
-                  textShadow: isActive
-                    ? isLucid
-                      ? `0 0 15px ${lucidTheme.primary}`
-                      : '0 0 15px rgba(0,242,254,0.6)'
-                    : 'none',
+                  filter: `blur(${blurAmount}px)`,
                 }}
               >
                 <span>{line.text}</span>
@@ -164,11 +135,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         )}
       </div>
 
-      {/* Bottom status badge */}
-      <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/40 font-mono flex-shrink-0">
-        <span className="flex items-center gap-1">
-          <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-cyan-400 animate-ping' : 'bg-white/30'}`} />
-          {isPlaying ? 'SINCRONIZACIÓN EN VIVO' : 'PAUSADO'}
+      {/* Bottom status readout */}
+      <div className="pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[9px] text-white/40 font-mono flex-shrink-0">
+        <span className="flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-[#00e5ff]' : 'bg-white/30'}`} />
+          {isPlaying ? 'SINCRONIZACIÓN EN TIEMPO REAL' : 'PAUSADO'}
         </span>
         <span>{lyrics.length > 0 ? `${lyrics.length} LÍNEAS` : '0 LÍNEAS'}</span>
       </div>

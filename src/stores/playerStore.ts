@@ -142,6 +142,17 @@ interface PlayerState {
   detectedGenre: string;
   genreConfidence: number;
   isAdminModalOpen: boolean;
+  isProfileModalOpen: boolean;
+  isSysReqModalOpen: boolean;
+  performanceTier: 'high' | 'medium' | 'eco';
+  userProfile: {
+    id: string;
+    username: string;
+    email?: string;
+    role: string;
+    isGuest: boolean;
+    genres?: string[];
+  } | null;
 
   // Web Audio Analyser & Interaction
   analyser: AnalyserNode | null;
@@ -252,6 +263,13 @@ interface PlayerState {
   setDetectedGenre: (genre: string, confidence?: number) => void;
   setAdminModalOpen: (isOpen: boolean) => void;
   toggleAdminModal: () => void;
+  setProfileModalOpen: (isOpen: boolean) => void;
+  toggleProfileModal: () => void;
+  setSysReqModalOpen: (isOpen: boolean) => void;
+  toggleSysReqModal: () => void;
+  setPerformanceTier: (tier: 'high' | 'medium' | 'eco') => void;
+  cyclePerformanceTier: () => void;
+  setUserProfile: (profile: { id: string; username: string; email?: string; role: string; isGuest: boolean; genres?: string[] } | null) => void;
   isShortcutsModalOpen: boolean;
   setShortcutsModalOpen: (isOpen: boolean) => void;
   toggleShortcutsModal: () => void;
@@ -353,7 +371,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   blobWaveIntensity: StorageService.getBlobWaveIntensity(),
   blobBassBoomThreshold: StorageService.getBlobBassBoomThreshold(),
   blobBassBoomIntensity: StorageService.getBlobBassBoomIntensity(),
-  blobScale: StorageService.getRainbowScale(),
+  blobScale: 0.5,
   autoMode: false,
   dynamicColor: '#00f2fe',
   baseColorHue: 180,
@@ -372,11 +390,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   showFrequencyBars: false,
   sphereOpacity: 0.9,
   sphereScale: StorageService.getSphereScale() || 1.0,
-  rainbowScale: StorageService.getRainbowScale() || 1.0,
-  linkScales: StorageService.getLinkScales(),
+  rainbowScale: 0.5,
+  linkScales: false,
   sphereRadius: StorageService.getSphereScale() || 1.0,
-  musicSensitivity: Math.min(1.0, Math.max(0.5, StorageService.getMusicSensitivity() || 0.75)),
-  audioSpeed: Math.min(1.0, Math.max(0.5, StorageService.getMusicSensitivity() || 0.75)),
+  musicSensitivity: StorageService.getMusicSensitivity(),
+  audioSpeed: StorageService.getMusicSensitivity(),
 
   blobSettings: StorageService.getBlobSettings(),
   isBlobPanelOpen: false,
@@ -399,9 +417,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   detectedGenre: 'Detectando...',
   genreConfidence: 0.85,
   isAdminModalOpen: false,
+  isProfileModalOpen: false,
+  isSysReqModalOpen: false,
+  performanceTier: StorageService.getPerformanceTier(),
+  userProfile: {
+    id: 'usr_guest',
+    username: 'Invitado',
+    role: 'guest',
+    isGuest: true,
+    genres: ['Electrónica / EDM'],
+  },
   isShortcutsModalOpen: false,
   bpm: 0,
   isBeatPulse: false,
+
+  setProfileModalOpen: (isProfileModalOpen) => set({ isProfileModalOpen }),
+  toggleProfileModal: () => set((state) => ({ isProfileModalOpen: !state.isProfileModalOpen })),
+  setSysReqModalOpen: (isSysReqModalOpen) => set({ isSysReqModalOpen }),
+  toggleSysReqModal: () => set((state) => ({ isSysReqModalOpen: !state.isSysReqModalOpen })),
+  setPerformanceTier: (performanceTier) => {
+    StorageService.savePerformanceTier(performanceTier);
+    set({ performanceTier });
+  },
+  cyclePerformanceTier: () => {
+    const current = get().performanceTier;
+    const next: 'high' | 'medium' | 'eco' =
+      current === 'high' ? 'medium' : current === 'medium' ? 'eco' : 'high';
+    StorageService.savePerformanceTier(next);
+    set({ performanceTier: next });
+  },
+  setUserProfile: (userProfile) => set({ userProfile }),
 
   setHasStarted: (hasStarted) => set({ hasStarted }),
   setIsLucid: (isLucid) => set({ isLucid }),
@@ -414,6 +459,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lucidTheme,
       lucidPrimaryColor: lucidTheme.primary,
       lucidSecondaryColor: lucidTheme.secondary,
+      isLucid: true,
     });
   },
   setLucidPrimaryColor: (color) => {
@@ -428,6 +474,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         lucidPrimaryColor: color,
         lucidTheme: updatedTheme,
+        isLucid: true,
       };
     });
   },
@@ -443,6 +490,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return {
         lucidSecondaryColor: color,
         lucidTheme: updatedTheme,
+        isLucid: true,
       };
     });
   },
@@ -636,10 +684,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       bassBoomIntensity: state.visualizerMode === 'blob' ? blobBassBoomIntensity : state.bassBoomIntensity,
     }));
   },
-  setBlobScale: (blobScale) => {
-    const clamped = Math.min(2.5, Math.max(0.5, blobScale));
-    StorageService.saveRainbowScale(clamped);
-    set({ blobScale: clamped, rainbowScale: clamped });
+  setBlobScale: (_blobScale) => {
+    // Rainbow Void scale strictly locked to 0.5x
+    StorageService.saveRainbowScale(0.5);
+    set({ blobScale: 0.5, rainbowScale: 0.5 });
   },
   setAutoMode: (autoMode) =>
     set((state) => ({
@@ -740,6 +788,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
   setRainbowScale: (scale) => {
+    const { visualizerMode } = get();
+    if (visualizerMode === 'blob') {
+      StorageService.saveRainbowScale(0.5);
+      set({ rainbowScale: 0.5, blobScale: 0.5 });
+      return;
+    }
     const clamped = Math.min(2.5, Math.max(0.5, scale));
     StorageService.saveRainbowScale(clamped);
     const { linkScales } = get();
@@ -764,12 +818,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     get().setSphereScale(radius);
   },
   setMusicSensitivity: (sensitivity) => {
-    const clamped = Math.min(1.0, Math.max(0.5, sensitivity));
+    const clamped = Math.min(0.85, Math.max(0.60, sensitivity));
     StorageService.saveMusicSensitivity(clamped);
     set({ musicSensitivity: clamped, audioSpeed: clamped });
   },
   setAudioSpeed: (speed) => {
-    const clamped = Math.min(1.0, Math.max(0.5, speed));
+    const clamped = Math.min(0.85, Math.max(0.60, speed));
     StorageService.saveMusicSensitivity(clamped);
     set({ audioSpeed: clamped, musicSensitivity: clamped });
   },

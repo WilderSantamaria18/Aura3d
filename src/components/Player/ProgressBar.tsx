@@ -80,7 +80,7 @@ export const ProgressBar: React.FC = React.memo(() => {
       className="w-full flex items-center gap-3 text-xs select-none"
       style={{ color: isLucid ? lucidTheme.primary : 'rgba(255, 255, 255, 0.45)' }}
     >
-      <span className="w-10 text-right font-mono text-[11px] tabular-nums text-white/50">
+      <span className="w-11 text-right font-mono text-[11px] tabular-nums text-white/50">
         {formatTime(isDragging ? dragTime : currentTime)}
       </span>
 
@@ -93,10 +93,10 @@ export const ProgressBar: React.FC = React.memo(() => {
         }}
         onPointerLeave={handlePointerLeave}
         onPointerUp={handlePointerUp}
-        className="relative flex-1 h-5 group flex items-center cursor-pointer"
+        className="relative flex-1 h-6 group flex items-center cursor-pointer"
       >
-        {/* Track background */}
-        <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-all duration-150 group-hover:h-1.5">
+        {/* Track background with tape hash markers */}
+        <div className="relative w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-all duration-150 group-hover:h-1.5">
           {/* Progress fill */}
           <div
             className="h-full rounded-full transition-[width] duration-75"
@@ -104,25 +104,32 @@ export const ProgressBar: React.FC = React.memo(() => {
               width: `${progressPct}%`,
               background: isLucid
                 ? `linear-gradient(90deg, ${lucidTheme.primary}, ${lucidTheme.secondary})`
-                : '#ffffff',
+                : '#00e5ff',
             }}
           />
+        </div>
+
+        {/* Division hash markers (25%, 50%, 75%) */}
+        <div className="absolute inset-x-0 flex justify-between pointer-events-none px-[25%] opacity-20 group-hover:opacity-40 transition-opacity">
+          <div className="w-px h-2 bg-white -translate-y-0.5" />
+          <div className="w-px h-2.5 bg-white -translate-y-1" />
+          <div className="w-px h-2 bg-white -translate-y-0.5" />
         </div>
 
         {/* Hover preview line & tooltip */}
         {hoverTime !== null && !isDragging && (
           <div
-            className="absolute -top-6 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black/90 border border-white/15 text-[10px] font-mono text-white/90 tabular-nums pointer-events-none shadow-md"
+            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded-md bg-[#090d18] border border-white/20 text-[10px] font-mono text-white/90 tabular-nums pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
             style={{ left: `${hoverPos}%` }}
           >
             {formatTime(hoverTime)}
           </div>
         )}
 
-        {/* Scrub thumb */}
+        {/* Tape Head Scrubber thumb */}
         <div
-          className={`absolute w-3 h-3 rounded-full -translate-x-1/2 transition-opacity pointer-events-none shadow-[0_1px_4px_rgba(0,0,0,0.6)] ${
-            isDragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'
+          className={`absolute w-3 h-3 rounded-full -translate-x-1/2 transition-transform pointer-events-none shadow-[0_2px_8px_rgba(0,0,0,0.8)] border border-white/30 ${
+            isDragging ? 'scale-125' : 'scale-90 group-hover:scale-110'
           }`}
           style={{
             left: `${progressPct}%`,
@@ -131,7 +138,7 @@ export const ProgressBar: React.FC = React.memo(() => {
         />
       </div>
 
-      <span className="w-10 text-left font-mono text-[11px] tabular-nums text-white/40">
+      <span className="w-11 text-left font-mono text-[11px] tabular-nums text-white/40">
         {formatTime(duration)}
       </span>
     </div>

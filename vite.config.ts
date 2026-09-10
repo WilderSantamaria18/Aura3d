@@ -10,6 +10,9 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    watch: {
+      ignored: ['**/.cache/**', '**/server/data/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:4000',

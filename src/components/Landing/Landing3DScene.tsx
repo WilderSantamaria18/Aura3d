@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
+import { usePlayerStore } from '../../stores/playerStore';
 
 interface Landing3DSceneProps {
   scrollProgress?: number; // fallback value 0..100
@@ -18,6 +19,7 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
   scrollProgressRef,
   isTransitioningOut = false,
 }) => {
+  const performanceTier = usePlayerStore((s) => s.performanceTier);
   const mountRef = useRef<HTMLDivElement>(null);
   const internalScrollRef = useRef(scrollProgress);
   const transitionRef = useRef(isTransitioningOut);
@@ -47,6 +49,8 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
     let width = container.clientWidth || window.innerWidth;
     let height = container.clientHeight || window.innerHeight;
 
+    const isEco = performanceTier === 'eco';
+
     // 1. Scene & Camera
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x03050c, 0.08);
@@ -54,14 +58,15 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     camera.position.set(0, 0, 4.4);
 
-    // 2. WebGL Renderer
+    // 2. WebGL Renderer (Optimized based on performance tier)
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isEco,
       alpha: true,
-      powerPreference: 'high-performance',
+      powerPreference: isEco ? 'default' : 'high-performance',
+      precision: isEco ? 'mediump' : 'highp',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(isEco ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
@@ -123,7 +128,7 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
 
     ringRadii.forEach((r, idx) => {
       const ringGeo = new THREE.BufferGeometry();
-      const segments = 128;
+      const segments = isEco ? 64 : 128;
       const ringPositions = new Float32Array((segments + 1) * 3);
       for (let s = 0; s <= segments; s++) {
         const theta = (s / segments) * Math.PI * 2;
@@ -145,8 +150,8 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
       ringMeshes.push(ring);
     });
 
-    // ── Ambient Deep Star Field (1,000 Depth Particles) ──
-    const starCount = 800;
+    // ── Ambient Deep Star Field (Adjusted to performance tier) ──
+    const starCount = isEco ? 280 : 800;
     const starGeo = new THREE.BufferGeometry();
     const starPos = new Float32Array(starCount * 3);
     const starColors = new Float32Array(starCount * 3);
@@ -314,11 +319,19 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
       coreParticleMat.dispose();
       starGeo.dispose();
       starMat.dispose();
+      ringMeshes.forEach((mesh) => {
+        mesh.geometry.dispose();
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((m) => m.dispose());
+        } else {
+          mesh.material.dispose();
+        }
+      });
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [performanceTier]);
 
   return (
     <div

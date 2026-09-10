@@ -1,5 +1,6 @@
 import type { EqualizerBand, FrequencyData } from '../types/audio';
 import { usePlayerStore } from '../stores/playerStore';
+import { proceduralAudio } from '../config/demoTracks';
 
 export const DEFAULT_EQ_BANDS: EqualizerBand[] = [
   { id: 0, frequency: 32, label: '32Hz', gain: 0, type: 'lowshelf' },
@@ -37,6 +38,7 @@ export class AudioEngine {
   private bufferStartOffset = 0;
   private bufferStartTime = 0;
   private bufferIsPlaying = false;
+  private isProceduralPlaying = false;
 
   // Live microphone & system capture
   private micStream: MediaStream | null = null;
@@ -475,6 +477,7 @@ export class AudioEngine {
       await this.audioContext.resume();
     }
     if (this.loadedAudioBuffer) {
+      this._stopProcedural();
       if (!this.bufferIsPlaying) {
         this._startBufferFrom(this.bufferStartOffset);
         this.listeners.stateChange.forEach((cb) => cb(true));
@@ -482,16 +485,21 @@ export class AudioEngine {
       return;
     }
     const audio = this.getActiveAudioElement();
-    if (audio.src) {
+    if (audio.src && audio.src !== window.location.href && !audio.src.endsWith('/')) {
+      this._stopProcedural();
       try {
         await audio.play();
       } catch (e) {
         console.warn('Play error:', e);
       }
+    } else {
+      // Start high-fidelity procedural synth beat so visualizers dance immediately
+      this._startProcedural();
     }
   }
 
   public pause(): void {
+    this._stopProcedural();
     if (this.loadedAudioBuffer) {
       if (this.bufferIsPlaying && this.audioContext) {
         // Save offset so we can resume from here
@@ -514,24 +522,49 @@ export class AudioEngine {
       await this.audioContext.resume();
     }
     if (this.loadedAudioBuffer && !this.bufferIsPlaying) {
+      this._stopProcedural();
       this._startBufferFrom(this.bufferStartOffset);
       this.bufferIsPlaying = true;
       this.listeners.stateChange.forEach((cb) => cb(true));
       return;
     }
     const audio = this.getActiveAudioElement();
-    if (audio.src && audio.paused) {
-      await audio.play().catch(() => {});
+    if (audio.src && audio.src !== window.location.href && !audio.src.endsWith('/')) {
+      this._stopProcedural();
+      if (audio.paused) {
+        await audio.play().catch(() => {});
+      }
+    } else {
+      this._startProcedural();
     }
   }
 
   public stop(): void {
+    this._stopProcedural();
     this.unloadBuffer();
     const audio = this.getActiveAudioElement();
     audio.pause();
     audio.currentTime = 0;
     this.disableMicrophone();
     this.disableSystemCapture();
+  }
+
+  private _startProcedural(): void {
+    if (!this.audioContext) return;
+    this.isProceduralPlaying = true;
+    const dest = this.eqFilters[0] || this.masterGain || this.analyser;
+    if (dest) {
+      proceduralAudio.start(this.audioContext, dest);
+    }
+    this.listeners.stateChange.forEach((cb) => cb(true));
+  }
+
+  private _stopProcedural(): void {
+    if (this.isProceduralPlaying) {
+      proceduralAudio.stop();
+      this.isProceduralPlaying = false;
+      this.listeners.stateChange.forEach((cb) => cb(false));
+    }
   }
 
   public seek(seconds: number): void {

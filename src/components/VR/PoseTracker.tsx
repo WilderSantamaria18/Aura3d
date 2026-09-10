@@ -76,7 +76,6 @@ export const PoseTracker: React.FC = () => {
     visualizerMode,
     sphereScale,
     setSphereScale,
-    rainbowScale,
     setRainbowScale,
     autoMode,
     autoPalette,
@@ -1015,24 +1014,25 @@ export const PoseTracker: React.FC = () => {
                   {visualizerMode === 'blob' ? 'Escala Blob 2D:' : 'Escala Esfera 3D:'}
                 </span>
                 <span className="text-pink-300 font-bold">
-                  {(visualizerMode === 'blob' ? rainbowScale : sphereScale).toFixed(2)}x
+                  {visualizerMode === 'blob' ? '0.50x (FIJO)' : `${sphereScale.toFixed(2)}x`}
                 </span>
               </div>
               <input
                 type="range"
                 min="0.5"
-                max="2.5"
+                max={visualizerMode === 'blob' ? 0.5 : 2.5}
                 step="0.05"
-                value={visualizerMode === 'blob' ? rainbowScale : sphereScale}
+                disabled={visualizerMode === 'blob'}
+                value={visualizerMode === 'blob' ? 0.5 : sphereScale}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  if (visualizerMode === 'blob') {
-                    setRainbowScale(val);
-                  } else {
+                  if (visualizerMode !== 'blob') {
                     setSphereScale(val);
                   }
                 }}
-                className="w-full h-1.5 bg-white/20 rounded-lg cursor-pointer accent-pink-500"
+                className={`w-full h-1.5 bg-white/20 rounded-lg accent-pink-500 ${
+                  visualizerMode === 'blob' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                }`}
               />
             </div>
 

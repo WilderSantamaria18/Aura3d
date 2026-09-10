@@ -8,6 +8,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import ytdl from '@distube/ytdl-core';
+
+const execFileAsync = promisify(execFile);
 
 // Native .env support for Node.js 20.12+ / 24+
 if (typeof process.loadEnvFile === 'function') {
@@ -22,6 +27,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+// High-speed native audio caching directories
+const YTDLP_BIN = path.resolve(__dirname, '..', '.cache', 'bin', 'yt-dlp.exe');
+const AUDIO_CACHE_DIR = path.resolve(__dirname, '..', '.cache', 'audio');
+if (!fs.existsSync(AUDIO_CACHE_DIR)) {
+  fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+}
 
 const PORT = process.env.PORT || 4000;
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -307,6 +319,218 @@ app.get(['/api/health', '/health'], (req, res) => {
   });
 });
 
+// In-memory cache & queue for YouTube processing
+const ytInfoCache = new Map();
+const ytSearchCache = new Map();
+const ytDownloadQueue = new Map();
+
+// ── YouTube Search Endpoint via yt-dlp ─────────────────────────────────────
+app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
+  try {
+    const query = (req.query.q || req.query.query || '').toString().trim();
+    if (!query || query.length < 2) {
+      return res.status(400).json({ error: 'Término de búsqueda requerido (mínimo 2 caracteres)' });
+    }
+
+    const cacheKey = query.toLowerCase();
+    if (ytSearchCache.has(cacheKey)) {
+      return res.json({ results: ytSearchCache.get(cacheKey) });
+    }
+
+    if (!fs.existsSync(YTDLP_BIN)) {
+      return res.status(503).json({ error: 'Motor de audio yt-dlp no encontrado en el servidor' });
+    }
+
+    // Busqueda ultra-rapida de los 6 mejores resultados
+    const { stdout } = await execFileAsync(YTDLP_BIN, [
+      '--dump-json',
+      '--flat-playlist',
+      '--no-playlist',
+      `ytsearch6:${query}`
+    ], { timeout: 15000 });
+
+    const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
+    const results = [];
+
+    for (const line of lines) {
+      try {
+        const item = JSON.parse(line);
+        if (item && item.id && !item.id.startsWith('UC')) {
+          results.push({
+            id: item.id,
+            title: item.title || 'Canción de YouTube',
+            artist: item.uploader || item.channel || item.artist || 'Artista de YouTube',
+            duration: Math.round(Number(item.duration) || 0),
+            thumbnail:
+              item.thumbnail ||
+              item.thumbnails?.[item.thumbnails.length - 1]?.url ||
+              `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`,
+            url: `https://www.youtube.com/watch?v=${item.id}`,
+          });
+        }
+      } catch {}
+    }
+
+    ytSearchCache.set(cacheKey, results);
+    res.json({ results });
+  } catch (err) {
+    console.warn('[YouTube Search Error]', err.message);
+    res.status(500).json({ error: 'Error al buscar en YouTube: ' + err.message, results: [] });
+  }
+});
+
+// ── YouTube Audio Extractor & Real-Time Streamer via yt-dlp ────────────────
+app.get(['/api/youtube/info', '/youtube/info'], async (req, res) => {
+  try {
+    const videoId = (req.query.v || req.query.id || '').toString().trim();
+    if (!videoId || !/^[a-zA-Z0-9_-]{8,20}$/.test(videoId)) {
+      return res.status(400).json({ error: 'ID de video requerido y válido (ej: ?v=Bd9R1pFlOhQ)' });
+    }
+
+    if (ytInfoCache.has(videoId)) {
+      return res.json(ytInfoCache.get(videoId));
+    }
+
+    if (!fs.existsSync(YTDLP_BIN)) {
+      return res.status(503).json({ error: 'Motor de audio yt-dlp no encontrado en el servidor' });
+    }
+
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const { stdout } = await execFileAsync(YTDLP_BIN, [
+      '--dump-json',
+      '--no-playlist',
+      url
+    ], { timeout: 20000 });
+
+    const details = JSON.parse(stdout);
+    const info = {
+      id: details.id || videoId,
+      title: details.title || 'YouTube Track',
+      artist: details.uploader || details.channel || details.artist || 'Artista de YouTube',
+      duration: Math.round(Number(details.duration) || 0),
+      thumbnail:
+        details.thumbnail ||
+        details.thumbnails?.[details.thumbnails.length - 1]?.url ||
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    };
+
+    ytInfoCache.set(videoId, info);
+    res.json(info);
+  } catch (err) {
+    console.warn('[YouTube Info Error]', err.message);
+    res.status(500).json({ error: 'No se pudo obtener información del video: ' + err.message });
+  }
+});
+
+function findCachedAudioFile(videoId) {
+  try {
+    const files = fs.readdirSync(AUDIO_CACHE_DIR);
+    const match = files.find(f => f.startsWith(`${videoId}.`));
+    if (match) {
+      const fullPath = path.join(AUDIO_CACHE_DIR, match);
+      const stat = fs.statSync(fullPath);
+      if (stat.size > 10000) { // Mayor a 10KB para evitar archivos vacíos o corruptos
+        return { fullPath, size: stat.size, ext: path.extname(match).toLowerCase() };
+      }
+    }
+  } catch (err) {
+    console.warn('[Cache Search Error]', err.message);
+  }
+  return null;
+}
+
+app.get(['/api/youtube/stream', '/youtube/stream'], async (req, res) => {
+  try {
+    const videoId = (req.query.v || req.query.id || '').toString().trim();
+    if (!videoId || !/^[a-zA-Z0-9_-]{8,20}$/.test(videoId)) {
+      return res.status(400).json({ error: 'ID de video requerido y válido' });
+    }
+
+    if (!fs.existsSync(YTDLP_BIN)) {
+      return res.status(503).json({ error: 'Motor de audio yt-dlp no encontrado en el servidor' });
+    }
+
+    let cached = findCachedAudioFile(videoId);
+
+    if (!cached) {
+      // Si ya se está descargando este video, esperar la descarga existente
+      let downloadPromise = ytDownloadQueue.get(videoId);
+      if (!downloadPromise) {
+        console.log(`[YouTube Engine] Descargando stream nativo de audio para: ${videoId}...`);
+        const url = `https://www.youtube.com/watch?v=${videoId}`;
+        downloadPromise = execFileAsync(YTDLP_BIN, [
+          '-f', '251/140/ba',
+          '--no-playlist',
+          '--output', path.join(AUDIO_CACHE_DIR, `${videoId}.%(ext)s`),
+          url
+        ], { timeout: 60000 })
+          .then(() => {
+            ytDownloadQueue.delete(videoId);
+            return findCachedAudioFile(videoId);
+          })
+          .catch((err) => {
+            ytDownloadQueue.delete(videoId);
+            throw err;
+          });
+        ytDownloadQueue.set(videoId, downloadPromise);
+      }
+
+      cached = await downloadPromise;
+    }
+
+    if (!cached) {
+      return res.status(500).json({ error: 'No se pudo obtener el archivo de audio para este video' });
+    }
+
+    const { fullPath, size: fileSize, ext } = cached;
+    let contentType = 'audio/webm; codecs=opus';
+    if (ext === '.m4a' || ext === '.mp4') contentType = 'audio/mp4';
+    else if (ext === '.mp3') contentType = 'audio/mpeg';
+
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Accept');
+    res.setHeader('Content-Type', contentType);
+
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize || end >= fileSize) {
+        res.setHeader('Content-Range', `bytes */${fileSize}`);
+        return res.status(416).end();
+      }
+
+      const chunksize = (end - start) + 1;
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Length': chunksize,
+        'Content-Type': contentType,
+      });
+
+      const stream = fs.createReadStream(fullPath, { start, end });
+      req.on('close', () => stream.destroy());
+      stream.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+      });
+
+      const stream = fs.createReadStream(fullPath);
+      req.on('close', () => stream.destroy());
+      stream.pipe(res);
+    }
+  } catch (err) {
+    console.warn('[YouTube Stream Setup Error]', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error al inicializar el stream: ' + err.message });
+    }
+  }
+});
+
 // Register
 app.post(['/auth/register', '/api/auth/register'], async (req, res) => {
   try {
@@ -429,7 +653,119 @@ app.post(['/auth/login', '/api/auth/login'], loginRateLimit, async (req, res) =>
 
 // Verify Token
 app.get(['/auth/verify', '/api/auth/verify'], authMiddleware, (req, res) => {
-  res.json({ valid: true, user: req.user });
+  const userId = req.user.userId || req.user.id;
+  let fullUser = null;
+  for (const u of usersDb.values()) {
+    if (u.id === userId || u.email === req.user.email) {
+      fullUser = u;
+      break;
+    }
+  }
+
+  res.json({
+    valid: true,
+    user: fullUser
+      ? {
+          id: fullUser.id,
+          username: fullUser.username,
+          email: fullUser.email,
+          role: fullUser.role,
+          genres: fullUser.genres || [],
+          createdAt: fullUser.createdAt,
+        }
+      : req.user,
+  });
+});
+
+// Get User Profile (Protected)
+app.get(['/auth/profile', '/api/auth/profile'], authMiddleware, (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  for (const u of usersDb.values()) {
+    if (u.id === userId || u.email === req.user.email) {
+      return res.json({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+        genres: u.genres || [],
+        createdAt: u.createdAt,
+        lastLogin: u.lastLogin,
+      });
+    }
+  }
+  res.status(404).json({ error: 'Usuario no encontrado' });
+});
+
+// Update User Profile (Protected)
+app.put(['/auth/profile', '/api/auth/profile'], authMiddleware, async (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  const { username, genres, password } = req.body || {};
+
+  let targetUser = null;
+  for (const u of usersDb.values()) {
+    if (u.id === userId || u.email === req.user.email) {
+      targetUser = u;
+      break;
+    }
+  }
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Usuario no encontrado' });
+  }
+
+  if (username && typeof username === 'string' && username.trim().length >= 3) {
+    targetUser.username = username.trim();
+  }
+
+  if (Array.isArray(genres)) {
+    targetUser.genres = genres;
+  }
+
+  if (password && typeof password === 'string' && password.length >= 8) {
+    targetUser.passwordHash = await bcrypt.hash(password, 12);
+  }
+
+  saveUsersToDisk();
+
+  res.json({
+    success: true,
+    message: 'Perfil actualizado correctamente',
+    user: {
+      id: targetUser.id,
+      username: targetUser.username,
+      email: targetUser.email,
+      role: targetUser.role,
+      genres: targetUser.genres || [],
+    },
+  });
+});
+
+// Delete Own Account (Protected)
+app.delete(['/auth/profile', '/api/auth/profile'], authMiddleware, (req, res) => {
+  const userId = req.user.userId || req.user.id;
+  let targetKey = null;
+  let targetUser = null;
+
+  for (const [key, u] of usersDb.entries()) {
+    if (u.id === userId || u.email === req.user.email) {
+      targetKey = key;
+      targetUser = u;
+      break;
+    }
+  }
+
+  if (!targetUser || !targetKey) {
+    return res.status(404).json({ error: 'Usuario no encontrado' });
+  }
+
+  if (targetUser.role === 'superadmin') {
+    return res.status(403).json({ error: 'No se puede eliminar la cuenta principal de superadministrador' });
+  }
+
+  usersDb.delete(targetKey);
+  saveUsersToDisk();
+
+  res.json({ success: true, message: 'Cuenta eliminada exitosamente' });
 });
 
 // Guest / Client Anonymous Session Token for Instant Spotify Usage

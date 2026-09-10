@@ -63,6 +63,18 @@ export const SceneContainer: React.FC = React.memo(() => {
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
   const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
+  const performanceTier = usePlayerStore((s) => s.performanceTier);
+
+  // Dynamic particle count and DPR based on user 3-tier quality setting
+  const effectiveParticleCount =
+    performanceTier === 'eco'
+      ? 900
+      : performanceTier === 'medium'
+      ? 1600
+      : Math.min(2400, Math.max(1800, device.particleCount));
+
+  const effectiveDpr: [number, number] | number =
+    performanceTier === 'eco' ? 0.85 : performanceTier === 'medium' ? 1.0 : [1.0, 1.5];
 
   const bgColor = isLucid ? '#03050e' : '#060812';
 
@@ -71,14 +83,14 @@ export const SceneContainer: React.FC = React.memo(() => {
       <Canvas
         camera={{ position: [0, 0.35, 6.2], fov: 50 }}
         gl={{
-          antialias: true,
+          antialias: performanceTier !== 'eco',
           alpha: false,
           powerPreference: 'high-performance',
           preserveDrawingBuffer: false,
           stencil: false,
           depth: true,
         }}
-        dpr={[0.8, 1.5]}
+        dpr={effectiveDpr}
         resize={{ debounce: 0, scroll: false }}
         onCreated={({ gl }) => {
           gl.setClearColor(new THREE.Color(bgColor), 1.0);
@@ -113,7 +125,7 @@ export const SceneContainer: React.FC = React.memo(() => {
         />
 
         {/* 3D Crystalline Particle Sphere */}
-        <SphereVisualizer particleCount={device.particleCount} />
+        <SphereVisualizer particleCount={effectiveParticleCount} />
 
         {/* 3D Air Virtual Instruments */}
         <AirInstruments3D />

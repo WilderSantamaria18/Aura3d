@@ -130,11 +130,10 @@ export const useAudioEngine = () => {
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false,
-            suppressLocalAudioPlayback: true,
           } as any,
         });
       } catch {
-        stream = await navigator.mediaDevices.getDisplayMedia({ audio: true });
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       }
 
       stream.getAudioTracks().forEach((t) => {
@@ -371,9 +370,67 @@ export const useAudioEngine = () => {
     }
   }, []);
 
+  const loadYouTubeTrack = useCallback(
+    async (videoId: string, fallbackInfo?: { title?: string; artist?: string }) => {
+      try {
+        setError(null);
+        await unlockAudio();
+
+        // 1. Fetch metadata from backend
+        let title = fallbackInfo?.title || 'YouTube Audio';
+        let artist = fallbackInfo?.artist || 'YouTube Stream';
+        let duration = 0;
+        let coverUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+        try {
+          const res = await fetch(`/api/youtube/info?v=${videoId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.title) title = data.title;
+            if (data.artist) artist = data.artist;
+            if (data.duration) duration = data.duration;
+            if (data.thumbnail) coverUrl = data.thumbnail;
+          }
+        } catch (e) {
+          console.warn('[useAudioEngine] Could not fetch YouTube metadata:', e);
+        }
+
+        // 2. Connect backend audio stream
+        const streamUrl = `/api/youtube/stream?v=${videoId}`;
+        await audioEngine.loadTrack(streamUrl, true);
+
+        const realDur = audioEngine.getDuration() || duration || 0;
+        setDuration(realDur);
+        setCurrentTime(0);
+        setIsPlaying(true);
+        setHasStarted(true);
+        setAudioUnlocked(true);
+
+        const track: Track = {
+          id: `yt_${videoId}`,
+          title,
+          artist,
+          duration: realDur,
+          sourceType: 'youtube',
+          youtubeId: videoId,
+          url: streamUrl,
+          coverUrl,
+          addedAt: Date.now(),
+        };
+        setCurrentTrack(track);
+        return track;
+      } catch (err: unknown) {
+        console.error('[useAudioEngine] loadYouTubeTrack error:', err);
+        setError(err instanceof Error ? err.message : 'Error al cargar el stream de YouTube');
+        throw err;
+      }
+    },
+    [unlockAudio, setDuration, setCurrentTime, setIsPlaying, setHasStarted, setAudioUnlocked, setCurrentTrack]
+  );
+
   return {
     // State (read from playerStore for consistency)
-    isCapturing: isPlaying || isMicActive || audioEngine.isSystemCaptureActive(),
+    isCapturing: audioEngine.isSystemCaptureActive() || isCapturing,
     error,
     isMicActive,
 
@@ -383,6 +440,7 @@ export const useAudioEngine = () => {
     toggleMicrophone,
     loadAudioFile,
     loadFile: loadAudioFile,       // alias
+    loadYouTubeTrack,
     playTrack,
     playNext,
     playPrevious,

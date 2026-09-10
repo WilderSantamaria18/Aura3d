@@ -26,6 +26,8 @@ const STORAGE_KEYS = {
   BLOB_BASS_BOOM_INTENSITY: 'auralis_blob_bass_boom_intensity_v1',
   VISUALIZER_MODE: 'auralis_visualizer_mode_v1',
   ACTIVE_EQ_PRESET_ID: 'auralis_active_eq_preset_id_v1',
+  PERFORMANCE_TIER: 'auralis_performance_tier_v1',
+  USER_TOKEN: 'auralis_user_jwt_token',
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
@@ -95,17 +97,13 @@ export class StorageService {
   }
 
   public static getRainbowScale(): number {
-    try {
-      const val = localStorage.getItem(STORAGE_KEYS.RAINBOW_SCALE);
-      return val ? parseFloat(val) : 1.0;
-    } catch {
-      return 1.0;
-    }
+    // Rainbow Void scale strictly locked to reference 0.5x
+    return 0.5;
   }
 
-  public static saveRainbowScale(scale: number): void {
+  public static saveRainbowScale(_scale: number): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.RAINBOW_SCALE, scale.toString());
+      localStorage.setItem(STORAGE_KEYS.RAINBOW_SCALE, '0.5');
     } catch (e) {
       console.warn('Failed to save rainbow scale to LocalStorage', e);
     }
@@ -114,15 +112,17 @@ export class StorageService {
   public static getMusicSensitivity(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.MUSIC_SENSITIVITY);
-      return val ? parseFloat(val) : 1.0;
+      const parsed = val ? parseFloat(val) : 0.75;
+      return Math.min(0.85, Math.max(0.60, isNaN(parsed) ? 0.75 : parsed));
     } catch {
-      return 1.0;
+      return 0.75;
     }
   }
 
   public static saveMusicSensitivity(sens: number): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.MUSIC_SENSITIVITY, sens.toString());
+      const clamped = Math.min(0.85, Math.max(0.60, sens));
+      localStorage.setItem(STORAGE_KEYS.MUSIC_SENSITIVITY, clamped.toString());
     } catch (e) {
       console.warn('Failed to save music sensitivity to LocalStorage', e);
     }
@@ -462,6 +462,50 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.BLOB_BASS_BOOM_INTENSITY, val.toString());
     } catch (e) {
       console.warn('Failed to save blob bass boom intensity to LocalStorage', e);
+    }
+  }
+
+  public static getPerformanceTier(): 'high' | 'medium' | 'eco' {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.PERFORMANCE_TIER);
+      if (val === 'eco' || val === 'medium' || val === 'high') {
+        return val;
+      }
+      return 'high';
+    } catch {
+      return 'high';
+    }
+  }
+
+  public static savePerformanceTier(tier: 'high' | 'medium' | 'eco'): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PERFORMANCE_TIER, tier);
+    } catch (e) {
+      console.warn('Failed to save performance tier to LocalStorage', e);
+    }
+  }
+
+  public static getUserToken(): string | null {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.USER_TOKEN);
+    } catch {
+      return null;
+    }
+  }
+
+  public static saveUserToken(token: string): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.USER_TOKEN, token);
+    } catch (e) {
+      console.warn('Failed to save user token to LocalStorage', e);
+    }
+  }
+
+  public static removeUserToken(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.USER_TOKEN);
+    } catch (e) {
+      console.warn('Failed to remove user token from LocalStorage', e);
     }
   }
 }

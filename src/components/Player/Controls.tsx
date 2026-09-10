@@ -166,7 +166,7 @@ export const Controls: React.FC = React.memo(() => {
 
         <button
           onClick={handlePlayPause}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md flex-shrink-0"
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-white/20 flex-shrink-0 hover:scale-105"
           style={
             autoMode
               ? {
