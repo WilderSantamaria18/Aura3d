@@ -1,4 +1,10 @@
-import type { VisualizerMode, VisualizerShape, WaveEffectMode, BlobCustomSettings } from './audio';
+import type {
+  VisualizerMode,
+  VisualizerShape,
+  WaveEffectMode,
+  BlobCustomSettings,
+  BackgroundAtmosphere,
+} from './audio';
 
 export interface ScenePreset {
   id: string;
@@ -31,6 +37,7 @@ export interface ScenePreset {
   musicSensitivity: number;
   audioSpeed: number;
 
-  // Optional custom blob details
+  // Dynamic Scene Atmosphere & Custom details
+  backgroundAtmosphere?: BackgroundAtmosphere;
   blobSettings?: BlobCustomSettings;
 }

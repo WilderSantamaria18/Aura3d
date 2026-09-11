@@ -1,5 +1,5 @@
 export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system' | 'radio';
-export type VisualizerMode = 'sphere' | 'blob' | 'party' | 'synthwave';
+export type VisualizerMode = 'sphere' | 'blob' | 'synthwave';
 export type VisualizerShape =
   | 'sphere'
   | 'rings'
@@ -222,6 +222,18 @@ export const LUCID_THEMES: LucidTheme[] = [
   },
 ];
 
+export type BackgroundAtmosphere =
+  | 'none'
+  | 'ripples'
+  | 'rain'
+  | 'sand'
+  | 'sunset'
+  | 'cyber_city'
+  | 'cosmic_voyager'
+  | 'stars'
+  | 'matrix'
+  | 'aurora';
+
 export interface BlobCustomSettings {
   circleColor: string;
   haloColor1: string;
@@ -236,6 +248,28 @@ export interface BlobCustomSettings {
   logoStyle: string;
   customLogoUrl: string | null;
   scaleSensitivity?: number;
+  // Background Custom Image & Opacity & Proportional Fit
+  customBackgroundImage?: string | null;
+  backgroundOpacity?: number;
+  backgroundFit?: 'cover' | 'contain';
+  backgroundScale?: number;
+  // Rainbow Void 2D & Atmospheric Calibration & Dynamics
+  backgroundAtmosphere?: BackgroundAtmosphere;
+  atmosphereSpeed?: number;
+  atmosphereGlow?: number;
+  atmosphereSmoothing?: number;
+  atmosphereBlend?: BackgroundAtmosphere | 'none';
+  kickThreshold?: number;
+  kickPower?: number;
+  dhonkioInnerSize?: number;
+  dhonkioOuterSize?: number;
+  dhonkioOpacity?: number;
+  dhonkioBloom?: number;
+  dhonkioPowerBass?: number;
+  dhonkioPowerMid?: number;
+  dhonkioPowerKick?: number;
+  dhonkioKickBoost?: number;
+  isUiHidden?: boolean;
 }
 
 export interface Track {

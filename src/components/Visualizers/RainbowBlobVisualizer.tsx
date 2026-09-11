@@ -18,10 +18,14 @@ import {
   Globe2,
   Edit3,
   ChevronDown,
+  Save,
+  Check,
+  Sun,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
-import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
-import type { VisualizerShape } from '../../types/audio';
+import { RAINBOW_VOID_EFFECTS, ATMOSPHERE_OPTIONS } from '../../config/visualPresets';
+import type { VisualizerShape, BackgroundAtmosphere } from '../../types/audio';
+import { DEFAULT_BLOB_SETTINGS } from '../../services/storageService';
 
 // Preset Vector Logo Styles
 const LOGO_PRESETS = [
@@ -34,18 +38,23 @@ const LOGO_PRESETS = [
   { id: 'orbit', name: 'Órbita', icon: Globe2 },
 ];
 
-// Kick Shockwave Detector & Timing Constants (Synchronized with 3D Sphere)
-const KICK_THRESHOLD = 0.18;
-const KICK_ATTACK_DELTA = 0.06;
-const KICK_COOLDOWN_MS = 160; // 160ms (~375 BPM max)
-const WAVE_LIFETIME_MS = 850; // 850ms duration
-const MAX_ACTIVE_SHOCKWAVES = 3;
 
-interface ActiveShockwave {
-  startTime: number;
-  maxDistance: number;
-  opacity: number;
+
+interface SpikeParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  alpha: number;
+  size: number;
   hue: number;
+}
+
+interface VoidStar {
+  x: number; // Normalized -1 to 1
+  y: number;
+  size: number;
+  phase: number;
 }
 
 const clamp = (val: number, min: number, max: number): number =>
@@ -62,10 +71,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const {
     blobSettings,
     updateBlobSettings,
-    resetBlobSettings,
     isBlobPanelOpen,
     setBlobPanelOpen,
-    toggleVisualizerSettings,
     blobShape,
     setBlobShape,
     blobWaveMode,
@@ -84,16 +91,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
-    lucidSecondaryColor,
-    setLucidPrimaryColor,
-    setLucidSecondaryColor,
+    isUiIdle,
   } = usePlayerStore();
 
-  // Smoothing 0.2 synchronized with 3D Sphere Visualizer
+  // Smoothing 0.2 synchronized with audio engine
   const { getSmoothedData } = useVisualizer(0.2);
 
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
+  const [savedPresetSuccess, setSavedPresetSuccess] = useState(false);
 
   // Unitary scale factor u: responsive clamp
   const [scaleU, setScaleU] = useState<number>(computeScaleFactor);
@@ -104,10 +110,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const haloGlowRef = useRef<HTMLDivElement>(null);
   const circleRef = useRef<HTMLDivElement>(null);
   const auroraRef = useRef<HTMLDivElement>(null);
-  const fondoRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Swarm particles for 'cloud' shape (initialized once at mount to preserve render purity)
+  // Swarm particles for 'cloud' shape
   const [cloudParticles] = useState(() =>
     Array.from({ length: 90 }, () => ({
       angle: Math.random() * Math.PI * 2,
@@ -118,15 +123,30 @@ export const RainbowBlobVisualizer: React.FC = () => {
     }))
   );
 
-  // Shockwave rings & kick synchronization refs
-  const shockwaves = useRef<ActiveShockwave[]>([]);
-  const prevBass = useRef(0);
+  // Internal twinkling stars for DHONKIO mode
+  const voidStars = useRef<VoidStar[]>(
+    Array.from({ length: 28 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * 0.85;
+      return {
+        x: Math.cos(angle) * r,
+        y: Math.sin(angle) * r,
+        size: 0.8 + Math.random() * 1.8,
+        phase: Math.random() * Math.PI * 2,
+      };
+    })
+  );
+
+  // Crystalline percussive micro-particles for Spikes mode
+  const spikeParticles = useRef<SpikeParticle[]>([]);
+
+  // Audio smoothing refs
   const smoothedBassRef = useRef(0);
   const smoothedMidsRef = useRef(0);
   const smoothedEnergyRef = useRef(0);
-  const lastKickTimeRef = useRef(0);
-  const boomImpulse = useRef(0);
-  const boomFlash = useRef(0);
+
+  // Peak hold array for 64-band spectrum
+  const peakHoldCaps = useRef<number[]>(new Array(64).fill(0));
 
   // Window resize handler: update scale factor ref and canvas dimensions
   useEffect(() => {
@@ -151,7 +171,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Main animation render loop using performance.now() clock
+  const isSunset = blobSettings.backgroundAtmosphere === 'sunset';
+
+  // Main 60 FPS animation render loop using performance.now() clock
   useEffect(() => {
     let animId: number;
     let phase = 0;
@@ -166,7 +188,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const audioSens = musicSensitivity ?? 1.0;
       const isAudioActive = energy > 0.005 || isPlaying || isMicActive;
 
-      // Exponential moving average filter matching SphereVisualizer
+      // Exponential moving average filter
       const effectiveBass = bass * audioSens;
       const effectiveMids = mids * audioSens;
       const effectiveEnergy = energy * audioSens;
@@ -179,70 +201,26 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const sMids = smoothedMidsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      // Single synchronized kick detector matching 3D Sphere using isolated blob thresholds
-      const attackEnv = Math.max(0, sBass - prevBass.current);
-      const intensity = blobBassBoomIntensity ?? 1.0;
-      const kickThresh = KICK_THRESHOLD * (blobBassBoomThreshold ? blobBassBoomThreshold / 0.45 : 1.0);
-
-      if (
-        sBass > kickThresh &&
-        attackEnv > KICK_ATTACK_DELTA &&
-        now - lastKickTimeRef.current > KICK_COOLDOWN_MS
-      ) {
-        lastKickTimeRef.current = now;
-
-        // Kick impulse for smooth subwoofer scale pump & flash
-        const impulseKick = Math.pow(sBass, 1.2) * 1.5 * intensity;
-        boomImpulse.current = Math.min(2.0, boomImpulse.current + impulseKick);
-        boomFlash.current = Math.min(1.0, 0.8 * intensity);
-
-        // Spawn synchronized shockwave ring (capped at MAX_ACTIVE_SHOCKWAVES)
-        if (shockwaves.current.length >= MAX_ACTIVE_SHOCKWAVES) {
-          shockwaves.current.shift();
-        }
-
-        shockwaves.current.push({
-          startTime: now,
-          maxDistance: 380 * (blobWaveIntensity || 1) * intensity,
-          opacity: Math.min(0.85, 0.75 * intensity),
-          hue: (timeSec * 50 + Math.random() * 40) % 360,
-        });
-      }
-      prevBass.current = sBass;
-
-      boomImpulse.current *= 0.88;
-      boomFlash.current *= 0.80;
-      const boomPunch = boomImpulse.current * intensity;
-
       if (isAudioActive) {
-        phase += 0.03 + sBass * 0.1 + boomPunch * 0.15;
-        angle += 0.25 + sMids * 1.2 + boomPunch * 0.8;
+        phase += 0.03 + sBass * 0.1;
+        angle += 0.25 + sMids * 1.2;
       } else {
         phase += 0.015;
         angle += 0.1;
       }
 
+      // Smooth audio-reactive scale calibration (smooth bass response, no sudden boom stutter)
       const nivel = isAudioActive ? sBass : 0;
-      const boostVal = blobSettings.bassBoost;
+      const boostVal = blobSettings.bassBoost ?? 2.8;
       const idleBreathing = isAudioActive ? 0 : Math.sin(timeSec * 1.5) * 0.03;
-      const sens = (blobSettings.scaleSensitivity ?? 1.0) * audioSens;
+      const sens = (blobSettings.scaleSensitivity ?? 1.40) * audioSens;
       const baseScale = 0.75 + idleBreathing;
-      const bassContribution = Math.pow(nivel, 1.25) * (0.45 + boostVal * 0.25);
-      const boomContribution = Math.min(boomPunch * 0.32 * audioSens, 0.70);
-      const totalScale = (baseScale + bassContribution + boomContribution) * sens;
-      const clampedScale = Math.min(1.8, Math.max(0.40, totalScale));
-      // Rainbow Void reference fixed scale at 0.5x
+      const bassContribution = Math.pow(nivel, 1.2) * (0.35 + boostVal * 0.18);
+      const totalScale = (baseScale + bassContribution) * sens;
+      const clampedScale = Math.min(1.85, Math.max(0.40, totalScale));
       const escala = clampedScale * 0.5;
 
-      // Minimalist organic contour (clean, zero unnecessary wobbles)
-      let borderRadius: string;
-      if (blobShape === 'sphere') {
-        borderRadius = '50%';
-      } else if (blobShape === 'icosahedron' || blobShape === 'octahedron') {
-        borderRadius = '25% 75% 25% 75% / 75% 25% 75% 25%';
-      } else {
-        borderRadius = '50%';
-      }
+      const borderRadius = '50%';
 
       if (circleRef.current) {
         circleRef.current.style.transform = `scale(${escala})`;
@@ -252,8 +230,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
         haloRef.current.style.borderRadius = borderRadius;
         haloRef.current.style.transform = `scale(${escala}) rotate(${angle}deg)`;
         haloRef.current.style.display = 'block';
+        if (isSunset) {
+          haloRef.current.style.opacity = `${blobSettings.dhonkioOpacity ?? 0.42}`;
+        } else {
+          haloRef.current.style.opacity = '1.0';
+        }
       }
-
 
       if (haloGlowRef.current) {
         haloGlowRef.current.style.borderRadius = borderRadius;
@@ -263,8 +245,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
       }
 
       if (auroraRef.current) {
-        auroraRef.current.style.transform = `rotate(${timeSec * 8}deg) scale(${1 + sBass * 0.1})`;
-        auroraRef.current.style.opacity = `${isAudioActive ? 0.3 + sBass * 0.35 : 0.2}`;
+        if (isSunset) {
+          auroraRef.current.style.opacity = '0';
+        } else {
+          auroraRef.current.style.transform = `rotate(${timeSec * 8}deg) scale(${1 + sBass * 0.1})`;
+          auroraRef.current.style.opacity = `${isAudioActive ? 0.3 + sBass * 0.35 : 0.2}`;
+        }
       }
 
       // ── 2D Canvas Dynamics (Scaled by unit factor u) ────────────────────
@@ -282,207 +268,203 @@ export const RainbowBlobVisualizer: React.FC = () => {
           const cy = displaySize / 2;
           const baseCircleRadius = (blobSettings.circleSize / 2) * u * escala;
 
-          // ── SHAPE 1: RINGS (5 concentric orbital rings) ───────────────────
-          if (blobShape === 'rings') {
-            for (let rIdx = 0; rIdx < 5; rIdx++) {
-              const ringR = baseCircleRadius + (rIdx + 1) * 26 * u * (1 + sBass * 0.35);
-              const ringHue = isLucid ? rIdx * 45 : (rIdx * 55 + timeSec * 35) % 360;
-              const ringAlpha = 0.45 + Math.sin(timeSec * 3 + rIdx) * 0.18 + sBass * 0.25;
+          // ─────────────────────────────────────────────────────────────────
+          // DHONKIO MODE: "Silueta & Atardecer" (Canvas Core Overlay)
+          // ─────────────────────────────────────────────────────────────────
+          if (isSunset) {
+            ctx.save();
+            // Clip to inner circular void
+            ctx.beginPath();
+            ctx.arc(cx, cy, baseCircleRadius, 0, Math.PI * 2);
+            ctx.clip();
 
+            // Fondo negro sólido (simulando cielo nocturno puro)
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(cx - baseCircleRadius, cy - baseCircleRadius, baseCircleRadius * 2, baseCircleRadius * 2);
+
+            // Partículas internas: puntos blancos flotando como estrellas
+            voidStars.current.forEach((st) => {
+              const starAlpha = 0.45 + Math.sin(timeSec * 2.8 + st.phase) * 0.45;
               ctx.beginPath();
-              ctx.arc(cx, cy, Math.max(10 * u, ringR), 0, Math.PI * 2);
-              ctx.strokeStyle = isLucid
-                ? lucidTheme.primary
-                : autoMode
-                ? dynamicColor
-                : `hsla(${ringHue}, 85%, 62%, ${ringAlpha})`;
-              ctx.lineWidth = Math.max(1.5, (2.2 + (rIdx === 2 ? sBass * 3.0 : 0.8)) * u);
-              ctx.shadowColor = isLucid
-                ? lucidTheme.glow
-                : autoMode
-                ? dynamicColor
-                : `hsla(${ringHue}, 85%, 50%, 0.6)`;
-              ctx.shadowBlur = 12 * u;
+              ctx.arc(cx + st.x * baseCircleRadius * 0.88, cy + st.y * baseCircleRadius * 0.88, st.size * u, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
+              ctx.shadowColor = '#ffffff';
+              ctx.shadowBlur = 4 * u;
+              ctx.fill();
+            });
+
+            // Dynamic color tinting: Lucid Theme or AI Dynamic Color
+            const dhonkioColor = isLucid
+              ? (lucidPrimaryColor || lucidTheme.primary)
+              : autoMode
+              ? (dynamicColor || '#00f2fe')
+              : '#ffffff';
+
+            const baseBloom = blobSettings.dhonkioBloom ?? 1.33;
+            // Bloom breathing modulation with audio energy / RMS
+            const bloomInt = baseBloom * (0.90 + sEnergy * 0.25);
+            const pMid = blobSettings.dhonkioPowerMid ?? 1.08;
+            const pKick = blobSettings.dhonkioPowerKick ?? 1.045;
+            const kickBoost = blobSettings.dhonkioKickBoost ?? 6.0;
+
+            // 1. Texto "DHONKIO" teñido dinámicamente, cursiva inclinada hacia arriba, Bloom modulado
+            ctx.save();
+            ctx.translate(cx, cy - 14 * u);
+            ctx.rotate(-0.10); // Inclinada hacia arriba (~ -5.8 grados)
+            ctx.font = `italic 800 ${Math.round(24 * u)}px "Brush Script MT", "Caveat", "Pacifico", "Dancing Script", cursive, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = dhonkioColor;
+            ctx.shadowColor = dhonkioColor;
+            ctx.shadowBlur = 18 * bloomInt * u;
+            ctx.fillText('DHONKIO', 0, 0);
+            ctx.restore();
+
+            // 2. Silueta del horizonte de la ciudad justo debajo del texto
+            const cityY = cy + 6 * u;
+            const cityWidth = baseCircleRadius * 1.82;
+            const startX = cx - cityWidth / 2;
+            const buildings = 20;
+            const bWidth = cityWidth / buildings;
+
+            for (let b = 0; b < buildings; b++) {
+              const bX = startX + b * bWidth;
+              const heightsPattern = [22, 36, 28, 44, 18, 32, 48, 26, 38, 46, 24, 34, 52, 30, 20, 36, 24, 18, 30, 22];
+              const bHeight = (heightsPattern[b % heightsPattern.length] || 25) * u;
+              const roofY = cityY + (46 * u - bHeight);
+
+              // 3. Barras de audio verticales teñidas emergiendo de la ciudad (Power Mid más alto)
+              const freqIdx = Math.floor((b / buildings) * raw.length * 0.65);
+              const freqVal = (raw[freqIdx] || 0) / 255;
+              const isMid = b >= 4 && b <= 15;
+              const midFactor = isMid ? pMid : 1.01;
+              const barHeight = Math.max(3 * u, freqVal * 42 * u * midFactor * (1 + (sBass > 0.28 ? (pKick - 1) * kickBoost : 0)));
+
+              // Barra de ecualizador vertical teñida con Bloom respirante
+              ctx.save();
+              ctx.fillStyle = dhonkioColor;
+              ctx.shadowColor = dhonkioColor;
+              ctx.shadowBlur = 14 * bloomInt * u;
+              ctx.fillRect(bX + bWidth * 0.22, roofY - barHeight, bWidth * 0.56, barHeight);
+              ctx.restore();
+
+              // Cuerpo del edificio en silueta blanca
+              ctx.save();
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(bX + 1, roofY, bWidth - 2, baseCircleRadius * 2);
+
+              // Antena en edificios clave
+              if (b === 6 || b === 12 || b === 16) {
+                ctx.beginPath();
+                ctx.moveTo(bX + bWidth * 0.5, roofY);
+                ctx.lineTo(bX + bWidth * 0.5, roofY - 14 * u);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.2 * u;
+                ctx.stroke();
+              }
+              ctx.restore();
+            }
+
+            ctx.restore();
+          }
+
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 1: SPHERE (Núcleo Minimal Difuminado & Aura Cuántica Radiante)
+          // ─────────────────────────────────────────────────────────────────
+          if (blobShape === 'sphere') {
+            // Core breathing plasma halos
+            for (let sIdx = 0; sIdx < 5; sIdx++) {
+              const sRad = baseCircleRadius + (sIdx + 1) * 24 * u * (1 + sBass * 0.35);
+              const sGrad = ctx.createRadialGradient(cx, cy, baseCircleRadius * 0.82, cx, cy, sRad);
+              const sHue = isLucid ? sIdx * 45 : (timeSec * 30 + sIdx * 50) % 360;
+              const sAlpha = (0.55 - sIdx * 0.10) * (1 + sBass * 0.45);
+              sGrad.addColorStop(0, `hsla(${sHue}, 95%, 65%, ${Math.min(0.9, sAlpha)})`);
+              sGrad.addColorStop(0.7, `hsla(${(sHue + 40) % 360}, 90%, 55%, ${Math.min(0.5, sAlpha * 0.6)})`);
+              sGrad.addColorStop(1, 'transparent');
+              ctx.beginPath();
+              ctx.arc(cx, cy, sRad, 0, Math.PI * 2);
+              ctx.fillStyle = sGrad;
+              ctx.fill();
+            }
+
+            // Concentric laser-engraved hardware micro-grooves
+            for (let g = 0; g < 3; g++) {
+              const gR = baseCircleRadius + (g + 1) * 16 * u * (1 + sBass * 0.15);
+              ctx.beginPath();
+              ctx.arc(cx, cy, gR, 0, Math.PI * 2);
+              ctx.strokeStyle = isLucid ? `${lucidTheme.primary}70` : `hsla(${(timeSec * 25 + g * 80) % 360}, 90%, 65%, ${0.45 + sBass * 0.4})`;
+              ctx.lineWidth = Math.max(1.2, 1.8 * u);
               ctx.stroke();
+            }
 
-              // Orbital satellite dot
-              const satAngle = timeSec * (0.8 + rIdx * 0.3) + rIdx;
-              const sx = cx + Math.cos(satAngle) * ringR;
-              const sy = cy + Math.sin(satAngle) * ringR;
+            // High-voltage electric orbital sparks around perimeter
+            const sparkCount = 8;
+            for (let sp = 0; sp < sparkCount; sp++) {
+              const sAng = timeSec * 1.8 + (sp / sparkCount) * Math.PI * 2;
+              const sDist = baseCircleRadius + (32 + Math.sin(timeSec * 3 + sp) * 12 + sBass * 35) * u;
+              const sx = cx + Math.cos(sAng) * sDist;
+              const sy = cy + Math.sin(sAng) * sDist;
               ctx.beginPath();
-              ctx.arc(sx, sy, Math.max(2, (3.0 + sBass * 1.8) * u), 0, Math.PI * 2);
+              ctx.arc(sx, sy, Math.max(2, (2.8 + sBass * 2.2) * u), 0, Math.PI * 2);
               ctx.fillStyle = '#ffffff';
               ctx.fill();
             }
           }
 
-          // ── SHAPE 2: SPIKES (Radial Sunburst Equalizer) ───────────────────
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 3: SPIKES (Corona de Picos FFT Reactiva: 48 agujas cristalinas)
+          // ─────────────────────────────────────────────────────────────────
           if (blobShape === 'spikes') {
             const barCount = 48;
             for (let i = 0; i < barCount; i++) {
               const barAngle = (i / barCount) * Math.PI * 2 + angle * 0.02;
               const rawVal = raw[i % raw.length] || 0;
-              const barLen = (12 + (rawVal / 255) * 75 * (1 + sBass * 0.5)) * u;
-              const barHue = (i * (360 / barCount) + timeSec * 25) % 360;
+              const barLen = (18 + (rawVal / 255) * 95 * (1 + sBass * 0.65)) * u;
+              const barHue = (i * (360 / barCount) + timeSec * 35) % 360;
 
               const x1 = cx + Math.cos(barAngle) * (baseCircleRadius + 2 * u);
               const y1 = cy + Math.sin(barAngle) * (baseCircleRadius + 2 * u);
               const x2 = cx + Math.cos(barAngle) * (baseCircleRadius + 2 * u + barLen);
               const y2 = cy + Math.sin(barAngle) * (baseCircleRadius + 2 * u + barLen);
 
+              // Tapered needle gradient
+              const spikeGrad = ctx.createLinearGradient(x1, y1, x2, y2);
+              spikeGrad.addColorStop(0, isLucid ? lucidTheme.secondary : `hsla(${barHue}, 90%, 60%, 0.65)`);
+              spikeGrad.addColorStop(1, isLucid ? lucidTheme.primary : `hsla(${(barHue + 50) % 360}, 100%, 75%, 1.0)`);
+
               ctx.beginPath();
               ctx.moveTo(x1, y1);
               ctx.lineTo(x2, y2);
-              ctx.strokeStyle = isLucid
-                ? lucidTheme.primary
-                : autoMode
-                ? dynamicColor
-                : `hsla(${barHue}, 85%, 60%, 0.85)`;
-              ctx.lineWidth = Math.max(1.5, 2.6 * u);
+              ctx.strokeStyle = spikeGrad;
+              ctx.lineWidth = Math.max(1.8, 3.0 * u);
               ctx.lineCap = 'round';
-              ctx.shadowColor = isLucid
-                ? lucidTheme.glow
-                : autoMode
-                ? dynamicColor
-                : `hsla(${barHue}, 85%, 50%, 0.6)`;
-              ctx.shadowBlur = 8 * u;
               ctx.stroke();
-            }
-          }
 
-          // ── SHAPE 3: CLOUD (Particle Swarm) ───────────────────────────────
-          if (blobShape === 'cloud') {
-            cloudParticles.forEach((p) => {
-              p.angle += p.speed * (1 + sMids * 2);
-              const currentDist = p.dist * u * (1 - sBass * 0.12) * blobScale;
-              const px = cx + Math.cos(p.angle) * currentDist;
-              const py = cy + Math.sin(p.angle) * currentDist;
+              // Intense white-hot diamond tip
+              ctx.beginPath();
+              ctx.arc(x2, y2, Math.max(1.8, 2.6 * u), 0, Math.PI * 2);
+              ctx.fillStyle = '#ffffff';
+              ctx.fill();
+            }
+
+            // Micro-partículas percusivas
+            spikeParticles.current = spikeParticles.current.filter((p) => {
+              p.x += p.vx;
+              p.y += p.vy;
+              p.alpha *= 0.93;
+              if (p.alpha < 0.02) return false;
 
               ctx.beginPath();
-              ctx.arc(px, py, Math.max(1.5, p.size * u * (1 + sEnergy * 1.2)), 0, Math.PI * 2);
-              ctx.fillStyle = isLucid
-                ? lucidTheme.primary
-                : autoMode
-                ? dynamicColor
-                : `hsla(${p.hue + timeSec * 15}, 80%, 65%, ${0.5 + sBass * 0.35})`;
-              ctx.shadowColor = isLucid
-                ? lucidTheme.glow
-                : autoMode
-                ? dynamicColor
-                : `hsla(${p.hue}, 80%, 50%, 0.6)`;
-              ctx.shadowBlur = 6 * u;
+              ctx.arc(p.x, p.y, p.size * u, 0, Math.PI * 2);
+              ctx.fillStyle = `hsla(${p.hue}, 95%, 70%, ${p.alpha})`;
               ctx.fill();
+              return true;
             });
           }
 
-          // ── SHAPE 4: TORUS (Dual rotating elliptical bands) ───────────────
-          if (blobShape === 'torus') {
-            for (let t = 0; t < 2; t++) {
-              const rotDir = t === 0 ? 1 : -1;
-              const tAngle = timeSec * 1.1 * rotDir;
-              const tRadiusX = (baseCircleRadius + 32 * u) * (1 + sBass * 0.18);
-              const tRadiusY = (baseCircleRadius + 16 * u) * (1 + sMids * 0.22);
-
-              ctx.save();
-              ctx.translate(cx, cy);
-              ctx.rotate(tAngle);
-              ctx.beginPath();
-              ctx.ellipse(0, 0, tRadiusX, tRadiusY, 0, 0, Math.PI * 2);
-              ctx.strokeStyle = isLucid
-                ? t === 0
-                  ? lucidTheme.primary
-                  : lucidTheme.secondary
-                : autoMode
-                ? dynamicColor
-                : t === 0
-                ? 'rgba(0, 242, 254, 0.85)'
-                : 'rgba(255, 8, 138, 0.85)';
-              ctx.lineWidth = Math.max(2, (3.2 + sBass * 2.2) * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 12 * u;
-              ctx.stroke();
-              ctx.restore();
-            }
-          }
-
-          // ── SHAPE 5: WAVE (Sinusoidal Ribbon around Void) ─────────────────
-          if (blobShape === 'wave') {
-            const wavePoints = 120;
-            ctx.beginPath();
-            for (let i = 0; i <= wavePoints; i++) {
-              const theta = (i / wavePoints) * Math.PI * 2;
-              const ripple = Math.sin(theta * 8 + timeSec * 4) * (14 + sBass * 30) * u;
-              const r = baseCircleRadius + 20 * u + ripple;
-              const wx = cx + Math.cos(theta) * r;
-              const wy = cy + Math.sin(theta) * r;
-              if (i === 0) ctx.moveTo(wx, wy);
-              else ctx.lineTo(wx, wy);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : 'rgba(0, 255, 179, 0.85)';
-            ctx.lineWidth = Math.max(2, (2.8 + sMids * 1.8) * u);
-            ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 12 * u;
-            ctx.stroke();
-          }
-
-          // ── SHAPE 6: KALEIDOSCOPE (8-blade crystal prisms) ─────────────────
-          if (blobShape === 'kaleidoscope') {
-            const blades = 12;
-            for (let b = 0; b < blades; b++) {
-              const bAngle = (b / blades) * Math.PI * 2 + angle * 0.03;
-              const bLen = (22 + (raw[(b * 5) % raw.length] || 0) * 0.38 * (1 + sMids * 1.5)) * u;
-              const x1 = cx + Math.cos(bAngle) * baseCircleRadius;
-              const y1 = cy + Math.sin(bAngle) * baseCircleRadius;
-              const xTip = cx + Math.cos(bAngle) * (baseCircleRadius + bLen);
-              const yTip = cy + Math.sin(bAngle) * (baseCircleRadius + bLen);
-              const perpAngle = bAngle + Math.PI / 2;
-              const wing = 9 * u * (1 + sBass * 0.6);
-              const xLeft = cx + Math.cos(bAngle) * (baseCircleRadius + bLen * 0.5) + Math.cos(perpAngle) * wing;
-              const yLeft = cy + Math.sin(bAngle) * (baseCircleRadius + bLen * 0.5) + Math.sin(perpAngle) * wing;
-              const xRight = cx + Math.cos(bAngle) * (baseCircleRadius + bLen * 0.5) - Math.cos(perpAngle) * wing;
-              const yRight = cy + Math.sin(bAngle) * (baseCircleRadius + bLen * 0.5) - Math.sin(perpAngle) * wing;
-
-              ctx.beginPath();
-              ctx.moveTo(x1, y1);
-              ctx.lineTo(xLeft, yLeft);
-              ctx.lineTo(xTip, yTip);
-              ctx.lineTo(xRight, yRight);
-              ctx.closePath();
-              const bladeHue = (b * 30 + timeSec * 40) % 360;
-              ctx.fillStyle = isLucid ? `${lucidTheme.primary}44` : `hsla(${bladeHue}, 85%, 60%, 0.35)`;
-              ctx.fill();
-              ctx.strokeStyle = isLucid ? lucidTheme.primary : `hsla(${bladeHue}, 90%, 75%, 0.85)`;
-              ctx.lineWidth = Math.max(1.2, 1.8 * u);
-              ctx.stroke();
-            }
-          }
-
-          // ── SHAPE 7: VORTEX (Hypnotic Gravitational Dual Spirals) ───────────
-          if (blobShape === 'vortex') {
-            const spiralArms = 3;
-            for (let sa = 0; sa < spiralArms; sa++) {
-              const armBase = (sa / spiralArms) * Math.PI * 2;
-              ctx.beginPath();
-              for (let st = 0; st < 80; st++) {
-                const ratio = st / 80;
-                const vRadius = baseCircleRadius + Math.pow(ratio, 1.3) * 125 * u * (1 + sBass * 0.35);
-                const vAngle = armBase + ratio * Math.PI * 4 + timeSec * 2.5;
-                const vx = cx + Math.cos(vAngle) * vRadius;
-                const vy = cy + Math.sin(vAngle) * vRadius;
-                if (st === 0) ctx.moveTo(vx, vy);
-                else ctx.lineTo(vx, vy);
-              }
-              const vHue = (sa * 120 + timeSec * 35) % 360;
-              ctx.strokeStyle = isLucid ? lucidTheme.secondary : `hsla(${vHue}, 85%, 65%, 0.85)`;
-              ctx.lineWidth = Math.max(1.5, (2.4 + sBass * 2.5) * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 10 * u;
-              ctx.stroke();
-            }
-          }
-
-          // ── SHAPE 8: FRACTAL (Sacred Geometry Mandala Flower) ───────────────
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 5: FRACTAL (Mándala Sagrada Multicapa: 4 capas con pétalos)
+          // ─────────────────────────────────────────────────────────────────
           if (blobShape === 'fractal') {
             const rings = 4;
             for (let r = 0; r < rings; r++) {
@@ -512,155 +494,139 @@ export const RainbowBlobVisualizer: React.FC = () => {
             }
           }
 
-          // ── SHAPE 9: NEBULA (Chromatic Aurora Clouds) ──────────────────────
-          if (blobShape === 'nebula') {
-            for (let nIdx = 0; nIdx < 16; nIdx++) {
-              const nAngle = (nIdx / 16) * Math.PI * 2 + timeSec * 0.6;
-              const nDist = baseCircleRadius + (18 + Math.sin(timeSec * 2 + nIdx) * 16) * u * (1 + sBass * 0.3);
-              const nx = cx + Math.cos(nAngle) * nDist;
-              const ny = cy + Math.sin(nAngle) * nDist;
-              const nRad = Math.max(14 * u, (24 + sMids * 30) * u);
-              const nGrad = ctx.createRadialGradient(nx, ny, 2 * u, nx, ny, nRad);
-              const nHue = (nIdx * 25 + timeSec * 20) % 360;
-              nGrad.addColorStop(0, isLucid ? `${lucidTheme.primary}66` : `hsla(${nHue}, 90%, 65%, 0.45)`);
-              nGrad.addColorStop(1, 'transparent');
-              ctx.beginPath();
-              ctx.arc(nx, ny, nRad, 0, Math.PI * 2);
-              ctx.fillStyle = nGrad;
-              ctx.fill();
-            }
-          }
-
-          // ── SHAPE 10: BARS (64-Band Circular Graphic Spectrum) ──────────────
-          if (blobShape === 'bars') {
-            const totalBars = 64;
-            for (let b = 0; b < totalBars; b++) {
-              const bAngle = (b / totalBars) * Math.PI * 2 - Math.PI / 2;
-              const bVal = raw[Math.floor((b / totalBars) * raw.length * 0.7)] || 0;
-              const bLen = Math.max(4 * u, (bVal / 255) * 85 * u * (1 + sBass * 0.4));
-              const bx1 = cx + Math.cos(bAngle) * (baseCircleRadius + 4 * u);
-              const by1 = cy + Math.sin(bAngle) * (baseCircleRadius + 4 * u);
-              const bx2 = cx + Math.cos(bAngle) * (baseCircleRadius + 4 * u + bLen);
-              const by2 = cy + Math.sin(bAngle) * (baseCircleRadius + 4 * u + bLen);
-
-              const bHue = Math.floor(200 + (b / totalBars) * 160) % 360;
-              ctx.beginPath();
-              ctx.moveTo(bx1, by1);
-              ctx.lineTo(bx2, by2);
-              ctx.strokeStyle = isLucid ? lucidTheme.primary : `hsla(${bHue}, 90%, 62%, 0.9)`;
-              ctx.lineWidth = Math.max(1.5, 2.8 * u);
-              ctx.lineCap = 'round';
-              ctx.stroke();
-
-              // Peak hold dot
-              const px = cx + Math.cos(bAngle) * (baseCircleRadius + 8 * u + bLen);
-              const py = cy + Math.sin(bAngle) * (baseCircleRadius + 8 * u + bLen);
-              ctx.beginPath();
-              ctx.arc(px, py, Math.max(1.2, 1.8 * u), 0, Math.PI * 2);
-              ctx.fillStyle = '#ffffff';
-              ctx.fill();
-            }
-          }
-
-          // ── SHAPE 11: LASER (Kinetic Strobe Rays) ───────────────────────────
-          if (blobShape === 'laser') {
-            const laserCount = 8;
-            for (let l = 0; l < laserCount; l++) {
-              const lAngle = (l / laserCount) * Math.PI * 2 + angle * 0.01;
-              const isKickL = (l % 2 === 0 ? sBass : sEnergy) > 0.4;
-              const lLen = (30 + (isKickL ? 95 : 25) * (1 + sBass * 0.6)) * u;
-              const lx1 = cx + Math.cos(lAngle) * baseCircleRadius;
-              const ly1 = cy + Math.sin(lAngle) * baseCircleRadius;
-              const lx2 = cx + Math.cos(lAngle) * (baseCircleRadius + lLen);
-              const ly2 = cy + Math.sin(lAngle) * (baseCircleRadius + lLen);
-
-              ctx.beginPath();
-              ctx.moveTo(lx1, ly1);
-              ctx.lineTo(lx2, ly2);
-              ctx.strokeStyle = isKickL ? '#ffffff' : isLucid ? lucidTheme.primary : `hsla(${(l * 45 + timeSec * 50) % 360}, 90%, 65%, 0.85)`;
-              ctx.lineWidth = Math.max(1.5, (isKickL ? 3.5 : 2.0) * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = isKickL ? 16 * u : 8 * u;
-              ctx.stroke();
-            }
-          }
-
-          // ── SHAPE 12: ICOSAHEDRON / OCTAHEDRON (Geometric Crystal Lattice) ──
-          if (blobShape === 'icosahedron' || blobShape === 'octahedron') {
-            const vertices = blobShape === 'octahedron' ? 8 : 12;
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 6: WAVE (Ondas de Frecuencia Líquida: Cinta armónica doble)
+          // ─────────────────────────────────────────────────────────────────
+          if (blobShape === 'wave') {
+            const wavePoints = 140;
+            // Primary radiant wave
             ctx.beginPath();
-            for (let v = 0; v < vertices; v++) {
-              const vAngle = (v / vertices) * Math.PI * 2 + timeSec * 0.9;
-              const vRadius = baseCircleRadius + (18 + (v % 2 === 0 ? sBass * 32 : sMids * 22)) * u;
-              const vx = cx + Math.cos(vAngle) * vRadius;
-              const vy = cy + Math.sin(vAngle) * vRadius;
-              if (v === 0) ctx.moveTo(vx, vy);
-              else ctx.lineTo(vx, vy);
-
-              // Cross chord to opposing vertex for crystal facet
-              const oppAngle = vAngle + Math.PI * 0.6;
-              const ox = cx + Math.cos(oppAngle) * (baseCircleRadius + 8 * u);
-              const oy = cy + Math.sin(oppAngle) * (baseCircleRadius + 8 * u);
-              ctx.lineTo(ox, oy);
-              ctx.moveTo(vx, vy);
+            for (let i = 0; i <= wavePoints; i++) {
+              const theta = (i / wavePoints) * Math.PI * 2;
+              const freqVal = (raw[Math.floor((i / wavePoints) * raw.length * 0.6)] || 0) / 255;
+              const ripple = Math.sin(theta * 8 + timeSec * 4) * (18 + sBass * 38 + freqVal * 32) * u;
+              const r = baseCircleRadius + 24 * u + ripple;
+              const wx = cx + Math.cos(theta) * r;
+              const wy = cy + Math.sin(theta) * r;
+              if (i === 0) ctx.moveTo(wx, wy);
+              else ctx.lineTo(wx, wy);
             }
             ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.primary : 'rgba(0, 242, 254, 0.80)';
-            ctx.lineWidth = Math.max(1.2, 1.8 * u);
+            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : 'rgba(0, 255, 195, 0.92)';
+            ctx.lineWidth = Math.max(2.4, (3.4 + sMids * 2.2) * u);
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 16 * u;
+            ctx.stroke();
+
+            // Secondary outer harmonic wave
+            ctx.beginPath();
+            for (let i = 0; i <= wavePoints; i++) {
+              const theta = (i / wavePoints) * Math.PI * 2;
+              const freqVal = (raw[Math.floor((i / wavePoints) * raw.length * 0.4)] || 0) / 255;
+              const ripple2 = Math.cos(theta * 10 - timeSec * 3.5) * (12 + sEnergy * 25 + freqVal * 20) * u;
+              const r2 = baseCircleRadius + 42 * u + ripple2;
+              const wx = cx + Math.cos(theta) * r2;
+              const wy = cy + Math.sin(theta) * r2;
+              if (i === 0) ctx.moveTo(wx, wy);
+              else ctx.lineTo(wx, wy);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = isLucid ? lucidTheme.secondary : 'rgba(255, 8, 138, 0.65)';
+            ctx.lineWidth = Math.max(1.6, 2.2 * u);
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 12 * u;
             ctx.stroke();
           }
 
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 7: TORUS (Anillo Neón Orbital: Giroscopio 3D Neón)
+          // ─────────────────────────────────────────────────────────────────
+          if (blobShape === 'torus') {
+            for (let t = 0; t < 3; t++) {
+              const rotDir = t === 0 ? 1 : t === 1 ? -1 : 0.6;
+              const tAngle = timeSec * (1.1 + t * 0.3) * rotDir + t * (Math.PI / 3);
+              const tRadiusX = (baseCircleRadius + (30 + t * 14) * u) * (1 + sBass * 0.22);
+              const tRadiusY = (baseCircleRadius + (15 + t * 8) * u) * (1 + sMids * 0.25);
 
-          // ── WAVE EFFECTS: Concentric Shockwaves & Spiral ──────────────────
-          if (blobWaveMode === 'concentric' || shockwaves.current.length > 0) {
-            shockwaves.current = shockwaves.current.filter((sw) => {
-              const age = now - sw.startTime;
-              if (age < 0 || age > WAVE_LIFETIME_MS) return false;
+              ctx.save();
+              ctx.translate(cx, cy);
+              ctx.rotate(tAngle);
+              ctx.beginPath();
+              ctx.ellipse(0, 0, tRadiusX, tRadiusY, 0, 0, Math.PI * 2);
+              const torHue = (t * 80 + timeSec * 30) % 360;
+              ctx.strokeStyle = isLucid
+                ? t === 0 ? lucidTheme.primary : lucidTheme.secondary
+                : `hsla(${torHue}, 95%, 65%, 0.88)`;
+              ctx.lineWidth = Math.max(2, (3.4 + sBass * 2.5) * u);
+              ctx.shadowColor = ctx.strokeStyle;
+              ctx.shadowBlur = 14 * u;
+              ctx.stroke();
 
-              const progress = Math.min(1.0, Math.max(0.0, age / WAVE_LIFETIME_MS));
-              const currentRadius = baseCircleRadius + Math.pow(progress, 0.75) * sw.maxDistance * u;
-              const decay = Math.pow(1.0 - progress, 1.5);
-              const alpha = decay * sw.opacity;
-
-              if (alpha > 0.01) {
-                ctx.save();
+              // Cardinal energy nodes
+              for (let n = 0; n < 4; n++) {
+                const nAng = (n / 4) * Math.PI * 2;
+                const nx = Math.cos(nAng) * tRadiusX;
+                const ny = Math.sin(nAng) * tRadiusY;
                 ctx.beginPath();
-                ctx.arc(cx, cy, Math.max(1, currentRadius), 0, Math.PI * 2);
-                ctx.strokeStyle = isLucid
-                  ? `rgba(57, 255, 20, ${alpha})`
-                  : autoMode
-                  ? dynamicColor
-                  : `hsla(${sw.hue}, 95%, 65%, ${alpha})`;
-                ctx.lineWidth = Math.max(1, 1.6 * u);
-                ctx.shadowColor = ctx.strokeStyle;
+                ctx.arc(nx, ny, Math.max(2, (3.2 + sBass * 1.5) * u), 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#ffffff';
                 ctx.shadowBlur = 8 * u;
-                ctx.stroke();
-                ctx.restore();
+                ctx.fill();
               }
-              return true;
+              ctx.restore();
+            }
+          }
+
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 8: CLOUD (Nébula Cuántica: Enjambre de Estrellas Orbital)
+          // ─────────────────────────────────────────────────────────────────
+          if (blobShape === 'cloud') {
+            cloudParticles.forEach((p) => {
+              p.angle += p.speed * (1 + sMids * 2.5 + sBass * 1.5);
+              const currentDist = p.dist * u * (1 - sBass * 0.15) * blobScale;
+              const px = cx + Math.cos(p.angle) * currentDist;
+              const py = cy + Math.sin(p.angle) * currentDist;
+
+              ctx.beginPath();
+              ctx.arc(px, py, Math.max(1.8, p.size * u * (1 + sEnergy * 1.4)), 0, Math.PI * 2);
+              ctx.fillStyle = isLucid
+                ? lucidTheme.primary
+                : autoMode
+                ? dynamicColor
+                : `hsla(${p.hue + timeSec * 20}, 90%, 70%, ${0.6 + sBass * 0.4})`;
+              ctx.shadowColor = isLucid ? lucidTheme.glow : `hsla(${p.hue}, 90%, 60%, 0.8)`;
+              ctx.shadowBlur = 10 * u;
+              ctx.fill();
             });
           }
 
-          if (blobWaveMode === 'spiral') {
-            for (let arm = 0; arm < 2; arm++) {
-              const armOffset = arm * Math.PI;
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPE 11: NEBULA (Nebulosa / Aurora Líquida: Cintas Turbulentes)
+          // ─────────────────────────────────────────────────────────────────
+          if (blobShape === 'nebula') {
+            const ribbons = 6;
+            for (let rb = 0; rb < ribbons; rb++) {
               ctx.beginPath();
-              for (let step = 0; step < 60; step++) {
-                const sAngle = armOffset + (step / 60) * Math.PI * 3 + timeSec * 1.8;
-                const sDist = baseCircleRadius + step * 3.0 * u * blobWaveIntensity;
-                const sx = cx + Math.cos(sAngle) * sDist;
-                const sy = cy + Math.sin(sAngle) * sDist;
-                if (step === 0) ctx.moveTo(sx, sy);
-                else ctx.lineTo(sx, sy);
+              const rbAngle = (rb / ribbons) * Math.PI * 2;
+              const points = 50;
+              for (let p = 0; p <= points; p++) {
+                const theta = (p / points) * Math.PI * 2;
+                const waveOffset = Math.sin(theta * 5 + timeSec * 2.5 + rb) * (20 + sBass * 32) * u;
+                const r = baseCircleRadius + (22 + rb * 12) * u + waveOffset;
+                const nx = cx + Math.cos(theta + rbAngle) * r;
+                const ny = cy + Math.sin(theta + rbAngle) * r;
+                if (p === 0) ctx.moveTo(nx, ny);
+                else ctx.lineTo(nx, ny);
               }
+              ctx.closePath();
+              const nbHue = (rb * 55 + timeSec * 25) % 360;
               ctx.strokeStyle = isLucid
-                ? lucidTheme.secondary
-                : autoMode
-                ? dynamicColor
-                : `hsla(${(arm * 180 + timeSec * 30) % 360}, 85%, 65%, 0.8)`;
-              ctx.lineWidth = Math.max(1.5, (2.2 + sBass * 1.8) * u);
+                ? rb % 2 === 0 ? lucidTheme.primary : lucidTheme.secondary
+                : `hsla(${nbHue}, 90%, 65%, ${0.55 - rb * 0.06})`;
+              ctx.lineWidth = Math.max(1.8, (2.6 + sMids * 1.6) * u);
               ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 10 * u;
+              ctx.shadowBlur = 12 * u;
               ctx.stroke();
             }
           }
@@ -679,6 +645,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
     blobSettings.bassBoost,
     blobSettings.circleSize,
     blobSettings.scaleSensitivity,
+    blobSettings.backgroundAtmosphere,
+    blobSettings.dhonkioBloom,
+    blobSettings.dhonkioPowerMid,
+    blobSettings.dhonkioPowerKick,
+    blobSettings.dhonkioKickBoost,
+    blobSettings.dhonkioOpacity,
     isPlaying,
     isMicActive,
     blobShape,
@@ -693,6 +665,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     autoMode,
     dynamicColor,
     cloudParticles,
+    isSunset,
   ]);
 
   const haloBackground = isLucid
@@ -721,14 +694,51 @@ export const RainbowBlobVisualizer: React.FC = () => {
     updateBlobSettings({ customLogoUrl: null });
   };
 
-  const haloDimension = blobSettings.haloSize * scaleU;
-  const circleDimension = blobSettings.circleSize * scaleU;
+  const handleSaveFavoritePreset = () => {
+    try {
+      const presetData = {
+        blobSettings,
+        blobShape,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('aura3d_saved_blob_preset', JSON.stringify(presetData));
+      setSavedPresetSuccess(true);
+      setTimeout(() => setSavedPresetSuccess(false), 2200);
+    } catch (e) {
+      console.warn('Failed to save preset to localStorage', e);
+    }
+  };
+
+  const handleResetFixedCalibration = () => {
+    updateBlobSettings({
+      circleSize: DEFAULT_BLOB_SETTINGS.circleSize,
+      haloSize: DEFAULT_BLOB_SETTINGS.haloSize,
+      bassBoost: DEFAULT_BLOB_SETTINGS.bassBoost,
+      scaleSensitivity: DEFAULT_BLOB_SETTINGS.scaleSensitivity,
+      kickThreshold: DEFAULT_BLOB_SETTINGS.kickThreshold,
+      kickPower: DEFAULT_BLOB_SETTINGS.kickPower,
+      dhonkioBloom: 1.33,
+      dhonkioInnerSize: 0.14,
+      dhonkioOuterSize: 0.35,
+      dhonkioOpacity: 0.42,
+      dhonkioPowerBass: 1.035,
+      dhonkioPowerMid: 1.08,
+      dhonkioPowerKick: 1.045,
+      dhonkioKickBoost: 6,
+    });
+    setBlobBassBoomThreshold(0.68);
+    setBlobBassBoomIntensity(1.6);
+  };
+
+  const haloDimension = (blobSettings.haloSize || 202) * scaleU;
+  const circleDimension = (blobSettings.circleSize || 179) * scaleU;
 
   // Render active center logo (custom image, Spotify/local track cover, or SVG vector logo)
   const renderCenterLogo = () => {
+    if (isSunset) return null; // In DHONKIO mode, the void renders city + text + equalizer
+
     const activeImage = blobSettings.customLogoUrl || currentTrack?.coverUrl;
-    // Strict proportional sizing: exactly 68% of the void circle
-    const discSize = Math.round(circleDimension * 0.68);
+    const discSize = Math.round(circleDimension * 0.86);
 
     if (activeImage) {
       return (
@@ -738,13 +748,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
         >
           {/* Subtle ambient bloom behind logo */}
           <div
-            className="absolute inset-0 rounded-full pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity"
+            className="absolute inset-0 rounded-full pointer-events-none opacity-45 group-hover:opacity-80 transition-opacity"
             style={{
               backgroundImage: `url(${activeImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(16px)',
-              transform: 'scale(1.12)',
+              filter: 'blur(14px)',
+              transform: 'scale(1.08)',
             }}
           />
 
@@ -757,8 +767,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
             style={{
               width: `${discSize}px`,
               height: `${discSize}px`,
+              borderColor: isLucid ? `${lucidTheme.primary}60` : 'rgba(255, 255, 255, 0.25)',
+              boxShadow: isLucid
+                ? `0 0 24px rgba(0,0,0,0.85), 0 0 16px ${lucidTheme.glow}`
+                : '0 0 25px rgba(0,0,0,0.9), 0 0 12px rgba(0, 242, 254, 0.18)',
             }}
-            className="relative rounded-full overflow-hidden border border-white/20 shadow-2xl animate-[spin_24s_linear_infinite] group-hover:scale-105 transition-transform"
+            className="relative rounded-full overflow-hidden border shadow-2xl animate-[spin_24s_linear_infinite] group-hover:scale-[1.02] transition-transform"
             title="Haz clic para recortar, aplicar filtros y efectos al logo/carátula"
           >
             <img
@@ -767,7 +781,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
               className="w-full h-full object-cover rounded-full"
             />
             {/* Proportional Vinyl inner groove rings overlay */}
-            <div className="absolute inset-0 rounded-full border border-white/25 pointer-events-none" />
+            <div className="absolute inset-0 rounded-full border border-white/20 pointer-events-none" />
             <div className="absolute inset-[15%] rounded-full border border-white/10 pointer-events-none" />
             <div className="absolute inset-[30%] rounded-full border border-white/10 pointer-events-none" />
             <div className="absolute inset-[45%] rounded-full border border-white/10 pointer-events-none" />
@@ -785,55 +799,48 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
     const activePreset = LOGO_PRESETS.find((p) => p.id === blobSettings.logoStyle) || LOGO_PRESETS[0];
     const IconComponent = activePreset.icon;
-    const iconBoxSize = Math.round(circleDimension * 0.58);
-    const iconSize = Math.max(18, Math.round(iconBoxSize * 0.5));
+    const iconBoxSize = Math.round(circleDimension * 0.84);
+    const iconSize = Math.max(26, Math.round(iconBoxSize * 0.46));
 
     return (
       <div
         style={{
           width: `${iconBoxSize}px`,
           height: `${iconBoxSize}px`,
-          ...(isLucid ? { color: lucidTheme.primary, borderColor: `${lucidTheme.primary}50` } : {}),
+          borderColor: isLucid ? `${lucidTheme.primary}50` : 'rgba(255, 255, 255, 0.15)',
+          boxShadow: isLucid
+            ? `0 0 22px rgba(0,0,0,0.8), inset 0 0 16px ${lucidTheme.glow}`
+            : '0 0 22px rgba(0,0,0,0.85), inset 0 0 16px rgba(255, 255, 255, 0.04)',
         }}
-        className="rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center transform hover:scale-105 transition-transform z-10 shadow-md"
+        className="rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] border flex items-center justify-center transform hover:scale-105 transition-transform z-10 backdrop-blur-md"
       >
         <IconComponent
           style={{
             width: `${iconSize}px`,
             height: `${iconSize}px`,
-            color: isLucid ? lucidTheme.primary : undefined,
+            color: isLucid ? lucidTheme.primary : '#ffffff',
+            filter: isLucid ? `drop-shadow(0 0 10px ${lucidTheme.glow})` : 'drop-shadow(0 0 6px rgba(255,255,255,0.4))',
           }}
-          className="text-white/80"
+          className="transition-all"
         />
       </div>
     );
   };
 
+  const containerPosX = isSunset ? 50 : blobSettings.posX;
+  const containerPosY = isSunset ? 43.5 : blobSettings.posY;
+
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-transparent select-none">
-      {/* Fondo con Blur en Movimiento y Aurora Dinámica */}
-      <div
-        ref={fondoRef}
-        className="fixed -top-12 -left-12 w-[125%] h-[125%] pointer-events-none transition-all duration-500"
-        style={{
-          background: isLucid
-            ? lucidTheme.bgGradient
-            : 'radial-gradient(ellipse at 50% 50%, rgba(12, 18, 38, 0.45) 0%, rgba(5, 8, 18, 0.75) 60%, rgba(2, 4, 10, 0.95) 100%)',
-          filter: `blur(${blobSettings.backgroundBlur}px)`,
-          animation: 'moverFondo 16s infinite alternate ease-in-out',
-          zIndex: 0,
-        }}
-      />
-
-      {/* Contenedor Principal (editable en posición X / Y) */}
+      {/* Contenedor Principal Circular (Z-Index: 10) */}
       <div
         ref={containerRef}
         className="absolute flex justify-center items-center pointer-events-auto transition-all duration-75 ease-out"
         style={{
-          left: `${blobSettings.posX}%`,
-          top: `${blobSettings.posY}%`,
+          left: `${containerPosX}%`,
+          top: `${containerPosY}%`,
           transform: 'translate(-50%, -50%)',
-          zIndex: 1,
+          zIndex: 10,
         }}
       >
         {/* Dynamic Canvas for 3D Shapes & Wave Effects in Rainbow Void */}
@@ -869,57 +876,69 @@ export const RainbowBlobVisualizer: React.FC = () => {
           }}
         />
 
-        {/* El Círculo Interior (The Void) con Efecto Aurora y Micro-surcos Proporcionales */}
+        {/* El Círculo Interior (The Void) */}
         <div
           ref={circleRef}
-          className={`relative z-10 rounded-full flex flex-col justify-center items-center transition-all duration-75 ease-out overflow-hidden ${
+          className={`relative z-10 rounded-full flex items-center justify-center transition-all duration-75 ease-out overflow-hidden ${
             isLucid
               ? 'border'
-              : 'border border-white/[0.08] shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(0,0,0,0.95)]'
+              : 'border border-white/[0.12] shadow-[0_0_50px_rgba(0,0,0,0.95),inset_0_0_35px_rgba(0,0,0,0.95)]'
           }`}
           style={{
             width: `${circleDimension}px`,
             height: `${circleDimension}px`,
-            backgroundColor: isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
-            borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.10)',
-            backdropFilter: 'blur(20px) saturate(150%)',
+            backgroundColor: isSunset ? '#000000' : isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
+            borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.14)',
+            backdropFilter: isSunset ? 'none' : 'blur(20px) saturate(150%)',
           }}
         >
-          {/* Micro-surcos concéntricos de audio hardware proporcionales */}
-          <div className="absolute inset-[6%] rounded-full border border-white/[0.03] pointer-events-none" />
-          <div className="absolute inset-[14%] rounded-full border border-white/[0.02] pointer-events-none" />
-          <div className="absolute inset-[22%] rounded-full border border-white/[0.02] pointer-events-none" />
-
+          {/* Hardware Ring / Bezel que rodea el logo */}
+          {!isSunset && (
+            <>
+              {/* Outer illuminated precision rim */}
+              <div
+                className="absolute inset-[2.5%] rounded-full border pointer-events-none transition-colors duration-300"
+                style={{
+                  borderColor: isLucid ? `${lucidTheme.primary}40` : 'rgba(255, 255, 255, 0.12)',
+                  boxShadow: isLucid ? `inset 0 0 12px ${lucidTheme.glow}` : 'inset 0 0 10px rgba(0, 242, 254, 0.08)',
+                }}
+              />
+              {/* Subtle intermediate grooved ring */}
+              <div
+                className="absolute inset-[5%] rounded-full border pointer-events-none"
+                style={{
+                  borderColor: isLucid ? `${lucidTheme.secondary}25` : 'rgba(255, 255, 255, 0.06)',
+                }}
+              />
+            </>
+          )}
 
           {/* Aurora Boreal animada sutil dentro del círculo */}
-          <div
-            ref={auroraRef}
-            className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transition-opacity duration-300"
-            style={{
-              background: isLucid
-                ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}40 0%, ${lucidTheme.secondary}20 45%, transparent 80%)`
-                : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.28) 0%, rgba(138, 43, 226, 0.20) 45%, rgba(255, 8, 138, 0.16) 75%, transparent 95%)',
-              filter: 'blur(20px)',
-              opacity: 0.35,
-            }}
-          />
+          {!isSunset && (
+            <div
+              ref={auroraRef}
+              className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transition-opacity duration-300"
+              style={{
+                background: isLucid
+                  ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}40 0%, ${lucidTheme.secondary}20 45%, transparent 80%)`
+                  : 'radial-gradient(circle at 35% 35%, rgba(0, 242, 254, 0.28) 0%, rgba(138, 43, 226, 0.20) 45%, rgba(255, 8, 138, 0.16) 75%, transparent 95%)',
+                filter: 'blur(20px)',
+                opacity: 0.35,
+              }}
+            />
+          )}
 
           {/* Logo Central Vectorial o Imagen Personalizada */}
           {renderCenterLogo()}
-
-          {/* Información de pista sutil en el interior */}
-          {circleDimension >= 130 && (
-            <div className="mt-2 text-center max-w-[85%] pointer-events-none z-10">
-              <p className="text-white/70 font-light tracking-wider text-[10px] sm:text-[11px] font-mono uppercase truncate">
-                {isMicActive ? 'Micrófono en vivo' : currentTrack?.title || 'Aura3D Void'}
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes */}
-      <div className="fixed top-16 sm:top-18 right-3 sm:right-6 z-30 flex items-center pointer-events-auto select-none">
+      {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes (Se auto-oculta en reposo) */}
+      <div
+        className={`fixed top-16 sm:top-18 right-3 sm:right-6 z-50 flex items-center gap-2 pointer-events-auto select-none transition-all duration-700 ${
+          isUiIdle && !isBlobPanelOpen ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
+        }`}
+      >
         <button
           type="button"
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
@@ -936,10 +955,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 }
               : undefined
           }
-          title={isBlobPanelOpen ? 'Cerrar panel de estilo Halo' : 'Abrir configuración y estilo del Halo'}
+          title={isBlobPanelOpen ? 'Cerrar panel de estilo Rainbow Void' : 'Abrir configuración y calibración Rainbow Void'}
           aria-label="Configuración y Estilo de Halo"
         >
-          {/* Micro icono estilizado */}
           <div
             className="w-5 h-5 rounded-lg flex items-center justify-center transition-colors"
             style={{
@@ -953,11 +971,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
           </div>
 
           <span className="text-xs font-medium tracking-wide text-white/90">
-            Estilo Halo
+            Rainbow Void
           </span>
 
           <span className="hidden sm:inline-block text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
-            AJUSTES
+            CALIBRACIÓN
           </span>
 
           <ChevronDown
@@ -968,10 +986,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
         </button>
       </div>
 
-      {/* Panel de Control Editable (Studio Inspector) */}
+      {/* Panel de Control Editable (Z-Index: 50, pointer-events: auto) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-40 rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 ${
+          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-50 rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 pointer-events-auto ${
             isLucid ? 'lucid-panel' : 'bg-[#070a14]/98 backdrop-blur-2xl border border-white/[0.08]'
           }`}
           style={
@@ -998,25 +1016,28 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 />
               </div>
               <h4 className="text-white text-sm font-medium tracking-wide">
-                Estilo de Halo y Void
+                Calibración Rainbow Void
               </h4>
             </div>
 
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={toggleVisualizerSettings}
-                className="px-2 py-1 rounded-lg text-[10px] font-mono tracking-wider uppercase bg-white/[0.04] border border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center gap-1"
-                title="Abrir Calibración Avanzada de Shaders y Frecuencias"
+                onClick={handleSaveFavoritePreset}
+                className={`p-1.5 rounded-md transition-colors ${
+                  savedPresetSuccess
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
+                }`}
+                title="Guardar combinación favorita en LocalStorage"
               >
-                <Sliders className="w-3 h-3 text-[#00e5ff]" />
-                <span className="hidden min-[400px]:inline">Configuración</span>
+                {savedPresetSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               </button>
 
               <button
-                onClick={resetBlobSettings}
+                onClick={handleResetFixedCalibration}
                 className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
-                title="Restablecer valores"
+                title="Restablecer valores de calibración fija"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -1031,53 +1052,49 @@ export const RainbowBlobVisualizer: React.FC = () => {
           </div>
 
           <div className="space-y-3.5 text-xs text-white/80">
-            {/* Modo Lúcido Neón Selector */}
-            {isLucid && (
-              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                <span className="text-[11px] font-mono text-white/70 font-medium block">
-                  Colores del Modo Lúcido:
+            {/* 0. Selector de Atmósfera y Fondos de Pantalla Completa (CRÍTICO) */}
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  Atmósfera de Fondo:
                 </span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 bg-black/40 px-2 py-1.5 rounded-lg border border-white/[0.08]">
-                    <input
-                      type="color"
-                      value={lucidPrimaryColor}
-                      onChange={(e) => setLucidPrimaryColor(e.target.value)}
-                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
-                      title="Color Primario"
-                    />
-                    <span className="text-[10px] font-mono text-white/80 uppercase">{lucidPrimaryColor}</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-black/40 px-2 py-1.5 rounded-lg border border-white/[0.08]">
-                    <input
-                      type="color"
-                      value={lucidSecondaryColor}
-                      onChange={(e) => setLucidSecondaryColor(e.target.value)}
-                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0 overflow-hidden"
-                      title="Color Secundario"
-                    />
-                    <span className="text-[10px] font-mono text-white/80 uppercase">{lucidSecondaryColor}</span>
-                  </div>
-                </div>
+                <span className="text-[9px] font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase">
+                  {ATMOSPHERE_OPTIONS.find((a) => a.id === (blobSettings.backgroundAtmosphere || 'none'))?.tag || 'FONDO'}
+                </span>
               </div>
-            )}
+              <select
+                value={blobSettings.backgroundAtmosphere || 'none'}
+                onChange={(e) =>
+                  updateBlobSettings({ backgroundAtmosphere: e.target.value as BackgroundAtmosphere })
+                }
+                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-amber-400 cursor-pointer"
+                title="Selecciona la atmósfera de pantalla completa independiente del núcleo"
+              >
+                {ATMOSPHERE_OPTIONS.map((atm) => (
+                  <option key={atm.id} value={atm.id} className="bg-[#0b0e1b] text-white">
+                    {atm.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            {/* 0. Selector Exclusivo de Efectos para Rainbow Void */}
+            {/* 1. Selector de los 7 Modos Reactivos 2D del Núcleo */}
             <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-pink-400" />
-                  Efecto Cinético Void:
+                  Forma 2D del Núcleo:
                 </span>
                 <span className="text-[9px] font-mono text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20 uppercase">
-                  {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || '2D VOID'}
+                  {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || 'CORE 2D'}
                 </span>
               </div>
               <select
                 value={blobShape}
                 onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
                 className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-pink-400 cursor-pointer"
-                title="Selecciona el efecto cinético procedural del Rainbow Void"
+                title="Selecciona la forma geométrica 2D reactiva del núcleo"
               >
                 {RAINBOW_VOID_EFFECTS.map((fx) => (
                   <option key={fx.id} value={fx.id} className="bg-[#0b0e1b] text-white">
@@ -1087,10 +1104,180 @@ export const RainbowBlobVisualizer: React.FC = () => {
               </select>
             </div>
 
-            {/* 1. Modo Arcoíris vs Colores Personalizados */}
+            {/* SECCIÓN DHONKIO EXCLUSIVA: Si está en modo Silueta & Atardecer */}
+            {isSunset && (
+              <div className="p-3 bg-amber-500/[0.05] rounded-xl border border-amber-500/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-amber-300 font-semibold flex items-center gap-1.5">
+                    <Sun className="w-3.5 h-3.5" /> Composición DHONKIO:
+                  </span>
+                  <span className="text-[9px] font-mono text-amber-200 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    BLOOM 1.33x
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/60">Bloom Texto & Barras:</span>
+                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioBloom ?? 1.33).toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.8"
+                    max="2.0"
+                    step="0.05"
+                    value={blobSettings.dhonkioBloom ?? 1.33}
+                    onChange={(e) => updateBlobSettings({ dhonkioBloom: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/60">Power Mid (Barras Ciudad):</span>
+                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioPowerMid ?? 1.08).toFixed(3)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.005"
+                    max="1.15"
+                    step="0.005"
+                    value={blobSettings.dhonkioPowerMid ?? 1.08}
+                    onChange={(e) => updateBlobSettings({ dhonkioPowerMid: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/60">Kick Boost:</span>
+                    <span className="text-amber-300 tabular-nums">{blobSettings.dhonkioKickBoost ?? 6}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2"
+                    max="10"
+                    step="1"
+                    value={blobSettings.dhonkioKickBoost ?? 6}
+                    onChange={(e) => updateBlobSettings({ dhonkioKickBoost: parseInt(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 2. Calibración Geométrica Circular Fija */}
+            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
+              <span className="text-[11px] font-mono text-white/60 block font-semibold">
+                Geometría Circular:
+              </span>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Diámetro Halo Exterior:</span>
+                  <span className="text-white/80 tabular-nums">{blobSettings.haloSize || 202}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="160"
+                  max="450"
+                  value={blobSettings.haloSize || 202}
+                  onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Diámetro Núcleo (Void):</span>
+                  <span className="text-white/80 tabular-nums">{blobSettings.circleSize || 179}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="100"
+                  max="350"
+                  value={blobSettings.circleSize || 179}
+                  onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* 3. Procesamiento de Audio (Web Audio API) */}
+            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
+              <span className="text-[11px] font-mono text-white/60 block font-semibold">
+                Procesamiento de Audio:
+              </span>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Reacción al Bajo (Bass):</span>
+                  <span className="text-white/80 tabular-nums">{(blobSettings.bassBoost ?? 2.8).toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="4.0"
+                  step="0.1"
+                  value={blobSettings.bassBoost ?? 2.8}
+                  onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Sensibilidad de Escala:</span>
+                  <span className="text-white/80 tabular-nums">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="2.2"
+                  step="0.05"
+                  value={blobSettings.scaleSensitivity ?? 1.40}
+                  onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Umbral Disparo Kick:</span>
+                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.10"
+                  max="0.80"
+                  step="0.02"
+                  value={blobSettings.kickThreshold ?? 0.32}
+                  onChange={(e) => updateBlobSettings({ kickThreshold: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px] font-mono">
+                  <span className="text-white/50">Potencia Subwoofer Kick:</span>
+                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.5"
+                  step="0.05"
+                  value={blobSettings.kickPower ?? 1.60}
+                  onChange={(e) => updateBlobSettings({ kickPower: parseFloat(e.target.value) })}
+                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* 4. Sistema de Color: Arcoíris vs Manual */}
             <div className="flex items-center justify-between py-1">
               <span className="text-white/70 flex items-center gap-1.5 font-mono text-xs">
-                <Sparkles className="w-3.5 h-3.5 text-white/50" /> Modo Arcoíris:
+                <Sparkles className="w-3.5 h-3.5 text-white/50" /> Paleta de Arcoíris:
               </span>
               <button
                 onClick={() =>
@@ -1102,7 +1289,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     : 'bg-white/[0.06] text-white/60 hover:bg-white/[0.1]'
                 }`}
               >
-                {blobSettings.isRainbowMode ? 'ACTIVO' : 'MANUAL'}
+                {blobSettings.isRainbowMode ? 'ARCOÍRIS' : 'MANUAL'}
               </button>
             </div>
 
@@ -1129,174 +1316,79 @@ export const RainbowBlobVisualizer: React.FC = () => {
               </div>
             )}
 
-            {/* 2. Tamaño del Halo */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/50">Diámetro Halo Exterior:</span>
-                <span className="text-white/80 tabular-nums">{blobSettings.haloSize}px</span>
-              </div>
-              <input
-                type="range"
-                min="180"
-                max="600"
-                value={blobSettings.haloSize}
-                onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value) })}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-            </div>
+            {/* 5. Personalización del Disco Central y Logotipo */}
+            {!isSunset && (
+              <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                <label className="block text-[11px] font-mono text-white/60">
+                  Logotipo Vectorial Integrado:
+                </label>
 
-            {/* 3. Tamaño del Círculo Central */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/50">Diámetro Núcleo (Void):</span>
-                <span className="text-white/80 tabular-nums">{blobSettings.circleSize}px</span>
-              </div>
-              <input
-                type="range"
-                min="80"
-                max="400"
-                value={blobSettings.circleSize}
-                onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value) })}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-            </div>
-
-            {/* 4. Potencia de Reacción al Bajo */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/50">Reacción al Bajo (Bass):</span>
-                <span className="text-white/80 tabular-nums">{blobSettings.bassBoost}x</span>
-              </div>
-              <input
-                type="range"
-                min="0.5"
-                max="3"
-                step="0.1"
-                value={blobSettings.bassBoost}
-                onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-            </div>
-
-            {/* 4.1. Sensibilidad de Tamaño Dinámico */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/50">Sensibilidad de Escala:</span>
-                <span className="text-white/80 tabular-nums">{(blobSettings.scaleSensitivity ?? 1.0).toFixed(2)}x</span>
-              </div>
-              <input
-                type="range"
-                min="0.3"
-                max="2.0"
-                step="0.05"
-                value={blobSettings.scaleSensitivity ?? 1.0}
-                onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-            </div>
-
-            {/* 4.2. Calibración del Impacto Bass Boom */}
-            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/60">Umbral Disparo Kick:</span>
-                <span className="text-white/80 tabular-nums">{Math.round((1 - (blobBassBoomThreshold ?? 0.45)) * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0.20"
-                max="0.80"
-                step="0.02"
-                value={blobBassBoomThreshold}
-                onChange={(e) => setBlobBassBoomThreshold(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-
-              <div className="flex justify-between text-[11px] font-mono">
-                <span className="text-white/60">Potencia Subwoofer Kick:</span>
-                <span className="text-white/80 tabular-nums">{Math.round(blobBassBoomIntensity * 100)}%</span>
-              </div>
-              <input
-                type="range"
-                min="0.0"
-                max="2.0"
-                step="0.05"
-                value={blobBassBoomIntensity}
-                onChange={(e) => setBlobBassBoomIntensity(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-              />
-            </div>
-
-            {/* 5. Selección de Logo Central */}
-            <div className="pt-2 border-t border-white/[0.06] space-y-2">
-              <label className="block text-[11px] font-mono text-white/60">
-                Logotipo Central del Núcleo:
-              </label>
-
-              <div className="grid grid-cols-4 gap-1.5">
-                {LOGO_PRESETS.map((preset) => {
-                  const Icon = preset.icon;
-                  const isSelected =
-                    blobSettings.logoStyle === preset.id && !blobSettings.customLogoUrl;
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
-                        isSelected
-                          ? 'bg-white/[0.1] border-white text-white shadow-sm'
-                          : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                      }`}
-                      title={preset.name}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="text-[9px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Botón de Subida de Logo Propio y Edición */}
-              <div className="pt-2 flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <label className="flex-1 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-mono text-white/80 hover:text-white">
-                    <Upload className="w-3.5 h-3.5 text-white/60" />
-                    <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleCustomLogoUpload}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {blobSettings.customLogoUrl && (
-                    <>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {LOGO_PRESETS.map((preset) => {
+                    const Icon = preset.icon;
+                    const isSelected =
+                      blobSettings.logoStyle === preset.id && !blobSettings.customLogoUrl;
+                    return (
                       <button
-                        type="button"
-                        onClick={() => {
-                          setTempImageForCrop(blobSettings.customLogoUrl);
-                          setIsCropModalOpen(true);
-                        }}
-                        className="py-2 px-3 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
-                        title="Abrir editor de recorte y filtros"
+                        key={preset.id}
+                        onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
+                        className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
+                          isSelected
+                            ? 'bg-white/[0.1] border-white text-white shadow-sm'
+                            : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                        }`}
+                        title={preset.name}
                       >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Editar</span>
+                        <Icon className="w-4 h-4" />
+                        <span className="text-[9px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
                       </button>
+                    );
+                  })}
+                </div>
 
-                      <button
-                        type="button"
-                        onClick={handleRemoveCustomLogo}
-                        className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
-                        title="Eliminar logo personalizado"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
+                {/* Subida de Logo Propio con Recorte Circular y Filtros */}
+                <div className="pt-2 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <label className="flex-1 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-mono text-white/80 hover:text-white">
+                      <Upload className="w-3.5 h-3.5 text-white/60" />
+                      <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCustomLogoUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {blobSettings.customLogoUrl && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTempImageForCrop(blobSettings.customLogoUrl);
+                            setIsCropModalOpen(true);
+                          }}
+                          className="py-2 px-3 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
+                          title="Abrir editor de recorte y filtros"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Editar</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleRemoveCustomLogo}
+                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
+                          title="Eliminar logo personalizado"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

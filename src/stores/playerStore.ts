@@ -281,6 +281,8 @@ interface PlayerState {
   setBpm: (bpm: number) => void;
   triggerBeatPulse: () => void;
   resetBeatPulse: () => void;
+  isUiIdle: boolean;
+  setIsUiIdle: (idle: boolean) => void;
   setAnalyser: (analyser: AnalyserNode | null, audioContext?: AudioContext | null) => void;
   setUserInteracting: (interacting: boolean) => void;
   isSpotifyConnected: boolean;
@@ -436,6 +438,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   togglePresetsModal: () => set((state) => ({ isPresetsModalOpen: !state.isPresetsModalOpen })),
   bpm: 0,
   isBeatPulse: false,
+  isUiIdle: false,
+  setIsUiIdle: (isUiIdle) => set({ isUiIdle }),
 
   setProfileModalOpen: (isProfileModalOpen) => set({ isProfileModalOpen }),
   toggleProfileModal: () => set((state) => ({ isProfileModalOpen: !state.isProfileModalOpen })),

@@ -504,12 +504,24 @@ app.get(['/api/youtube/info', '/youtube/info'], async (req, res) => {
 
 function findCachedAudioFile(videoId) {
   try {
+    // Si la descarga está activa en este momento, no leer archivos parciales
+    if (ytDownloadQueue.has(videoId)) {
+      return null;
+    }
+
     const files = fs.readdirSync(AUDIO_CACHE_DIR);
-    const match = files.find(f => f.startsWith(`${videoId}.`));
+    // Excluir terminaciones temporales o parciales
+    const match = files.find(f => 
+      f.startsWith(`${videoId}.`) && 
+      !f.endsWith('.part') && 
+      !f.endsWith('.ytdl') && 
+      !f.endsWith('.temp')
+    );
     if (match) {
       const fullPath = path.join(AUDIO_CACHE_DIR, match);
       const stat = fs.statSync(fullPath);
-      if (stat.size > 10000) { // Mayor a 10KB para evitar archivos vacíos o corruptos
+      // Debe ser un archivo de audio completo (mínimo 50KB)
+      if (stat.size > 50000) {
         return { fullPath, size: stat.size, ext: path.extname(match).toLowerCase() };
       }
     }
@@ -1122,10 +1134,20 @@ app.get('/api/spotify/callback', async (req, res) => {
  * GET /api/spotify/status
  * Verifica si el usuario actual tiene conexión activa con Spotify
  */
-app.get('/api/spotify/status', authMiddleware, (req, res) => {
-  const userId = req.user.userId || req.user.id;
-  const isConnected = userSpotifyTokens.has(userId);
-  res.json({ isConnected });
+app.get('/api/spotify/status', (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return res.json({ isConnected: false });
+  }
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    const userId = user.userId || user.id;
+    const isConnected = userSpotifyTokens.has(userId);
+    return res.json({ isConnected });
+  } catch {
+    return res.json({ isConnected: false });
+  }
 });
 
 /**

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { HeaderBar } from './components/UI/HeaderBar';
-import { NowPlayingPanel } from './components/Player/NowPlayingPanel';
 import { VisualizerQuickControls } from './components/UI/VisualizerQuickControls';
 import { Controls } from './components/Player/Controls';
 import { ProgressBar } from './components/Player/ProgressBar';
@@ -16,7 +15,6 @@ import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
 import { AlertCircle } from 'lucide-react';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
-import { DynamicAmbientBackground } from './components/Visualizers/DynamicAmbientBackground';
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
 import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
@@ -26,10 +24,12 @@ import { UserProfileModal } from './components/UI/UserProfileModal';
 import { SystemRequirementsModal } from './components/UI/SystemRequirementsModal';
 
 
+import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackground';
+import { Sliders } from 'lucide-react';
+
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
-const PartyVisualizer = lazy(() => import('./components/Visualizers/PartyVisualizer'));
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
@@ -58,8 +58,13 @@ export const App: React.FC = () => {
   const isAdminModalOpen = usePlayerStore((s) => s.isAdminModalOpen);
   const isSysReqModalOpen = usePlayerStore((s) => s.isSysReqModalOpen);
   const setSysReqModalOpen = usePlayerStore((s) => s.setSysReqModalOpen);
+  const blobSettings = usePlayerStore((s) => s.blobSettings);
+  const updateBlobSettings = usePlayerStore((s) => s.updateBlobSettings);
 
-  const [isUiIdle, setIsUiIdle] = useState(false);
+  const isUiIdle = usePlayerStore((s) => s.isUiIdle);
+  const setIsUiIdle = usePlayerStore((s) => s.setIsUiIdle);
+  const isUiHidden = blobSettings?.isUiHidden || false;
+  const shouldHideUI = isUiIdle || isUiHidden;
   const [showLanding, setShowLanding] = useState(!hasStarted);
   const idleTimerRef = useRef<number | null>(null);
 
@@ -156,8 +161,21 @@ export const App: React.FC = () => {
           : undefined,
       } as React.CSSProperties}
     >
-      {/* 0. Dynamic Blurred Ambient Color Mesh Background */}
-      <DynamicAmbientBackground />
+      {/* 0. Full-Screen Atmosphere Canvas Background (only for visualizers, not on landing index) */}
+      {hasStarted && <AtmosphereBackground />}
+
+      {/* 0.1 Botón flotante para restaurar interfaz cuando está oculta en Modo Puro */}
+      {isUiHidden && hasStarted && (
+        <button
+          type="button"
+          onClick={() => updateBlobSettings({ isUiHidden: false })}
+          className="fixed top-4 right-4 z-50 px-3 py-2 rounded-xl bg-[#090d18]/90 text-white/90 hover:text-white border border-white/20 backdrop-blur-xl shadow-2xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-xs font-mono select-none"
+          title="Restaurar interfaz y controles"
+        >
+          <Sliders className="w-4 h-4 text-cyan-400" />
+          <span className="hidden sm:inline">Mostrar UI</span>
+        </button>
+      )}
 
       {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
       {showLanding && (
@@ -174,7 +192,7 @@ export const App: React.FC = () => {
 
       {/* 2. Visualizer in Fullscreen Center (Mounts only when user enters to preserve 100% GPU for landing) */}
       <div
-        className={`absolute inset-0 w-full h-full min-h-[55dvh] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
@@ -184,10 +202,8 @@ export const App: React.FC = () => {
               <SceneContainer />
             ) : visualizerMode === 'blob' ? (
               <RainbowBlobVisualizer />
-            ) : visualizerMode === 'synthwave' ? (
-              <SynthwaveGridVisualizer />
             ) : (
-              <PartyVisualizer />
+              <SynthwaveGridVisualizer />
             )}
           </Suspense>
         )}
@@ -196,30 +212,21 @@ export const App: React.FC = () => {
       {/* 3. Floating Header UI */}
       {hasStarted && (
         <div
-          className={`transition-all duration-700 pointer-events-none ${
-            isUiIdle ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'
+          className={`fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-700 ${
+            shouldHideUI ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
           }`}
         >
           <HeaderBar />
         </div>
       )}
 
-      {/* 4. Now Playing Side Card */}
-      {hasStarted && (
-        <div
-          className={`transition-all duration-700 ${
-            isUiIdle ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-100 translate-x-0'
-          }`}
-        >
-          <NowPlayingPanel />
-        </div>
-      )}
+
 
       {/* 5. Floating Bottom Player & Quick Visualizer Controls */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-30 p-2 sm:p-4 md:p-5 transition-all duration-700 pointer-events-none flex flex-col items-center gap-1.5 sm:gap-2.5 ${
-            isUiIdle ? 'opacity-0 translate-y-6' : 'opacity-100 translate-y-0'
+          className={`fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-4 md:p-5 transition-all duration-700 pointer-events-none flex flex-col items-center gap-1.5 sm:gap-2.5 ${
+            shouldHideUI ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'
           }`}
         >
           {/* Quick Visualizer Adjustments (Shape, Auto Mode, Radius, Opacity, FFT Bars) */}

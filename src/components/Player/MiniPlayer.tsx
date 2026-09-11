@@ -1,1340 +1,804 @@
 /**
- * MiniPlayer — Cyberpunk floating side panel for local files & YouTube/Spotify embeds.
+ * MiniPlayer — Floating Glassmorphic Audio Player & Search Dock
  *
- * Features:
- *  - Local file queue (MP3, WAV, FLAC, OGG, MP4, WEBM) with video/audio preview
- *  - YouTube & Spotify embedded iframe player with URL parser
- *  - System capture live signal detection
- *  - Interactive progress scrubber synced with audio engine
- *  - Opacity and width customization sliders
- *  - Collapsible to ultra-thin rail
- *  - Full cyberpunk monospace HUD aesthetic
+ * Technical DSP & Architecture Highlights:
+ *  - Single Source of Truth: Driven by useAudioPlayer & Zustand (usePlayerStore).
+ *  - ZERO Double Audio: Audio streams exclusively via Web Audio API (/api/youtube/stream & audioEngine).
+ *    No unmuted iframe playback. YouTube/Spotify iframes are completely silenced or avoided.
+ *  - Fully Responsive Floating Placement: bottom-4 left-1/2 -translate-x-1/2 (w-[90vw] max-w-md).
+ *  - Debounced 300ms YouTube/Spotify search with scrollable results.
+ *  - Interactive seek bar, independent Web Audio GainNode volume slider, transport buttons,
+ *    and live source badge.
+ *  - Optimized: Fine-grained selectors isolate re-renders from the 3D/Canvas visualizers.
  */
-import React, { useState, useRef, useCallback } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  ChevronRight,
-  ChevronLeft,
-  X,
   Play,
   Pause,
-  SkipForward,
   SkipBack,
-  Trash2,
-  Upload,
-  Video,
-  Music2,
-  Sliders,
-  List,
-  Radio,
-  Loader2,
-  AlertCircle,
-  Sparkles,
+  SkipForward,
+  Shuffle,
+  Repeat,
+  Repeat1,
+  Volume2,
+  Volume1,
+  VolumeX,
   Search,
-  Globe,
+  ListMusic,
+  Disc3,
+  X,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
   ExternalLink,
-  Headphones,
-  Home,
-  User,
-  LogIn,
-  Compass,
+  Music,
+  Radio,
+  Upload,
+  Sparkles,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
 
-// ─── Local file entry ─────────────────────────────────────────────────────────
-interface LocalFile {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  file: File;
-  duration?: number;
-}
-
-// ─── Format helper ────────────────────────────────────────────────────────────
-const fmt = (s: number) => {
-  if (!isFinite(s) || s < 0) return '0:00';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, '0')}`;
+// ── Time formatter helper ─────────────────────────────────────────────────────
+const formatTime = (seconds: number): string => {
+  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-// ─── YouTube / Spotify URL helper ─────────────────────────────────────────────
-const parseEmbedUrl = (rawUrl: string): { type: 'youtube' | 'spotify' | null; embedUrl: string | null; videoId?: string } => {
-  const trimmed = rawUrl.trim();
-  // YouTube match (watch?v=, youtu.be/, shorts/, embed/)
-  const ytMatch = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
-  if (ytMatch && ytMatch[1]) {
-    return {
-      type: 'youtube',
-      videoId: ytMatch[1],
-      embedUrl: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&enablejsapi=1`,
-    };
-  }
-
-  // Spotify match (track, album, playlist, artist, episode, show)
-  const spotMatch = trimmed.match(/open\.spotify\.com\/(track|album|playlist|artist|episode|show)\/([a-zA-Z0-9]+)/i);
-  if (spotMatch) {
-    return {
-      type: 'spotify',
-      embedUrl: `https://open.spotify.com/embed/${spotMatch[1]}/${spotMatch[2]}?utm_source=generator&theme=0`,
-    };
-  }
-
-  return { type: null, embedUrl: null };
-};
+// ── Custom Platform Icons ─────────────────────────────────────────────────────
+const YouTubeIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+  </svg>
+);
 
 export const MiniPlayer: React.FC = () => {
-  const { isPlaying, currentTime, duration, isMicActive, currentTrack, queue, isLucid, lucidTheme } = usePlayerStore();
+  // ── Hook Audio Controls (Single Source of Truth) ───────────────────────────
   const {
-    loadFile,
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    repeatMode,
+    isShuffled,
+    queue,
+    queueIndex,
+    togglePlay,
     seek,
-    togglePlayPause,
+    setVolume,
+    toggleMute,
+    playNext,
+    playPrevious,
+    toggleShuffle,
+    setRepeatMode,
     loadYouTubeTrack,
-    startSystemCapture,
-    isCapturing,
-    playNext: enginePlayNext,
-    playPrevious: enginePlayPrev,
-  } = useAudioEngine();
+    loadAudioFile,
+    playTrack,
+    searchYouTube,
+    isSearching,
+    searchResults,
+    error: audioError,
+  } = useAudioPlayer();
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'player' | 'queue' | 'embed' | 'settings'>('player');
-  const [files, setFiles] = useState<LocalFile[]>([]);
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const [panelWidth, setPanelWidth] = useState(340);
-  const [panelOpacity, setPanelOpacity] = useState(0.90);
-  const [isDragOver, setIsDragOver] = useState(false);
+  // ── Selective Theme & UI state ─────────────────────────────────────────────
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const setQueue = usePlayerStore((s) => s.setQueue);
 
-  // Embed & Stream state (YouTube / Spotify)
-  const [streamPlatform, setStreamPlatform] = useState<'youtube' | 'spotify'>('youtube');
-  const [ytSearchQuery, setYtSearchQuery] = useState('');
-  const [ytSearchResults, setYtSearchResults] = useState<Array<{
-    id: string;
-    title: string;
-    artist: string;
-    duration: number;
-    thumbnail: string;
-    url: string;
-  }>>([]);
-  const [isSearchingYt, setIsSearchingYt] = useState(false);
-  const [spotifyInput, setSpotifyInput] = useState('');
-  const [activeEmbed, setActiveEmbed] = useState<{ type: 'youtube' | 'spotify'; url: string; videoId?: string } | null>(null);
-  const [isLoadingEmbed, setIsLoadingEmbed] = useState(false);
-  const [embedError, setEmbedError] = useState<string | null>(null);
+  // ── Local Component State ──────────────────────────────────────────────────
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'player' | 'search' | 'queue'>('player');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubValue, setScrubValue] = useState(0);
+  const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ytPlayerRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Load YouTube IFrame API script once
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(window as any).YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+  // ── Debounce Search Effect (300ms) ──────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab === 'search') {
+      searchYouTube(searchQuery);
     }
-  }, []);
+  }, [searchQuery, activeTab, searchYouTube]);
 
-  // Mount official YouTube Player when activeEmbed is a YouTube video
-  React.useEffect(() => {
-    if (!activeEmbed || activeEmbed.type !== 'youtube' || !activeEmbed.videoId) return;
-
-    let isMounted = true;
-
-    const setupPlayer = () => {
-      if (!isMounted) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const YT = (window as any).YT;
-      if (!YT || !YT.Player) {
-        setTimeout(setupPlayer, 120);
-        return;
-      }
-
-      try {
-        if (ytPlayerRef.current) {
-          ytPlayerRef.current.destroy();
-          ytPlayerRef.current = null;
-        }
-      } catch {}
-
-      try {
-        ytPlayerRef.current = new YT.Player('yt-miniplayer-frame', {
-          videoId: activeEmbed.videoId,
-          playerVars: {
-            autoplay: 1,
-            controls: 1,
-            enablejsapi: 1,
-            modestbranding: 1,
-            rel: 0,
-            mute: 1, // Video muteado en el iframe: el audio real fluye por el Web Audio API audioEngine
-          },
-          events: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onReady: (event: any) => {
-              if (!isMounted) return;
-              try {
-                event.target.mute();
-                event.target.playVideo();
-              } catch {}
-            },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onStateChange: (event: any) => {
-              if (!isMounted) return;
-              // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
-              if (event.data === 1 && !usePlayerStore.getState().isPlaying) {
-                togglePlayPause();
-              } else if (event.data === 2 && usePlayerStore.getState().isPlaying) {
-                togglePlayPause();
-              }
-            },
-          },
-        });
-      } catch (err) {
-        console.warn('[MiniPlayer] YouTube Player init error:', err);
-      }
-    };
-
-    setupPlayer();
-
-    return () => {
-      isMounted = false;
-      try {
-        if (ytPlayerRef.current) {
-          ytPlayerRef.current.destroy();
-          ytPlayerRef.current = null;
-        }
-      } catch {}
-    };
-  }, [activeEmbed?.videoId, togglePlayPause]);
-
-  // Synchronize YouTube video playback currentTime with audioEngine master time
-  React.useEffect(() => {
-    if (!activeEmbed || activeEmbed.type !== 'youtube') return;
-    if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
-      try {
-        const ytCur = ytPlayerRef.current.getCurrentTime() || 0;
-        if (Math.abs(ytCur - currentTime) > 0.6) {
-          ytPlayerRef.current.seekTo(currentTime, true);
-        }
-      } catch {}
-    }
-  }, [currentTime, activeEmbed]);
-
-  // Synchronize video element playback state with playerStore
-  React.useEffect(() => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.play().catch(() => {});
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-
-  // Synchronize video currentTime if drifted > 0.4s
-  React.useEffect(() => {
-    if (videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 0.4) {
-      videoRef.current.currentTime = currentTime;
-    }
-  }, [currentTime]);
-
-  // ── File management ────────────────────────────────────────────────────────
-  const addFiles = useCallback(
-    (incoming: FileList | File[]) => {
-      const arr = Array.from(incoming).filter(
-        (f) =>
-          f.type.startsWith('audio/') ||
-          f.type.startsWith('video/') ||
-          /\.(mp3|wav|ogg|flac|m4a|aac|mp4|webm|mkv)$/i.test(f.name)
-      );
-      if (!arr.length) return;
-
-      const newEntries: LocalFile[] = arr.map((f) => ({
-        id: `${f.name}_${f.size}_${Date.now()}`,
-        name: f.name.replace(/\.[^/.]+$/, ''),
-        type: f.type || 'audio/mpeg',
-        url: URL.createObjectURL(f),
-        file: f,
-      }));
-
-      setFiles((prev) => {
-        const merged = [...prev, ...newEntries];
-        if (activeIdx === null) {
-          loadFile(newEntries[0].file);
-          setActiveIdx(prev.length);
-        }
-        return merged;
-      });
-    },
-    [activeIdx, loadFile]
-  );
-
-  const playFile = useCallback(
-    (idx: number) => {
-      const entry = files[idx];
-      if (!entry) return;
-      setActiveIdx(idx);
-      setActiveEmbed(null); // Switch off embed if local file is played
-      loadFile(entry.file);
-      if (videoRef.current && entry.type.startsWith('video/')) {
-        videoRef.current.src = entry.url;
-        videoRef.current.play().catch(() => {});
-      }
-    },
-    [files, loadFile]
-  );
-
-  const removeFile = useCallback(
-    (idx: number) => {
-      setFiles((prev) => {
-        const next = [...prev];
-        URL.revokeObjectURL(next[idx].url);
-        next.splice(idx, 1);
-        return next;
-      });
-      if (activeIdx === idx) setActiveIdx(null);
-      else if (activeIdx !== null && activeIdx > idx) setActiveIdx(activeIdx - 1);
-    },
-    [activeIdx]
-  );
-
-  const playPrev = () => {
-    if (files.length > 0 && activeIdx !== null) {
-      const next = (activeIdx - 1 + files.length) % files.length;
-      playFile(next);
-    } else {
-      enginePlayPrev();
-    }
+  // ── Interactive Seek Handler ────────────────────────────────────────────────
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setScrubValue(val);
   };
 
-  const playNext = () => {
-    if (files.length > 0 && activeIdx !== null) {
-      const next = (activeIdx + 1) % files.length;
-      playFile(next);
-    } else {
-      enginePlayNext();
-    }
+  const handleSeekMouseDown = () => {
+    setIsScrubbing(true);
+    setScrubValue(currentTime);
   };
 
-  // ── YouTube & Spotify Stream Handlers ──────────────────────────────────────
-  const handlePlayYouTubeVideo = async (videoId: string, fallbackTitle?: string, fallbackArtist?: string) => {
-    setIsLoadingEmbed(true);
-    setEmbedError(null);
-    setActiveEmbed({
-      type: 'youtube',
-      url: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
-      videoId,
-    });
-    setActiveIdx(null);
-    setActiveTab('player');
+  const handleSeekMouseUp = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
+    setIsScrubbing(false);
+    const target = e.currentTarget as HTMLInputElement;
+    const val = parseFloat(target.value);
+    seek(val);
+  };
 
+  // ── Volume Slider Handler ───────────────────────────────────────────────────
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setVolume(val);
+  };
+
+  // ── Track Click from YouTube Search ─────────────────────────────────────────
+  const handleSelectYouTubeTrack = async (item: YouTubeSearchResult) => {
+    setLoadingTrackId(item.id);
     try {
-      await loadYouTubeTrack(videoId, { title: fallbackTitle, artist: fallbackArtist });
-    } catch (err: unknown) {
-      console.error('[MiniPlayer] Error conectando audio de YouTube:', err);
-      setEmbedError(err instanceof Error ? err.message : 'Error al conectar el audio de YouTube');
-    } finally {
-      setIsLoadingEmbed(false);
-    }
-  };
-
-  const handleSearchYouTube = async (e?: React.FormEvent, customQuery?: string) => {
-    if (e) e.preventDefault();
-    const q = (customQuery !== undefined ? customQuery : ytSearchQuery).trim();
-    if (!q) return;
-
-    // Si el usuario pega una URL de YouTube directamente en el buscador
-    const parsed = parseEmbedUrl(q);
-    if (parsed.type === 'youtube' && parsed.videoId) {
-      await handlePlayYouTubeVideo(parsed.videoId);
-      return;
-    }
-
-    setIsSearchingYt(true);
-    setEmbedError(null);
-    try {
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && data.results.length > 0) {
-          setYtSearchResults(data.results);
-          return;
-        }
-      }
-      // Fallback si la API de backend no tiene resultados
-      setYtSearchResults([
-        {
-          id: 'dQw4w9WgXcQ',
-          title: `Resultados para: "${q}"`,
-          artist: 'Abrir búsqueda en YouTube',
-          duration: 0,
-          thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=200&fit=crop&q=80',
-          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
-        },
-      ]);
-    } catch (err) {
-      console.warn('[MiniPlayer] Error en búsqueda de YouTube:', err);
-      setEmbedError('No se pudo completar la búsqueda en el servidor. Puedes pegar el enlace directo del video de YouTube.');
-    } finally {
-      setIsSearchingYt(false);
-    }
-  };
-
-  const handleLoadSpotify = (uriOrId: string, type: 'track' | 'playlist' | 'album' | 'search' = 'playlist') => {
-    setEmbedError(null);
-    const clean = uriOrId.trim();
-    if (!clean) return;
-
-    let embedUrl = '';
-
-    if (clean.includes('open.spotify.com/')) {
-      const parsed = parseEmbedUrl(clean);
-      if (parsed.embedUrl) embedUrl = parsed.embedUrl;
-    } else if (clean.startsWith('spotify:')) {
-      const parts = clean.split(':');
-      if (parts.length >= 3) {
-        embedUrl = `https://open.spotify.com/embed/${parts[1]}/${parts[2]}?utm_source=generator&theme=0`;
-      }
-    } else if (clean.length === 22 && /^[a-zA-Z0-9]+$/.test(clean)) {
-      // Direct Spotify 22-character Base62 ID
-      embedUrl = `https://open.spotify.com/embed/${type}/${clean}?utm_source=generator&theme=0`;
-    } else {
-      // If it's a search term like "coldplay" or "synthwave"
-      window.open(`https://open.spotify.com/search/${encodeURIComponent(clean)}`, '_blank');
-      // Also load recommended Top Hits embed in the player
-      embedUrl = 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator&theme=0';
-    }
-
-    if (embedUrl) {
-      setActiveEmbed({ type: 'spotify', url: embedUrl });
-      setActiveIdx(null);
-      setActiveTab('player');
-      usePlayerStore.setState({
-        isPlaying: true,
-        hasStarted: true,
-        currentTrack: {
-          id: `spot_${Date.now()}`,
-          title: clean.includes('http') ? 'Spotify Track / Playlist' : `Spotify: ${clean}`,
-          artist: 'Spotify Web Player',
-          duration: 0,
-          sourceType: 'spotify',
+      if (searchResults && searchResults.length > 0) {
+        const fullQueue: Track[] = searchResults.map((r) => ({
+          id: `yt_${r.id}`,
+          title: r.title,
+          artist: r.artist,
+          duration: r.duration,
+          sourceType: 'youtube',
+          youtubeId: r.id,
+          url: `/api/youtube/stream?v=${r.id}`,
+          coverUrl: r.thumbnail,
           addedAt: Date.now(),
-        },
+        }));
+        const selectedIdx = searchResults.findIndex((r) => r.id === item.id);
+        setQueue(fullQueue, selectedIdx >= 0 ? selectedIdx : 0);
+      }
+
+      await loadYouTubeTrack(item.id, {
+        title: item.title,
+        artist: item.artist,
+        thumbnail: item.thumbnail,
       });
-    } else {
-      setEmbedError('Enlace o término de Spotify no reconocido.');
+      setActiveTab('player');
+    } catch (err) {
+      console.error('[MiniPlayer] Error playing search result:', err);
+    } finally {
+      setLoadingTrackId(null);
     }
   };
 
-  // ── Drag & Drop ────────────────────────────────────────────────────────────
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  // ── Repeat Mode Cycle ───────────────────────────────────────────────────────
+  const cycleRepeat = () => {
+    if (repeatMode === 'off') setRepeatMode('all');
+    else if (repeatMode === 'all') setRepeatMode('one');
+    else setRepeatMode('off');
   };
 
-  // ── Progress scrub ─────────────────────────────────────────────────────────
-  const scrubProgress = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressRef.current || !duration) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const targetSeconds = ratio * duration;
-
-    seek(targetSeconds);
-    if (activeEmbed?.type === 'youtube' && ytPlayerRef.current) {
-      try {
-        ytPlayerRef.current.seekTo(targetSeconds, true);
-      } catch {}
+  // ── Local File Ingestion ───────────────────────────────────────────────────
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      await loadAudioFile(file);
+      setActiveTab('player');
     }
   };
 
-  const handlePlayPause = () => {
-    togglePlayPause();
-    if (activeEmbed?.type === 'youtube' && ytPlayerRef.current) {
-      try {
-        const state = ytPlayerRef.current.getPlayerState?.();
-        if (state === 1) {
-          ytPlayerRef.current.pauseVideo();
-        } else {
-          ytPlayerRef.current.playVideo();
-        }
-      } catch {}
+  // ── Current Track Metadata ─────────────────────────────────────────────────
+  const title = currentTrack?.title || 'Sin reproducción';
+  const artist = currentTrack?.artist || 'Aura3D Audio Visualizer';
+  const coverUrl =
+    currentTrack?.coverUrl ||
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&h=300&fit=crop&q=80';
+  const sourceType = currentTrack?.sourceType || 'local';
+
+  // ── Effective Time for Scrubber ────────────────────────────────────────────
+  const displayCurrentTime = isScrubbing ? scrubValue : currentTime;
+  const progressPercent = duration > 0 ? (displayCurrentTime / duration) * 100 : 0;
+
+  // ── Source Badge Helper ────────────────────────────────────────────────────
+  const sourceBadge = useMemo(() => {
+    switch (sourceType) {
+      case 'youtube':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-wide bg-red-500/15 text-red-400 border border-red-500/30">
+            <YouTubeIcon className="w-3 h-3 text-red-500" />
+            YouTube
+          </span>
+        );
+      case 'spotify':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-wide bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <Music className="w-3 h-3 text-emerald-400" />
+            Spotify
+          </span>
+        );
+      case 'local':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-wide bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            <Disc3 className="w-3 h-3 text-cyan-400 animate-spin-slow" />
+            Local
+          </span>
+        );
+      case 'mic':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-wide bg-purple-500/15 text-purple-300 border border-purple-500/30">
+            <Radio className="w-3 h-3 text-purple-400" />
+            Mic
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-wide bg-white/10 text-white/70 border border-white/15">
+            <Music className="w-3 h-3" />
+            Audio
+          </span>
+        );
     }
-  };
+  }, [sourceType]);
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const activeFile = activeIdx !== null ? files[activeIdx] : null;
-  const isVideo = activeFile?.type.startsWith('video/');
-  const isSystemSource = currentTrack?.id.startsWith('sys_') || isCapturing;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 px-2 sm:px-2.5 py-3 rounded-l-xl border-r-0 border border-white/[0.08] bg-[#070a14]/95 transition-all backdrop-blur-2xl flex flex-col items-center gap-2 shadow-xl hover:translate-x-[-2px] active:scale-95 group text-white/60 hover:text-white"
-        style={
-          isLucid
-            ? {
-                borderColor: `${lucidTheme.primary}45`,
-                color: lucidTheme.primary,
-                boxShadow: `-6px 0 25px ${lucidTheme.glow}`,
-              }
-            : undefined
-        }
-        title="Abrir Mini Reproductor Lateral"
-      >
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-emerald-400' : 'bg-white/30'}`}
-        />
-        <Music2 className="w-3.5 h-3.5" />
-        <span
-          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-          className="text-[9px] font-mono tracking-[0.25em] uppercase rotate-180 text-white/40 group-hover:text-white/80"
-        >
-          MINI PLAYER
-        </span>
-      </button>
-    );
-  }
+  // Dynamic Glow Theme Style (Lucid Theme or AI Dynamic Color)
+  const themeGlowStyle = isLucid
+    ? {
+        borderColor: lucidTheme.borderColor,
+        boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 30px ${lucidTheme.glow}`,
+      }
+    : {
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 15px 35px rgba(0,0,0,0.85), 0 0 25px var(--color-glow, rgba(0, 242, 254, 0.2))',
+      };
 
   return (
-    <div
-      className="fixed right-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 max-w-full"
-      style={{
-        width: isCollapsed
-          ? 44
-          : `clamp(280px, 32vw, min(${panelWidth}px, 100vw))`,
-        maxWidth: '100vw',
-        background: `rgba(7, 10, 20, ${panelOpacity})`,
-        backdropFilter: 'blur(24px)',
-        borderLeft: isLucid
-          ? `1px solid ${lucidTheme.primary}45`
-          : '1px solid rgba(255, 255, 255, 0.08)',
-        boxShadow: isLucid
-          ? `-12px 0 48px rgba(0,0,0,0.8), 0 0 35px ${lucidTheme.glow}`
-          : '-12px 0 48px rgba(0,0,0,0.85)',
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragOver(true);
-      }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={onDrop}
-    >
-      {/* Drop overlay */}
-      {isDragOver && (
-        <div className="absolute inset-0 z-50 bg-white/5 border-2 border-dashed border-white/40 flex items-center justify-center pointer-events-none">
-          <span className="text-[10px] font-mono tracking-[0.2em] text-white/90 uppercase">
-            SOLTAR ARCHIVOS AQUI
-          </span>
-        </div>
-      )}
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*,video/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
 
-      {/* Collapsed rail */}
-      {isCollapsed ? (
-        <div className="flex flex-col items-center h-full py-4 gap-4">
-          <button
-            onClick={() => setIsCollapsed(false)}
-            className="text-white/40 hover:text-white transition-colors"
+      {/* ── Collapsed Dock Pill (Docked on Left: bottom-6 left-4) ──────────── */}
+      {!isExpanded && (
+        <div
+          className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform"
+        >
+          <div
+            className="group relative flex items-center justify-between gap-2.5 px-3 py-2 rounded-2xl backdrop-blur-2xl bg-[#070913]/90 border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.85)] hover:border-cyan-400/30 transition-all cursor-pointer max-w-[280px] sm:max-w-[320px]"
+            style={themeGlowStyle}
+            onClick={() => setIsExpanded(true)}
           >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <div className="flex-1" />
-          <span
-            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-            className="text-[9px] font-mono tracking-[0.25em] text-white/30 uppercase rotate-180"
-          >
-            MINI PLAYER
-          </span>
-        </div>
-      ) : (
-        <>
-          {/* Header bar */}
-          <div className="flex items-center justify-between px-3.5 h-10 border-b border-white/[0.06] flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="text-[10px] font-mono tracking-widest text-white/70 uppercase">
-                MINI PLAYER
-              </span>
+            {/* Subtle Progress Background Fill */}
+            <div
+              className="absolute left-0 bottom-0 top-0 rounded-2xl bg-white/[0.04] pointer-events-none transition-all duration-200"
+              style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
+            />
+
+            {/* Left: Thumbnail & Info */}
+            <div className="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0">
+                <img
+                  src={coverUrl}
+                  alt={title}
+                  className={`w-full h-full object-cover transition-transform duration-500 ${
+                    isPlaying ? 'scale-105' : 'scale-100 opacity-80'
+                  }`}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&h=300&fit=crop&q=80';
+                  }}
+                />
+                {isPlaying && (
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col min-w-0 pr-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-white truncate max-w-[140px] sm:max-w-[180px]">
+                    {title}
+                  </span>
+                  {sourceBadge}
+                </div>
+                <span className="text-[10px] text-white/50 truncate font-mono">
+                  {artist} • {formatTime(displayCurrentTime)} / {formatTime(duration)}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+
+            {/* Right: Quick Action Controls */}
+            <div
+              className="flex items-center gap-1 relative z-10 flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                onClick={() => setIsCollapsed(true)}
-                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
-                title="Minimizar"
+                onClick={() => {
+                  setActiveTab('search');
+                  setIsExpanded(true);
+                }}
+                className="p-2 text-white/50 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+                title="Buscar canciones (YouTube/Spotify)"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <Search className="w-4 h-4" />
               </button>
+
               <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 text-white/40 hover:text-rose-400 rounded-md hover:bg-white/[0.05] transition-colors"
-                title="Cerrar"
+                onClick={togglePlay}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow-md"
+                style={
+                  isLucid
+                    ? { backgroundColor: lucidTheme.primary, color: '#000' }
+                    : { backgroundColor: 'var(--color-primary, #ffffff)', color: '#000' }
+                }
+                title={isPlaying ? 'Pausar' : 'Reproducir'}
               >
-                <X className="w-3.5 h-3.5" />
+                {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
+              </button>
+
+              <button
+                onClick={() => setIsExpanded(true)}
+                className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                title="Expandir Mini-Player"
+              >
+                <ChevronUp className="w-4 h-4" />
               </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Tab strip */}
-          <div className="flex border-b border-white/[0.06] flex-shrink-0">
-            {(
-              [
-                ['player', Music2, 'PLAYER'],
-                ['queue', List, 'COLA'],
-                ['embed', Globe, 'STREAM'],
-                ['settings', Sliders, 'AJUSTES'],
-              ] as const
-            ).map(([tab, Icon, label]) => (
+      {/* ── Expanded Full Floating Mini-Player (Docked Left: bottom-6 left-4) ─── */}
+      {isExpanded && (
+        <div
+          className="fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md pointer-events-auto transition-all duration-300 origin-bottom-left"
+        >
+          <div
+            className="flex flex-col rounded-2xl backdrop-blur-3xl bg-[#080b16]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden animate-in fade-in slide-in-from-left-4 slide-in-from-bottom-4 duration-300"
+            style={themeGlowStyle}
+          >
+            {/* Header: Title, Source & Collapse/Close */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-xs font-mono font-bold tracking-widest text-white/90">
+                  MiniPlayer
+                </span>
+                {sourceBadge}
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                  title="Minimizar a píldora"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Navigation Strip */}
+            <div className="flex border-b border-white/[0.06] bg-white/[0.01]">
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[9px] font-mono tracking-wider uppercase transition-all ${
-                  activeTab === tab
-                    ? 'text-white border-b-2 border-white -mb-px font-medium'
-                    : 'text-white/40 hover:text-white/70 border-b-2 border-transparent'
+                onClick={() => setActiveTab('player')}
+                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors ${
+                  activeTab === 'player'
+                    ? 'text-white border-b-2 border-white font-medium bg-white/[0.03]'
+                    : 'text-white/40 hover:text-white/70'
                 }`}
                 style={
-                  activeTab === tab && isLucid
+                  activeTab === 'player' && isLucid
                     ? { borderColor: lucidTheme.primary, color: lucidTheme.primary }
                     : undefined
                 }
               >
-                <Icon className="w-3 h-3" />
-                {label}
+                <Disc3 className="w-3.5 h-3.5" />
+                PISTA
               </button>
-            ))}
-          </div>
 
+              <button
+                onClick={() => {
+                  setActiveTab('search');
+                  setTimeout(() => searchInputRef.current?.focus(), 100);
+                }}
+                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors ${
+                  activeTab === 'search'
+                    ? 'text-white border-b-2 border-white font-medium bg-white/[0.03]'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+                style={
+                  activeTab === 'search' && isLucid
+                    ? { borderColor: lucidTheme.primary, color: lucidTheme.primary }
+                    : undefined
+                }
+              >
+                <Search className="w-3.5 h-3.5" />
+                BUSCADOR
+              </button>
 
-          {/* ── PLAYER TAB ─────────────────────────────────────────────── */}
-          {activeTab === 'player' && (
-            <div className="flex-1 overflow-y-auto flex flex-col">
-              {/* Media viewer (Video / Embedded Iframe / Waveform Audio) */}
-              <div className="flex-shrink-0 bg-black/50 border-b border-white/6 relative">
-                {activeEmbed ? (
-                  <div className="w-full h-48 bg-black relative flex items-center justify-center overflow-hidden">
-                    {activeEmbed.type === 'youtube' ? (
-                      <div id="yt-miniplayer-frame" className="w-full h-full" />
-                    ) : (
-                      <iframe
-                        src={activeEmbed.url}
-                        className="w-full h-full border-0"
-                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                        loading="lazy"
-                      />
-                    )}
-                    {isLoadingEmbed && (
-                      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center gap-2 p-4 text-center z-10">
-                        <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
-                        <span className="text-[10px] font-mono tracking-wider text-cyan-300 uppercase">
-                          Sincronizando con Aura3D...
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : isVideo && activeFile ? (
-                  <video
-                    ref={videoRef}
-                    src={activeFile.url}
-                    className="w-full max-h-44 object-contain bg-black"
-                    muted
-                    playsInline
-                  />
-                ) : (
-                  <div className="h-28 flex flex-col items-center justify-center gap-2">
-                    {isSystemSource ? (
-                      <>
-                        <Radio className="w-6 h-6 text-emerald-400" />
-                        <p className="text-[10px] font-mono text-white/70 tracking-wider px-4 text-center">
-                          AUDIO DEL SISTEMA (CAPTURA EN VIVO)
-                        </p>
-                      </>
-                    ) : activeFile ? (
-                      <>
-                        <Music2 className="w-6 h-6 text-white/50" />
-                        <p className="text-[10px] font-mono text-white/70 tracking-wider px-4 text-center truncate w-full">
-                          {activeFile.name}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-[9px] font-mono tracking-[0.2em] text-white/30 uppercase">
-                        SIN ARCHIVO CARGADO
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Track / Stream Info */}
-              <div className="px-4 pt-3 pb-1 flex-shrink-0">
-                <p className="text-xs font-medium text-white truncate">
-                  {activeEmbed
-                    ? currentTrack?.title || `STREAM: ${activeEmbed.type.toUpperCase()}`
-                    : activeFile
-                    ? activeFile.name
-                    : isSystemSource
-                    ? 'Captura de Pestaña / Sistema'
-                    : 'Aura3D Engine'}
-                </p>
-                <p className="text-[10px] font-mono text-white/30 tracking-wider mt-0.5">
-                  {activeEmbed
-                    ? (activeEmbed.type === 'youtube' ? 'YOUTUBE AUDIO STREAM' : 'IFRAME EMBED')
-                    : isVideo
-                    ? 'VIDEO MP4'
-                    : isSystemSource
-                    ? 'LIVE FFT STREAM'
-                    : 'AUDIO'}{' '}
-                  &nbsp;·&nbsp; {fmt(duration)}
-                </p>
-
-                {/* Direct Visualizer Audio Sync & Quick Search Trigger */}
-                {activeEmbed && (
-                  <div className="mt-2.5 space-y-2">
-                    {activeEmbed.type === 'youtube' && (
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-[10px] font-mono shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse flex-shrink-0" />
-                          <span className="tracking-wider font-bold">AUDIO NATIVO 3D CONECTADO (60 FPS)</span>
-                        </div>
-                        <span className="text-[9px] text-cyan-400/80 font-semibold bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20">AURA ENGINE</span>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('embed')}
-                      className="w-full py-1.5 px-3 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 text-white/80 hover:text-white text-[10px] font-mono tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <Search className="w-3 h-3 text-cyan-400" />
-                      <span>BUSCAR OTRA CANCIÓN (YOUTUBE / SPOTIFY)</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Progress scrubber (Local audio/video) */}
-              <div className="px-4 pt-2 pb-1 flex-shrink-0">
-                <div
-                  ref={progressRef}
-                  onClick={scrubProgress}
-                  className="relative h-1 bg-white/[0.08] cursor-pointer group rounded-full overflow-hidden"
-                >
-                  <div
-                    className="absolute top-0 left-0 h-full bg-white transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[9px] font-mono text-white/40 mt-1 tabular-nums">
-                  <span>{fmt(currentTime)}</span>
-                  <span>{fmt(duration)}</span>
-                </div>
-              </div>
-
-              {/* Playback controls */}
-              <div className="flex items-center justify-center gap-5 pb-4 flex-shrink-0 mt-1 select-none">
-                <button
-                  onClick={playPrev}
-                  disabled={files.length < 2 && queue.length < 2}
-                  className="text-white/40 hover:text-white disabled:opacity-20 transition-colors p-1"
-                  title="Canción Anterior"
-                >
-                  <SkipBack className="w-4 h-4 fill-current" />
-                </button>
-
-                <button
-                  onClick={handlePlayPause}
-                  className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:bg-neutral-200 active:scale-95 shadow-sm transition-all"
-                >
-                  {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
-                </button>
-
-                <button
-                  onClick={playNext}
-                  disabled={files.length < 2 && queue.length < 2}
-                  className="text-white/40 hover:text-white disabled:opacity-20 transition-colors p-1"
-                  title="Siguiente Canción"
-                >
-                  <SkipForward className="w-4 h-4 fill-current" />
-                </button>
-              </div>
-
-              {/* Fast Upload CTA */}
-              <div className="px-4 pb-4 flex-shrink-0 border-t border-white/[0.06] pt-3">
-                <label className="w-full flex items-center justify-center gap-2 py-2 text-[9px] font-mono tracking-wider uppercase text-white/40 border border-dashed border-white/[0.1] hover:border-white/30 hover:text-white rounded-lg cursor-pointer transition-all active:scale-98">
-                  <Upload className="w-3 h-3" />
-                  SUBIR MP3 / MP4
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="audio/*,video/*,.mp3,.wav,.ogg,.flac,.m4a,.mp4,.webm"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files) addFiles(e.target.files);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              </div>
+              <button
+                onClick={() => setActiveTab('queue')}
+                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors ${
+                  activeTab === 'queue'
+                    ? 'text-white border-b-2 border-white font-medium bg-white/[0.03]'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+                style={
+                  activeTab === 'queue' && isLucid
+                    ? { borderColor: lucidTheme.primary, color: lucidTheme.primary }
+                    : undefined
+                }
+              >
+                <ListMusic className="w-3.5 h-3.5" />
+                COLA ({queue.length})
+              </button>
             </div>
-          )}
 
-          {/* ── QUEUE TAB ──────────────────────────────────────────────── */}
-          {activeTab === 'queue' && (
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-3 border-b border-white/[0.06]">
-                <label className="w-full flex items-center justify-center gap-2 py-2 text-[9px] font-mono tracking-wider uppercase text-white/40 border border-dashed border-white/[0.1] hover:border-white/30 hover:text-white rounded-lg cursor-pointer transition-all active:scale-98">
-                  <Upload className="w-3 h-3" />
-                  AGREGAR A LA COLA
-                  <input
-                    type="file"
-                    accept="audio/*,video/*,.mp3,.wav,.ogg,.flac,.m4a,.mp4,.webm"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files) addFiles(e.target.files);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
-              </div>
+            {/* Tab Body */}
+            <div className="p-4 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
+              {/* ── 1. PLAYER TAB ─────────────────────────────────────────── */}
+              {activeTab === 'player' && (
+                <div className="flex flex-col gap-4">
+                  {/* Artwork & Track Information */}
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 shadow-lg">
+                      <img
+                        src={coverUrl}
+                        alt={title}
+                        className={`w-full h-full object-cover transition-transform duration-700 ${
+                          isPlaying ? 'scale-105' : 'scale-100'
+                        }`}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&h=300&fit=crop&q=80';
+                        }}
+                      />
+                      {isPlaying && (
+                        <div className="absolute inset-0 bg-cyan-500/10 pointer-events-none" />
+                      )}
+                    </div>
 
-              {files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-40 gap-2">
-                  <List className="w-5 h-5 text-white/20" />
-                  <p className="text-[9px] font-mono tracking-widest text-white/30 uppercase">
-                    COLA VACÍA
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-white/[0.04]">
-                  {files.map((f, idx) => (
-                    <div
-                      key={f.id}
-                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors group ${
-                        idx === activeIdx
-                          ? 'bg-white/[0.06] border-l-2 border-white'
-                          : 'hover:bg-white/[0.03] border-l-2 border-transparent'
-                      }`}
-                      onClick={() => playFile(idx)}
-                    >
-                      <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                        {f.type.startsWith('video/') ? (
-                          <Video className="w-3.5 h-3.5 text-white/50" />
-                        ) : (
-                          <Music2
-                            className={`w-3.5 h-3.5 ${
-                              idx === activeIdx ? 'text-white' : 'text-white/30'
-                            }`}
-                          />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <h3 className="text-sm sm:text-base font-bold text-white truncate tracking-tight">
+                        {title}
+                      </h3>
+                      <p className="text-xs text-white/60 font-mono truncate mt-0.5">
+                        {artist}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        {sourceBadge}
+                        {sourceType === 'youtube' && currentTrack?.youtubeId && (
+                          <a
+                            href={`https://www.youtube.com/watch?v=${currentTrack.youtubeId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-white/40 hover:text-white flex items-center gap-0.5 font-mono"
+                          >
+                            Abrir en YT <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         )}
                       </div>
+                    </div>
+                  </div>
 
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-xs font-medium truncate ${
-                            idx === activeIdx ? 'text-white' : 'text-white/70'
-                          }`}
+                  {/* Interactive Seek Bar */}
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <div className="relative w-full flex items-center">
+                      <input
+                        type="range"
+                        min="0"
+                        max={duration || 100}
+                        step="0.1"
+                        value={displayCurrentTime}
+                        onChange={handleSeekChange}
+                        onMouseDown={handleSeekMouseDown}
+                        onTouchStart={handleSeekMouseDown}
+                        onMouseUp={handleSeekMouseUp}
+                        onTouchEnd={handleSeekMouseUp}
+                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/20 transition-all"
+                        style={
+                          isLucid
+                            ? { accentColor: lucidTheme.primary }
+                            : { accentColor: 'var(--color-primary, #00f2fe)' }
+                        }
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono text-white/50">
+                      <span>{formatTime(displayCurrentTime)}</span>
+                      <span>{formatTime(duration)}</span>
+                    </div>
+                  </div>
+
+                  {/* Complete Transport Controls */}
+                  <div className="flex items-center justify-between px-2 pt-1">
+                    {/* Shuffle */}
+                    <button
+                      onClick={toggleShuffle}
+                      className={`p-2 rounded-xl transition-all ${
+                        isShuffled
+                          ? 'text-cyan-400 bg-cyan-400/15'
+                          : 'text-white/40 hover:text-white hover:bg-white/5'
+                      }`}
+                      title={isShuffled ? 'Aleatorio activado' : 'Activar aleatorio'}
+                      style={
+                        isShuffled && isLucid
+                          ? { color: lucidTheme.primary, backgroundColor: `${lucidTheme.primary}20` }
+                          : undefined
+                      }
+                    >
+                      <Shuffle className="w-4 h-4" />
+                    </button>
+
+                    {/* Previous */}
+                    <button
+                      onClick={playPrevious}
+                      className="p-2.5 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
+                      title="Pista anterior"
+                    >
+                      <SkipBack className="w-5 h-5 fill-current" />
+                    </button>
+
+                    {/* Play / Pause Main Button */}
+                    <button
+                      onClick={togglePlay}
+                      className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-black hover:scale-105 active:scale-95 transition-all shadow-xl"
+                      style={
+                        isLucid
+                          ? {
+                              backgroundColor: lucidTheme.primary,
+                              boxShadow: `0 0 25px ${lucidTheme.glow}`,
+                            }
+                          : {
+                              backgroundColor: 'var(--color-primary, #ffffff)',
+                              boxShadow: '0 0 25px var(--color-glow, rgba(0, 242, 254, 0.35))',
+                            }
+                      }
+                      title={isPlaying ? 'Pausar' : 'Reproducir'}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-5 h-5 fill-current" />
+                      ) : (
+                        <Play className="w-5 h-5 fill-current translate-x-0.5" />
+                      )}
+                    </button>
+
+                    {/* Next */}
+                    <button
+                      onClick={playNext}
+                      className="p-2.5 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
+                      title="Pista siguiente"
+                    >
+                      <SkipForward className="w-5 h-5 fill-current" />
+                    </button>
+
+                    {/* Repeat */}
+                    <button
+                      onClick={cycleRepeat}
+                      className={`p-2 rounded-xl transition-all ${
+                        repeatMode !== 'off'
+                          ? 'text-cyan-400 bg-cyan-400/15'
+                          : 'text-white/40 hover:text-white hover:bg-white/5'
+                      }`}
+                      title={`Repetición: ${repeatMode}`}
+                      style={
+                        repeatMode !== 'off' && isLucid
+                          ? { color: lucidTheme.primary, backgroundColor: `${lucidTheme.primary}20` }
+                          : undefined
+                      }
+                    >
+                      {repeatMode === 'one' ? (
+                        <Repeat1 className="w-4 h-4" />
+                      ) : (
+                        <Repeat className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Independent Volume Slider (Web Audio GainNode) */}
+                  <div className="flex items-center gap-3 px-1 py-1.5 border-t border-white/[0.06] mt-1">
+                    <button
+                      onClick={toggleMute}
+                      className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                      title={isMuted ? 'Desmutear' : 'Mutear'}
+                    >
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-4 h-4 text-rose-400" />
+                      ) : volume < 0.5 ? (
+                        <Volume1 className="w-4 h-4 text-white/80" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-white" />
+                      )}
+                    </button>
+
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/20 transition-all"
+                      style={
+                        isLucid
+                          ? { accentColor: lucidTheme.primary }
+                          : undefined
+                      }
+                      title="Control de ganancia independiente (DSP GainNode)"
+                    />
+
+                    <span className="text-[10px] font-mono text-white/50 w-8 text-right">
+                      {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ── 2. SEARCH TAB (YouTube / Spotify with 300ms Debounce) ──── */}
+              {activeTab === 'search' && (
+                <div className="flex flex-col gap-3">
+                  {/* YouTube Search Bar */}
+                  <div className="flex flex-col gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Buscar canción o artista en YouTube..."
+                        className="w-full pl-9 pr-8 py-2 bg-white/[0.05] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all font-mono"
+                      />
+                      {isSearching ? (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                      ) : searchQuery ? (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5"
                         >
-                          {f.name}
-                        </p>
-                        <p className="text-[9px] font-mono text-white/30 uppercase tracking-wider mt-0.5">
-                          {f.type.startsWith('video/') ? 'VIDEO' : 'AUDIO'}
-                        </p>
-                      </div>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
 
-                      {idx === activeIdx && isPlaying && (
-                        <div className="flex gap-px items-end h-3 flex-shrink-0">
-                          {[1, 0.6, 0.8].map((h, i) => (
-                            <div
-                              key={i}
-                              className="w-0.5 bg-white animate-pulse"
-                              style={{ height: `${h * 100}%`, animationDelay: `${i * 0.15}s` }}
-                            />
-                          ))}
+                    {/* Scrollable Results List */}
+                    <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
+                      {isSearching && searchResults.length === 0 && (
+                        <div className="py-8 flex flex-col items-center justify-center gap-2 text-white/40 font-mono text-xs">
+                          <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
+                          <span>Buscando en YouTube...</span>
                         </div>
                       )}
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeFile(idx);
-                        }}
-                        className="p-1 text-white/20 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Eliminar de la cola"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                      {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                        <div className="py-8 text-center text-xs font-mono text-white/40">
+                          No se encontraron resultados para "{searchQuery}"
+                        </div>
+                      )}
 
-          {/* ── ONLINE / STREAM TAB (YOUTUBE BUSCADOR & SPOTIFY PLAYER) ────────────────────────────────────────── */}
-          {(activeTab === 'embed' || (activeTab as string) === 'stream') && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Header / Sub-selector */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${streamPlatform === 'youtube' ? 'bg-red-500 animate-pulse' : 'bg-emerald-400 animate-pulse'}`} />
-                    <span className="text-[11px] font-mono font-bold tracking-widest text-white uppercase">
-                      CENTRO ONLINE: {streamPlatform.toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-mono text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20">
-                    60 FPS 3D SYNC
-                  </span>
-                </div>
+                      {!searchQuery && (
+                        <div className="py-6 text-center text-xs font-mono text-white/30 flex flex-col items-center gap-1">
+                          <Sparkles className="w-4 h-4 text-white/20" />
+                          <span>Escribe para buscar música de alta fidelidad</span>
+                        </div>
+                      )}
 
-                {/* Platform Switcher Buttons */}
-                <div className="grid grid-cols-2 gap-2 p-1 bg-white/[0.03] rounded-xl border border-white/[0.08]">
-                  <button
-                    type="button"
-                    onClick={() => setStreamPlatform('youtube')}
-                    className={`py-2 px-3 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      streamPlatform === 'youtube'
-                        ? 'bg-red-600/90 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] border border-red-500/50'
-                        : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>YOUTUBE</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStreamPlatform('spotify')}
-                    className={`py-2 px-3 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      streamPlatform === 'spotify'
-                        ? 'bg-emerald-600/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] border border-emerald-500/50'
-                        : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Headphones className="w-3.5 h-3.5" />
-                    <span>SPOTIFY</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* ── YOUTUBE MODE ── */}
-              {streamPlatform === 'youtube' && (
-                <div className="space-y-4">
-                  {/* YouTube Search Form */}
-                  <form onSubmit={handleSearchYouTube} className="space-y-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Buscar canción, artista o pegar enlace de YouTube..."
-                        value={ytSearchQuery}
-                        disabled={isSearchingYt}
-                        onChange={(e) => setYtSearchQuery(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 bg-white/[0.04] border border-white/[0.12] rounded-lg text-xs font-mono text-white placeholder:text-white/30 focus:outline-none focus:border-red-500/60 disabled:opacity-50"
-                      />
-                      <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        disabled={isSearchingYt || !ytSearchQuery.trim()}
-                        className="flex-1 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
-                      >
-                        {isSearchingYt ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                            BUSCANDO EN YOUTUBE...
-                          </>
-                        ) : (
-                          <>
-                            <Search className="w-3.5 h-3.5 text-white" />
-                            BUSCAR EN YOUTUBE
-                          </>
-                        )}
-                      </button>
-
-                      <a
-                        href="https://www.youtube.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-white/60 hover:text-white transition-colors flex items-center justify-center"
-                        title="Abrir YouTube oficial en nueva pestaña"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-
-                    {/* Chips de búsqueda rápida */}
-                    <div className="pt-1 flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[9px] font-mono text-white/40 uppercase mr-0.5">Top:</span>
-                      {['Paulo Londra', 'Synthwave 80s', 'Cyberpunk Bass', 'Coldplay', 'Lofi Chill'].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            setYtSearchQuery(tag);
-                            handleSearchYouTube(undefined, tag);
-                          }}
-                          className="px-2 py-0.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[9px] font-mono text-white/70 hover:text-white transition-all cursor-pointer"
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </form>
-
-                  {/* YouTube Search Results List */}
-                  {ytSearchResults.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between border-b border-white/[0.06] pb-1">
-                        <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
-                          RESULTADOS DE BÚSQUEDA ({ytSearchResults.length})
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setYtSearchResults([])}
-                          className="text-[9px] font-mono text-white/40 hover:text-white"
-                        >
-                          Limpiar
-                        </button>
-                      </div>
-
-                      <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                        {ytSearchResults.map((item) => (
-                          <div
-                            key={item.id}
-                            className="p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-red-500/40 flex items-center gap-2.5 transition-all group cursor-pointer"
-                            onClick={() => handlePlayYouTubeVideo(item.id, item.title, item.artist)}
-                          >
-                            <img
-                              src={item.thumbnail}
-                              alt={item.title}
-                              className="w-12 h-9 object-cover rounded-md flex-shrink-0 bg-black/40"
-                              loading="lazy"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-mono font-medium text-white truncate group-hover:text-red-400 transition-colors">
-                                {item.title}
-                              </p>
-                              <p className="text-[10px] font-mono text-white/40 truncate">
-                                {item.artist} {item.duration > 0 ? `· ${fmt(item.duration)}` : ''}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              className="w-7 h-7 rounded-full bg-red-500/20 group-hover:bg-red-500 text-red-400 group-hover:text-white flex items-center justify-center flex-shrink-0 transition-all shadow-sm"
-                              title="Reproducir y conectar visualizador 3D"
-                            >
-                              <Play className="w-3 h-3 fill-current ml-0.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {embedError && (
-                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[10px] font-mono flex items-start gap-2">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-400" />
-                      <span className="leading-tight">{embedError}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── SPOTIFY MODE (BUSCADOR, CUENTA Y HOME DIRECTO) ── */}
-              {streamPlatform === 'spotify' && (
-                <div className="space-y-4">
-                  {/* 1. Quick Access to Official Spotify Account & Home Page */}
-                  <div className="p-3 rounded-2xl bg-gradient-to-b from-emerald-950/40 to-black/60 border border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.12)] space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <Compass className="w-3.5 h-3.5 text-emerald-400" />
-                        SPOTIFY OFICIAL Y CUENTA
-                      </span>
-                      <span className="text-[8px] font-mono text-white/50 bg-white/[0.06] px-1.5 py-0.5 rounded">
-                        WEB / APP
-                      </span>
-                    </div>
-
-                    <p className="text-[10px] text-white/60 font-mono leading-tight">
-                      Accede a tu cuenta de Spotify, biblioteca o abre la página de inicio en un clic:
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <a
-                        href="https://open.spotify.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-2 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-sm"
-                        title="Ir a la página de inicio oficial de Spotify Web"
-                      >
-                        <Home className="w-3 h-3 text-emerald-400" />
-                        <span>PÁGINA DE INICIO</span>
-                        <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-auto" />
-                      </a>
-
-                      <a
-                        href="https://www.spotify.com/account/overview/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="py-2 px-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.12] text-white/80 hover:text-white text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-98"
-                        title="Administrar tu cuenta y suscripción de Spotify"
-                      >
-                        <User className="w-3 h-3 text-cyan-400" />
-                        <span>MI CUENTA / PERFIL</span>
-                        <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-auto" />
-                      </a>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-white/[0.06]">
-                      <a
-                        href="https://accounts.spotify.com/login"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[9px] font-mono text-white/50 hover:text-emerald-400 flex items-center gap-1 transition-colors"
-                      >
-                        <LogIn className="w-2.5 h-2.5" />
-                        <span>Iniciar Sesión en Spotify</span>
-                      </a>
-                      <span className="text-[8px] font-mono text-emerald-400/70">open.spotify.com</span>
-                    </div>
-                  </div>
-
-                  {/* 2. Spotify Search & Direct URL Form */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
-                        BUSCADOR SPOTIFY
-                      </span>
-                      <span className="text-[9px] font-mono text-emerald-400/80">Canciones, Artistas o URL</span>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Buscar canción, artista o pegar URL (playlist, álbum)..."
-                        value={spotifyInput}
-                        onChange={(e) => setSpotifyInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleLoadSpotify(spotifyInput);
-                        }}
-                        className="w-full pl-8 pr-3 py-2 bg-white/[0.04] border border-white/[0.12] rounded-lg text-xs font-mono text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/60"
-                      />
-                      <Headphones className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={!spotifyInput.trim()}
-                        onClick={() => handleLoadSpotify(spotifyInput)}
-                        className="flex-1 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
-                      >
-                        <Search className="w-3.5 h-3.5 text-black" />
-                        {spotifyInput.includes('spotify.com') ? 'CARGAR EN MINIPLAYER' : 'BUSCAR EN SPOTIFY'}
-                      </button>
-
-                      <a
-                        href={
-                          spotifyInput.trim()
-                            ? `https://open.spotify.com/search/${encodeURIComponent(spotifyInput.trim())}`
-                            : 'https://open.spotify.com'
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-white/60 hover:text-white transition-colors flex items-center justify-center"
-                        title="Abrir búsqueda directamente en Spotify Web"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-
-                    {/* Chips de búsqueda rápida Spotify */}
-                    <div className="pt-1 flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[9px] font-mono text-white/40 uppercase mr-0.5">Top:</span>
-                      {['Coldplay', 'Top 50 Global', 'Bad Bunny', 'Synthwave', 'Dua Lipa', 'Lofi Beats'].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            setSpotifyInput(tag);
-                            handleLoadSpotify(tag);
-                          }}
-                          className="px-2 py-0.5 rounded-full bg-white/[0.04] hover:bg-emerald-500/10 border border-white/[0.08] hover:border-emerald-500/30 text-[9px] font-mono text-white/70 hover:text-emerald-300 transition-all cursor-pointer"
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3. Curated Spotify Playlists */}
-                  <div className="space-y-2 pt-1">
-                    <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider block border-b border-white/[0.06] pb-1">
-                      PLAYLISTS DESTACADAS EN MINIPLAYER
-                    </span>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { title: 'Top Global Hits', id: '37i9dQZF1DXcBWIGoYBM5M', tag: 'POP / TOP' },
-                        { title: 'Cyberpunk Synth', id: '37i9dQZF1DXdLEN7aqioXM', tag: 'SYNTHWAVE' },
-                        { title: 'Lofi Chill Beats', id: '37i9dQZF1DX4t95PaoR1zy', tag: 'CHILL' },
-                        { title: 'Electronic Bass', id: '37i9dQZF1DX4dLK3J3jFq0', tag: 'BASS / EDM' },
-                        { title: 'Viva Latino', id: '37i9dQZF1DX10zKzsJ2jva', tag: 'LATINO' },
-                        { title: 'Rock Classics', id: '37i9dQZF1DX3oM43CtKnRV', tag: 'ROCK' },
-                      ].map((item) => (
-                        <button
+                      {searchResults.map((item) => (
+                        <div
                           key={item.id}
-                          type="button"
-                          onClick={() => handleLoadSpotify(item.id, 'playlist')}
-                          className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-emerald-500/10 border border-white/[0.06] hover:border-emerald-500/30 text-left transition-all group cursor-pointer flex flex-col justify-between"
+                          onClick={() => handleSelectYouTubeTrack(item)}
+                          className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
                         >
-                          <span className="text-[9px] font-mono text-emerald-400/80 font-semibold uppercase tracking-wider">
-                            {item.tag}
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                              <img
+                                src={item.thumbnail}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`;
+                                }}
+                              />
+                              {loadingTrackId === item.id ? (
+                                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                                </div>
+                              ) : (
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <Play className="w-3.5 h-3.5 text-white fill-current" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <span className="text-xs text-white font-medium truncate group-hover:text-cyan-300 transition-colors">
+                                {item.title}
+                              </span>
+                              <span className="text-[10px] text-white/50 font-mono truncate">
+                                {item.artist}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] font-mono text-white/40 group-hover:text-white/70 flex-shrink-0 ml-2">
+                            {formatTime(item.duration)}
                           </span>
-                          <span className="text-xs font-mono font-bold text-white group-hover:text-emerald-300 transition-colors mt-1 truncate w-full">
-                            {item.title}
-                          </span>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* 4. Spotify 3D Sound Sync Banner */}
-                  <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 shadow-[0_0_16px_rgba(16,185,129,0.15)] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold text-emerald-300 flex items-center gap-1.5 uppercase">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                        SINCRONIZAR AUDIO DE SPOTIFY AL VISUALIZADOR 3D
-                      </span>
-                      <span className="text-[9px] font-mono text-emerald-400/80 bg-emerald-400/10 px-1.5 py-0.5 rounded border border-emerald-400/20">
-                        60 FPS
-                      </span>
-                    </div>
-                    <p className="text-[10px] font-mono text-white/60 leading-tight">
-                      Abre tu música en Spotify Web y sincronízala para que la Esfera 3D, Synthwave Grid y Rainbow Void bailen al ritmo:
-                    </p>
+              {/* ── 3. QUEUE TAB ───────────────────────────────────────────── */}
+              {activeTab === 'queue' && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
+                    <span className="text-xs font-mono text-white/60">
+                      Cola de reproducción ({queue.length})
+                    </span>
                     <button
-                      type="button"
-                      onClick={startSystemCapture}
-                      className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-mono text-[11px] font-bold tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-md cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
                     >
-                      <Radio className="w-3.5 h-3.5 text-black animate-pulse" />
-                      <span>SINCRONIZAR AUDIO SPOTIFY (1 CLIC)</span>
+                      <Upload className="w-3 h-3" />
+                      Subir archivo
                     </button>
                   </div>
+
+                  {queue.length === 0 ? (
+                    <div className="py-10 text-center text-xs font-mono text-white/30 flex flex-col items-center gap-2">
+                      <Music className="w-6 h-6 text-white/20" />
+                      <span>No hay pistas en la cola actual</span>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-mono transition-colors"
+                      >
+                        Cargar archivo local
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
+                      {queue.map((track, idx) => {
+                        const isCurrent = idx === queueIndex;
+                        return (
+                          <div
+                            key={track.id || idx}
+                            onClick={() => playTrack(track)}
+                            className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                              isCurrent
+                                ? 'bg-cyan-500/15 border border-cyan-500/30 text-white font-medium'
+                                : 'bg-white/[0.02] hover:bg-white/[0.06] text-white/70 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-[10px] font-mono text-white/40 w-4">
+                                {idx + 1}
+                              </span>
+                              <span className="text-xs truncate">
+                                {track.title}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-mono text-white/40 ml-2">
+                              {formatTime(track.duration)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Error Toast if applicable */}
+              {audioError && (
+                <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-[11px] font-mono text-rose-300">
+                  {audioError}
                 </div>
               )}
             </div>
-          )}
-
-          {/* ── SETTINGS TAB ───────────────────────────────────────────── */}
-          {activeTab === 'settings' && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-5">
-              <div className="flex items-center gap-2 border-b border-white/[0.06] pb-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                <span className="text-[10px] font-mono tracking-widest text-white/70 uppercase">
-                  AJUSTES / PANEL
-                </span>
-              </div>
-
-              {/* Opacity */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono tracking-wider text-white/40 uppercase">
-                    OPACIDAD DEL PANEL
-                  </span>
-                  <span className="text-[10px] font-mono tabular-nums text-white/70">
-                    {(panelOpacity * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="relative h-1 bg-white/[0.08] rounded-full overflow-hidden">
-                  <div
-                    className="absolute top-0 left-0 h-full bg-white"
-                    style={{ width: `${((panelOpacity - 0.3) / 0.7) * 100}%` }}
-                  />
-                  <input
-                    type="range"
-                    min="0.3"
-                    max="1"
-                    step="0.01"
-                    value={panelOpacity}
-                    onChange={(e) => setPanelOpacity(parseFloat(e.target.value))}
-                    className="absolute inset-0 w-full opacity-0 cursor-pointer h-6 -top-2"
-                  />
-                </div>
-              </div>
-
-              {/* Width */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono tracking-wider text-white/40 uppercase">
-                    ANCHO DEL PANEL
-                  </span>
-                  <span className="text-[10px] font-mono tabular-nums text-white/70">
-                    {panelWidth}px
-                  </span>
-                </div>
-                <div className="relative h-1 bg-white/[0.08] rounded-full overflow-hidden">
-                  <div
-                    className="absolute top-0 left-0 h-full bg-white"
-                    style={{ width: `${((panelWidth - 240) / 260) * 100}%` }}
-                  />
-                  <input
-                    type="range"
-                    min="240"
-                    max="500"
-                    step="10"
-                    value={panelWidth}
-                    onChange={(e) => setPanelWidth(parseInt(e.target.value))}
-                    className="absolute inset-0 w-full opacity-0 cursor-pointer h-6 -top-2"
-                  />
-                </div>
-              </div>
-
-              {/* Status Readout */}
-              <div className="border-t border-white/[0.06] pt-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono tracking-wider text-white/30 uppercase">
-                    ARCHIVOS EN COLA
-                  </span>
-                  <span className="text-[9px] font-mono tabular-nums text-white/60">{files.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono tracking-wider text-white/30 uppercase">
-                    MODO ACTIVO
-                  </span>
-                  <span className="text-[9px] font-mono text-white/60">
-                    {activeEmbed ? 'EMBED' : activeFile ? 'LOCAL FILE' : 'AWAITING'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-mono tracking-wider text-white/30 uppercase">
-                    ESTADO
-                  </span>
-                  <span
-                    className={`text-[9px] font-mono tracking-wider ${
-                      isPlaying || isMicActive ? 'text-emerald-400' : 'text-white/30'
-                    }`}
-                  >
-                    {isPlaying ? 'PLAYING' : 'PAUSED'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 };
 

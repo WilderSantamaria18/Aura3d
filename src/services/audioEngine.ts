@@ -22,14 +22,9 @@ export class AudioEngine {
   public analyser: AnalyserNode | null = null;
   public masterGain: GainNode | null = null;
 
-  // Dual audio elements for seamless crossfading
-  private audioElementA: HTMLAudioElement;
-  private audioElementB: HTMLAudioElement;
-  private sourceNodeA: MediaElementAudioSourceNode | null = null;
-  private sourceNodeB: MediaElementAudioSourceNode | null = null;
-  private gainNodeA: GainNode | null = null;
-  private gainNodeB: GainNode | null = null;
-  private activeSlot: 'A' | 'B' = 'A';
+  // Single Audio Element & MediaElementSourceNode (Single Source of Truth)
+  private audioElement: HTMLAudioElement;
+  private sourceNode: MediaElementAudioSourceNode | null = null;
 
   // Local file via AudioBuffer (bypasses <audio> element for seek+FFT)
   private bufferSourceNode: AudioBufferSourceNode | null = null;
@@ -68,15 +63,11 @@ export class AudioEngine {
   };
 
   private constructor() {
-    this.audioElementA = new Audio();
-    this.audioElementB = new Audio();
-    this.audioElementA.crossOrigin = 'anonymous';
-    this.audioElementB.crossOrigin = 'anonymous';
-    this.audioElementA.preload = 'auto';
-    this.audioElementB.preload = 'auto';
+    this.audioElement = new Audio();
+    this.audioElement.crossOrigin = 'anonymous';
+    this.audioElement.preload = 'auto';
 
-    this.setupAudioElementListeners(this.audioElementA, 'A');
-    this.setupAudioElementListeners(this.audioElementB, 'B');
+    this.setupAudioElementListeners(this.audioElement);
   }
 
   public static getInstance(): AudioEngine {
@@ -86,9 +77,9 @@ export class AudioEngine {
     return AudioEngine.instance;
   }
 
-  private setupAudioElementListeners(audio: HTMLAudioElement, slot: 'A' | 'B') {
+  private setupAudioElementListeners(audio: HTMLAudioElement) {
     audio.addEventListener('timeupdate', () => {
-      if (this.activeSlot === slot && !this.loadedAudioBuffer) {
+      if (!this.loadedAudioBuffer) {
         const current = audio.currentTime;
         const dur = audio.duration || 0;
         this.listeners.timeUpdate.forEach((cb) => cb(current, dur));
@@ -96,19 +87,19 @@ export class AudioEngine {
     });
 
     audio.addEventListener('ended', () => {
-      if (this.activeSlot === slot && !this.loadedAudioBuffer) {
+      if (!this.loadedAudioBuffer) {
         this.listeners.ended.forEach((cb) => cb());
       }
     });
 
     audio.addEventListener('play', () => {
-      if (this.activeSlot === slot && !this.loadedAudioBuffer) {
+      if (!this.loadedAudioBuffer) {
         this.listeners.stateChange.forEach((cb) => cb(true));
       }
     });
 
     audio.addEventListener('pause', () => {
-      if (this.activeSlot === slot && !this.loadedAudioBuffer) {
+      if (!this.loadedAudioBuffer) {
         this.listeners.stateChange.forEach((cb) => cb(false));
       }
     });
@@ -133,7 +124,7 @@ export class AudioEngine {
     this.analyser.smoothingTimeConstant = 0.8;
     this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
-    // Master Gain
+    // Master Gain (Controls speaker output volume independently from FFT)
     this.masterGain = this.audioContext.createGain();
     this.masterGain.gain.setValueAtTime(0.85, this.audioContext.currentTime);
 
@@ -151,28 +142,17 @@ export class AudioEngine {
       this.eqFilters[i].connect(this.eqFilters[i + 1]);
     }
 
-    // Connect last filter -> Master Gain -> Analyser -> Destination
+    // Strict Web Audio DSP routing:
+    // Source -> EQ Filters -> AnalyserNode -> GainNode (masterGain) -> AudioContext.destination
+    // This guarantees that volume adjustment modifies speaker volume WITHOUT squashing the FFT visualizer signal
     const lastFilter = this.eqFilters[this.eqFilters.length - 1];
-    lastFilter.connect(this.masterGain);
-    this.masterGain.connect(this.analyser);
-    this.analyser.connect(this.audioContext.destination);
+    lastFilter.connect(this.analyser);
+    this.analyser.connect(this.masterGain);
+    this.masterGain.connect(this.audioContext.destination);
 
-    // Setup Dual Source Nodes and Gain Nodes for Crossfade
-    this.sourceNodeA = this.audioContext.createMediaElementSource(this.audioElementA);
-    this.sourceNodeB = this.audioContext.createMediaElementSource(this.audioElementB);
-
-    this.gainNodeA = this.audioContext.createGain();
-    this.gainNodeB = this.audioContext.createGain();
-
-    this.gainNodeA.gain.setValueAtTime(1.0, this.audioContext.currentTime);
-    this.gainNodeB.gain.setValueAtTime(0.0, this.audioContext.currentTime);
-
-    // Connect sources to their respective slot gain, then to the first EQ filter
-    this.sourceNodeA.connect(this.gainNodeA);
-    this.sourceNodeB.connect(this.gainNodeB);
-
-    this.gainNodeA.connect(this.eqFilters[0]);
-    this.gainNodeB.connect(this.eqFilters[0]);
+    // Single MediaElementAudioSourceNode routing the lone <audio> element through Web Audio API
+    this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+    this.sourceNode.connect(this.eqFilters[0]);
 
     if (this.audioContext.state === 'suspended') {
       await this.audioContext.resume();
@@ -454,17 +434,20 @@ export class AudioEngine {
 
   public async loadTrack(url: string, playImmediately = true): Promise<void> {
     await this.init();
-
-    // Unload any local buffer first
+    this._stopProcedural();
     this.unloadBuffer();
+    this.disableMicrophone();
+    this.disableSystemCapture();
 
-    const activeAudio = this.getActiveAudioElement();
-    activeAudio.src = url;
-    activeAudio.load();
+    // Cleanly reset current audio element
+    this.audioElement.pause();
+    this.audioElement.currentTime = 0;
+    this.audioElement.src = url;
+    this.audioElement.load();
 
     if (playImmediately) {
       try {
-        await activeAudio.play();
+        await this.audioElement.play();
       } catch (err) {
         console.warn('Playback requires user gesture unlock:', err);
       }
@@ -484,7 +467,7 @@ export class AudioEngine {
       }
       return;
     }
-    const audio = this.getActiveAudioElement();
+    const audio = this.audioElement;
     if (audio.src && audio.src !== window.location.href && !audio.src.endsWith('/')) {
       this._stopProcedural();
       try {
@@ -509,8 +492,7 @@ export class AudioEngine {
       this.audioContext?.suspend();
       return;
     }
-    const audio = this.getActiveAudioElement();
-    audio.pause();
+    this.audioElement.pause();
     this.audioContext?.suspend();
   }
 
@@ -525,7 +507,7 @@ export class AudioEngine {
       this.listeners.stateChange.forEach((cb) => cb(true));
       return;
     }
-    const audio = this.getActiveAudioElement();
+    const audio = this.audioElement;
     if (audio.src && audio.src !== window.location.href && !audio.src.endsWith('/')) {
       this._stopProcedural();
       if (audio.paused) {
@@ -537,9 +519,8 @@ export class AudioEngine {
   public stop(): void {
     this._stopProcedural();
     this.unloadBuffer();
-    const audio = this.getActiveAudioElement();
-    audio.pause();
-    audio.currentTime = 0;
+    this.audioElement.pause();
+    this.audioElement.currentTime = 0;
     this.disableMicrophone();
     this.disableSystemCapture();
   }
@@ -567,9 +548,8 @@ export class AudioEngine {
       this.seekBuffer(seconds);
       return;
     }
-    const audio = this.getActiveAudioElement();
-    if (audio.duration && !isNaN(audio.duration)) {
-      audio.currentTime = Math.max(0, Math.min(seconds, audio.duration));
+    if (this.audioElement.duration && !isNaN(this.audioElement.duration)) {
+      this.audioElement.currentTime = Math.max(0, Math.min(seconds, this.audioElement.duration));
     }
   }
 
@@ -581,8 +561,8 @@ export class AudioEngine {
     if (this.bufferGain && this.audioContext) {
       this.bufferGain.gain.setValueAtTime(clamped, this.audioContext.currentTime);
     }
-    this.audioElementA.volume = clamped;
-    this.audioElementB.volume = clamped;
+    // Audio element volume is maintained at 1.0 so the Web Audio API has full resolution
+    this.audioElement.volume = 1.0;
   }
 
   public setBandGain(bandId: number, gainDb: number): void {
@@ -657,7 +637,7 @@ export class AudioEngine {
   }
 
   public getActiveAudioElement(): HTMLAudioElement {
-    return this.activeSlot === 'A' ? this.audioElementA : this.audioElementB;
+    return this.audioElement;
   }
 
   public getCurrentTime(): number {

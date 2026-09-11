@@ -23,6 +23,15 @@
   --accent-amber: #ff9100;
   --accent-violet: #7928ca;
 
+  /* Variables Dinámicas Globales (IA Audio & Paleta Armónica Reactiva) */
+  --color-primary: #00f2fe;
+  --color-secondary: #ff007f;
+  --color-accent: #a855f7;
+  --color-glow: rgba(0, 242, 254, 0.45);
+  --color-bg-atmosphere: #060814;
+  --ai-beat-pulse: 0;
+  --ai-bloom-intensity: 1.33;
+
   --bg-primary: #0A0A0F;
   --bg-surface: #121218;
   --bg-circle: #0D0D12;

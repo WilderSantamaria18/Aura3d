@@ -1,4 +1,5 @@
 import type { VisualizerShape, IVisualShapeConfig } from '../types';
+import type { BackgroundAtmosphere } from '../types/audio';
 
 /**
  * Centralized Visualizer Presets Configuration
@@ -237,28 +238,43 @@ export const SPHERE_3D_GEOMETRIES: EffectOption[] = [
 
 /**
  * Catálogo exclusivo de Efectos Cinéticos 2D para Rainbow Void (Canvas 2D)
+ * Los 7 modos esenciales calibrados para el núcleo circular:
  */
 export const RAINBOW_VOID_EFFECTS: EffectOption[] = [
   {
-    id: 'kaleidoscope',
-    name: 'Caleidoscopio Radial',
-    desc: '12 prismas de cristal con alas reactivas sensibles a armónicos agudos.',
-    tag: 'PRISMAS 2D',
-    category: 'Efectos Radiales',
+    id: 'sphere',
+    name: 'Núcleo Minimal Difuminado',
+    desc: 'Aura de resplandor suave con capas de degradado radiante fluido y micro-surcos de vinilo.',
+    tag: 'SPHERE 2D',
+    category: 'Núcleo Minimal',
   },
   {
-    id: 'vortex',
-    name: 'Vórtex Hipnótico',
-    desc: '3 espirales dobles de luz cuántica succionadas hacia el vacío al compás del bombo.',
-    tag: 'ESPIRAL 2D',
-    category: 'Efectos Cinéticos',
+    id: 'spikes',
+    name: 'Corona de Picos FFT Reactiva',
+    desc: '48 agujas cristalinas radiales con micro-partículas brillantes disparadas por percusión.',
+    tag: 'CORONA 48',
+    category: 'Frecuencias & Picos',
   },
   {
     id: 'fractal',
-    name: 'Flor Fractal Sagrada',
-    desc: 'Mándala de geometría sagrada con pétalos poligonales que respiran con los graves.',
-    tag: 'MÁNDALA 2D',
+    name: 'Mándala Sagrada Multicapa',
+    desc: 'Mándala de 4 capas con pétalos oscilantes y vibración armónica reactiva.',
+    tag: 'MÁNDALA 4L',
     category: 'Geometría Sagrada',
+  },
+  {
+    id: 'wave',
+    name: 'Ondas de Frecuencia Líquida',
+    desc: 'Cintas de ondas radiales moduladas fluidamente por el espectro de frecuencia.',
+    tag: 'ONDAS LÍQUIDAS',
+    category: 'Cintas & Ondas',
+  },
+  {
+    id: 'torus',
+    name: 'Anillo Neón Orbital',
+    desc: 'Banda elíptica neón en rotación dual modulada por los tonos bajos.',
+    tag: 'TOROIDE DUAL',
+    category: 'Órbitas & Anillos',
   },
   {
     id: 'nebula',
@@ -268,67 +284,68 @@ export const RAINBOW_VOID_EFFECTS: EffectOption[] = [
     category: 'Efectos Atmosféricos',
   },
   {
-    id: 'bars',
-    name: 'Barras Spectrum Pro',
-    desc: 'Ecualizador circular de 64 bandas con decaimiento de picos estilo consola DJ.',
-    tag: 'SPECTRUM 2D',
-    category: 'Efectos Radiales',
-  },
-  {
-    id: 'laser',
-    name: 'Rayos Láser Strobe',
-    desc: 'Haces cinéticos de alta energía que se disparan en los transitorios de percusión.',
-    tag: 'ESTROBO 2D',
-    category: 'Efectos Cinéticos',
-  },
-  {
-    id: 'rings',
-    name: 'Anillos Concéntricos',
-    desc: '5 ondas orbitales circulares que respiran al ritmo del compás.',
-    tag: 'ONDAS 2D',
-    category: 'Efectos Radiales',
-  },
-  {
-    id: 'spikes',
-    name: 'Picos Radiales 2D',
-    desc: 'Corona de frecuencias que se expande hacia el halo exterior difuminado.',
-    tag: 'PICOS 2D',
-    category: 'Efectos Radiales',
-  },
-  {
     id: 'cloud',
     name: 'Nube Efervescente',
     desc: 'Partículas flotantes que emergen del núcleo hacia el halo exterior.',
-    tag: 'BURBUJAS 2D',
+    tag: 'ENJAMBRE 2D',
     category: 'Efectos Atmosféricos',
   },
+];
+
+export interface AtmosphereOption {
+  id: BackgroundAtmosphere;
+  name: string;
+  desc: string;
+  tag: string;
+}
+
+/**
+ * Catálogo de Atmósferas y Fondos de Pantalla Completa
+ * Independiente del núcleo circular, renderizado en capa z-0 con pointer-events: none.
+ */
+export const ATMOSPHERE_OPTIONS: AtmosphereOption[] = [
   {
-    id: 'torus',
-    name: 'Toroide Neón 2D',
-    desc: 'Anillo toroidal con rotación de gradiente y grosor modulado por el bajo.',
-    tag: 'ANILLO 2D',
-    category: 'Efectos Radiales',
+    id: 'none',
+    name: 'Fondo Limpio Etéreo (Desactivado)',
+    desc: 'Fondo limpio con degradado etéreo sutil y blur estático.',
+    tag: 'LIMPIO',
   },
   {
-    id: 'wave',
-    name: 'Onda Sinusoidal Perimetral',
-    desc: 'Línea de onda senoidal que oscila perimetralmente sobre el halo.',
-    tag: 'ONDA 2D',
-    category: 'Efectos Radiales',
+    id: 'ripples',
+    name: 'Gotas de Agua (Blur Liquid Ripples)',
+    desc: 'Ondas circulares expansivas difuminadas a pantalla completa que se generan con cada golpe de bombo.',
+    tag: 'ONDAS KICK',
   },
   {
-    id: 'icosahedron',
-    name: 'Red Cristalina 2D',
-    desc: 'Polígono facetado con acordes diagonales vibrantes al ritmo del compás.',
-    tag: 'CRISTAL 2D',
-    category: 'Geometría Sagrada',
+    id: 'rain',
+    name: 'Lluvia Neón Estelar',
+    desc: 'Trazos de lluvia vertical en toda la pantalla que aceleran e iluminan su brillo según la energía.',
+    tag: 'LLUVIA NEÓN',
   },
   {
-    id: 'sphere',
-    name: 'Núcleo Void Puro',
-    desc: 'Diseño minimalista con halo exterior arcoíris difuminado y micro-surcos de vinilo.',
-    tag: 'MINIMAL 2D',
-    category: 'Geometría Sagrada',
+    id: 'sand',
+    name: 'Arena de Mar (Mareas de Sub-bajo)',
+    desc: 'Partículas doradas y cian flotando en corrientes sinusoidales que se desplazan rítmicamente.',
+    tag: 'MAREAS CIAN',
+  },
+  {
+    id: 'sunset',
+    name: 'Silueta & Atardecer (DHONKIO)',
+    desc: 'Atardecer épico con sol rojizo, silueta humana en acantilado y núcleo con texto DHONKIO y barras en ciudad.',
+    tag: 'DHONKIO',
+  },
+  {
+    id: 'cyber_city',
+    name: 'Silueta Urbana Cyberpunk (Rooftop)',
+    desc: 'Rascacielos futuristas con ventanas reactivas al audio, haces de luz y silueta solitaria en la azotea.',
+    tag: 'CYBERPUNK',
+  },
+  {
+    id: 'cosmic_voyager',
+    name: 'Silueta Viajero Cósmico (Luna Gigante)',
+    desc: 'Luna monumental con corona etérea, auroras boreales y silueta de astrónomo contemplando el infinito.',
+    tag: 'COSMOS',
   },
 ];
+
 

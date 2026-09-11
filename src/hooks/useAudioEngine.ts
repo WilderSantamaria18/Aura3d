@@ -54,11 +54,10 @@ function parseStreamLabel(rawLabel?: string): { title: string; artist: string } 
   };
 }
 
-let isAudioEngineStoreSubscribed = false;
-
 function ensureAudioEngineStoreSubscription() {
-  if (isAudioEngineStoreSubscribed) return;
-  isAudioEngineStoreSubscribed = true;
+  if (typeof window === 'undefined') return;
+  if ((window as unknown as { __aura_audio_subscribed?: boolean }).__aura_audio_subscribed) return;
+  (window as unknown as { __aura_audio_subscribed?: boolean }).__aura_audio_subscribed = true;
 
   audioEngine.onTimeUpdate((currentTime, duration) => {
     usePlayerStore.setState({ currentTime, duration });
@@ -378,18 +377,25 @@ export const useAudioEngine = () => {
 
   const playNext = useCallback(async () => {
     const state = usePlayerStore.getState();
-    const next = state.nextTrack();
+    let next = state.nextTrack();
+    if (!next && state.queue.length > 0) {
+      next = state.queue[0];
+      usePlayerStore.setState({ queueIndex: 0, currentTrack: next });
+    }
     if (next) {
       await playTrack(next);
-    } else {
-      audioEngine.pause();
-      setIsPlaying(false);
+    } else if (state.currentTrack) {
+      await playTrack(state.currentTrack);
     }
-  }, [playTrack, setIsPlaying]);
+  }, [playTrack]);
 
   const playPrevious = useCallback(async () => {
     const state = usePlayerStore.getState();
-    const prev = state.previousTrack();
+    let prev = state.previousTrack();
+    if (!prev && state.queue.length > 0) {
+      prev = state.queue[state.queue.length - 1];
+      usePlayerStore.setState({ queueIndex: state.queue.length - 1, currentTrack: prev });
+    }
     if (prev) {
       await playTrack(prev);
     } else {

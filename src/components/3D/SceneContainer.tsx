@@ -76,15 +76,30 @@ export const SceneContainer: React.FC = React.memo(() => {
   const effectiveDpr: [number, number] | number =
     performanceTier === 'eco' ? 0.85 : performanceTier === 'medium' ? 1.0 : [1.0, 1.5];
 
+  const blobSettings = usePlayerStore((s) => s.blobSettings);
+  const hasAtmosphere = (blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none') || !!blobSettings.customBackgroundImage;
   const bgColor = isLucid ? '#03050e' : '#060812';
 
   return (
-    <div className="absolute inset-0 w-full h-full pointer-events-auto overflow-hidden" style={{ backgroundColor: bgColor }}>
+    <div
+      className="absolute inset-0 w-full h-full pointer-events-auto overflow-hidden"
+      style={{ backgroundColor: hasAtmosphere ? 'transparent' : bgColor }}
+    >
+      {/* Focal Contrast Vignette for 3D Sphere (ensures particles stand out with rich contrast) */}
+      {hasAtmosphere && (
+        <div
+          className="absolute inset-0 pointer-events-none transition-opacity duration-700"
+          style={{
+            background: 'radial-gradient(circle at 50% 50%, rgba(3, 5, 14, 0.68) 0%, rgba(3, 5, 14, 0.38) 45%, transparent 75%)',
+          }}
+        />
+      )}
+
       <Canvas
         camera={{ position: [0, 0.35, 6.2], fov: 50 }}
         gl={{
           antialias: performanceTier !== 'eco',
-          alpha: false,
+          alpha: true,
           powerPreference: 'high-performance',
           preserveDrawingBuffer: false,
           stencil: false,
@@ -93,14 +108,18 @@ export const SceneContainer: React.FC = React.memo(() => {
         dpr={effectiveDpr}
         resize={{ debounce: 0, scroll: false }}
         onCreated={({ gl }) => {
-          gl.setClearColor(new THREE.Color(bgColor), 1.0);
+          if (hasAtmosphere) {
+            gl.setClearColor(0x000000, 0);
+          } else {
+            gl.setClearColor(new THREE.Color(bgColor), 1.0);
+          }
           gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;
           gl.autoClear = true;
         }}
       >
         <ResponsiveCameraController />
-        <color attach="background" args={[bgColor]} />
+        {!hasAtmosphere && <color attach="background" args={[bgColor]} />}
         <ambientLight intensity={0.6} />
         <pointLight
           position={[10, 10, 10]}

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { CircleDot, Eye, Bot, Shapes, Link2, Unlink, Zap, Lock } from 'lucide-react';
+import { CircleDot, Sun, Bot, Shapes, Link2, Unlink, Zap, Lock } from 'lucide-react';
 import type { VisualizerShape } from '../../types/audio';
 import { SPHERE_3D_GEOMETRIES, RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { useAIDirectorPhase } from '../../services/aiSceneDirectorService';
@@ -36,8 +36,6 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
     musicSensitivity,
     setMusicSensitivity,
   } = usePlayerStore();
-
-  if (visualizerMode === 'party') return null;
 
   const isBlob = visualizerMode === 'blob';
   const currentScale = isBlob ? blobScale : sphereScale;
@@ -215,7 +213,7 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
 
       {/* ── 6. Control de Opacidad ── */}
       <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors">
-        <Eye className="w-3.5 h-3.5 text-white/50" />
+        <Sun className="w-3.5 h-3.5 text-white/50" />
         <span className="hidden sm:inline text-[11px] text-white/50">
           <span className="font-mono tabular-nums text-white/90 font-medium">{Math.round(sphereOpacity * 100)}%</span>
         </span>

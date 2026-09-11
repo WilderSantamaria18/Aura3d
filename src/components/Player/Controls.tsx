@@ -15,12 +15,6 @@ import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { VolumeControl } from './VolumeControl';
 
-const SpotifyIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
-  </svg>
-);
-
 export const Controls: React.FC = React.memo(() => {
   const {
     currentTrack,
@@ -40,8 +34,6 @@ export const Controls: React.FC = React.memo(() => {
 
   const { togglePlayPause: engineTogglePlayPause, playNext: enginePlayNext, playPrevious: enginePlayPrevious } = useAudioEngine();
   const {
-    connectSpotify,
-    disconnectSpotify,
     togglePlayPause: spotifyTogglePlayPause,
     playNext: spotifyPlayNext,
     playPrevious: spotifyPlayPrevious,
@@ -127,19 +119,8 @@ export const Controls: React.FC = React.memo(() => {
           </button>
         )}
 
-        {/* Mobile Volume & Spotify Toggle */}
+        {/* Mobile Volume */}
         <div className="flex sm:hidden items-center gap-1.5">
-          <button
-            onClick={isSpotifyConnected ? disconnectSpotify : connectSpotify}
-            className={`p-1.5 rounded-md transition-colors ${
-              isSpotifyConnected
-                ? 'text-[#1DB954] bg-[#1DB954]/10 border border-[#1DB954]/20'
-                : 'text-white/40 hover:text-white/80'
-            }`}
-            title={isSpotifyConnected ? 'Spotify Conectado (Tocar para desconectar)' : 'Conectar Spotify'}
-          >
-            <SpotifyIcon className="w-3.5 h-3.5" />
-          </button>
           <VolumeControl />
         </div>
       </div>
@@ -219,28 +200,8 @@ export const Controls: React.FC = React.memo(() => {
         </button>
       </div>
 
-      {/* Volume & Integrations (Desktop & Tablet) */}
+      {/* Volume (Desktop & Tablet) */}
       <div className="hidden sm:flex w-1/3 justify-end items-center gap-3">
-        {isSpotifyConnected ? (
-          <button
-            onClick={disconnectSpotify}
-            className="px-2.5 py-1.5 rounded-lg bg-[#1DB954]/10 hover:bg-rose-500/15 border border-[#1DB954]/30 hover:border-rose-500/30 text-[#1DB954] hover:text-rose-400 text-[10px] font-mono tracking-wider transition-all flex items-center gap-1.5 group"
-            title="Spotify Conectado — Clic para desconectar"
-          >
-            <SpotifyIcon className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline group-hover:hidden">SPOTIFY SYNC</span>
-            <span className="hidden group-hover:inline">DESCONECTAR</span>
-          </button>
-        ) : (
-          <button
-            onClick={connectSpotify}
-            className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-[#1DB954]/15 border border-white/[0.08] hover:border-[#1DB954]/40 text-white/70 hover:text-[#1DB954] text-[10px] font-mono tracking-wider transition-all flex items-center gap-1.5"
-            title="Conectar cuenta de Spotify para control de reproducción y letras sincronizadas"
-          >
-            <SpotifyIcon className="w-3.5 h-3.5" />
-            <span className="hidden xl:inline">SPOTIFY</span>
-          </button>
-        )}
         <VolumeControl />
       </div>
     </div>

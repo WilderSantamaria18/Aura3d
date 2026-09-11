@@ -31,19 +31,39 @@ const STORAGE_KEYS = {
 };
 
 export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
-  circleColor: '#050711',
+  circleColor: '#000000',
   haloColor1: '#ff088a',
   haloColor2: '#00f2fe',
   isRainbowMode: true,
-  circleSize: 220,
-  haloSize: 320,
+  circleSize: 179, // Diámetro Núcleo (Void): 179px
+  haloSize: 202,   // Diámetro Halo Exterior: 202px
   posX: 50,
   posY: 50,
-  bassBoost: 5,
-  backgroundBlur: 30,
+  bassBoost: 2.8,  // Reacción al Bajo (Bass): Multiplicador de 2.8x
+  backgroundBlur: 0,
   logoStyle: 'ghost',
   customLogoUrl: null,
-  scaleSensitivity: 1.0,
+  scaleSensitivity: 1.40, // Sensibilidad de Escala: 1.40x
+  customBackgroundImage: null,
+  backgroundOpacity: 0.85,
+  backgroundFit: 'cover',
+  backgroundScale: 1.0,
+  backgroundAtmosphere: 'none', // Por defecto desactivado (fondo limpio etéreo)
+  atmosphereSpeed: 1.0,
+  atmosphereGlow: 1.0,
+  atmosphereSmoothing: 0.20,
+  atmosphereBlend: 'none',
+  kickThreshold: 0.32, // Umbral Disparo Kick: 32%
+  kickPower: 1.60,     // Potencia Subwoofer Kick: 160%
+  dhonkioInnerSize: 0.14,
+  dhonkioOuterSize: 0.35,
+  dhonkioOpacity: 0.42,
+  dhonkioBloom: 1.33,
+  dhonkioPowerBass: 1.035,
+  dhonkioPowerMid: 1.08,
+  dhonkioPowerKick: 1.045,
+  dhonkioKickBoost: 6,
+  isUiHidden: false,
 };
 
 export class StorageService {
@@ -216,7 +236,7 @@ export class StorageService {
   public static getVisualizerMode(): VisualizerMode {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.VISUALIZER_MODE) as VisualizerMode;
-      return val === 'sphere' || val === 'blob' || val === 'party' ? val : 'sphere';
+      return val === 'sphere' || val === 'blob' || val === 'synthwave' ? val : 'sphere';
     } catch {
       return 'sphere';
     }
@@ -434,9 +454,9 @@ export class StorageService {
   public static getBlobBassBoomThreshold(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.BLOB_BASS_BOOM_THRESHOLD);
-      return val !== null ? parseFloat(val) : 0.45;
+      return val !== null ? parseFloat(val) : 0.68; // 32% kick trigger threshold
     } catch {
-      return 0.45;
+      return 0.68;
     }
   }
 
@@ -451,9 +471,9 @@ export class StorageService {
   public static getBlobBassBoomIntensity(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.BLOB_BASS_BOOM_INTENSITY);
-      return val !== null ? parseFloat(val) : 1.0;
+      return val !== null ? parseFloat(val) : 1.6; // 160% subwoofer kick power
     } catch {
-      return 1.0;
+      return 1.6;
     }
   }
 

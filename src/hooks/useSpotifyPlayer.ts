@@ -95,7 +95,13 @@ export const useSpotifyPlayer = () => {
       const res = await spotifyFetch('/auth', { method: 'POST' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'No se pudo iniciar autorización con Spotify');
+        const rawMsg = errData.error || '';
+        if (rawMsg.includes('SPOTIFY_CLIENT_ID')) {
+          alert('Configuración de Spotify requerida:\n\nPara vincular tu cuenta de Spotify, define SPOTIFY_CLIENT_ID en el archivo .env de tu servidor (o usa YouTube para reproducción directa sin credenciales).');
+          setIsLoading(false);
+          return;
+        }
+        throw new Error(rawMsg || 'No se pudo iniciar autorización con Spotify');
       }
 
       const { authUrl, state } = await res.json();
@@ -110,7 +116,7 @@ export const useSpotifyPlayer = () => {
       if (msg === 'Failed to fetch') {
         msg = 'El servidor backend no está encendido en http://localhost:4000. Abre otra terminal y ejecuta: npm run server';
       }
-      console.error('[Spotify Connect]', msg);
+      console.warn('[Spotify Connect]', msg);
       setError(msg);
       setIsLoading(false);
     }

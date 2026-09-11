@@ -81,6 +81,7 @@ export const PresetsModal: React.FC = () => {
       blobScale,
       musicSensitivity,
       audioSpeed,
+      backgroundAtmosphere: blobSettings.backgroundAtmosphere,
       blobSettings,
     });
 

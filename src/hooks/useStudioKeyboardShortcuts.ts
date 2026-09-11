@@ -13,7 +13,7 @@ const SPHERE_SHAPES: VisualizerShape[] = [
   'wave',
 ];
 
-const VISUALIZER_MODES: VisualizerMode[] = ['sphere', 'blob', 'party', 'synthwave'];
+const VISUALIZER_MODES: VisualizerMode[] = ['sphere', 'blob', 'synthwave'];
 
 /**
  * useStudioKeyboardShortcuts

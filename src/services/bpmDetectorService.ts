@@ -88,11 +88,12 @@ class BpmDetectorService {
           }
 
           const roundedBpm = Math.round(this.smoothedBpm);
-          state.setBpm(roundedBpm);
+          if (Math.abs(roundedBpm - state.bpm) >= 2) {
+            state.setBpm(roundedBpm);
+          }
         }
 
         this.lastBeatTime = now;
-        this.triggerBeatPulse();
       }
 
       this.prevBassEnergy = currentBassEnergy;
@@ -100,18 +101,6 @@ class BpmDetectorService {
 
     this.animId = requestAnimationFrame(this.loop);
   };
-
-  private triggerBeatPulse(): void {
-    const store = usePlayerStore.getState();
-    store.triggerBeatPulse();
-
-    if (this.beatPulseTimeout) {
-      clearTimeout(this.beatPulseTimeout);
-    }
-    this.beatPulseTimeout = setTimeout(() => {
-      usePlayerStore.getState().resetBeatPulse();
-    }, 110);
-  }
 }
 
 export const bpmDetector = new BpmDetectorService();

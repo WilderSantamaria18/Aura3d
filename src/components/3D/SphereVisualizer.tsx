@@ -177,16 +177,18 @@ const MainSphereShader = {
     varying vec4 vColor;
 
     void main() {
-      // Soft circular particle disc ("arena del mar" aesthetic)
+      // High-density solid crystalline particle disc
       vec2 coord = gl_PointCoord - vec2(0.5);
       float dist = length(coord);
       if (dist > 0.5) discard;
 
-      // Soft anti-aliased edge falloff
-      float alpha = smoothstep(0.5, 0.08, dist) * vColor.a * uOpacity;
-      // Subtle luminous sand core
-      float core = smoothstep(0.22, 0.0, dist) * 0.42;
-      vec3 finalColor = vColor.rgb * (1.0 + core);
+      // Solid, crisp anti-aliased edge with high core opacity
+      float edgeAlpha = smoothstep(0.50, 0.32, dist);
+      float alpha = edgeAlpha * min(1.0, uOpacity * 1.35);
+
+      // Solid luminous sand core (prevents background bleed-through)
+      float coreDensity = smoothstep(0.30, 0.0, dist) * 0.65;
+      vec3 finalColor = vColor.rgb * (1.35 + coreDensity);
 
       gl_FragColor = vec4(finalColor, alpha);
     }
@@ -268,7 +270,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
           uPixelRatio: { value: 1.0 },
         },
         transparent: true,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
         depthWrite: false,
         depthTest: true,
       });
@@ -504,42 +506,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
       const sHighs = smoothedHighsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      // Kick transient onset & attack envelope detection
-      const attackEnv = Math.max(0, sBass - prevBassRef.current);
-      const effectiveKickThresh = KICK_THRESHOLD * (sphereBassBoomThreshold ? sphereBassBoomThreshold / 0.45 : 1.0);
-      if (
-        sBass > effectiveKickThresh &&
-        attackEnv > KICK_ATTACK_DELTA &&
-        time - lastKickTimeRef.current > KICK_COOLDOWN_SEC
-      ) {
-        shockWavesRef.current[nextWaveIdxRef.current] = time;
-        nextWaveIdxRef.current = (nextWaveIdxRef.current + 1) % SHOCKWAVE_SLOTS;
-        lastKickTimeRef.current = time;
-      }
+      // Smooth bass tracking (kick boom effects disabled for fluid performance)
       prevBassRef.current = sBass;
 
-      // Pack active shockwaves into GPU uniforms
-      let activeWaveCount = 0;
-      if (!isUltraEco) {
-        const baseWaveStrength = BASE_WAVE_STRENGTH * (sphereWaveIntensity ?? 1.0) * (sphereBassBoomIntensity ?? 1.0);
-        const effectiveWaveStrength = isEco ? baseWaveStrength * 0.5 : vrMode ? baseWaveStrength * 0.4 : baseWaveStrength;
-
-        for (let w = 0; w < SHOCKWAVE_SLOTS; w++) {
-          const waveTime = shockWavesRef.current[w];
-          const age = time - waveTime;
-          if (age > 0 && age <= WAVE_LIFETIME_SEC) {
-            const progress = age / WAVE_LIFETIME_SEC;
-            const waveRadius = progress * WAVE_MAX_RADIUS;
-            const decay = 1.0 - progress;
-            shockwavesUniform[activeWaveCount].set(waveRadius, effectiveWaveStrength * decay);
-            activeWaveCount++;
-            if (activeWaveCount >= 8) break;
-          }
-        }
-      }
-
-      // Fill remaining uniform slots
-      for (let w = activeWaveCount; w < 8; w++) {
+      // Keep shockwave uniforms zeroed out to eliminate GPU vertex displacement lag
+      for (let w = 0; w < 8; w++) {
         shockwavesUniform[w].set(0, 0);
       }
 
@@ -603,11 +574,11 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         u.uHighs.value = sHighs * turb;
         u.uEnergy.value = sEnergy * turb;
         u.uShape.value = getShapeId(sphereShape);
-        u.uSize.value = isLucid ? 0.058 : isUltraEco ? 0.054 : isEco ? 0.050 : 0.046;
-        u.uOpacity.value = isLucid ? 1.0 : isUltraEco ? Math.min(1.0, sphereOpacity + 0.1) : sphereOpacity;
-        u.uAudioGlow.value = 1.0 + sHighs * 0.35 + (sBass > 0.45 ? 0.2 : 0.0);
+        u.uSize.value = isLucid ? 0.068 : isUltraEco ? 0.062 : isEco ? 0.058 : 0.054;
+        u.uOpacity.value = isLucid ? 1.0 : Math.max(0.85, sphereOpacity);
+        u.uAudioGlow.value = 1.15 + sHighs * 0.40 + (sBass > 0.40 ? 0.28 : 0.0);
         u.uHeadYOffset.value = headPos ? (headPos.y / 6) * 0.15 : 0;
-        u.uNumShockwaves.value = activeWaveCount;
+        u.uNumShockwaves.value = 0;
         u.uPixelRatio.value = dpr;
       }
     });
