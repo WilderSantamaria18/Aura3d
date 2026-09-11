@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
+import type { Track } from '../../types/audio';
 
 // ── Time formatter helper ─────────────────────────────────────────────────────
 const formatTime = (seconds: number): string => {

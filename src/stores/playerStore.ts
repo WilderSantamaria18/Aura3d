@@ -251,6 +251,7 @@ interface PlayerState {
   setImmersiveMode: (isImmersive: boolean) => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setKaraokeFullscreen: (isFullscreen: boolean) => void;
+  toggleKaraokeFullscreen: () => void;
   setNowPlayingExpanded: (isExpanded: boolean) => void;
   setEqBandGain: (bandId: number, gain: number) => void;
   setRepeatMode: (mode: 'off' | 'all' | 'one') => void;
@@ -1064,6 +1065,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setImmersiveMode: (isImmersive) => set({ isImmersiveMode: isImmersive }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   setKaraokeFullscreen: (isFullscreen) => set({ isKaraokeFullscreen: isFullscreen }),
+  toggleKaraokeFullscreen: () => set((s) => ({ isKaraokeFullscreen: !s.isKaraokeFullscreen })),
   setNowPlayingExpanded: (isExpanded) => set({ isNowPlayingExpanded: isExpanded }),
 
   setEqBandGain: (bandId, gain) => {

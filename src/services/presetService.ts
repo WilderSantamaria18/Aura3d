@@ -363,7 +363,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     tags: ['Matrix', 'Laser', 'Código', 'Cyberpunk'],
     visualizerMode: 'blob',
     visualizerShape: 'laser',
-    waveEffectMode: 'radial',
+    waveEffectMode: 'concentric',
     waveEffectIntensity: 1.1,
     bassBoomThreshold: 0.7,
     bassBoomIntensity: 1.2,

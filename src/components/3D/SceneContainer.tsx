@@ -78,7 +78,6 @@ export const SceneContainer: React.FC = React.memo(() => {
 
   const blobSettings = usePlayerStore((s) => s.blobSettings);
   const hasAtmosphere = (blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none') || !!blobSettings.customBackgroundImage;
-  const bgColor = isLucid ? '#03050e' : '#060812';
 
   return (
     <div
