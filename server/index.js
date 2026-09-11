@@ -520,7 +520,7 @@ app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
                   thumbnail: thumb,
                   url: `https://www.youtube.com/watch?v=${compact.videoId}`,
                 });
-                if (results.length >= 10) break;
+                if (results.length >= 35) break;
               }
             }
           }
@@ -530,13 +530,28 @@ app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
       }
     }
 
-    // 2. Fallback: Search for popular tracks from the same artist
-    if (results.length < 4 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
-      const query = `${artist} top songs`;
-      const searchRes = await searchYouTubeDirect(query);
-      if (searchRes && searchRes.length > 0) {
-        results.push(...searchRes);
+    // 2. Extraer paquetes de canciones populares y álbumes del artista para llegar a 50+ canciones
+    if (artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
+      const queries = [
+        `${artist} canciones mejores exitos`,
+        `${artist} top tracks audio`,
+        `${artist} playlist album`,
+        `${artist} mix radio similar`,
+      ];
+      for (const q of queries) {
+        try {
+          const searchRes = await searchYouTubeDirect(q);
+          if (searchRes && searchRes.length > 0) {
+            results.push(...searchRes);
+          }
+        } catch {}
       }
+    } else if (title) {
+      const cleanT = title.replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      try {
+        const searchRes = await searchYouTubeDirect(`${cleanT} canciones similares mix`);
+        if (searchRes && searchRes.length > 0) results.push(...searchRes);
+      } catch {}
     }
 
     // 3. Filter out duplicates of the current video and songs with the same title
@@ -548,7 +563,7 @@ app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
       const rTitleClean = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
 
       // Avoid same song / remix / live duplicate of current song
-      if (cleanTitle.length > 3 && (rTitleClean.includes(cleanTitle) || cleanTitle.includes(rTitleClean))) {
+      if (cleanTitle.length > 3 && (rTitleClean === cleanTitle || (rTitleClean.includes(cleanTitle) && rTitleClean.length < cleanTitle.length + 8))) {
         continue;
       }
 
@@ -558,7 +573,7 @@ app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
       }
     }
 
-    const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 10);
+    const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 60);
     ytSearchCache.set(cacheKey, finalResults);
     res.json({ results: finalResults });
   } catch (err) {

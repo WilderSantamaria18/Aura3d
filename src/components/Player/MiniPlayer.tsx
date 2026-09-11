@@ -147,16 +147,26 @@ export const MiniPlayer: React.FC = () => {
       });
       setActiveTab('player');
 
-      // 2. Establecer la canción seleccionada como el inicio de la lista
-      setQueue([track], 0);
+      // 2. Preservar el historial de canciones previamente escuchadas (hasta 25 recientes)
+      const currentQueue = usePlayerStore.getState().queue;
+      const currentIndex = usePlayerStore.getState().queueIndex;
+      const recentHistory = currentQueue.slice(Math.max(0, currentIndex - 25), currentIndex + 1);
 
-      // 3. Obtener canciones relacionadas / similares (del mismo artista o género)
-      // para que al terminar reproduzca una canción nueva y diferente, no la misma de otro video
+      // Colocar el historial previo y la nueva pista
+      const baseQueue =
+        recentHistory.length > 0 && recentHistory[recentHistory.length - 1].id === track.id
+          ? recentHistory
+          : [...recentHistory.filter((t) => t.id !== track.id), track];
+      const newIndex = baseQueue.length - 1;
+      setQueue(baseQueue, newIndex);
+
+      // 3. Obtener 50+ canciones relacionadas / similares del nuevo cantante o género
       fetchRelatedTracks(item.id, item.title, item.artist).then((related) => {
         if (related && related.length > 0) {
-          const filtered = related.filter((r) => r.youtubeId !== item.id);
+          const existingIds = new Set(baseQueue.map((t) => t.id || t.youtubeId));
+          const filtered = related.filter((r) => !existingIds.has(r.id || r.youtubeId));
           if (filtered.length > 0) {
-            setQueue([track, ...filtered], 0);
+            setQueue([...baseQueue, ...filtered], newIndex);
           }
         }
       });
@@ -741,13 +751,18 @@ export const MiniPlayer: React.FC = () => {
                 </div>
               )}
 
-              {/* ── 3. QUEUE TAB ───────────────────────────────────────────── */}
+              {/* ── 3. QUEUE TAB (Dynamic 50+ Infinite Queue & History) ───── */}
               {activeTab === 'queue' && (
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
-                    <span className="text-xs font-mono text-white/60">
-                      Cola de reproducción ({queue.length})
-                    </span>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono text-white/80 font-bold">
+                        Cola de reproducción ({queue.length})
+                      </span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> 50+ Auto
+                      </span>
+                    </div>
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -769,31 +784,77 @@ export const MiniPlayer: React.FC = () => {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
+                    <div className="flex flex-col gap-1 max-h-60 overflow-y-auto pr-1">
+                      {/* Recientes antes de la actual */}
+                      {queueIndex > 0 && (
+                        <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider px-1 pt-1 pb-0.5 flex items-center justify-between">
+                          <span>Historial Reciente ({queueIndex})</span>
+                          <span className="text-[9px] text-white/30">Escuchadas</span>
+                        </div>
+                      )}
+
                       {queue.map((track, idx) => {
                         const isCurrent = idx === queueIndex;
+                        const isPast = idx < queueIndex;
                         return (
-                          <div
-                            key={track.id || idx}
-                            onClick={() => playTrack(track)}
-                            className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
-                              isCurrent
-                                ? 'bg-cyan-500/15 border border-cyan-500/30 text-white font-medium'
-                                : 'bg-white/[0.02] hover:bg-white/[0.06] text-white/70 border border-transparent'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              <span className="text-[10px] font-mono text-white/40 w-4">
-                                {idx + 1}
-                              </span>
-                              <span className="text-xs truncate">
-                                {track.title}
+                          <React.Fragment key={track.id || `${idx}_${track.title}`}>
+                            {isCurrent && (
+                              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider px-1 pt-1.5 pb-0.5 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Radio className="w-2.5 h-2.5 animate-pulse" /> Sonando Ahora
+                                </span>
+                              </div>
+                            )}
+
+                            {idx === queueIndex + 1 && (
+                              <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider px-1 pt-2 pb-0.5 flex items-center justify-between">
+                                <span>A Continuación ({queue.length - queueIndex - 1})</span>
+                                <span className="text-[9px] text-cyan-400/70">♾️ Radio Infinita</span>
+                              </div>
+                            )}
+
+                            <div
+                              onClick={() => playTrack(track)}
+                              className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                                isCurrent
+                                  ? 'bg-cyan-500/15 border border-cyan-500/40 text-white font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]'
+                                  : isPast
+                                  ? 'bg-white/[0.015] hover:bg-white/[0.05] text-white/40 hover:text-white/70 border border-transparent'
+                                  : 'bg-white/[0.03] hover:bg-white/[0.08] text-white/80 hover:text-white border border-white/[0.03] hover:border-white/10'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                                  <img
+                                    src={track.coverUrl || `https://img.youtube.com/vi/${track.youtubeId}/hqdefault.jpg`}
+                                    alt={track.title}
+                                    className={`w-full h-full object-cover ${isPast ? 'grayscale opacity-60' : ''}`}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&q=80';
+                                    }}
+                                  />
+                                  {isCurrent && isPlaying && (
+                                    <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
+                                      <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col min-w-0 pr-1">
+                                  <span className={`text-xs truncate ${isCurrent ? 'text-cyan-300 font-bold' : ''}`}>
+                                    {track.title}
+                                  </span>
+                                  <span className="text-[10px] text-white/40 font-mono truncate">
+                                    {track.artist}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] font-mono text-white/40 ml-2 flex-shrink-0">
+                                {formatTime(track.duration)}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono text-white/40 ml-2">
-                              {formatTime(track.duration)}
-                            </span>
-                          </div>
+                          </React.Fragment>
                         );
                       })}
                     </div>

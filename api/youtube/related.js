@@ -7,6 +7,64 @@ function parseDurationText(str) {
   return parts[0] || 0;
 }
 
+async function searchYouTubeQuery(query, max = 35) {
+  try {
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(searchUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const html = await res.text();
+    const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
+    if (!match || !match[1]) return [];
+
+    const parsed = JSON.parse(match[1]);
+    const contents =
+      parsed.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+        ?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+    const list = [];
+    for (const c of contents) {
+      const vr = c.videoRenderer;
+      if (vr && vr.videoId && !vr.videoId.startsWith('UC')) {
+        const title = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
+        const artist =
+          vr.ownerText?.runs?.[0]?.text ||
+          vr.shortBylineText?.runs?.[0]?.text ||
+          'Artista de YouTube';
+        const durationSec = parseDurationText(vr.lengthText?.simpleText);
+        const thumb =
+          vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+          `https://img.youtube.com/vi/${vr.videoId}/hqdefault.jpg`;
+
+        list.push({
+          id: vr.videoId,
+          title,
+          artist,
+          duration: durationSec,
+          thumbnail: thumb,
+          url: `https://www.youtube.com/watch?v=${vr.videoId}`,
+        });
+        if (list.length >= max) break;
+      }
+    }
+    return list;
+  } catch (err) {
+    console.debug('[searchYouTubeQuery error]:', err.message);
+    return [];
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -20,10 +78,10 @@ export default async function handler(req, res) {
   const artist = (req.query?.artist || '').toString().trim();
   const title = (req.query?.title || '').toString().trim();
 
-  let results = [];
+  const results = [];
 
   try {
-    // 1. Intentar raspar la página de visualización de YouTube para recomendaciones ("Up Next")
+    // 1. Raspar la página de reproducción para obtener recomendaciones directas ("Up Next" y videos relacionados)
     if (videoId) {
       try {
         const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -71,7 +129,7 @@ export default async function handler(req, res) {
                   thumbnail: thumb,
                   url: `https://www.youtube.com/watch?v=${compact.videoId}`,
                 });
-                if (results.length >= 12) break;
+                if (results.length >= 35) break;
               }
             }
           }
@@ -81,68 +139,38 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Fallback: Si hay pocos resultados y tenemos el nombre del artista, buscar canciones populares del artista
-    if (results.length < 4 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
-      try {
-        const query = `${artist} top songs`;
-        const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-        const searchRes = await fetch(searchUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-          },
-        });
-        if (searchRes.ok) {
-          const sHtml = await searchRes.text();
-          const sMatch = sHtml.match(/var ytInitialData = ({.*?});<\/script>/);
-          if (sMatch && sMatch[1]) {
-            const sData = JSON.parse(sMatch[1]);
-            const sContents =
-              sData.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
-                ?.contents?.[0]?.itemSectionRenderer?.contents || [];
-
-            for (const c of sContents) {
-              const vr = c.videoRenderer;
-              if (vr && vr.videoId && !vr.videoId.startsWith('UC') && vr.videoId !== videoId) {
-                const vTitle = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
-                const vArtist =
-                  vr.ownerText?.runs?.[0]?.text ||
-                  vr.shortBylineText?.runs?.[0]?.text ||
-                  artist;
-                const vDur = parseDurationText(vr.lengthText?.simpleText);
-                const vThumb =
-                  vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
-                  `https://img.youtube.com/vi/${vr.videoId}/hqdefault.jpg`;
-
-                results.push({
-                  id: vr.videoId,
-                  title: vTitle,
-                  artist: vArtist,
-                  duration: vDur,
-                  thumbnail: vThumb,
-                  url: `https://www.youtube.com/watch?v=${vr.videoId}`,
-                });
-                if (results.length >= 10) break;
-              }
-            }
-          }
-        }
-      } catch (searchErr) {
-        console.debug('[Vercel Related Search Fallback Error]:', searchErr.message);
-      }
+    // 2. Extraer paquetes masivos de canciones del mismo artista y género para garantizar 50+ canciones
+    const searchTasks = [];
+    if (artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
+      searchTasks.push(
+        searchYouTubeQuery(`${artist} canciones mejores exitos`, 30),
+        searchYouTubeQuery(`${artist} top tracks audio`, 30),
+        searchYouTubeQuery(`${artist} playlist completo album`, 30),
+        searchYouTubeQuery(`${artist} mix radio similar`, 25)
+      );
+    } else if (title) {
+      const cleanT = title.replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      searchTasks.push(
+        searchYouTubeQuery(`${cleanT} canciones similares mix`, 30),
+        searchYouTubeQuery(`${cleanT} playlist radio`, 30)
+      );
     }
 
-    // 3. Filtrar duplicados y canciones con títulos idénticos a la actual
-    const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+    if (searchTasks.length > 0) {
+      const taskResults = await Promise.all(searchTasks);
+      taskResults.forEach((arr) => results.push(...arr));
+    }
+
+    // 3. Filtrar duplicados por ID y por título de canción para asegurar que sean todas distintas
+    const cleanCurrentTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
     const uniqueMap = new Map();
 
     for (const r of results) {
       if (r.id === videoId) continue;
       const rTitleClean = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
 
-      // Evitar la misma canción o misma versión repetida
-      if (cleanTitle.length > 3 && (rTitleClean.includes(cleanTitle) || cleanTitle.includes(rTitleClean))) {
+      // Evitar que la misma canción o misma versión repetida se agregue
+      if (cleanCurrentTitle.length > 3 && (rTitleClean === cleanCurrentTitle || (rTitleClean.includes(cleanCurrentTitle) && rTitleClean.length < cleanCurrentTitle.length + 8))) {
         continue;
       }
 
@@ -152,7 +180,9 @@ export default async function handler(req, res) {
       }
     }
 
-    const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 10);
+    // Devolver hasta 75 canciones para que la fila/cola tenga al menos 50-70 canciones completas
+    const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 75);
+
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate');
     return res.status(200).json({ results: finalResults });
   } catch (err) {

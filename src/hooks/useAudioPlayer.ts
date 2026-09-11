@@ -49,7 +49,28 @@ function ensureGlobalEngineSubscription() {
     // 2. Queue navigation: advance to next song in queue
     let next = state.nextTrack();
 
-    // 3. Autoplay Related: If queue ended and track was from YouTube, auto-fetch similar tracks by artist/genre!
+    // 1. Auto-alimentación continua de cola infinita: si quedan menos de 10 canciones por delante, pre-cargar 50+ más
+    const upcomingCount = state.queue.length - (state.queueIndex + 1);
+    if (upcomingCount < 10 && state.currentTrack?.youtubeId) {
+      fetchRelatedTracks(
+        state.currentTrack.youtubeId,
+        state.currentTrack.title,
+        state.currentTrack.artist
+      )
+        .then((more) => {
+          if (more && more.length > 0) {
+            const currentQ = usePlayerStore.getState().queue;
+            const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
+            const fresh = more.filter((t) => !existingIds.has(t.id || t.youtubeId));
+            if (fresh.length > 0) {
+              usePlayerStore.setState({ queue: [...currentQ, ...fresh] });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 2. Si la cola llegó al final y no hay siguiente, buscar 50+ canciones similares de inmediato y continuar reproduciendo
     if (!next && state.currentTrack && state.currentTrack.youtubeId) {
       try {
         const related = await fetchRelatedTracks(
@@ -58,13 +79,21 @@ function ensureGlobalEngineSubscription() {
           state.currentTrack.artist
         );
         if (related && related.length > 0) {
-          const firstRelated = related[0];
-          const newQueue = [state.currentTrack, ...related];
-          state.setQueue(newQueue, 1);
-          next = firstRelated;
+          const currentQ = state.queue;
+          const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
+          const fresh = related.filter((t) => !existingIds.has(t.id || t.youtubeId));
+          const toAdd = fresh.length > 0 ? fresh : related;
+          const nextTrackItem = toAdd[0];
+          const newQueue = [...currentQ, ...toAdd];
+          usePlayerStore.setState({
+            queue: newQueue,
+            queueIndex: currentQ.length,
+            currentTrack: nextTrackItem,
+          });
+          next = nextTrackItem;
         }
       } catch (err) {
-        console.warn('[useAudioPlayer] Autoplay related songs error:', err);
+        console.warn('[useAudioPlayer] Autoplay infinite queue replenishment error:', err);
       }
     }
 
@@ -135,15 +164,20 @@ export const fetchRelatedTracks = async (
   title = '',
   artist = ''
 ): Promise<Track[]> => {
-  try {
-    const res = await fetch(
-      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (data.results && Array.isArray(data.results) && data.results.length > 0) {
-        return data.results.map((r: YouTubeSearchResult) => ({
-          id: `yt_${r.id}`,
+  const tracksMap = new Map<string, Track>();
+  const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+
+  const addResultsToMap = (results: YouTubeSearchResult[]) => {
+    for (const r of results) {
+      if (!r || !r.id || r.id === videoId) continue;
+      const rTitleClean = (r.title || '').toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      if (cleanTitle.length > 3 && (rTitleClean === cleanTitle || (rTitleClean.includes(cleanTitle) && rTitleClean.length < cleanTitle.length + 8))) {
+        continue;
+      }
+      const uniqueKey = `yt_${r.id}`;
+      if (!tracksMap.has(uniqueKey)) {
+        tracksMap.set(uniqueKey, {
+          id: uniqueKey,
           title: r.title,
           artist: r.artist,
           duration: r.duration,
@@ -152,45 +186,45 @@ export const fetchRelatedTracks = async (
           url: `/api/youtube/stream?v=${r.id}`,
           coverUrl: r.thumbnail,
           addedAt: Date.now(),
-        }));
+        });
+      }
+    }
+  };
+
+  try {
+    const res = await fetch(
+      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.results && Array.isArray(data.results)) {
+        addResultsToMap(data.results);
       }
     }
   } catch (e) {
-    console.debug('[fetchRelatedTracks] Could not reach /api/youtube/related, attempting fallback:', e);
+    console.debug('[fetchRelatedTracks] Primary related fetch error:', e);
   }
 
-  // Fallback: If on client-only environment (e.g. Netlify without Node backend), search for other songs by artist
-  if (artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
+  // Si tenemos menos de 50 canciones y conocemos el artista, enriquecer con búsquedas de éxitos y discografía
+  if (tracksMap.size < 50 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
     try {
-      const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} canciones`)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.results && Array.isArray(data.results)) {
-          return data.results
-            .filter((r: YouTubeSearchResult) => {
-              if (r.id === videoId) return false;
-              const rTitle = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
-              return cleanTitle.length <= 3 || (!rTitle.includes(cleanTitle) && !cleanTitle.includes(rTitle));
-            })
-            .slice(0, 8)
-            .map((r: YouTubeSearchResult) => ({
-              id: `yt_${r.id}`,
-              title: r.title,
-              artist: r.artist,
-              duration: r.duration,
-              sourceType: 'youtube' as const,
-              youtubeId: r.id,
-              url: `/api/youtube/stream?v=${r.id}`,
-              coverUrl: r.thumbnail,
-              addedAt: Date.now(),
-            }));
-        }
+      const [searchRes1, searchRes2] = await Promise.all([
+        fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} grandes exitos canciones`)}`),
+        fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} album playlist canciones`)}`),
+      ]);
+
+      if (searchRes1.ok) {
+        const d1 = await searchRes1.json();
+        if (d1.results && Array.isArray(d1.results)) addResultsToMap(d1.results);
+      }
+      if (searchRes2.ok) {
+        const d2 = await searchRes2.json();
+        if (d2.results && Array.isArray(d2.results)) addResultsToMap(d2.results);
       }
     } catch {}
   }
 
-  return [];
+  return Array.from(tracksMap.values()).slice(0, 75);
 };
 
 export const useAudioPlayer = () => {
