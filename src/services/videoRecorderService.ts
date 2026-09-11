@@ -1,9 +1,11 @@
 import { AudioEngine } from './audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
 
+export type VideoAspectRatio = '16:9' | '4:3' | '1:1' | '9:16';
+
 export interface RecorderOptions {
   durationLimitSec?: number; // Optional auto-stop duration (e.g. 15s or 30s)
-  aspectRatio?: 'original' | '9:16' | '1:1';
+  aspectRatio?: VideoAspectRatio;
   onProgress?: (elapsedSec: number) => void;
   onFinish?: (blobUrl: string, fileName: string) => void;
   onError?: (err: Error) => void;
@@ -17,6 +19,8 @@ class VideoRecorderService {
   private activeBlobUrl: string | null = null;
   private isCurrentlyRecording = false;
   private cropLoopStopper: (() => void) | null = null;
+  private activeDisplayStream: MediaStream | null = null;
+  private activeAudioContext: AudioContext | null = null;
 
   private stateListeners: ((isRecording: boolean, elapsedSec: number) => void)[] = [];
 
@@ -41,7 +45,24 @@ class VideoRecorderService {
   }
 
   /**
-   * Finds the best active canvas currently on screen
+   * Determine target dimensions based on requested aspect ratio for pristine HD recording
+   */
+  private getTargetDimensions(ratio: VideoAspectRatio = '16:9'): { targetW: number; targetH: number } {
+    switch (ratio) {
+      case '4:3':
+        return { targetW: 1440, targetH: 1080 };
+      case '1:1':
+        return { targetW: 1080, targetH: 1080 };
+      case '9:16':
+        return { targetW: 720, targetH: 1280 };
+      case '16:9':
+      default:
+        return { targetW: 1920, targetH: 1080 };
+    }
+  }
+
+  /**
+   * Finds the best active canvas currently on screen as fallback
    */
   private findActiveCanvas(): HTMLCanvasElement | null {
     const canvases = Array.from(document.querySelectorAll('canvas'));
@@ -53,7 +74,6 @@ class VideoRecorderService {
     for (const canvas of canvases) {
       const rect = canvas.getBoundingClientRect();
       const area = rect.width * rect.height;
-      // Must be visible and have reasonable dimensions
       if (area > maxArea && rect.width > 120 && rect.height > 120) {
         maxArea = area;
         bestCanvas = canvas;
@@ -64,7 +84,8 @@ class VideoRecorderService {
   }
 
   /**
-   * Start recording the visualizer canvas and audio stream
+   * Start recording the browser tab, adjusting to aspect ratio (16:9, 4:3, 1:1) without modifying the tab,
+   * with high fidelity MP4 container and integrated player audio.
    */
   public async startRecording(options: RecorderOptions = {}): Promise<boolean> {
     if (this.isCurrentlyRecording) {
@@ -72,34 +93,125 @@ class VideoRecorderService {
       return false;
     }
 
-    const canvas = this.findActiveCanvas();
-    if (!canvas) {
-      const err = new Error('No se detectó un lienzo visualizador activo para grabar.');
-      options.onError?.(err);
-      return false;
-    }
+    const selectedRatio: VideoAspectRatio = options.aspectRatio || '16:9';
+    const { targetW, targetH } = this.getTargetDimensions(selectedRatio);
+
+    let displayStream: MediaStream | null = null;
+    let videoStreamToRecord: MediaStream | null = null;
 
     try {
-      // 1. Capture 60 FPS video stream from canvas (with aspect ratio cropping if requested)
-      let streamCanvas: HTMLCanvasElement = canvas;
+      // 1. Capture the tab directly using getDisplayMedia
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              displaySurface: 'browser',
+              frameRate: { ideal: 60, max: 60 },
+            },
+            audio: true,
+            // Chromium extensions prioritizing current tab
+            preferCurrentTab: true,
+            selfBrowserSurface: 'include',
+            systemAudio: 'include',
+            surfaceSwitching: 'include',
+          } as unknown as DisplayMediaStreamOptions);
+          this.activeDisplayStream = displayStream;
+        } catch (captureErr) {
+          const cErr = captureErr as Error;
+          // If user pressed "Cancel" in browser modal, don't crash
+          if (cErr.name === 'NotAllowedError' || cErr.message?.includes('Permission denied')) {
+            console.info('[VideoRecorder] El usuario canceló la selección de pestaña.');
+            return false;
+          }
+          console.warn('[VideoRecorder] Falló captura de pestaña, intentando fallback de canvas:', cErr);
+        }
+      }
 
-      if (options.aspectRatio === '9:16' || options.aspectRatio === '1:1') {
-        const targetW = 720;
-        const targetH = options.aspectRatio === '9:16' ? 1280 : 720;
+      // If display stream was acquired, route through crop canvas to match target aspect ratio without touching window
+      if (displayStream && displayStream.getVideoTracks().length > 0) {
+        const videoTrack = displayStream.getVideoTracks()[0];
+
+        // If user stops sharing from browser banner, stop recording cleanly
+        videoTrack.onended = () => {
+          if (this.isCurrentlyRecording) {
+            this.stopRecording();
+          }
+        };
+
+        const hiddenVideo = document.createElement('video');
+        hiddenVideo.srcObject = displayStream;
+        hiddenVideo.muted = true;
+        hiddenVideo.playsInline = true;
+        await hiddenVideo.play().catch((e) => console.warn('[VideoRecorder] video.play error:', e));
+
         const cropCanvas = document.createElement('canvas');
         cropCanvas.width = targetW;
         cropCanvas.height = targetH;
-        const cropCtx = cropCanvas.getContext('2d');
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false, desynchronized: true });
 
         if (cropCtx) {
-          streamCanvas = cropCanvas;
           let isCropping = true;
+          const targetAspect = targetW / targetH;
 
           const drawCropFrame = () => {
             if (!isCropping) return;
+
+            const srcW = hiddenVideo.videoWidth || window.innerWidth;
+            const srcH = hiddenVideo.videoHeight || window.innerHeight;
+            const srcAspect = srcW / srcH;
+
+            let cropW = srcW;
+            let cropH = srcH;
+            let startX = 0;
+            let startY = 0;
+
+            if (srcAspect > targetAspect) {
+              // Video is wider than target ratio: crop sides
+              cropW = srcH * targetAspect;
+              startX = (srcW - cropW) / 2;
+            } else {
+              // Video is taller than target ratio: crop top/bottom
+              cropH = srcW / targetAspect;
+              startY = (srcH - cropH) / 2;
+            }
+
+            cropCtx.drawImage(hiddenVideo, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+            requestAnimationFrame(drawCropFrame);
+          };
+
+          requestAnimationFrame(drawCropFrame);
+          this.cropLoopStopper = () => {
+            isCropping = false;
+            hiddenVideo.pause();
+            hiddenVideo.srcObject = null;
+          };
+
+          // Capture 60fps from cropped canvas
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          videoStreamToRecord = (cropCanvas as any).captureStream(60);
+        }
+      }
+
+      // Fallback: If display media failed or was unavailable, capture active canvas directly
+      if (!videoStreamToRecord) {
+        const canvas = this.findActiveCanvas();
+        if (!canvas) {
+          throw new Error('No se detectó la pestaña ni un lienzo visualizador activo para grabar.');
+        }
+
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = targetW;
+        cropCanvas.height = targetH;
+        const cropCtx = cropCanvas.getContext('2d', { alpha: false, desynchronized: true });
+
+        if (cropCtx) {
+          let isCropping = true;
+          const targetAspect = targetW / targetH;
+
+          const drawCanvasFrame = () => {
+            if (!isCropping) return;
             const srcW = canvas.width;
             const srcH = canvas.height;
-            const targetAspect = targetW / targetH;
             const srcAspect = srcW / srcH;
 
             let cropW = srcW;
@@ -116,43 +228,73 @@ class VideoRecorderService {
             }
 
             cropCtx.drawImage(canvas, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
-            requestAnimationFrame(drawCropFrame);
+            requestAnimationFrame(drawCanvasFrame);
           };
 
-          requestAnimationFrame(drawCropFrame);
+          requestAnimationFrame(drawCanvasFrame);
           this.cropLoopStopper = () => {
             isCropping = false;
           };
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          videoStreamToRecord = (cropCanvas as any).captureStream(60);
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          videoStreamToRecord = (canvas as any).captureStream ? (canvas as any).captureStream(60) : null;
         }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const canvasStream = (streamCanvas as any).captureStream ? streamCanvas.captureStream(60) : null;
-      if (!canvasStream) {
-        throw new Error('Tu navegador no soporta captura directa de canvas (captureStream).');
+      if (!videoStreamToRecord) {
+        throw new Error('No fue posible inicializar el flujo de video para la grabación.');
       }
 
-      // 2. Fetch live audio stream from AudioEngine
+      // 2. Fetch live audio stream from AudioEngine & tab audio
       const audioEngine = AudioEngine.getInstance();
       const audioDestination = audioEngine.getAudioStreamDestination();
-      const audioStream = audioDestination?.stream;
+      const internalAudioTracks = audioDestination?.stream ? audioDestination.stream.getAudioTracks() : [];
+      const tabAudioTracks = displayStream ? displayStream.getAudioTracks() : [];
 
-      // 3. Combine video and audio tracks into a unified stream
-      const tracks: MediaStreamTrack[] = [...canvasStream.getVideoTracks()];
-      if (audioStream && audioStream.getAudioTracks().length > 0) {
-        tracks.push(...audioStream.getAudioTracks());
+      const combinedTracks: MediaStreamTrack[] = [...videoStreamToRecord.getVideoTracks()];
+
+      // Audio mixing: prefer high quality internal AudioEngine stream, mixing with tab audio if needed
+      if (internalAudioTracks.length > 0 && tabAudioTracks.length > 0) {
+        try {
+          const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const mixCtx = new AudioContextClass();
+          this.activeAudioContext = mixCtx;
+
+          const dest = mixCtx.createMediaStreamDestination();
+          const internalSource = mixCtx.createMediaStreamSource(new MediaStream(internalAudioTracks));
+          const tabSource = mixCtx.createMediaStreamSource(new MediaStream(tabAudioTracks));
+
+          internalSource.connect(dest);
+          tabSource.connect(dest);
+
+          dest.stream.getAudioTracks().forEach((track) => combinedTracks.push(track));
+        } catch {
+          // Fallback to internal audio track
+          combinedTracks.push(internalAudioTracks[0]);
+        }
+      } else if (internalAudioTracks.length > 0) {
+        combinedTracks.push(internalAudioTracks[0]);
+      } else if (tabAudioTracks.length > 0) {
+        combinedTracks.push(tabAudioTracks[0]);
       }
 
-      const combinedStream = new MediaStream(tracks);
+      const combinedStream = new MediaStream(combinedTracks);
 
-      // 4. Select best supported MIME type
+      // 3. Prioritize MP4 MIME types so the file is exported as MP4
       const mimeTypes = [
+        'video/mp4;codecs=avc1,mp4a.40.2',
+        'video/mp4;codecs=avc1',
+        'video/mp4;codecs=h264,aac',
+        'video/mp4',
+        'video/webm;codecs=h264,opus',
         'video/webm;codecs=vp9,opus',
         'video/webm;codecs=vp8,opus',
-        'video/webm;codecs=h264,opus',
         'video/webm',
-        'video/mp4',
       ];
+
       let selectedMimeType = '';
       for (const mime of mimeTypes) {
         if (MediaRecorder.isTypeSupported(mime)) {
@@ -170,8 +312,8 @@ class VideoRecorderService {
 
       this.mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: selectedMimeType,
-        videoBitsPerSecond: 8_000_000, // 8 Mbps for sharp 1080p graphics
-        audioBitsPerSecond: 256_000,  // 256 kbps studio audio
+        videoBitsPerSecond: 12_000_000, // 12 Mbps for crystal-clear 1080p 60fps
+        audioBitsPerSecond: 256_000,   // 256 kbps studio audio
       });
 
       this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
@@ -181,7 +323,7 @@ class VideoRecorderService {
       };
 
       this.mediaRecorder.onstop = () => {
-        this.finishRecording(selectedMimeType, options);
+        this.finishRecording(selectedMimeType, selectedRatio, options);
       };
 
       this.mediaRecorder.onerror = (e) => {
@@ -189,7 +331,7 @@ class VideoRecorderService {
         this.stopRecording();
       };
 
-      // Request data every 1 second
+      // Request data every second
       this.mediaRecorder.start(1000);
       this.isCurrentlyRecording = true;
       this.notifyState();
@@ -224,6 +366,16 @@ class VideoRecorderService {
       this.cropLoopStopper = null;
     }
 
+    if (this.activeDisplayStream) {
+      this.activeDisplayStream.getTracks().forEach((track) => track.stop());
+      this.activeDisplayStream = null;
+    }
+
+    if (this.activeAudioContext) {
+      this.activeAudioContext.close().catch(() => {});
+      this.activeAudioContext = null;
+    }
+
     if (!this.isCurrentlyRecording || !this.mediaRecorder) return;
 
     if (this.recordingTimer) {
@@ -239,10 +391,20 @@ class VideoRecorderService {
   /**
    * Finalize blob and trigger file download
    */
-  private finishRecording(mimeType: string, options: RecorderOptions): void {
+  private finishRecording(mimeType: string, ratio: VideoAspectRatio, options: RecorderOptions): void {
     if (this.cropLoopStopper) {
       this.cropLoopStopper();
       this.cropLoopStopper = null;
+    }
+
+    if (this.activeDisplayStream) {
+      this.activeDisplayStream.getTracks().forEach((track) => track.stop());
+      this.activeDisplayStream = null;
+    }
+
+    if (this.activeAudioContext) {
+      this.activeAudioContext.close().catch(() => {});
+      this.activeAudioContext = null;
     }
 
     this.isCurrentlyRecording = false;
@@ -255,7 +417,8 @@ class VideoRecorderService {
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-    const fileName = `Aura3D_${sanitizedTitle}_${timestamp}.${extension}`;
+    const formattedRatio = ratio.replace(':', '-');
+    const fileName = `Aura3D_${sanitizedTitle}_${formattedRatio}_${timestamp}.${extension}`;
 
     const blob = new Blob(this.recordedChunks, { type: mimeType });
 
@@ -285,6 +448,18 @@ class VideoRecorderService {
 
   private cleanup() {
     this.cleanupTimer();
+    if (this.cropLoopStopper) {
+      this.cropLoopStopper();
+      this.cropLoopStopper = null;
+    }
+    if (this.activeDisplayStream) {
+      this.activeDisplayStream.getTracks().forEach((track) => track.stop());
+      this.activeDisplayStream = null;
+    }
+    if (this.activeAudioContext) {
+      this.activeAudioContext.close().catch(() => {});
+      this.activeAudioContext = null;
+    }
     this.isCurrentlyRecording = false;
     this.mediaRecorder = null;
     this.recordedChunks = [];

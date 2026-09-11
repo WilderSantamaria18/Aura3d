@@ -82,15 +82,14 @@ export const SceneContainer: React.FC = React.memo(() => {
 
   return (
     <div
-      className="absolute inset-0 w-full h-full pointer-events-auto overflow-hidden"
-      style={{ backgroundColor: hasAtmosphere ? 'transparent' : bgColor }}
+      className="absolute inset-0 w-full h-full pointer-events-auto overflow-hidden bg-transparent"
     >
-      {/* Focal Contrast Vignette for 3D Sphere (ensures particles stand out with rich contrast) */}
+      {/* Focal Contrast Vignette for 3D Sphere (ensures particles stand out with subtle cinematic contrast) */}
       {hasAtmosphere && (
         <div
           className="absolute inset-0 pointer-events-none transition-opacity duration-700"
           style={{
-            background: 'radial-gradient(circle at 50% 50%, rgba(3, 5, 14, 0.68) 0%, rgba(3, 5, 14, 0.38) 45%, transparent 75%)',
+            background: 'radial-gradient(circle at 50% 50%, rgba(3, 5, 14, 0.28) 0%, rgba(3, 5, 14, 0.12) 50%, transparent 80%)',
           }}
         />
       )}
@@ -101,25 +100,20 @@ export const SceneContainer: React.FC = React.memo(() => {
           antialias: performanceTier !== 'eco',
           alpha: true,
           powerPreference: 'high-performance',
-          preserveDrawingBuffer: false,
+          preserveDrawingBuffer: true,
           stencil: false,
           depth: true,
         }}
         dpr={effectiveDpr}
         resize={{ debounce: 0, scroll: false }}
         onCreated={({ gl }) => {
-          if (hasAtmosphere) {
-            gl.setClearColor(0x000000, 0);
-          } else {
-            gl.setClearColor(new THREE.Color(bgColor), 1.0);
-          }
+          gl.setClearColor(0x000000, 0);
           gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;
           gl.autoClear = true;
         }}
       >
         <ResponsiveCameraController />
-        {!hasAtmosphere && <color attach="background" args={[bgColor]} />}
         <ambientLight intensity={0.6} />
         <pointLight
           position={[10, 10, 10]}

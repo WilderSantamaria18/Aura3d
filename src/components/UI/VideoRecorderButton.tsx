@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Video, Square, ChevronDown, Download } from 'lucide-react';
-import { videoRecorder } from '../../services/videoRecorderService';
+import { Video, Square, ChevronDown, Download, Sparkles } from 'lucide-react';
+import { videoRecorder, type VideoAspectRatio } from '../../services/videoRecorderService';
 
 export const VideoRecorderButton: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [targetDuration, setTargetDuration] = useState<number | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'original' | '9:16' | '1:1'>('original');
+  const [aspectRatio, setAspectRatio] = useState<VideoAspectRatio>('16:9');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -32,22 +32,28 @@ export const VideoRecorderButton: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const handleStart = (limitSec?: number) => {
+  const handleStart = async (limitSec?: number) => {
     setIsMenuOpen(false);
     setTargetDuration(limitSec || null);
-    videoRecorder.startRecording({
+    const started = await videoRecorder.startRecording({
       durationLimitSec: limitSec,
       aspectRatio,
       onFinish: (_url, fileName) => {
         setDownloadSuccess(`Descargado: ${fileName}`);
         setTargetDuration(null);
-        setTimeout(() => setDownloadSuccess(null), 4000);
+        setTimeout(() => setDownloadSuccess(null), 4500);
       },
       onError: (err) => {
-        alert(`Error al grabar: ${err.message}`);
         setTargetDuration(null);
+        if (!err.message?.includes('canceló')) {
+          alert(`Aviso de grabación: ${err.message}`);
+        }
       },
     });
+
+    if (!started) {
+      setTargetDuration(null);
+    }
   };
 
   const handleStop = () => {
@@ -72,7 +78,7 @@ export const VideoRecorderButton: React.FC = () => {
         <button
           onClick={handleStop}
           className="ml-1 p-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 transition-colors"
-          title="Detener y descargar clip"
+          title="Detener y descargar video MP4"
           aria-label="Detener grabación"
         >
           <Square className="w-3 h-3 fill-current" />
@@ -88,18 +94,18 @@ export const VideoRecorderButton: React.FC = () => {
         <button
           onClick={() => handleStart(15)}
           className="p-1.5 rounded-l-lg transition-colors border-y border-l border-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.04] flex items-center gap-1"
-          title="Grabar clip de 15s para redes"
-          aria-label="Grabar video"
+          title="Grabar pestaña en MP4 (15s por defecto)"
+          aria-label="Grabar video MP4"
         >
-          <Video className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-mono hidden md:inline uppercase text-white/40">Rec</span>
+          <Video className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-[10px] font-mono hidden md:inline uppercase text-white/50">Rec</span>
         </button>
 
         {/* Dropdown Menu Arrow */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="p-1.5 rounded-r-lg transition-colors border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-white/[0.04]"
-          title="Opciones de grabación"
+          title="Opciones de proporción (16:9, 4:3, 1:1) y duración"
           aria-label="Opciones de grabación"
         >
           <ChevronDown className="w-2.5 h-2.5" />
@@ -108,75 +114,95 @@ export const VideoRecorderButton: React.FC = () => {
 
       {/* Preset Dropdown */}
       {isMenuOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl bg-[#090D18]/95 border border-white/12 shadow-[0_12px_30px_rgba(0,0,0,0.85)] p-1.5 z-50 text-white text-xs font-mono select-none backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-2 py-1 text-[10px] text-white/35 uppercase tracking-wider border-b border-white/[0.06] mb-1 flex items-center justify-between">
-            <span>Exportar Clip (60fps)</span>
-            <span className="text-cyan-400 font-bold">{aspectRatio === '9:16' ? 'REEL' : aspectRatio.toUpperCase()}</span>
+        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl bg-[#090D18]/95 border border-white/12 shadow-[0_12px_30px_rgba(0,0,0,0.85)] p-2 z-50 text-white text-xs font-mono select-none backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="px-1 py-1 text-[10px] text-white/40 uppercase tracking-wider border-b border-white/[0.06] mb-1.5 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Grabar Pestaña (MP4)
+            </span>
+            <span className="text-cyan-300 font-bold">{aspectRatio}</span>
+          </div>
+
+          <div className="text-[9px] text-white/40 px-1 mb-1">
+            Proporción de video (sin alterar pestaña):
           </div>
 
           {/* Aspect Ratio Selector Pills */}
-          <div className="p-1 mb-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center gap-1">
+          <div className="p-1 mb-2 rounded-lg bg-white/[0.04] border border-white/[0.06] grid grid-cols-4 gap-1">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setAspectRatio('original'); }}
-              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
-                aspectRatio === 'original'
-                  ? 'bg-white/15 text-white font-semibold'
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('16:9'); }}
+              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === '16:9'
+                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
                   : 'text-white/40 hover:text-white/70'
               }`}
-              title="Panorámico estándar 16:9"
+              title="Panorámico 16:9 (YouTube / PC)"
             >
               16:9
             </button>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setAspectRatio('9:16'); }}
-              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
-                aspectRatio === '9:16'
-                  ? 'bg-purple-500/25 text-purple-300 font-semibold border border-purple-500/30'
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('4:3'); }}
+              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === '4:3'
+                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
                   : 'text-white/40 hover:text-white/70'
               }`}
-              title="Vertical 9:16 para TikTok / Reels / Shorts"
+              title="Clásico 4:3 (Retro / Post)"
             >
-              9:16
+              4:3
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setAspectRatio('1:1'); }}
-              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
+              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
                 aspectRatio === '1:1'
-                  ? 'bg-white/15 text-white font-semibold'
+                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
                   : 'text-white/40 hover:text-white/70'
               }`}
-              title="Cuadrado 1:1"
+              title="Cuadrado 1:1 (Instagram Feed)"
             >
               1:1
             </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('9:16'); }}
+              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === '9:16'
+                  ? 'bg-purple-500/25 text-purple-300 font-semibold border border-purple-500/40 shadow-sm'
+                  : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Vertical 9:16 (TikTok / Reels / Shorts)"
+            >
+              9:16
+            </button>
           </div>
 
-          <button
-            onClick={() => handleStart(15)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
-          >
-            <span>Clip Rápido</span>
-            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">15 seg</span>
-          </button>
+          <div className="space-y-1">
+            <button
+              onClick={() => handleStart(15)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+            >
+              <span>Clip Rápido</span>
+              <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">15 seg</span>
+            </button>
 
-          <button
-            onClick={() => handleStart(30)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
-          >
-            <span>Historia / Reel</span>
-            <span className="text-[10px] text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">30 seg</span>
-          </button>
+            <button
+              onClick={() => handleStart(30)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+            >
+              <span>Clip Medio</span>
+              <span className="text-[10px] text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">30 seg</span>
+            </button>
 
-          <button
-            onClick={() => handleStart()}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
-          >
-            <span>Grabación Libre</span>
-            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Manual</span>
-          </button>
+            <button
+              onClick={() => handleStart()}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+            >
+              <span>Grabación Libre</span>
+              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Manual</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -190,3 +216,5 @@ export const VideoRecorderButton: React.FC = () => {
     </div>
   );
 };
+
+export default VideoRecorderButton;

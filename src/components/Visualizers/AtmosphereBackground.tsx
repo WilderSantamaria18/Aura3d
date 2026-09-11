@@ -87,8 +87,7 @@ export const AtmosphereBackground: React.FC = () => {
   const customBg = blobSettings.customBackgroundImage;
   const bgOpacity = blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85;
   const bgBlur = blobSettings.backgroundBlur !== undefined ? blobSettings.backgroundBlur : 0;
-  const isSphereActive = visualizerMode === 'sphere';
-  const effectiveBgBlur = isSphereActive ? Math.max(bgBlur, 14) : bgBlur;
+  const effectiveBgBlur = bgBlur;
   const bgFit = blobSettings.backgroundFit || 'cover';
   const bgScale = blobSettings.backgroundScale || 1.0;
 
@@ -998,14 +997,10 @@ export const AtmosphereBackground: React.FC = () => {
         </div>
       )}
 
-      {/* Atmospheric Canvas Animation Layer (Subtle depth of field blur in Sphere 3D mode) */}
+      {/* Atmospheric Canvas Animation Layer */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full block pointer-events-none transition-all duration-700"
-        style={{
-          filter: isSphereActive ? 'blur(3.5px)' : undefined,
-          opacity: isSphereActive ? 0.85 : 1.0,
-        }}
+        className="absolute inset-0 w-full h-full block pointer-events-none transition-opacity duration-700"
       />
     </div>
   );
