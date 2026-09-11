@@ -14,7 +14,8 @@ import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
 import { DEFAULT_DARK_THEME } from './types/audio';
-import { AlertCircle, UploadCloud } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { DynamicAmbientBackground } from './components/Visualizers/DynamicAmbientBackground';
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
 import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
@@ -29,14 +30,16 @@ import { SystemRequirementsModal } from './components/UI/SystemRequirementsModal
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const PartyVisualizer = lazy(() => import('./components/Visualizers/PartyVisualizer'));
+const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
 const EqualizerModal = lazy(() => import('./components/UI/EqualizerModal'));
 const PlaylistSidebar = lazy(() => import('./components/UI/PlaylistSidebar'));
 const LyricsOverlay = lazy(() => import('./components/Lyrics/LyricsOverlay'));
+const PresetsModal = lazy(() => import('./components/UI/PresetsModal'));
 
 export const App: React.FC = () => {
-  const { loadFile, error } = useAudioEngine();
+  const { loadAudioFiles, error } = useAudioEngine();
   useSpotifyPlayer();
   useAnalytics();
   useAutoPalette();
@@ -57,7 +60,6 @@ export const App: React.FC = () => {
   const setSysReqModalOpen = usePlayerStore((s) => s.setSysReqModalOpen);
 
   const [isUiIdle, setIsUiIdle] = useState(false);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [showLanding, setShowLanding] = useState(!hasStarted);
   const idleTimerRef = useRef<number | null>(null);
 
@@ -107,44 +109,6 @@ export const App: React.FC = () => {
   }, [resetIdleTimer]);
 
   // Global Drag and Drop files onto window
-  useEffect(() => {
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      setIsDraggingFile(true);
-    };
-
-    const handleDragLeave = (e: DragEvent) => {
-      e.preventDefault();
-      if (e.relatedTarget === null) {
-        setIsDraggingFile(false);
-      }
-    };
-
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-      setIsDraggingFile(false);
-
-      if (e.dataTransfer?.files) {
-        const files = Array.from(e.dataTransfer.files).filter(
-          (f) => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac)$/i.test(f.name)
-        );
-        if (files.length > 0) {
-          loadFile(files[0]);
-        }
-      }
-    };
-
-    window.addEventListener('dragover', handleDragOver);
-    window.addEventListener('dragleave', handleDragLeave);
-    window.addEventListener('drop', handleDrop);
-
-    return () => {
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('dragleave', handleDragLeave);
-      window.removeEventListener('drop', handleDrop);
-    };
-  }, [loadFile]);
-
   const rootRef = useRef<HTMLDivElement>(null);
 
   // ResizeObserver on root container to trigger canvas resize on orientation & fullscreen changes
@@ -220,6 +184,8 @@ export const App: React.FC = () => {
               <SceneContainer />
             ) : visualizerMode === 'blob' ? (
               <RainbowBlobVisualizer />
+            ) : visualizerMode === 'synthwave' ? (
+              <SynthwaveGridVisualizer />
             ) : (
               <PartyVisualizer />
             )}
@@ -346,18 +312,13 @@ export const App: React.FC = () => {
       {hasStarted && <AirInstrumentControls />}
 
 
-      {/* Global Drag & Drop Overlay */}
-      {isDraggingFile && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md border-2 border-dashed border-cyan-400 flex flex-col items-center justify-center pointer-events-none animate-pulse">
-          <UploadCloud className="w-16 h-16 text-cyan-300 mb-4 animate-bounce" />
-          <h2 className="text-2xl font-light text-white tracking-widest uppercase">
-            Suelta tu audio aquí
-          </h2>
-          <p className="text-cyan-200/60 text-xs tracking-wider uppercase mt-2">
-            MP3, WAV, FLAC, OGG
-          </p>
-        </div>
-      )}
+      {/* Scene Presets & Atmospheres Modal */}
+      <Suspense fallback={null}>
+        <PresetsModal />
+      </Suspense>
+
+      {/* Global Universal Drag & Drop Ingestion Zone */}
+      <UniversalDropZone onFilesDropped={loadAudioFiles} />
 
       {/* Auto Color Dynamic Feedback Toast */}
       <AutoModeToast />

@@ -33,11 +33,14 @@ export default defineConfig({
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
             const normalized = id.replace(/\\/g, '/');
-            if (
-              normalized.includes('three') ||
-              normalized.includes('@react-three')
-            ) {
-              return 'three-vendor';
+            if (normalized.includes('/node_modules/three/') || normalized.includes('\\node_modules\\three\\')) {
+              return 'three-core';
+            }
+            if (normalized.includes('@react-three/drei') || normalized.includes('three-stdlib')) {
+              return 'three-drei';
+            }
+            if (normalized.includes('@react-three/fiber')) {
+              return 'r3f-core';
             }
             if (id.includes('chart.js') || id.includes('react-chartjs-2')) {
               return 'chart-vendor';

@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { audioEngine } from '../services/audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
 import type { Track } from '../types/audio';
+import type { RadioStation } from '../config/radioStations';
 
 // ─── Stream label parser to extract Title & Artist from Tab/System Capture ──────
 function parseStreamLabel(rawLabel?: string): { title: string; artist: string } {
@@ -71,11 +72,23 @@ function ensureAudioEngineStoreSubscription() {
     }));
   });
 
-  audioEngine.onEnded(() => {
+  audioEngine.onEnded(async () => {
     const state = usePlayerStore.getState();
     const next = state.nextTrack();
     if (!next) {
       usePlayerStore.setState({ isPlaying: false });
+    } else if (next.url) {
+      try {
+        await audioEngine.loadTrack(next.url, true);
+        usePlayerStore.setState({
+          currentTrack: next,
+          isPlaying: true,
+          currentTime: 0,
+          duration: audioEngine.getDuration() || next.duration || 0,
+        });
+      } catch (e) {
+        console.error('[audioEngine] onEnded play next error:', e);
+      }
     }
   });
 }
@@ -86,6 +99,7 @@ export const useAudioEngine = () => {
   const [error, setError] = useState<string | null>(null);
 
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setAudioUnlocked = usePlayerStore((s) => s.setAudioUnlocked);
   const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
@@ -280,6 +294,39 @@ export const useAudioEngine = () => {
     [setCurrentTrack, setHasStarted, setAudioUnlocked, setIsPlaying, setCurrentTime, setDuration]
   );
 
+  const loadAudioFiles = useCallback(
+    async (files: File[]) => {
+      if (!files || files.length === 0) return;
+      // Ingest and play the first file immediately
+      await loadAudioFile(files[0]);
+
+      // If multiple files dropped, queue the rest
+      if (files.length > 1) {
+        for (let i = 1; i < files.length; i++) {
+          const file = files[i];
+          const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+          const parts = nameWithoutExt.split(' - ');
+          const artist = parts.length > 1 ? parts[0].trim() : 'Archivo local';
+          const title = parts.length > 1 ? parts[1].trim() : nameWithoutExt.trim();
+          const blobUrl = URL.createObjectURL(file);
+
+          const queuedTrack: Track = {
+            id: 'local_' + (Date.now() + i),
+            title,
+            artist,
+            duration: 0,
+            sourceType: 'local',
+            url: blobUrl,
+            file,
+            addedAt: Date.now() + i,
+          };
+          addToQueue(queuedTrack);
+        }
+      }
+    },
+    [loadAudioFile, addToQueue]
+  );
+
   // ─── 4. Playback controls ─────────────────────────────────────────────────
   const playTrack = useCallback(
     async (track: Track) => {
@@ -311,6 +358,22 @@ export const useAudioEngine = () => {
       }
     },
     [loadAudioFile, setCurrentTrack, setDuration, setCurrentTime, setIsPlaying, setHasStarted, setAudioUnlocked]
+  );
+
+  const playRadioStation = useCallback(
+    async (station: RadioStation) => {
+      const track: Track = {
+        id: station.id,
+        title: station.name,
+        artist: `${station.genre} • Live Stream`,
+        duration: 0,
+        sourceType: 'radio',
+        url: station.streamUrl,
+        addedAt: Date.now(),
+      };
+      await playTrack(track);
+    },
+    [playTrack]
   );
 
   const playNext = useCallback(async () => {
@@ -439,9 +502,11 @@ export const useAudioEngine = () => {
     startMicrophoneCapture,
     toggleMicrophone,
     loadAudioFile,
+    loadAudioFiles,
     loadFile: loadAudioFile,       // alias
     loadYouTubeTrack,
     playTrack,
+    playRadioStation,
     playNext,
     playPrevious,
     togglePlayPause,

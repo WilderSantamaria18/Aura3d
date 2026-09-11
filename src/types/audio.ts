@@ -1,5 +1,5 @@
-export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system';
-export type VisualizerMode = 'sphere' | 'blob' | 'party';
+export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system' | 'radio';
+export type VisualizerMode = 'sphere' | 'blob' | 'party' | 'synthwave';
 export type VisualizerShape =
   | 'sphere'
   | 'rings'

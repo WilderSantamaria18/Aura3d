@@ -273,6 +273,9 @@ interface PlayerState {
   isShortcutsModalOpen: boolean;
   setShortcutsModalOpen: (isOpen: boolean) => void;
   toggleShortcutsModal: () => void;
+  isPresetsModalOpen: boolean;
+  setPresetsModalOpen: (isOpen: boolean) => void;
+  togglePresetsModal: () => void;
   bpm: number;
   isBeatPulse: boolean;
   setBpm: (bpm: number) => void;
@@ -428,6 +431,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     genres: ['Electrónica / EDM'],
   },
   isShortcutsModalOpen: false,
+  isPresetsModalOpen: false,
+  setPresetsModalOpen: (isPresetsModalOpen) => set({ isPresetsModalOpen }),
+  togglePresetsModal: () => set((state) => ({ isPresetsModalOpen: !state.isPresetsModalOpen })),
   bpm: 0,
   isBeatPulse: false,
 

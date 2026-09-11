@@ -8,9 +8,15 @@ import {
   Trash2,
   Upload,
   FolderPlus,
+  Radio,
+  Sparkles,
+  Play,
+  Volume2,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { RADIO_STATIONS } from '../../config/radioStations';
+import { PresetService } from '../../services/presetService';
 import type { Track } from '../../types/audio';
 
 export const PlaylistSidebar: React.FC = () => {
@@ -21,6 +27,7 @@ export const PlaylistSidebar: React.FC = () => {
     favorites,
     playlists,
     currentTrack,
+    isPlaying,
     playTrack,
     removeFromQueue,
     createPlaylist,
@@ -28,8 +35,8 @@ export const PlaylistSidebar: React.FC = () => {
     removeFromPlaylist,
   } = usePlayerStore();
 
-  const { loadFile } = useAudioEngine();
-  const [activeTab, setActiveTab] = useState<'queue' | 'favorites' | 'playlists'>('queue');
+  const { loadFile, playRadioStation } = useAudioEngine();
+  const [activeTab, setActiveTab] = useState<'queue' | 'favorites' | 'playlists' | 'radio'>('queue');
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
@@ -65,7 +72,7 @@ export const PlaylistSidebar: React.FC = () => {
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       Array.from(files).forEach((file) => {
-        if (file.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac)$/i.test(file.name)) {
+        if (file.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(file.name)) {
           loadFile(file);
         }
       });
@@ -89,7 +96,7 @@ export const PlaylistSidebar: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-medium text-xs sm:text-sm tracking-wide">Biblioteca de Estudio</h3>
-            <p className="text-[10px] font-mono text-white/40">Gestor de colas y reproducción</p>
+            <p className="text-[10px] font-mono text-white/40">Gestor de colas, listas y radio</p>
           </div>
         </div>
 
@@ -103,13 +110,13 @@ export const PlaylistSidebar: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] px-3 pt-1.5 gap-1 text-xs">
+      <div className="flex border-b border-white/[0.06] px-2 pt-1.5 gap-0.5 text-xs overflow-x-auto">
         <button
           onClick={() => {
             setActiveTab('queue');
             setSelectedPlaylistId(null);
           }}
-          className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
+          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
             activeTab === 'queue'
               ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
@@ -123,7 +130,7 @@ export const PlaylistSidebar: React.FC = () => {
             setActiveTab('favorites');
             setSelectedPlaylistId(null);
           }}
-          className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
+          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
             activeTab === 'favorites'
               ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
@@ -137,13 +144,27 @@ export const PlaylistSidebar: React.FC = () => {
             setActiveTab('playlists');
             setSelectedPlaylistId(null);
           }}
-          className={`pb-2 px-2.5 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs ${
+          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
             activeTab === 'playlists'
               ? 'border-[#00e5ff] text-white font-semibold'
               : 'border-transparent text-white/40 hover:text-white/80'
           }`}
         >
           <ListMusic className="w-3.5 h-3.5" /> Playlists ({playlists.length})
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('radio');
+            setSelectedPlaylistId(null);
+          }}
+          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
+            activeTab === 'radio'
+              ? 'border-[#00e5ff] text-white font-semibold'
+              : 'border-transparent text-white/40 hover:text-white/80'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" /> Radio ({RADIO_STATIONS.length})
         </button>
       </div>
 
@@ -154,7 +175,7 @@ export const PlaylistSidebar: React.FC = () => {
           <span>Importar Audio Local</span>
           <input
             type="file"
-            accept="audio/*,.mp3,.wav,.ogg,.flac"
+            accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac"
             multiple
             onChange={handleLocalFilePick}
             className="hidden"
@@ -171,7 +192,7 @@ export const PlaylistSidebar: React.FC = () => {
               <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center space-y-2 my-4">
                 <Upload className="w-6 h-6 text-white/30 mx-auto" />
                 <p className="text-xs text-white/70 font-medium">Arrastra tus archivos de audio aquí</p>
-                <p className="text-[10px] text-white/40 font-mono">Formatos: MP3, WAV, FLAC, OGG</p>
+                <p className="text-[10px] text-white/40 font-mono">Formatos: MP3, WAV, FLAC, OGG, M4A</p>
               </div>
             ) : (
               queue.map((track, idx) => (
@@ -301,6 +322,101 @@ export const PlaylistSidebar: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* RADIO STATIONS TAB */}
+        {activeTab === 'radio' && (
+          <div className="space-y-2.5 animate-in fade-in duration-200">
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-purple-950/20 to-black/50 border border-white/[0.08]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span className="text-[10px] font-mono tracking-widest uppercase text-emerald-400 font-semibold">
+                  EMISORAS EN VIVO 24/7
+                </span>
+              </div>
+              <p className="text-[11px] text-white/60 leading-relaxed font-sans">
+                Transmisiones continuas sin comerciales procesadas directamente por el Analizador Web Audio de Aura3D.
+              </p>
+            </div>
+
+            {RADIO_STATIONS.map((station) => {
+              const isCurrentPlaying = currentTrack?.id === station.id && isPlaying;
+
+              return (
+                <div
+                  key={station.id}
+                  className={`p-3 rounded-2xl transition-all border ${
+                    isCurrentPlaying
+                      ? 'bg-white/[0.08] border-white/20 shadow-lg'
+                      : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/[0.12]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center border border-white/10"
+                        style={{
+                          backgroundColor: `${station.accentColor}22`,
+                          color: station.accentColor,
+                        }}
+                      >
+                        <Radio className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-medium text-white tracking-tight">{station.name}</h4>
+                        <span className="text-[10px] font-mono text-white/50">{station.genre}</span>
+                      </div>
+                    </div>
+
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60 border border-white/10">
+                      {station.bitrate}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-white/50 mb-3 leading-snug">
+                    {station.description}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+                    <button
+                      onClick={() => {
+                        const presets = PresetService.getAllPresets();
+                        const p = presets.find((item) => item.id === station.suggestedPresetId);
+                        if (p) PresetService.applyPreset(p);
+                      }}
+                      className="text-[10px] font-mono text-cyan-300 hover:text-cyan-200 flex items-center gap-1 hover:underline"
+                    >
+                      <Sparkles className="w-3 h-3" /> Preset Visual
+                    </button>
+
+                    <button
+                      onClick={() => playRadioStation(station)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                        isCurrentPlaying
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-white/[0.08] text-white hover:bg-white/[0.16]'
+                      }`}
+                    >
+                      {isCurrentPlaying ? (
+                        <>
+                          <Volume2 className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+                          <span>Al Aire</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Sintonizar</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Piano,
   Disc3,
@@ -15,6 +15,7 @@ import {
   type InstrumentType,
   type SynthScale,
 } from '../../services/airSynthEngine';
+import { midiService, type MidiDevice } from '../../services/midiService';
 
 export const AirInstrumentControls: React.FC = () => {
   const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
@@ -28,6 +29,20 @@ export const AirInstrumentControls: React.FC = () => {
   const setVrMode = usePlayerStore((s) => s.setVrMode);
   const setVrTrackingMode = usePlayerStore((s) => s.setVrTrackingMode);
   const handLandmarks = usePlayerStore((s) => s.handLandmarks);
+
+  const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
+
+  useEffect(() => {
+    if (isAirInstrumentsActive && midiService.isMidiAvailable()) {
+      midiService.init().then(() => {
+        setMidiDevices(midiService.getConnectedDevices());
+      });
+      const unsub = midiService.subscribeDevices((devices) => {
+        setMidiDevices(devices);
+      });
+      return unsub;
+    }
+  }, [isAirInstrumentsActive]);
 
   if (!isAirInstrumentsActive) return null;
 
@@ -81,6 +96,10 @@ export const AirInstrumentControls: React.FC = () => {
                 </h3>
                 <span className="text-[9px] px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.02] text-white/50 font-mono uppercase">
                   DSP EN VIVO
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 font-mono flex items-center gap-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${midiDevices.length > 0 ? 'bg-emerald-400 animate-ping' : 'bg-emerald-400'}`} />
+                  {midiDevices.length > 0 ? midiDevices[0].name.slice(0, 14) : 'MIDI LISTO'}
                 </span>
               </div>
               <p className="text-[11px] text-white/40">

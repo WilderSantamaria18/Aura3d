@@ -492,9 +492,6 @@ export class AudioEngine {
       } catch (e) {
         console.warn('Play error:', e);
       }
-    } else {
-      // Start high-fidelity procedural synth beat so visualizers dance immediately
-      this._startProcedural();
     }
   }
 
@@ -534,8 +531,6 @@ export class AudioEngine {
       if (audio.paused) {
         await audio.play().catch(() => {});
       }
-    } else {
-      this._startProcedural();
     }
   }
 
@@ -549,7 +544,7 @@ export class AudioEngine {
     this.disableSystemCapture();
   }
 
-  private _startProcedural(): void {
+  public startProceduralDemo(): void {
     if (!this.audioContext) return;
     this.isProceduralPlaying = true;
     const dest = this.eqFilters[0] || this.masterGain || this.analyser;

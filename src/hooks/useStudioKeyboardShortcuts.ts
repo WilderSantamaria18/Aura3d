@@ -13,7 +13,7 @@ const SPHERE_SHAPES: VisualizerShape[] = [
   'wave',
 ];
 
-const VISUALIZER_MODES: VisualizerMode[] = ['sphere', 'blob', 'party'];
+const VISUALIZER_MODES: VisualizerMode[] = ['sphere', 'blob', 'party', 'synthwave'];
 
 /**
  * useStudioKeyboardShortcuts
@@ -38,6 +38,9 @@ export const useStudioKeyboardShortcuts = () => {
     isShortcutsModalOpen,
     setShortcutsModalOpen,
     toggleShortcutsModal,
+    isPresetsModalOpen,
+    setPresetsModalOpen,
+    togglePresetsModal,
     volume,
     setVolume,
     toggleMute,
@@ -122,6 +125,11 @@ export const useStudioKeyboardShortcuts = () => {
 
       // 2. Escape: Close any open modal in order of depth
       if (e.key === 'Escape') {
+        if (isPresetsModalOpen) {
+          e.preventDefault();
+          setPresetsModalOpen(false);
+          return;
+        }
         if (isShortcutsModalOpen) {
           e.preventDefault();
           setShortcutsModalOpen(false);
@@ -193,6 +201,11 @@ export const useStudioKeyboardShortcuts = () => {
         case 'KeyH':
           e.preventDefault();
           toggleShortcutsModal();
+          break;
+
+        case 'KeyP':
+          e.preventDefault();
+          togglePresetsModal();
           break;
 
         case 'KeyI': {

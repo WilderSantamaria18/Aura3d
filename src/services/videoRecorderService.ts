@@ -3,6 +3,7 @@ import { usePlayerStore } from '../stores/playerStore';
 
 export interface RecorderOptions {
   durationLimitSec?: number; // Optional auto-stop duration (e.g. 15s or 30s)
+  aspectRatio?: 'original' | '9:16' | '1:1';
   onProgress?: (elapsedSec: number) => void;
   onFinish?: (blobUrl: string, fileName: string) => void;
   onError?: (err: Error) => void;
@@ -15,6 +16,7 @@ class VideoRecorderService {
   private elapsedSeconds = 0;
   private activeBlobUrl: string | null = null;
   private isCurrentlyRecording = false;
+  private cropLoopStopper: (() => void) | null = null;
 
   private stateListeners: ((isRecording: boolean, elapsedSec: number) => void)[] = [];
 
@@ -78,8 +80,54 @@ class VideoRecorderService {
     }
 
     try {
-      // 1. Capture 60 FPS video stream from canvas
-      const canvasStream = (canvas as any).captureStream ? canvas.captureStream(60) : null;
+      // 1. Capture 60 FPS video stream from canvas (with aspect ratio cropping if requested)
+      let streamCanvas: HTMLCanvasElement = canvas;
+
+      if (options.aspectRatio === '9:16' || options.aspectRatio === '1:1') {
+        const targetW = 720;
+        const targetH = options.aspectRatio === '9:16' ? 1280 : 720;
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = targetW;
+        cropCanvas.height = targetH;
+        const cropCtx = cropCanvas.getContext('2d');
+
+        if (cropCtx) {
+          streamCanvas = cropCanvas;
+          let isCropping = true;
+
+          const drawCropFrame = () => {
+            if (!isCropping) return;
+            const srcW = canvas.width;
+            const srcH = canvas.height;
+            const targetAspect = targetW / targetH;
+            const srcAspect = srcW / srcH;
+
+            let cropW = srcW;
+            let cropH = srcH;
+            let startX = 0;
+            let startY = 0;
+
+            if (srcAspect > targetAspect) {
+              cropW = srcH * targetAspect;
+              startX = (srcW - cropW) / 2;
+            } else {
+              cropH = srcW / targetAspect;
+              startY = (srcH - cropH) / 2;
+            }
+
+            cropCtx.drawImage(canvas, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+            requestAnimationFrame(drawCropFrame);
+          };
+
+          requestAnimationFrame(drawCropFrame);
+          this.cropLoopStopper = () => {
+            isCropping = false;
+          };
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const canvasStream = (streamCanvas as any).captureStream ? streamCanvas.captureStream(60) : null;
       if (!canvasStream) {
         throw new Error('Tu navegador no soporta captura directa de canvas (captureStream).');
       }
@@ -171,6 +219,11 @@ class VideoRecorderService {
    * Stop active recording and trigger download
    */
   public stopRecording(): void {
+    if (this.cropLoopStopper) {
+      this.cropLoopStopper();
+      this.cropLoopStopper = null;
+    }
+
     if (!this.isCurrentlyRecording || !this.mediaRecorder) return;
 
     if (this.recordingTimer) {
@@ -187,6 +240,11 @@ class VideoRecorderService {
    * Finalize blob and trigger file download
    */
   private finishRecording(mimeType: string, options: RecorderOptions): void {
+    if (this.cropLoopStopper) {
+      this.cropLoopStopper();
+      this.cropLoopStopper = null;
+    }
+
     this.isCurrentlyRecording = false;
     this.cleanupTimer();
 

@@ -33,6 +33,10 @@ import {
   Globe,
   ExternalLink,
   Headphones,
+  Home,
+  User,
+  LogIn,
+  Compass,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -68,8 +72,8 @@ const parseEmbedUrl = (rawUrl: string): { type: 'youtube' | 'spotify' | null; em
     };
   }
 
-  // Spotify match (track, album, playlist)
-  const spotMatch = trimmed.match(/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/i);
+  // Spotify match (track, album, playlist, artist, episode, show)
+  const spotMatch = trimmed.match(/open\.spotify\.com\/(track|album|playlist|artist|episode|show)\/([a-zA-Z0-9]+)/i);
   if (spotMatch) {
     return {
       type: 'spotify',
@@ -356,20 +360,37 @@ export const MiniPlayer: React.FC = () => {
     setEmbedError(null);
     try {
       const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error('Error al buscar en YouTube');
-      const data = await res.json();
-      setYtSearchResults(data.results || []);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          setYtSearchResults(data.results);
+          return;
+        }
+      }
+      // Fallback si la API de backend no tiene resultados
+      setYtSearchResults([
+        {
+          id: 'dQw4w9WgXcQ',
+          title: `Resultados para: "${q}"`,
+          artist: 'Abrir búsqueda en YouTube',
+          duration: 0,
+          thumbnail: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=200&fit=crop&q=80',
+          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`,
+        },
+      ]);
     } catch (err) {
       console.warn('[MiniPlayer] Error en búsqueda de YouTube:', err);
-      setEmbedError('No se pudo completar la búsqueda en YouTube.');
+      setEmbedError('No se pudo completar la búsqueda en el servidor. Puedes pegar el enlace directo del video de YouTube.');
     } finally {
       setIsSearchingYt(false);
     }
   };
 
-  const handleLoadSpotify = (uriOrId: string, type: 'track' | 'playlist' | 'album' = 'playlist') => {
+  const handleLoadSpotify = (uriOrId: string, type: 'track' | 'playlist' | 'album' | 'search' = 'playlist') => {
     setEmbedError(null);
     const clean = uriOrId.trim();
+    if (!clean) return;
+
     let embedUrl = '';
 
     if (clean.includes('open.spotify.com/')) {
@@ -380,8 +401,14 @@ export const MiniPlayer: React.FC = () => {
       if (parts.length >= 3) {
         embedUrl = `https://open.spotify.com/embed/${parts[1]}/${parts[2]}?utm_source=generator&theme=0`;
       }
-    } else {
+    } else if (clean.length === 22 && /^[a-zA-Z0-9]+$/.test(clean)) {
+      // Direct Spotify 22-character Base62 ID
       embedUrl = `https://open.spotify.com/embed/${type}/${clean}?utm_source=generator&theme=0`;
+    } else {
+      // If it's a search term like "coldplay" or "synthwave"
+      window.open(`https://open.spotify.com/search/${encodeURIComponent(clean)}`, '_blank');
+      // Also load recommended Top Hits embed in the player
+      embedUrl = 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator&theme=0';
     }
 
     if (embedUrl) {
@@ -393,7 +420,7 @@ export const MiniPlayer: React.FC = () => {
         hasStarted: true,
         currentTrack: {
           id: `spot_${Date.now()}`,
-          title: 'Spotify Stream',
+          title: clean.includes('http') ? 'Spotify Track / Playlist' : `Spotify: ${clean}`,
           artist: 'Spotify Web Player',
           duration: 0,
           sourceType: 'spotify',
@@ -401,7 +428,7 @@ export const MiniPlayer: React.FC = () => {
         },
       });
     } else {
-      setEmbedError('Enlace o ID de Spotify inválido');
+      setEmbedError('Enlace o término de Spotify no reconocido.');
     }
   };
 
@@ -481,7 +508,10 @@ export const MiniPlayer: React.FC = () => {
     <div
       className="fixed right-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 max-w-full"
       style={{
-        width: isCollapsed ? 48 : `clamp(280px, 30vw, min(${panelWidth}px, 100vw))`,
+        width: isCollapsed
+          ? 44
+          : `clamp(280px, 32vw, min(${panelWidth}px, 100vw))`,
+        maxWidth: '100vw',
         background: `rgba(7, 10, 20, ${panelOpacity})`,
         backdropFilter: 'blur(24px)',
         borderLeft: isLucid
@@ -1020,17 +1050,83 @@ export const MiniPlayer: React.FC = () => {
                 </div>
               )}
 
-              {/* ── SPOTIFY MODE ── */}
+              {/* ── SPOTIFY MODE (BUSCADOR, CUENTA Y HOME DIRECTO) ── */}
               {streamPlatform === 'spotify' && (
                 <div className="space-y-4">
-                  {/* Spotify Search / URL Form */}
+                  {/* 1. Quick Access to Official Spotify Account & Home Page */}
+                  <div className="p-3 rounded-2xl bg-gradient-to-b from-emerald-950/40 to-black/60 border border-emerald-500/30 shadow-[0_4px_20px_rgba(16,185,129,0.12)] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                        SPOTIFY OFICIAL Y CUENTA
+                      </span>
+                      <span className="text-[8px] font-mono text-white/50 bg-white/[0.06] px-1.5 py-0.5 rounded">
+                        WEB / APP
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-white/60 font-mono leading-tight">
+                      Accede a tu cuenta de Spotify, biblioteca o abre la página de inicio en un clic:
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <a
+                        href="https://open.spotify.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-2 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-white text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-sm"
+                        title="Ir a la página de inicio oficial de Spotify Web"
+                      >
+                        <Home className="w-3 h-3 text-emerald-400" />
+                        <span>PÁGINA DE INICIO</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-auto" />
+                      </a>
+
+                      <a
+                        href="https://www.spotify.com/account/overview/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="py-2 px-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.12] text-white/80 hover:text-white text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-98"
+                        title="Administrar tu cuenta y suscripción de Spotify"
+                      >
+                        <User className="w-3 h-3 text-cyan-400" />
+                        <span>MI CUENTA / PERFIL</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-auto" />
+                      </a>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-white/[0.06]">
+                      <a
+                        href="https://accounts.spotify.com/login"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[9px] font-mono text-white/50 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+                      >
+                        <LogIn className="w-2.5 h-2.5" />
+                        <span>Iniciar Sesión en Spotify</span>
+                      </a>
+                      <span className="text-[8px] font-mono text-emerald-400/70">open.spotify.com</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Spotify Search & Direct URL Form */}
                   <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
+                        BUSCADOR SPOTIFY
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-400/80">Canciones, Artistas o URL</span>
+                    </div>
+
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="Pegar URL de Spotify (canción, playlist o álbum)..."
+                        placeholder="Buscar canción, artista o pegar URL (playlist, álbum)..."
                         value={spotifyInput}
                         onChange={(e) => setSpotifyInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleLoadSpotify(spotifyInput);
+                        }}
                         className="w-full pl-8 pr-3 py-2 bg-white/[0.04] border border-white/[0.12] rounded-lg text-xs font-mono text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-500/60"
                       />
                       <Headphones className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -1043,26 +1139,48 @@ export const MiniPlayer: React.FC = () => {
                         onClick={() => handleLoadSpotify(spotifyInput)}
                         className="flex-1 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 fill-current text-black" />
-                        CARGAR EN MINIPLAYER
+                        <Search className="w-3.5 h-3.5 text-black" />
+                        {spotifyInput.includes('spotify.com') ? 'CARGAR EN MINIPLAYER' : 'BUSCAR EN SPOTIFY'}
                       </button>
 
                       <a
-                        href="https://open.spotify.com"
+                        href={
+                          spotifyInput.trim()
+                            ? `https://open.spotify.com/search/${encodeURIComponent(spotifyInput.trim())}`
+                            : 'https://open.spotify.com'
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="p-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-white/60 hover:text-white transition-colors flex items-center justify-center"
-                        title="Abrir Spotify Web oficial"
+                        title="Abrir búsqueda directamente en Spotify Web"
                       >
                         <ExternalLink className="w-4 h-4" />
                       </a>
                     </div>
+
+                    {/* Chips de búsqueda rápida Spotify */}
+                    <div className="pt-1 flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[9px] font-mono text-white/40 uppercase mr-0.5">Top:</span>
+                      {['Coldplay', 'Top 50 Global', 'Bad Bunny', 'Synthwave', 'Dua Lipa', 'Lofi Beats'].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            setSpotifyInput(tag);
+                            handleLoadSpotify(tag);
+                          }}
+                          className="px-2 py-0.5 rounded-full bg-white/[0.04] hover:bg-emerald-500/10 border border-white/[0.08] hover:border-emerald-500/30 text-[9px] font-mono text-white/70 hover:text-emerald-300 transition-all cursor-pointer"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Curated Spotify Playlists */}
+                  {/* 3. Curated Spotify Playlists */}
                   <div className="space-y-2 pt-1">
                     <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider block border-b border-white/[0.06] pb-1">
-                      PLAYLISTS RECOMENDADAS SPOTIFY
+                      PLAYLISTS DESTACADAS EN MINIPLAYER
                     </span>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -1071,6 +1189,8 @@ export const MiniPlayer: React.FC = () => {
                         { title: 'Cyberpunk Synth', id: '37i9dQZF1DXdLEN7aqioXM', tag: 'SYNTHWAVE' },
                         { title: 'Lofi Chill Beats', id: '37i9dQZF1DX4t95PaoR1zy', tag: 'CHILL' },
                         { title: 'Electronic Bass', id: '37i9dQZF1DX4dLK3J3jFq0', tag: 'BASS / EDM' },
+                        { title: 'Viva Latino', id: '37i9dQZF1DX10zKzsJ2jva', tag: 'LATINO' },
+                        { title: 'Rock Classics', id: '37i9dQZF1DX3oM43CtKnRV', tag: 'ROCK' },
                       ].map((item) => (
                         <button
                           key={item.id}
@@ -1089,7 +1209,7 @@ export const MiniPlayer: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Spotify 3D Sound Sync Banner */}
+                  {/* 4. Spotify 3D Sound Sync Banner */}
                   <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 shadow-[0_0_16px_rgba(16,185,129,0.15)] space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-mono font-bold text-emerald-300 flex items-center gap-1.5 uppercase">
@@ -1101,7 +1221,7 @@ export const MiniPlayer: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-[10px] font-mono text-white/60 leading-tight">
-                      Para que la Esfera 3D y Rainbow Void bailen con tu música de Spotify Web en tiempo real:
+                      Abre tu música en Spotify Web y sincronízala para que la Esfera 3D, Synthwave Grid y Rainbow Void bailen al ritmo:
                     </p>
                     <button
                       type="button"

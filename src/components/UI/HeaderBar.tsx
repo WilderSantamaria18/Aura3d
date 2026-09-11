@@ -20,6 +20,8 @@ import {
   User,
   Zap,
   Gauge,
+  SlidersHorizontal,
+  Grid,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -59,6 +61,8 @@ export const HeaderBar: React.FC = () => {
     performanceTier,
     cyclePerformanceTier,
     toggleProfileModal,
+    isPresetsModalOpen,
+    togglePresetsModal,
   } = usePlayerStore();
 
   const { toggleMicrophone, startSystemCapture, isCapturing } = useAudioEngine();
@@ -115,20 +119,20 @@ export const HeaderBar: React.FC = () => {
   const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-2 sm:px-4 md:px-6 py-2 sm:py-2.5 pointer-events-auto select-none gap-1.5 sm:gap-2 font-sans max-w-full">
+    <header className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-1.5 sm:px-4 md:px-6 py-1.5 sm:py-2.5 pointer-events-auto select-none gap-1 sm:gap-2 font-sans max-w-full overflow-x-auto scrollbar-none">
       {/* ── Cluster 1 (Left): Brand identity & Current Track info ── */}
-      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-shrink-0">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-colors"
+          className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-colors"
           style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
         >
           <Disc3
-            className="w-4 h-4"
+            className="w-3.5 h-3.5 sm:w-4 sm:h-4"
             style={{ color: activeAccent }}
           />
         </div>
 
-        <div className="flex flex-col min-w-0">
+        <div className="hidden min-[380px]:flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-semibold tracking-[0.15em] text-xs uppercase text-white/90">
               Auralis
@@ -152,7 +156,7 @@ export const HeaderBar: React.FC = () => {
       <div className="flex items-center p-0.5 rounded-xl bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_12px_32px_-4px_rgba(0,0,0,0.7)] flex-shrink-0">
         <button
           onClick={() => setVisualizerMode('sphere')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'sphere'
               ? 'bg-white/10 text-white border border-white/20 shadow-sm'
               : 'text-white/50 hover:text-white/80 border border-transparent hover:bg-white/[0.03]'
@@ -160,12 +164,12 @@ export const HeaderBar: React.FC = () => {
           title="Modo Esfera 3D"
         >
           <Globe2 className="w-3.5 h-3.5" />
-          <span className="hidden min-[480px]:inline">Esfera 3D</span>
+          <span className="hidden min-[540px]:inline">Esfera 3D</span>
         </button>
 
         <button
           onClick={() => setVisualizerMode('blob')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'blob'
               ? 'bg-white/10 text-white border border-white/20 shadow-sm'
               : 'text-white/50 hover:text-white/80 border border-transparent hover:bg-white/[0.03]'
@@ -173,12 +177,12 @@ export const HeaderBar: React.FC = () => {
           title="Modo Rainbow Void 2D"
         >
           <Sparkles className="w-3.5 h-3.5" />
-          <span className="hidden min-[480px]:inline">Rainbow Void</span>
+          <span className="hidden min-[540px]:inline">Rainbow Void</span>
         </button>
 
         <button
           onClick={() => setVisualizerMode('party')}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
             visualizerMode === 'party'
               ? 'bg-white/10 text-white border border-white/20 shadow-sm'
               : 'text-white/50 hover:text-white/80 border border-transparent hover:bg-white/[0.03]'
@@ -186,7 +190,20 @@ export const HeaderBar: React.FC = () => {
           title="Modo Fiesta 3D"
         >
           <PartyPopper className="w-3.5 h-3.5" />
-          <span className="hidden min-[480px]:inline">Fiesta 3D</span>
+          <span className="hidden min-[540px]:inline">Fiesta 3D</span>
+        </button>
+
+        <button
+          onClick={() => setVisualizerMode('synthwave')}
+          className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+            visualizerMode === 'synthwave'
+              ? 'bg-white/10 text-white border border-white/20 shadow-sm'
+              : 'text-white/50 hover:text-white/80 border border-transparent hover:bg-white/[0.03]'
+          }`}
+          title="Modo Synthwave Grid 3D"
+        >
+          <Grid className="w-3.5 h-3.5 text-[#ff007f]" />
+          <span className="hidden min-[540px]:inline">Synthwave</span>
         </button>
       </div>
 
@@ -314,6 +331,20 @@ export const HeaderBar: React.FC = () => {
             aria-label="Ecualizador"
           >
             <Sliders className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Presets Modal Toggle */}
+          <button
+            onClick={togglePresetsModal}
+            className={`p-1.5 rounded-lg transition-colors border ${
+              isPresetsModalOpen
+                ? 'bg-[#00e5ff]/15 text-[#00e5ff] border-[#00e5ff]/30'
+                : 'text-white/50 hover:text-white/80 border-transparent hover:bg-white/[0.04]'
+            }`}
+            title="Presets de Escena & Atmósferas"
+            aria-label="Presets"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
 
           {/* Lyrics Toggle */}

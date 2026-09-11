@@ -78,7 +78,7 @@ export const DRUM_PADS: DrumPadDefinition[] = [
   { id: 'crash', name: 'Crash', color: '#f97316' },
 ];
 
-class AirSynthEngine {
+export class AirSynthEngine {
   private masterSynthGain: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private currentScale: SynthScale = 'pentatonic_minor';
@@ -169,6 +169,60 @@ class AirSynthEngine {
     voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + attackTime + decayTime + releaseTime);
 
     // Audio routing
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(voiceGain);
+    voiceGain.connect(this.masterSynthGain);
+
+    osc1.start(now);
+    osc2.start(now);
+
+    const stopTime = now + attackTime + decayTime + releaseTime + 0.05;
+    osc1.stop(stopTime);
+    osc2.stop(stopTime);
+
+    setTimeout(() => {
+      voiceGain.disconnect();
+      filter.disconnect();
+    }, (attackTime + decayTime + releaseTime + 0.1) * 1000);
+  }
+
+  /**
+   * Play an exact frequency (e.g. from Web MIDI keyboard)
+   */
+  public async triggerFrequency(freq: number, velocity: number = 1.0): Promise<void> {
+    const ctx = await this.ensureAudioContext();
+    if (!ctx || !this.masterSynthGain) return;
+
+    const now = ctx.currentTime;
+    const clampedVel = Math.min(1.0, Math.max(0.2, velocity));
+
+    const voiceGain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq * 3.5, now);
+    filter.Q.setValueAtTime(3.0, now);
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 1.003, now);
+
+    const attackTime = 0.015;
+    const decayTime = 0.18;
+    const sustainLevel = 0.35 * clampedVel;
+    const releaseTime = 0.35;
+
+    voiceGain.gain.setValueAtTime(0.0001, now);
+    voiceGain.gain.exponentialRampToValueAtTime(clampedVel, now + attackTime);
+    voiceGain.gain.exponentialRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
+    voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + attackTime + decayTime + releaseTime);
+
     osc1.connect(filter);
     osc2.connect(filter);
     filter.connect(voiceGain);

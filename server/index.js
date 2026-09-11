@@ -324,7 +324,77 @@ const ytInfoCache = new Map();
 const ytSearchCache = new Map();
 const ytDownloadQueue = new Map();
 
-// ── YouTube Search Endpoint via yt-dlp ─────────────────────────────────────
+// ── Fast YouTube Search Helper ─────────────────────────────────────────────
+function parseDurationText(str) {
+  if (!str) return 0;
+  const parts = str.toString().trim().split(':').map(Number);
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
+
+async function searchYouTubeDirect(query) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        'Cache-Control': 'no-cache',
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const html = await res.text();
+    const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
+    if (!match || !match[1]) return [];
+
+    const parsed = JSON.parse(match[1]);
+    const contents =
+      parsed.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+        ?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+    const results = [];
+    for (const c of contents) {
+      const vr = c.videoRenderer;
+      if (vr && vr.videoId && !vr.videoId.startsWith('UC')) {
+        const title = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
+        const artist =
+          vr.ownerText?.runs?.[0]?.text ||
+          vr.shortBylineText?.runs?.[0]?.text ||
+          'Artista de YouTube';
+        const durationSec = parseDurationText(vr.lengthText?.simpleText);
+        const thumb =
+          vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+          `https://img.youtube.com/vi/${vr.videoId}/hqdefault.jpg`;
+
+        results.push({
+          id: vr.videoId,
+          title,
+          artist,
+          duration: durationSec,
+          thumbnail: thumb,
+          url: `https://www.youtube.com/watch?v=${vr.videoId}`,
+        });
+        if (results.length >= 10) break;
+      }
+    }
+    return results;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    console.debug('[YouTube Direct Scrape skipped]:', e.message);
+    return [];
+  }
+}
+
+// ── YouTube Search Endpoint ────────────────────────────────────────────────
 app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
   try {
     const query = (req.query.q || req.query.query || '').toString().trim();
@@ -337,38 +407,48 @@ app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
       return res.json({ results: ytSearchCache.get(cacheKey) });
     }
 
-    if (!fs.existsSync(YTDLP_BIN)) {
-      return res.status(503).json({ error: 'Motor de audio yt-dlp no encontrado en el servidor' });
+    // 1. Intento primario ultra-rápido: Direct Web Scraping (~400ms)
+    let results = await searchYouTubeDirect(query);
+
+    // 2. Intento secundario: Fallback a yt-dlp si el scraping directo no devolvió resultados
+    if ((!results || results.length === 0) && fs.existsSync(YTDLP_BIN)) {
+      try {
+        const { stdout } = await execFileAsync(
+          YTDLP_BIN,
+          ['--dump-json', '--flat-playlist', '--no-playlist', `ytsearch8:${query}`],
+          { timeout: 8000 }
+        );
+        const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
+        results = [];
+        for (const line of lines) {
+          try {
+            const item = JSON.parse(line);
+            if (item && item.id && !item.id.startsWith('UC')) {
+              results.push({
+                id: item.id,
+                title: item.title || 'Canción de YouTube',
+                artist: item.uploader || item.channel || item.artist || 'Artista de YouTube',
+                duration: Math.round(Number(item.duration) || 0),
+                thumbnail:
+                  item.thumbnail ||
+                  item.thumbnails?.[item.thumbnails.length - 1]?.url ||
+                  `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`,
+                url: `https://www.youtube.com/watch?v=${item.id}`,
+              });
+            }
+          } catch {}
+        }
+      } catch (dlpErr) {
+        console.warn('[yt-dlp fallback search error]:', dlpErr.message);
+      }
     }
 
-    // Busqueda ultra-rapida de los 6 mejores resultados
-    const { stdout } = await execFileAsync(YTDLP_BIN, [
-      '--dump-json',
-      '--flat-playlist',
-      '--no-playlist',
-      `ytsearch6:${query}`
-    ], { timeout: 15000 });
-
-    const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-    const results = [];
-
-    for (const line of lines) {
-      try {
-        const item = JSON.parse(line);
-        if (item && item.id && !item.id.startsWith('UC')) {
-          results.push({
-            id: item.id,
-            title: item.title || 'Canción de YouTube',
-            artist: item.uploader || item.channel || item.artist || 'Artista de YouTube',
-            duration: Math.round(Number(item.duration) || 0),
-            thumbnail:
-              item.thumbnail ||
-              item.thumbnails?.[item.thumbnails.length - 1]?.url ||
-              `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`,
-            url: `https://www.youtube.com/watch?v=${item.id}`,
-          });
-        }
-      } catch {}
+    if (!results || results.length === 0) {
+      // Retornar al menos sugerencia estructurada para enlace directo si nada respondió
+      return res.json({
+        results: [],
+        message: 'No se encontraron resultados automáticos. Puedes pegar el enlace de YouTube directamente.',
+      });
     }
 
     ytSearchCache.set(cacheKey, results);

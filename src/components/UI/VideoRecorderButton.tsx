@@ -6,6 +6,7 @@ export const VideoRecorderButton: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [targetDuration, setTargetDuration] = useState<number | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'original' | '9:16' | '1:1'>('original');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,6 +37,7 @@ export const VideoRecorderButton: React.FC = () => {
     setTargetDuration(limitSec || null);
     videoRecorder.startRecording({
       durationLimitSec: limitSec,
+      aspectRatio,
       onFinish: (_url, fileName) => {
         setDownloadSuccess(`Descargado: ${fileName}`);
         setTargetDuration(null);
@@ -107,8 +109,49 @@ export const VideoRecorderButton: React.FC = () => {
       {/* Preset Dropdown */}
       {isMenuOpen && (
         <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl bg-[#090D18]/95 border border-white/12 shadow-[0_12px_30px_rgba(0,0,0,0.85)] p-1.5 z-50 text-white text-xs font-mono select-none backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-2 py-1 text-[10px] text-white/35 uppercase tracking-wider border-b border-white/[0.06] mb-1">
-            Exportar Clip HD (60fps)
+          <div className="px-2 py-1 text-[10px] text-white/35 uppercase tracking-wider border-b border-white/[0.06] mb-1 flex items-center justify-between">
+            <span>Exportar Clip (60fps)</span>
+            <span className="text-cyan-400 font-bold">{aspectRatio === '9:16' ? 'REEL' : aspectRatio.toUpperCase()}</span>
+          </div>
+
+          {/* Aspect Ratio Selector Pills */}
+          <div className="p-1 mb-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('original'); }}
+              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === 'original'
+                  ? 'bg-white/15 text-white font-semibold'
+                  : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Panorámico estándar 16:9"
+            >
+              16:9
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('9:16'); }}
+              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === '9:16'
+                  ? 'bg-purple-500/25 text-purple-300 font-semibold border border-purple-500/30'
+                  : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Vertical 9:16 para TikTok / Reels / Shorts"
+            >
+              9:16
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAspectRatio('1:1'); }}
+              className={`flex-1 py-1 rounded text-[10px] font-mono text-center transition-colors ${
+                aspectRatio === '1:1'
+                  ? 'bg-white/15 text-white font-semibold'
+                  : 'text-white/40 hover:text-white/70'
+              }`}
+              title="Cuadrado 1:1"
+            >
+              1:1
+            </button>
           </div>
 
           <button
