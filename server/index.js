@@ -459,6 +459,114 @@ app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
   }
 });
 
+// ── YouTube Related & Similar Tracks Endpoint ──────────────────────────────
+app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
+  try {
+    const videoId = (req.query.v || req.query.id || '').toString().trim();
+    const artist = (req.query.artist || '').toString().trim();
+    const title = (req.query.title || '').toString().trim();
+
+    const cacheKey = `rel_${videoId || artist + '_' + title}`.toLowerCase();
+    if (ytSearchCache.has(cacheKey)) {
+      return res.json({ results: ytSearchCache.get(cacheKey) });
+    }
+
+    let results = [];
+
+    // 1. Try to scrape YouTube watch page related videos (Up Next)
+    if (videoId) {
+      try {
+        const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const watchRes = await fetch(watchUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+          },
+        });
+        clearTimeout(timeoutId);
+
+        if (watchRes.ok) {
+          const html = await watchRes.text();
+          const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
+          if (match && match[1]) {
+            const data = JSON.parse(match[1]);
+            const secondaryItems =
+              data.contents?.twoColumnWatchNextResults?.secondaryResults?.secondaryResults?.results ||
+              [];
+
+            for (const item of secondaryItems) {
+              const compact = item.compactVideoRenderer;
+              if (compact && compact.videoId && compact.videoId !== videoId) {
+                const itemTitle = compact.title?.simpleText || compact.title?.runs?.[0]?.text || '';
+                const itemArtist =
+                  compact.shortBylineText?.runs?.[0]?.text ||
+                  compact.ownerText?.runs?.[0]?.text ||
+                  artist ||
+                  'Artista de YouTube';
+                const dur = parseDurationText(compact.lengthText?.simpleText);
+                const thumb =
+                  compact.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+                  `https://img.youtube.com/vi/${compact.videoId}/hqdefault.jpg`;
+
+                results.push({
+                  id: compact.videoId,
+                  title: itemTitle,
+                  artist: itemArtist,
+                  duration: dur,
+                  thumbnail: thumb,
+                  url: `https://www.youtube.com/watch?v=${compact.videoId}`,
+                });
+                if (results.length >= 10) break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.debug('[YouTube Related Watch scrape fallback]:', e.message);
+      }
+    }
+
+    // 2. Fallback: Search for popular tracks from the same artist
+    if (results.length < 4 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
+      const query = `${artist} top songs`;
+      const searchRes = await searchYouTubeDirect(query);
+      if (searchRes && searchRes.length > 0) {
+        results.push(...searchRes);
+      }
+    }
+
+    // 3. Filter out duplicates of the current video and songs with the same title
+    const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+    const uniqueMap = new Map();
+
+    for (const r of results) {
+      if (r.id === videoId) continue;
+      const rTitleClean = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+
+      // Avoid same song / remix / live duplicate of current song
+      if (cleanTitle.length > 3 && (rTitleClean.includes(cleanTitle) || cleanTitle.includes(rTitleClean))) {
+        continue;
+      }
+
+      if (!uniqueMap.has(r.id) && !uniqueMap.has(rTitleClean)) {
+        uniqueMap.set(r.id, r);
+        uniqueMap.set(rTitleClean, r);
+      }
+    }
+
+    const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 10);
+    ytSearchCache.set(cacheKey, finalResults);
+    res.json({ results: finalResults });
+  } catch (err) {
+    console.warn('[YouTube Related Error]', err.message);
+    res.status(500).json({ error: 'Error al obtener canciones similares: ' + err.message, results: [] });
+  }
+});
+
 // ── YouTube Audio Extractor & Real-Time Streamer via yt-dlp ────────────────
 app.get(['/api/youtube/info', '/youtube/info'], async (req, res) => {
   try {

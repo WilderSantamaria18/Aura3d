@@ -46,8 +46,28 @@ function ensureGlobalEngineSubscription() {
       return;
     }
 
-    // 2. Queue navigation: automatically advance to next song or loop around
+    // 2. Queue navigation: advance to next song in queue
     let next = state.nextTrack();
+
+    // 3. Autoplay Related: If queue ended and track was from YouTube, auto-fetch similar tracks by artist/genre!
+    if (!next && state.currentTrack && state.currentTrack.youtubeId) {
+      try {
+        const related = await fetchRelatedTracks(
+          state.currentTrack.youtubeId,
+          state.currentTrack.title,
+          state.currentTrack.artist
+        );
+        if (related && related.length > 0) {
+          const firstRelated = related[0];
+          const newQueue = [state.currentTrack, ...related];
+          state.setQueue(newQueue, 1);
+          next = firstRelated;
+        }
+      } catch (err) {
+        console.warn('[useAudioPlayer] Autoplay related songs error:', err);
+      }
+    }
+
     if (!next && state.queue.length > 0) {
       // Loop back to the start of the playlist
       const first = state.queue[0];
@@ -94,6 +114,70 @@ export interface YouTubeSearchResult {
 }
 
 const ytSearchCache = new Map<string, YouTubeSearchResult[]>();
+
+// ── Fetch Related & Similar Tracks (Discovers different songs from same artist/genre) ──
+export const fetchRelatedTracks = async (
+  videoId: string,
+  title = '',
+  artist = ''
+): Promise<Track[]> => {
+  try {
+    const res = await fetch(
+      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.results && Array.isArray(data.results) && data.results.length > 0) {
+        return data.results.map((r: YouTubeSearchResult) => ({
+          id: `yt_${r.id}`,
+          title: r.title,
+          artist: r.artist,
+          duration: r.duration,
+          sourceType: 'youtube' as const,
+          youtubeId: r.id,
+          url: `/api/youtube/stream?v=${r.id}`,
+          coverUrl: r.thumbnail,
+          addedAt: Date.now(),
+        }));
+      }
+    }
+  } catch (e) {
+    console.debug('[fetchRelatedTracks] Could not reach /api/youtube/related, attempting fallback:', e);
+  }
+
+  // Fallback: If on client-only environment (e.g. Netlify without Node backend), search for other songs by artist
+  if (artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
+    try {
+      const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} canciones`)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && Array.isArray(data.results)) {
+          return data.results
+            .filter((r: YouTubeSearchResult) => {
+              if (r.id === videoId) return false;
+              const rTitle = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+              return cleanTitle.length <= 3 || (!rTitle.includes(cleanTitle) && !cleanTitle.includes(rTitle));
+            })
+            .slice(0, 8)
+            .map((r: YouTubeSearchResult) => ({
+              id: `yt_${r.id}`,
+              title: r.title,
+              artist: r.artist,
+              duration: r.duration,
+              sourceType: 'youtube' as const,
+              youtubeId: r.id,
+              url: `/api/youtube/stream?v=${r.id}`,
+              coverUrl: r.thumbnail,
+              addedAt: Date.now(),
+            }));
+        }
+      }
+    } catch {}
+  }
+
+  return [];
+};
 
 export const useAudioPlayer = () => {
   ensureGlobalEngineSubscription();
@@ -483,6 +567,7 @@ export const useAudioPlayer = () => {
     loadAudioFiles,
     loadYouTubeTrack,
     searchYouTube,
+    fetchRelatedTracks,
     playTrack,
     addToQueue,
   };

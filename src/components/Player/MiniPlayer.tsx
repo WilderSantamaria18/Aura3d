@@ -81,6 +81,7 @@ export const MiniPlayer: React.FC = () => {
     loadAudioFile,
     playTrack,
     searchYouTube,
+    fetchRelatedTracks,
     isSearching,
     searchResults,
     error: audioError,
@@ -137,28 +138,27 @@ export const MiniPlayer: React.FC = () => {
   const handleSelectYouTubeTrack = async (item: YouTubeSearchResult) => {
     setLoadingTrackId(item.id);
     try {
-      if (searchResults && searchResults.length > 0) {
-        const fullQueue: Track[] = searchResults.map((r) => ({
-          id: `yt_${r.id}`,
-          title: r.title,
-          artist: r.artist,
-          duration: r.duration,
-          sourceType: 'youtube',
-          youtubeId: r.id,
-          url: `/api/youtube/stream?v=${r.id}`,
-          coverUrl: r.thumbnail,
-          addedAt: Date.now(),
-        }));
-        const selectedIdx = searchResults.findIndex((r) => r.id === item.id);
-        setQueue(fullQueue, selectedIdx >= 0 ? selectedIdx : 0);
-      }
-
-      await loadYouTubeTrack(item.id, {
+      // 1. Reproducir inmediatamente la canción seleccionada
+      const track = await loadYouTubeTrack(item.id, {
         title: item.title,
         artist: item.artist,
         thumbnail: item.thumbnail,
       });
       setActiveTab('player');
+
+      // 2. Establecer la canción seleccionada como el inicio de la lista
+      setQueue([track], 0);
+
+      // 3. Obtener canciones relacionadas / similares (del mismo artista o género)
+      // para que al terminar reproduzca una canción nueva y diferente, no la misma de otro video
+      fetchRelatedTracks(item.id, item.title, item.artist).then((related) => {
+        if (related && related.length > 0) {
+          const filtered = related.filter((r) => r.youtubeId !== item.id);
+          if (filtered.length > 0) {
+            setQueue([track, ...filtered], 0);
+          }
+        }
+      });
     } catch (err) {
       console.error('[MiniPlayer] Error playing search result:', err);
     } finally {
