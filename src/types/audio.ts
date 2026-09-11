@@ -283,6 +283,7 @@ export interface Track {
   file?: File;
   spotifyUri?: string;
   youtubeId?: string;
+  isIframePlayback?: boolean;
   coverUrl?: string;
   lrcContent?: string;
   addedAt: number;

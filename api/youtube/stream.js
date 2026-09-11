@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
 
   if (req.method === 'OPTIONS') {
@@ -17,6 +17,11 @@ export default async function handler(req, res) {
   if (remoteBackend) {
     const cleanUrl = remoteBackend.replace(/\/+$/, '');
     return res.redirect(307, `${cleanUrl}/api/youtube/stream?v=${videoId}`);
+  }
+
+  // Para peticiones HEAD rápidas desde el frontend, responder 503 de inmediato para activar el YouTube Player oficial sin retardo
+  if (req.method === 'HEAD') {
+    return res.status(503).end();
   }
 
   // 2. Intentar obtener stream de audio a través de gateways públicos

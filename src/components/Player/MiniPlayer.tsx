@@ -40,6 +40,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
 import type { Track } from '../../types/audio';
+import { YouTubeIframeFallback } from './YouTubeIframeFallback';
 
 // ── Time formatter helper ─────────────────────────────────────────────────────
 const formatTime = (seconds: number): string => {
@@ -480,6 +481,17 @@ export const MiniPlayer: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* YouTube Iframe Player Fallback para Vercel */}
+                  <YouTubeIframeFallback
+                    currentTrack={currentTrack}
+                    isPlaying={isPlaying}
+                    volume={isMuted ? 0 : volume}
+                    onEnded={playNext}
+                    onTimeUpdate={(t) => usePlayerStore.setState({ currentTime: t })}
+                    onDurationChange={(d) => usePlayerStore.setState({ duration: d })}
+                    onStateChange={(playing) => usePlayerStore.setState({ isPlaying: playing })}
+                  />
 
                   {/* Interactive Seek Bar */}
                   <div className="flex flex-col gap-1.5 pt-1">

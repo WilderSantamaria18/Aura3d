@@ -77,20 +77,34 @@ function ensureGlobalEngineSubscription() {
 
     if (next) {
       try {
-        const streamUrl =
-          next.url || (next.youtubeId ? `/api/youtube/stream?v=${next.youtubeId}` : '');
-        if (streamUrl) {
-          await audioEngine.loadTrack(streamUrl, true);
-        } else if (next.file) {
-          const buf = await next.file.arrayBuffer();
-          await audioEngine.loadArrayBuffer(buf, next.file.name);
+        if (next.isIframePlayback || (!next.url && next.youtubeId)) {
+          next.isIframePlayback = true;
+          usePlayerStore.setState({
+            currentTrack: next,
+            isPlaying: true,
+            currentTime: 0,
+            duration: next.duration || 180,
+          });
+        } else {
+          const streamUrl =
+            next.url || (next.youtubeId ? `/api/youtube/stream?v=${next.youtubeId}` : '');
+          if (streamUrl) {
+            try {
+              await audioEngine.loadTrack(streamUrl, true);
+            } catch {
+              next.isIframePlayback = true;
+            }
+          } else if (next.file) {
+            const buf = await next.file.arrayBuffer();
+            await audioEngine.loadArrayBuffer(buf, next.file.name);
+          }
+          usePlayerStore.setState({
+            currentTrack: next,
+            isPlaying: true,
+            currentTime: 0,
+            duration: next.isIframePlayback ? (next.duration || 180) : (audioEngine.getDuration() || next.duration || 0),
+          });
         }
-        usePlayerStore.setState({
-          currentTrack: next,
-          isPlaying: true,
-          currentTime: 0,
-          duration: audioEngine.getDuration() || next.duration || 0,
-        });
       } catch (err) {
         console.error('[useAudioPlayer] onEnded next track error:', err);
       }
@@ -232,18 +246,27 @@ export const useAudioPlayer = () => {
   const play = useCallback(async () => {
     try {
       await unlockAudio();
+      if (currentTrack?.isIframePlayback) {
+        setIsPlaying(true);
+        setHasStarted(true);
+        return;
+      }
       await audioEngine.play();
       setIsPlaying(true);
       setHasStarted(true);
     } catch (err) {
       console.warn('[useAudioPlayer] play error:', err);
     }
-  }, [unlockAudio, setIsPlaying, setHasStarted]);
+  }, [unlockAudio, setIsPlaying, setHasStarted, currentTrack]);
 
   const pause = useCallback(() => {
+    if (currentTrack?.isIframePlayback) {
+      setIsPlaying(false);
+      return;
+    }
     audioEngine.pause();
     setIsPlaying(false);
-  }, [setIsPlaying]);
+  }, [setIsPlaying, currentTrack]);
 
   const togglePlay = useCallback(async () => {
     if (isPlaying) {
@@ -257,8 +280,11 @@ export const useAudioPlayer = () => {
     (seconds: number) => {
       audioEngine.seek(seconds);
       setCurrentTime(seconds);
+      if (currentTrack?.isIframePlayback) {
+        window.dispatchEvent(new CustomEvent('aura:youtube-seek', { detail: { seconds } }));
+      }
     },
-    [setCurrentTime]
+    [setCurrentTime, currentTrack]
   );
 
   const setVolume = useCallback(
@@ -293,9 +319,21 @@ export const useAudioPlayer = () => {
             setDuration(audioEngine.getDuration() || 0);
           }
           setCurrentTrack({ ...track, url: blobUrl });
+        } else if (track.isIframePlayback) {
+          setDuration(track.duration || 180);
+          setCurrentTrack(track);
         } else if (track.url) {
-          await audioEngine.loadTrack(track.url, true);
-          setDuration(audioEngine.getDuration() || track.duration || 0);
+          try {
+            await audioEngine.loadTrack(track.url, true);
+            setDuration(audioEngine.getDuration() || track.duration || 0);
+          } catch {
+            track.isIframePlayback = true;
+            setDuration(track.duration || 180);
+          }
+          setCurrentTrack(track);
+        } else if (track.youtubeId) {
+          track.isIframePlayback = true;
+          setDuration(track.duration || 180);
           setCurrentTrack(track);
         } else {
           setCurrentTrack(track);
@@ -450,11 +488,22 @@ export const useAudioPlayer = () => {
           console.warn('[useAudioPlayer] Could not fetch YouTube info:', e);
         }
 
-        // 2. Stream audio exclusively via Web Audio API (preventing double audio/iframe echo)
+        // 2. Stream audio: Intentar Web Audio stream nativo primero; conmutar a YouTube Player oficial si el backend no está disponible (ej. Vercel)
         const streamUrl = `/api/youtube/stream?v=${videoId}`;
-        await audioEngine.loadTrack(streamUrl, true);
+        let useIframe = false;
+        try {
+          const headCheck = await fetch(streamUrl, { method: 'HEAD' }).catch(() => null);
+          if (headCheck && !headCheck.ok) {
+            useIframe = true;
+          } else {
+            await audioEngine.loadTrack(streamUrl, true);
+          }
+        } catch (streamErr) {
+          console.warn('[useAudioPlayer] Stream directo no disponible en este host, cambiando al reproductor oficial de YouTube:', streamErr);
+          useIframe = true;
+        }
 
-        const realDur = audioEngine.getDuration() || dur || 0;
+        const realDur = useIframe ? (dur || 210) : (audioEngine.getDuration() || dur || 0);
         setDuration(realDur);
         setCurrentTime(0);
         setIsPlaying(true);
@@ -467,7 +516,8 @@ export const useAudioPlayer = () => {
           duration: realDur,
           sourceType: 'youtube',
           youtubeId: videoId,
-          url: streamUrl,
+          isIframePlayback: useIframe,
+          url: useIframe ? undefined : streamUrl,
           coverUrl,
           addedAt: Date.now(),
         };
