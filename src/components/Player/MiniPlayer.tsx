@@ -36,6 +36,7 @@ import {
   Radio,
   Upload,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
