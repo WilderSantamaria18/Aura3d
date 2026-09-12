@@ -54,7 +54,7 @@ export default async function handler(req, res) {
               youtubeId: vId,
               thumbnail: thumb,
               coverUrl: thumb,
-              url: `https://www.youtube.com/watch?v=${vId}`,
+              isIframePlayback: true,
             };
           });
 
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
           youtubeId: pvr.videoId,
           thumbnail: thumb,
           coverUrl: thumb,
-          url: `https://www.youtube.com/watch?v=${pvr.videoId}`,
+          isIframePlayback: true,
         });
       } else if (lm && lm.contentId && /^[a-zA-Z0-9_-]{11}$/.test(lm.contentId)) {
         const title = lm.metadata?.lockupMetadataViewModel?.title?.content || 'Canción de Playlist';
@@ -146,7 +146,7 @@ export default async function handler(req, res) {
           youtubeId: lm.contentId,
           thumbnail: thumb,
           coverUrl: thumb,
-          url: `https://www.youtube.com/watch?v=${lm.contentId}`,
+          isIframePlayback: true,
         });
       }
 

@@ -154,7 +154,7 @@ export const MiniPlayer: React.FC = () => {
     try {
       if (item.type === 'playlist') {
         setActiveTab('player');
-        await loadYouTubePlaylist(item.id);
+        await loadYouTubePlaylist(item.id, item.title, item.artist);
         return;
       }
 
@@ -781,7 +781,18 @@ export const MiniPlayer: React.FC = () => {
                     {favorites.map((fav) => (
                       <div
                         key={fav.id}
-                        onClick={() => playTrack(fav)}
+                        onClick={async () => {
+                          const q = usePlayerStore.getState().queue;
+                          const existingIdx = q.findIndex(
+                            (t) => t.id === fav.id || (Boolean(fav.youtubeId) && t.youtubeId === fav.youtubeId)
+                          );
+                          if (existingIdx >= 0) {
+                            usePlayerStore.setState({ queueIndex: existingIdx });
+                          } else {
+                            usePlayerStore.setState({ queue: [fav, ...q], queueIndex: 0 });
+                          }
+                          await playTrack(fav);
+                        }}
                         className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -890,7 +901,10 @@ export const MiniPlayer: React.FC = () => {
                             )}
 
                             <div
-                              onClick={() => playTrack(track)}
+                              onClick={async () => {
+                                usePlayerStore.setState({ queueIndex: idx });
+                                await playTrack(track);
+                              }}
                               className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                                 isCurrent
                                   ? 'bg-cyan-500/15 border border-cyan-500/40 text-white font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]'

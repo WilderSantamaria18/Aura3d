@@ -67,11 +67,13 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
   const [isMinimizedDock, setIsMinimizedDock] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  const videoId = currentTrack?.youtubeId;
+  const videoId =
+    currentTrack?.youtubeId ||
+    (currentTrack?.id?.startsWith('yt_') ? currentTrack.id.replace(/^yt_/, '') : undefined);
   const isYouTubeIframe = Boolean(
     currentTrack &&
-      currentTrack.sourceType === 'youtube' &&
-      (currentTrack.isIframePlayback || !currentTrack.url) &&
+      (currentTrack.sourceType === 'youtube' || Boolean(videoId)) &&
+      (currentTrack.isIframePlayback || !currentTrack.url || currentTrack.url.includes('youtube.com')) &&
       videoId
   );
 
@@ -194,8 +196,14 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
         const currentLoadedId = playerRef.current.getVideoData?.()?.video_id;
         if (currentLoadedId !== videoId) {
           setIsPlayerReady(false);
+          setPlaybackError(null);
           playerRef.current.loadVideoById(videoId);
           setIsPlayerReady(true);
+          if (usePlayerStore.getState().isPlaying) {
+            playerRef.current.playVideo?.();
+          }
+        } else if (usePlayerStore.getState().isPlaying) {
+          playerRef.current.playVideo?.();
         }
       } catch {
         // En caso de reciclado

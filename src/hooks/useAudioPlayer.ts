@@ -15,6 +15,12 @@ import { usePlayerStore } from '../stores/playerStore';
 import type { Track } from '../types/audio';
 import { hasNativeStreamBackend, isVercelDeployment } from '../utils/backendCapabilities';
 
+function extractYouTubeId(url?: string): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : undefined;
+}
+
 // ── Global Singleton Subscription (Ensures exactly ONE listener) ───────────
 function ensureGlobalEngineSubscription() {
   if (typeof window === 'undefined') return;
@@ -376,6 +382,16 @@ export const useAudioPlayer = () => {
         setError(null);
         await unlockAudio();
 
+        const ytId =
+          track.youtubeId ||
+          (track.id?.startsWith('yt_') ? track.id.replace(/^yt_/, '') : undefined) ||
+          (track.url ? extractYouTubeId(track.url) : undefined);
+
+        const isYouTube =
+          track.sourceType === 'youtube' ||
+          Boolean(ytId) ||
+          (typeof track.url === 'string' && (track.url.includes('youtube.com') || track.url.includes('youtu.be')));
+
         if (track.file) {
           const blobUrl = URL.createObjectURL(track.file);
           try {
@@ -387,28 +403,68 @@ export const useAudioPlayer = () => {
             setDuration(audioEngine.getDuration() || 0);
           }
           setCurrentTrack({ ...track, url: blobUrl });
-        } else if (track.isIframePlayback || (track.youtubeId && isVercelDeployment())) {
-          track.isIframePlayback = true;
-          audioEngine.pause();
-          setDuration(track.duration || 180);
-          setCurrentTrack(track);
+        } else if (isYouTube) {
+          const isVercel = isVercelDeployment();
+          const hasBackend = isVercel ? false : await hasNativeStreamBackend();
+          const useIframe = !hasBackend || track.isIframePlayback || (Boolean(track.url) && track.url!.includes('youtube.com'));
+
+          const cleanTrack: Track = {
+            ...track,
+            sourceType: 'youtube',
+            youtubeId: ytId || track.youtubeId,
+            isIframePlayback: useIframe,
+            url: useIframe ? undefined : track.url,
+            duration: track.duration || 210,
+          };
+
+          if (useIframe) {
+            audioEngine.pause();
+            setDuration(cleanTrack.duration || 210);
+            setCurrentTrack(cleanTrack);
+          } else if (cleanTrack.url) {
+            try {
+              await audioEngine.loadTrack(cleanTrack.url, true);
+              setDuration(audioEngine.getDuration() || cleanTrack.duration || 210);
+              setCurrentTrack(cleanTrack);
+            } catch {
+              cleanTrack.isIframePlayback = true;
+              cleanTrack.url = undefined;
+              audioEngine.pause();
+              setDuration(cleanTrack.duration || 210);
+              setCurrentTrack(cleanTrack);
+            }
+          } else {
+            cleanTrack.isIframePlayback = true;
+            audioEngine.pause();
+            setDuration(cleanTrack.duration || 210);
+            setCurrentTrack(cleanTrack);
+          }
         } else if (track.url) {
           try {
             await audioEngine.loadTrack(track.url, true);
             setDuration(audioEngine.getDuration() || track.duration || 0);
+            setCurrentTrack(track);
           } catch {
-            track.isIframePlayback = true;
             audioEngine.pause();
-            setDuration(track.duration || 180);
+            setCurrentTrack(track);
           }
-          setCurrentTrack(track);
-        } else if (track.youtubeId) {
-          track.isIframePlayback = true;
-          audioEngine.pause();
-          setDuration(track.duration || 180);
-          setCurrentTrack(track);
         } else {
           setCurrentTrack(track);
+        }
+
+        // Sincronizar cola de reproducción automáticamente
+        const currentQ = usePlayerStore.getState().queue;
+        const qIdx = currentQ.findIndex(
+          (t) => t.id === track.id || (Boolean(ytId) && (t.youtubeId === ytId || t.id === `yt_${ytId}`))
+        );
+        if (qIdx >= 0) {
+          usePlayerStore.setState({ queueIndex: qIdx });
+        } else if (currentQ.length > 0) {
+          const curIndex = usePlayerStore.getState().queueIndex;
+          const updatedQ = [...currentQ.slice(0, curIndex + 1), track, ...currentQ.slice(curIndex + 1)];
+          usePlayerStore.setState({ queue: updatedQ, queueIndex: curIndex + 1 });
+        } else {
+          usePlayerStore.setState({ queue: [track], queueIndex: 0 });
         }
 
         setCurrentTime(0);
@@ -657,19 +713,42 @@ export const useAudioPlayer = () => {
   }, []);
 
   const loadYouTubePlaylist = useCallback(
-    async (playlistId: string) => {
+    async (playlistId: string, fallbackTitle?: string, fallbackArtist?: string) => {
       try {
         setIsSearching(true);
+        setError(null);
         const res = await fetch(`/api/youtube/playlist?id=${encodeURIComponent(playlistId)}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.tracks && data.tracks.length > 0) {
-            const first = data.tracks[0];
-            await playTrack(first);
-            if (data.tracks.length > 1) {
-              const currentQ = usePlayerStore.getState().queue;
-              usePlayerStore.setState({ queue: [...currentQ, ...data.tracks.slice(1)] });
-            }
+          const rawTracks = data.tracks || [];
+          if (rawTracks.length > 0) {
+            const artistName = fallbackArtist || data.artist || 'Artista';
+            const albumName = fallbackTitle || data.title || 'Colección de Canciones';
+
+            const formattedTracks: Track[] = rawTracks.map((t: any, idx: number) => {
+              const vid = t.youtubeId || (t.id ? t.id.replace(/^yt_/, '') : '');
+              return {
+                id: `yt_${vid || idx}_${Date.now()}_${idx}`,
+                title: t.title || `Pista ${idx + 1}`,
+                artist: t.artist && t.artist !== 'Artista de YouTube' ? t.artist : artistName,
+                album: albumName,
+                duration: t.duration || 210,
+                sourceType: 'youtube' as const,
+                youtubeId: vid,
+                thumbnail: t.thumbnail || t.coverUrl || `https://img.youtube.com/vi/${vid}/hqdefault.jpg`,
+                coverUrl: t.coverUrl || t.thumbnail || `https://img.youtube.com/vi/${vid}/hqdefault.jpg`,
+                isIframePlayback: true,
+                addedAt: Date.now() + idx,
+              };
+            });
+
+            // 1. Establecer la colección entera del artista en la cola ordenada de inicio a fin (en fila o cola)
+            usePlayerStore.getState().setQueue(formattedTracks, 0);
+
+            // 2. Iniciar la reproducción desde el primer tema de la lista
+            await playTrack(formattedTracks[0]);
+          } else {
+            console.warn('[useAudioPlayer] La playlist no devolvió canciones disponibles');
           }
         }
       } catch (e) {
