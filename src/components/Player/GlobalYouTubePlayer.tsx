@@ -34,7 +34,7 @@ declare global {
 export interface GlobalYouTubePlayerProps {
   inMiniPlayer?: boolean;
   isMiniPlayerExpanded?: boolean;
-  activeTab?: 'player' | 'search' | 'queue';
+  activeTab?: 'player' | 'search' | 'queue' | 'favorites';
   showVideoInPlayer?: boolean;
   onToggleVideoView?: () => void;
   onExpandMiniPlayer?: () => void;

@@ -56,7 +56,8 @@ function ensureGlobalEngineSubscription() {
       fetchRelatedTracks(
         state.currentTrack.youtubeId,
         state.currentTrack.title,
-        state.currentTrack.artist
+        state.currentTrack.artist,
+        state.currentTrack.duration
       )
         .then((more) => {
           if (more && more.length > 0) {
@@ -77,7 +78,8 @@ function ensureGlobalEngineSubscription() {
         const related = await fetchRelatedTracks(
           state.currentTrack.youtubeId,
           state.currentTrack.title,
-          state.currentTrack.artist
+          state.currentTrack.artist,
+          state.currentTrack.duration
         );
         if (related && related.length > 0) {
           const currentQ = state.queue;
@@ -155,6 +157,8 @@ export interface YouTubeSearchResult {
   duration: number;
   thumbnail: string;
   url: string;
+  type?: 'video' | 'playlist';
+  videoCount?: string;
 }
 
 const ytSearchCache = new Map<string, YouTubeSearchResult[]>();
@@ -163,10 +167,14 @@ const ytSearchCache = new Map<string, YouTubeSearchResult[]>();
 export const fetchRelatedTracks = async (
   videoId: string,
   title = '',
-  artist = ''
+  artist = '',
+  duration = 0
 ): Promise<Track[]> => {
   const tracksMap = new Map<string, Track>();
   const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+  const isMixFormat =
+    duration > 900 ||
+    /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|live set|enganchado|compil/i.test(title);
 
   const addResultsToMap = (results: YouTubeSearchResult[]) => {
     for (const r of results) {
@@ -175,6 +183,19 @@ export const fetchRelatedTracks = async (
       if (cleanTitle.length > 3 && (rTitleClean === cleanTitle || (rTitleClean.includes(cleanTitle) && rTitleClean.length < cleanTitle.length + 8))) {
         continue;
       }
+
+      // Descartar mixes de 1 hora si estamos reproduciendo una canción estándar de 3-4 min
+      if (!isMixFormat) {
+        if (
+          r.duration > 720 ||
+          /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|album completo|full album|compilation|enganchado|non stop|megamix/i.test(
+            r.title
+          )
+        ) {
+          continue;
+        }
+      }
+
       const uniqueKey = `yt_${r.id}`;
       const isVercel = isVercelDeployment();
       if (!tracksMap.has(uniqueKey)) {
@@ -196,7 +217,7 @@ export const fetchRelatedTracks = async (
 
   try {
     const res = await fetch(
-      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`
+      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&duration=${Math.round(duration)}`
     );
     if (res.ok) {
       const data = await res.json();
@@ -208,12 +229,22 @@ export const fetchRelatedTracks = async (
     console.debug('[fetchRelatedTracks] Primary related fetch error:', e);
   }
 
-  // Si tenemos menos de 50 canciones y conocemos el artista, enriquecer con búsquedas de éxitos y discografía
+  // Si tenemos menos de 50 canciones y conocemos el artista, enriquecer con búsquedas del mismo formato
   if (tracksMap.size < 50 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
     try {
+      const queries = isMixFormat
+        ? [
+            `/api/youtube/search?q=${encodeURIComponent(`${artist} mix 1 hora`)}`,
+            `/api/youtube/search?q=${encodeURIComponent(`${artist} dj set live session`)}`,
+          ]
+        : [
+            `/api/youtube/search?q=${encodeURIComponent(`${artist} canciones mejores exitos singles`)}`,
+            `/api/youtube/search?q=${encodeURIComponent(`${artist} canciones oficiales audio`)}`,
+          ];
+
       const [searchRes1, searchRes2] = await Promise.all([
-        fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} grandes exitos canciones`)}`),
-        fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} album playlist canciones`)}`),
+        fetch(queries[0]),
+        fetch(queries[1]),
       ]);
 
       if (searchRes1.ok) {
@@ -577,7 +608,7 @@ export const useAudioPlayer = () => {
   );
 
   // ── 4. Debounced YouTube Search ─────────────────────────────────────────────
-  const searchYouTube = useCallback((query: string, immediate = false) => {
+  const searchYouTube = useCallback((query: string, immediate = false, type: 'video' | 'playlist' = 'video') => {
     const q = query.trim();
     if (!q || q.length < 2) {
       setSearchResults([]);
@@ -590,7 +621,7 @@ export const useAudioPlayer = () => {
     }
 
     const executeSearch = async () => {
-      const cacheKey = q.toLowerCase();
+      const cacheKey = `${type}_${q.toLowerCase()}`;
       if (ytSearchCache.has(cacheKey)) {
         setSearchResults(ytSearchCache.get(cacheKey)!);
         setIsSearching(false);
@@ -600,7 +631,7 @@ export const useAudioPlayer = () => {
       setIsSearching(true);
       setError(null);
       try {
-        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}&type=${type}`);
         if (res.ok) {
           const data = await res.json();
           const items: YouTubeSearchResult[] = data.results || [];
@@ -624,6 +655,31 @@ export const useAudioPlayer = () => {
       searchDebounceRef.current = setTimeout(executeSearch, 300);
     }
   }, []);
+
+  const loadYouTubePlaylist = useCallback(
+    async (playlistId: string) => {
+      try {
+        setIsSearching(true);
+        const res = await fetch(`/api/youtube/playlist?id=${encodeURIComponent(playlistId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tracks && data.tracks.length > 0) {
+            const first = data.tracks[0];
+            await playTrack(first);
+            if (data.tracks.length > 1) {
+              const currentQ = usePlayerStore.getState().queue;
+              usePlayerStore.setState({ queue: [...currentQ, ...data.tracks.slice(1)] });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error loading playlist:', e);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [playTrack]
+  );
 
   return {
     // State
@@ -660,6 +716,7 @@ export const useAudioPlayer = () => {
     loadAudioFiles,
     loadYouTubeTrack,
     searchYouTube,
+    loadYouTubePlaylist,
     fetchRelatedTracks,
     playTrack,
     addToQueue,

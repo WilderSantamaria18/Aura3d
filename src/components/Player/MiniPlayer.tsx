@@ -37,6 +37,7 @@ import {
   Upload,
   Sparkles,
   Eye,
+  Heart,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
@@ -83,6 +84,7 @@ export const MiniPlayer: React.FC = () => {
     loadAudioFile,
     playTrack,
     searchYouTube,
+    loadYouTubePlaylist,
     fetchRelatedTracks,
     isSearching,
     searchResults,
@@ -93,15 +95,24 @@ export const MiniPlayer: React.FC = () => {
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidTheme = usePlayerStore((s) => s.lucidTheme);
   const setQueue = usePlayerStore((s) => s.setQueue);
+  const favorites = usePlayerStore((s) => s.favorites);
+  const toggleFavorite = usePlayerStore((s) => s.toggleFavorite);
 
   // ── Local Component State ──────────────────────────────────────────────────
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'player' | 'search' | 'queue'>('player');
+  const [activeTab, setActiveTab] = useState<'player' | 'search' | 'queue' | 'favorites'>('player');
   const [showVideoView, setShowVideoView] = useState(true);
+  const [searchFilter, setSearchFilter] = useState<'video' | 'playlist'>('video');
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubValue, setScrubValue] = useState(0);
   const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
+
+  const isCurrentFav = currentTrack
+    ? favorites.some(
+        (t) => t.id === currentTrack.id || (Boolean(currentTrack.youtubeId) && t.youtubeId === currentTrack.youtubeId)
+      )
+    : false;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -109,9 +120,9 @@ export const MiniPlayer: React.FC = () => {
   // ── Debounce Search Effect (300ms) ──────────────────────────────────────────
   useEffect(() => {
     if (activeTab === 'search') {
-      searchYouTube(searchQuery);
+      searchYouTube(searchQuery, false, searchFilter);
     }
-  }, [searchQuery, activeTab, searchYouTube]);
+  }, [searchQuery, activeTab, searchFilter, searchYouTube]);
 
   // ── Interactive Seek Handler ────────────────────────────────────────────────
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,6 +152,12 @@ export const MiniPlayer: React.FC = () => {
   const handleSelectYouTubeTrack = async (item: YouTubeSearchResult) => {
     setLoadingTrackId(item.id);
     try {
+      if (item.type === 'playlist') {
+        setActiveTab('player');
+        await loadYouTubePlaylist(item.id);
+        return;
+      }
+
       // 1. Reproducir inmediatamente la canción seleccionada
       const track = await loadYouTubeTrack(item.id, {
         title: item.title,
@@ -163,7 +180,7 @@ export const MiniPlayer: React.FC = () => {
       setQueue(baseQueue, newIndex);
 
       // 3. Obtener 50+ canciones relacionadas / similares del nuevo cantante o género
-      fetchRelatedTracks(item.id, item.title, item.artist).then((related) => {
+      fetchRelatedTracks(item.id, item.title, item.artist, item.duration).then((related) => {
         if (related && related.length > 0) {
           const existingIds = new Set(baseQueue.map((t) => t.id || t.youtubeId));
           const filtered = related.filter((r) => !existingIds.has(r.id || r.youtubeId));
@@ -324,6 +341,18 @@ export const MiniPlayer: React.FC = () => {
               className="flex items-center gap-1 relative z-10 flex-shrink-0"
               onClick={(e) => e.stopPropagation()}
             >
+              {currentTrack && (
+                <button
+                  onClick={() => toggleFavorite(currentTrack)}
+                  className={`p-1.5 rounded-xl transition-all active:scale-90 ${
+                    isCurrentFav ? 'text-rose-400 bg-rose-500/10' : 'text-white/40 hover:text-rose-300 hover:bg-white/5'
+                  }`}
+                  title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                >
+                  <Heart className={`w-3.5 h-3.5 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   setActiveTab('search');
@@ -446,13 +475,25 @@ export const MiniPlayer: React.FC = () => {
                 <ListMusic className="w-3.5 h-3.5" />
                 COLA ({queue.length})
               </button>
+
+              <button
+                onClick={() => setActiveTab('favorites')}
+                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors ${
+                  activeTab === 'favorites'
+                    ? 'text-rose-400 border-b-2 border-rose-400 font-medium bg-rose-500/[0.05]'
+                    : 'text-white/40 hover:text-rose-300'
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${favorites.length > 0 ? 'fill-rose-500 text-rose-500' : ''}`} />
+                FAVS ({favorites.length})
+              </button>
             </div>
 
             {/* Tab Body */}
             <div className="p-4 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
-              {/* ── 1. PLAYER TAB ─────────────────────────────────────────── */}
-              <div className={activeTab === 'player' ? 'flex flex-col gap-4' : 'hidden'}>
-                {/* Si es pista de YouTube y la vista de video está activa: mostrar video de YouTube en el MiniPlayer */}
+              {/* ── 1. PLAYER TAB (Video y Título Limpio sin reproductor inferior) ─── */}
+              <div className={activeTab === 'player' ? 'flex flex-col gap-3' : 'hidden'}>
+                {/* Si es pista de YouTube y la vista de video está activa */}
                 {sourceType === 'youtube' && currentTrack?.youtubeId && showVideoView ? (
                   <div className="flex flex-col gap-3">
                     <GlobalYouTubePlayer
@@ -473,11 +514,24 @@ export const MiniPlayer: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {currentTrack && (
+                          <button
+                            onClick={() => toggleFavorite(currentTrack)}
+                            className={`p-1.5 rounded-lg border transition-all active:scale-90 flex items-center justify-center ${
+                              isCurrentFav
+                                ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                                : 'text-white/40 hover:text-rose-300 hover:bg-rose-500/10 border-white/10'
+                            }`}
+                            title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                          >
+                            <Heart className={`w-4 h-4 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                          </button>
+                        )}
                         {sourceBadge}
                         <button
                           onClick={() => setShowVideoView(false)}
                           className="text-[10px] text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 px-2 py-1 rounded-lg border border-cyan-500/20 font-mono transition-colors"
-                          title="Alternar a portada"
+                          title="Ver portada del tema"
                         >
                           Portada
                         </button>
@@ -522,6 +576,19 @@ export const MiniPlayer: React.FC = () => {
                         {artist}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
+                        {currentTrack && (
+                          <button
+                            onClick={() => toggleFavorite(currentTrack)}
+                            className={`p-1.5 rounded-lg border transition-all active:scale-90 flex items-center justify-center ${
+                              isCurrentFav
+                                ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                                : 'text-white/40 hover:text-rose-300 hover:bg-rose-500/10 border-white/10'
+                            }`}
+                            title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                          </button>
+                        )}
                         {sourceBadge}
                         {sourceType === 'youtube' && (
                           <button
@@ -545,207 +612,99 @@ export const MiniPlayer: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
 
-                  {/* Interactive Seek Bar */}
-                  <div className="flex flex-col gap-1.5 pt-1">
-                    <div className="relative w-full flex items-center">
-                      <input
-                        type="range"
-                        min="0"
-                        max={duration || 100}
-                        step="0.1"
-                        value={displayCurrentTime}
-                        onChange={handleSeekChange}
-                        onMouseDown={handleSeekMouseDown}
-                        onTouchStart={handleSeekMouseDown}
-                        onMouseUp={handleSeekMouseUp}
-                        onTouchEnd={handleSeekMouseUp}
-                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/20 transition-all"
-                        style={
-                          isLucid
-                            ? { accentColor: lucidTheme.primary }
-                            : { accentColor: 'var(--color-primary, #00f2fe)' }
-                        }
-                      />
-                    </div>
-                    <div className="flex justify-between text-[10px] font-mono text-white/50">
-                      <span>{formatTime(displayCurrentTime)}</span>
-                      <span>{formatTime(duration)}</span>
-                    </div>
-                  </div>
-
-                  {/* Complete Transport Controls */}
-                  <div className="flex items-center justify-between px-2 pt-1">
-                    {/* Shuffle */}
-                    <button
-                      onClick={toggleShuffle}
-                      className={`p-2 rounded-xl transition-all ${
-                        isShuffled
-                          ? 'text-cyan-400 bg-cyan-400/15'
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
-                      }`}
-                      title={isShuffled ? 'Aleatorio activado' : 'Activar aleatorio'}
-                      style={
-                        isShuffled && isLucid
-                          ? { color: lucidTheme.primary, backgroundColor: `${lucidTheme.primary}20` }
-                          : undefined
-                      }
-                    >
-                      <Shuffle className="w-4 h-4" />
-                    </button>
-
-                    {/* Previous */}
-                    <button
-                      onClick={playPrevious}
-                      className="p-2.5 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
-                      title="Pista anterior"
-                    >
-                      <SkipBack className="w-5 h-5 fill-current" />
-                    </button>
-
-                    {/* Play / Pause Main Button */}
-                    <button
-                      onClick={togglePlay}
-                      className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-black hover:scale-105 active:scale-95 transition-all shadow-xl"
-                      style={
-                        isLucid
-                          ? {
-                              backgroundColor: lucidTheme.primary,
-                              boxShadow: `0 0 25px ${lucidTheme.glow}`,
-                            }
-                          : {
-                              backgroundColor: 'var(--color-primary, #ffffff)',
-                              boxShadow: '0 0 25px var(--color-glow, rgba(0, 242, 254, 0.35))',
-                            }
-                      }
-                      title={isPlaying ? 'Pausar' : 'Reproducir'}
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5 fill-current" />
-                      ) : (
-                        <Play className="w-5 h-5 fill-current translate-x-0.5" />
-                      )}
-                    </button>
-
-                    {/* Next */}
-                    <button
-                      onClick={playNext}
-                      className="p-2.5 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-all active:scale-95"
-                      title="Pista siguiente"
-                    >
-                      <SkipForward className="w-5 h-5 fill-current" />
-                    </button>
-
-                    {/* Repeat */}
-                    <button
-                      onClick={cycleRepeat}
-                      className={`p-2 rounded-xl transition-all ${
-                        repeatMode !== 'off'
-                          ? 'text-cyan-400 bg-cyan-400/15'
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
-                      }`}
-                      title={`Repetición: ${repeatMode}`}
-                      style={
-                        repeatMode !== 'off' && isLucid
-                          ? { color: lucidTheme.primary, backgroundColor: `${lucidTheme.primary}20` }
-                          : undefined
-                      }
-                    >
-                      {repeatMode === 'one' ? (
-                        <Repeat1 className="w-4 h-4" />
-                      ) : (
-                        <Repeat className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Independent Volume Slider (Web Audio GainNode) */}
-                  <div className="flex items-center gap-3 px-1 py-1.5 border-t border-white/[0.06] mt-1">
-                    <button
-                      onClick={toggleMute}
-                      className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
-                      title={isMuted ? 'Desmutear' : 'Mutear'}
-                    >
-                      {isMuted || volume === 0 ? (
-                        <VolumeX className="w-4 h-4 text-rose-400" />
-                      ) : volume < 0.5 ? (
-                        <Volume1 className="w-4 h-4 text-white/80" />
-                      ) : (
-                        <Volume2 className="w-4 h-4 text-white" />
-                      )}
-                    </button>
-
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white hover:bg-white/20 transition-all"
-                      style={
-                        isLucid
-                          ? { accentColor: lucidTheme.primary }
-                          : undefined
-                      }
-                      title="Control de ganancia independiente (DSP GainNode)"
-                    />
-
-                    <span className="text-[10px] font-mono text-white/50 w-8 text-right">
-                      {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
-                    </span>
-                  </div>
+              {/* ── 2. SEARCH TAB (Filtro Canciones / Playlists del Artista) ──── */}
+              <div className={activeTab === 'search' ? 'flex flex-col gap-2.5' : 'hidden'}>
+                {/* Selector de Filtro: Canciones vs Playlists */}
+                <div className="flex items-center gap-1.5 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchFilter('video');
+                      if (searchQuery.trim().length >= 2) searchYouTube(searchQuery, true, 'video');
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-center gap-1.5 ${
+                      searchFilter === 'video'
+                        ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
+                        : 'text-white/50 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Music className="w-3 h-3" /> Canciones
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchFilter('playlist');
+                      if (searchQuery.trim().length >= 2) searchYouTube(searchQuery, true, 'playlist');
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-center gap-1.5 ${
+                      searchFilter === 'playlist'
+                        ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
+                        : 'text-white/50 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <ListMusic className="w-3 h-3" /> Playlists del Artista
+                  </button>
                 </div>
 
-              {/* ── 2. SEARCH TAB (YouTube / Spotify with 300ms Debounce) ──── */}
-              <div className={activeTab === 'search' ? 'flex flex-col gap-3' : 'hidden'}>
-                  {/* YouTube Search Bar */}
-                  <div className="flex flex-col gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                      <input
-                        ref={searchInputRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Buscar canción o artista en YouTube..."
-                        className="w-full pl-9 pr-8 py-2 bg-white/[0.05] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all font-mono"
-                      />
-                      {isSearching ? (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                      ) : searchQuery ? (
-                        <button
-                          onClick={() => setSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      ) : null}
-                    </div>
+                {/* YouTube Search Bar */}
+                <div className="flex flex-col gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={
+                        searchFilter === 'playlist'
+                          ? 'Buscar playlists del artista en YouTube...'
+                          : 'Buscar canciones del artista en YouTube...'
+                      }
+                      className="w-full pl-9 pr-8 py-2 bg-white/[0.05] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all font-mono"
+                    />
+                    {isSearching ? (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                    ) : searchQuery ? (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
 
-                    {/* Scrollable Results List */}
-                    <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
-                      {isSearching && searchResults.length === 0 && (
-                        <div className="py-8 flex flex-col items-center justify-center gap-2 text-white/40 font-mono text-xs">
-                          <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
-                          <span>Buscando en YouTube...</span>
-                        </div>
-                      )}
+                  {/* Scrollable Results List */}
+                  <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto pr-1">
+                    {isSearching && searchResults.length === 0 && (
+                      <div className="py-8 flex flex-col items-center justify-center gap-2 text-white/40 font-mono text-xs">
+                        <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
+                        <span>Buscando en YouTube...</span>
+                      </div>
+                    )}
 
-                      {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                        <div className="py-8 text-center text-xs font-mono text-white/40">
-                          No se encontraron resultados para "{searchQuery}"
-                        </div>
-                      )}
+                    {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                      <div className="py-8 text-center text-xs font-mono text-white/40">
+                        No se encontraron resultados para "{searchQuery}"
+                      </div>
+                    )}
 
-                      {!searchQuery && (
-                        <div className="py-6 text-center text-xs font-mono text-white/30 flex flex-col items-center gap-1">
-                          <Sparkles className="w-4 h-4 text-white/20" />
-                          <span>Escribe para buscar música de alta fidelidad</span>
-                        </div>
-                      )}
+                    {!searchQuery && (
+                      <div className="py-6 text-center text-xs font-mono text-white/30 flex flex-col items-center gap-1">
+                        <Sparkles className="w-4 h-4 text-white/20" />
+                        <span>
+                          {searchFilter === 'playlist'
+                            ? 'Escribe el nombre del artista para explorar sus playlists'
+                            : 'Escribe para buscar música de alta fidelidad'}
+                        </span>
+                      </div>
+                    )}
 
-                      {searchResults.map((item) => (
+                    {searchResults.map((item) => {
+                      const isPlaylist = item.type === 'playlist';
+                      return (
                         <div
                           key={item.id}
                           onClick={() => handleSelectYouTubeTrack(item)}
@@ -767,15 +726,26 @@ export const MiniPlayer: React.FC = () => {
                                 </div>
                               ) : (
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <Play className="w-3.5 h-3.5 text-white fill-current" />
+                                  {isPlaylist ? (
+                                    <ListMusic className="w-4 h-4 text-cyan-300" />
+                                  ) : (
+                                    <Play className="w-3.5 h-3.5 text-white fill-current" />
+                                  )}
                                 </div>
                               )}
                             </div>
 
                             <div className="flex flex-col min-w-0 pr-2">
-                              <span className="text-xs text-white font-medium truncate group-hover:text-cyan-300 transition-colors">
-                                {item.title}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-white font-medium truncate group-hover:text-cyan-300 transition-colors">
+                                  {item.title}
+                                </span>
+                                {isPlaylist && (
+                                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 shrink-0">
+                                    PLAYLIST
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[10px] text-white/50 font-mono truncate">
                                 {item.artist}
                               </span>
@@ -783,13 +753,80 @@ export const MiniPlayer: React.FC = () => {
                           </div>
 
                           <span className="text-[10px] font-mono text-white/40 group-hover:text-white/70 flex-shrink-0 ml-2">
-                            {formatTime(item.duration)}
+                            {isPlaylist ? (item.videoCount || 'Playlist') : formatTime(item.duration)}
                           </span>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
+              </div>
+
+              {/* ── 4. FAVORITES TAB (Lista de temas favoritos usable) ─────── */}
+              <div className={activeTab === 'favorites' ? 'flex flex-col gap-2' : 'hidden'}>
+                <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06]">
+                  <span className="text-xs font-mono text-rose-300 font-bold flex items-center gap-1.5">
+                    <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" /> Canciones Favoritas ({favorites.length})
+                  </span>
+                </div>
+
+                {favorites.length === 0 ? (
+                  <div className="py-8 text-center text-xs font-mono text-white/40 flex flex-col items-center gap-2">
+                    <Heart className="w-8 h-8 text-white/15" />
+                    <span>No tienes canciones guardadas aún</span>
+                    <span className="text-[10px] text-white/30">Toca el corazón en cualquier tema para guardarlo</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1">
+                    {favorites.map((fav) => (
+                      <div
+                        key={fav.id}
+                        onClick={() => playTrack(fav)}
+                        className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                            <img
+                              src={fav.coverUrl || (fav.youtubeId ? `https://img.youtube.com/vi/${fav.youtubeId}/hqdefault.jpg` : '')}
+                              alt={fav.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&q=80';
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <Play className="w-3.5 h-3.5 text-white fill-current" />
+                            </div>
+                          </div>
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="text-xs text-white font-medium truncate group-hover:text-rose-300 transition-colors">
+                              {fav.title}
+                            </span>
+                            <span className="text-[10px] text-white/50 font-mono truncate">
+                              {fav.artist}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-white/40">
+                            {formatTime(fav.duration)}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(fav);
+                            }}
+                            className="p-1 text-rose-500 hover:text-rose-400 transition-colors"
+                            title="Quitar de favoritos"
+                          >
+                            <Heart className="w-3.5 h-3.5 fill-rose-500" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* ── 3. QUEUE TAB (Dynamic 50+ Infinite Queue & History) ───── */}
               <div className={activeTab === 'queue' ? 'flex flex-col gap-2' : 'hidden'}>

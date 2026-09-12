@@ -77,6 +77,12 @@ export default async function handler(req, res) {
   const videoId = (req.query?.v || req.query?.id || '').toString().trim();
   const artist = (req.query?.artist || '').toString().trim();
   const title = (req.query?.title || '').toString().trim();
+  const currentDuration = parseInt(req.query?.duration || '0', 10);
+
+  // Determinar si la pista actual es un video largo / mix / set (> 15 min o con palabras clave de mix)
+  const isMixFormat =
+    currentDuration > 900 ||
+    /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|live set|enganchado|compil/i.test(title);
 
   const results = [];
 
@@ -139,21 +145,38 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Extraer paquetes masivos de canciones del mismo artista y género para garantizar 50+ canciones
+    // 2. Extraer paquetes masivos de canciones adaptados al formato (Canción individual vs Mix largo)
     const searchTasks = [];
     if (artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
-      searchTasks.push(
-        searchYouTubeQuery(`${artist} canciones mejores exitos`, 30),
-        searchYouTubeQuery(`${artist} top tracks audio`, 30),
-        searchYouTubeQuery(`${artist} playlist completo album`, 30),
-        searchYouTubeQuery(`${artist} mix radio similar`, 25)
-      );
+      if (isMixFormat) {
+        // Formato largo / Mix: relacionar otros sets, sesiones y compilaciones
+        searchTasks.push(
+          searchYouTubeQuery(`${artist} mix 1 hora`, 30),
+          searchYouTubeQuery(`${artist} dj set live session`, 30),
+          searchYouTubeQuery(`${artist} enganchado mix completo`, 25)
+        );
+      } else {
+        // Canción estándar (3-4 min): estrictamente canciones individuales del artista, NO mixes de 1 hora
+        searchTasks.push(
+          searchYouTubeQuery(`${artist} canciones oficiales`, 30),
+          searchYouTubeQuery(`${artist} mejores exitos singles`, 30),
+          searchYouTubeQuery(`${artist} top tracks audio`, 30),
+          searchYouTubeQuery(`${artist} discografia temas`, 25)
+        );
+      }
     } else if (title) {
       const cleanT = title.replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
-      searchTasks.push(
-        searchYouTubeQuery(`${cleanT} canciones similares mix`, 30),
-        searchYouTubeQuery(`${cleanT} playlist radio`, 30)
-      );
+      if (isMixFormat) {
+        searchTasks.push(
+          searchYouTubeQuery(`${cleanT} mix similar`, 30),
+          searchYouTubeQuery(`${cleanT} dj set completo`, 30)
+        );
+      } else {
+        searchTasks.push(
+          searchYouTubeQuery(`${cleanT} canciones similares audio`, 30),
+          searchYouTubeQuery(`${cleanT} musica similar singles`, 30)
+        );
+      }
     }
 
     if (searchTasks.length > 0) {
@@ -161,17 +184,36 @@ export default async function handler(req, res) {
       taskResults.forEach((arr) => results.push(...arr));
     }
 
-    // 3. Filtrar duplicados por ID y por título de canción para asegurar que sean todas distintas
+    // 3. Filtrar según formato y eliminar duplicados
     const cleanCurrentTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
     const uniqueMap = new Map();
+
+    const isLongTitle = (t) =>
+      /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|album completo|full album|compilation|enganchado|non stop|megamix/i.test(t);
 
     for (const r of results) {
       if (r.id === videoId) continue;
       const rTitleClean = r.title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
 
-      // Evitar que la misma canción o misma versión repetida se agregue
-      if (cleanCurrentTitle.length > 3 && (rTitleClean === cleanCurrentTitle || (rTitleClean.includes(cleanCurrentTitle) && rTitleClean.length < cleanCurrentTitle.length + 8))) {
+      // Evitar repetir la misma canción
+      if (
+        cleanCurrentTitle.length > 3 &&
+        (rTitleClean === cleanCurrentTitle ||
+          (rTitleClean.includes(cleanCurrentTitle) && rTitleClean.length < cleanCurrentTitle.length + 8))
+      ) {
         continue;
+      }
+
+      // Regla de Oro: Si la canción que escucho es estándar (3-4 min), rechazar mixes largos de más de 12 min
+      if (!isMixFormat) {
+        if (r.duration > 720 || isLongTitle(r.title)) {
+          continue; // descartar mixes de 1 hora o sets
+        }
+      } else {
+        // Si la canción que escucho es un Mix largo, priorizar videos de más de 10 minutos
+        if (r.duration > 0 && r.duration < 420 && !isLongTitle(r.title)) {
+          continue; // descartar canciones cortas de 3 min si estamos en modo mix
+        }
       }
 
       if (!uniqueMap.has(r.id) && !uniqueMap.has(rTitleClean)) {
@@ -180,7 +222,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Devolver hasta 75 canciones para que la fila/cola tenga al menos 50-70 canciones completas
+    // Devolver hasta 75 canciones
     const finalResults = Array.from(new Set(uniqueMap.values())).slice(0, 75);
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate');

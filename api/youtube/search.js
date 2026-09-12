@@ -8,12 +8,19 @@ export default async function handler(req, res) {
   }
 
   const query = (req.query.q || req.query.query || '').toString().trim();
+  const searchType = (req.query.type || 'video').toString().trim(); // 'video' | 'playlist'
+
   if (!query || query.length < 2) {
     return res.status(400).json({ error: 'Término de búsqueda requerido (mínimo 2 caracteres)', results: [] });
   }
 
   try {
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const isPlaylistSearch = searchType === 'playlist';
+    const filterParam = isPlaylistSearch ? '&sp=EgIQAw%253D%253D' : '';
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+      isPlaylistSearch ? `${query} playlist` : query
+    )}${filterParam}`;
+
     const response = await fetch(url, {
       headers: {
         'User-Agent':
@@ -40,35 +47,63 @@ export default async function handler(req, res) {
 
     const results = [];
     for (const c of contents) {
-      const vr = c.videoRenderer;
-      if (vr && vr.videoId && !vr.videoId.startsWith('UC')) {
-        const title = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
-        const artist =
-          vr.ownerText?.runs?.[0]?.text ||
-          vr.shortBylineText?.runs?.[0]?.text ||
-          'Artista de YouTube';
+      if (isPlaylistSearch) {
+        const pr = c.playlistRenderer;
+        if (pr && pr.playlistId) {
+          const title = pr.title?.simpleText || pr.title?.runs?.[0]?.text || 'Playlist de YouTube';
+          const artist =
+            pr.shortBylineText?.runs?.[0]?.text ||
+            pr.ownerText?.runs?.[0]?.text ||
+            'YouTube Music';
+          const count = pr.videoCount || pr.thumbnailText?.runs?.[0]?.text || 'Varios temas';
+          const thumb =
+            pr.thumbnails?.[0]?.thumbnails?.slice(-1)[0]?.url ||
+            pr.thumbnailRenderer?.playlistVideoThumbnailRenderer?.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+            '';
 
-        let durationSec = 0;
-        const durText = vr.lengthText?.simpleText;
-        if (durText) {
-          const parts = durText.split(':').map(Number);
-          if (parts.length === 3) durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
-          else if (parts.length === 2) durationSec = parts[0] * 60 + parts[1];
+          results.push({
+            id: pr.playlistId,
+            title,
+            artist,
+            videoCount: count,
+            type: 'playlist',
+            thumbnail: thumb,
+            url: `https://www.youtube.com/playlist?list=${pr.playlistId}`,
+          });
+          if (results.length >= 15) break;
         }
+      } else {
+        const vr = c.videoRenderer;
+        if (vr && vr.videoId && !vr.videoId.startsWith('UC')) {
+          const title = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
+          const artist =
+            vr.ownerText?.runs?.[0]?.text ||
+            vr.shortBylineText?.runs?.[0]?.text ||
+            'Artista de YouTube';
 
-        const thumb =
-          vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
-          `https://img.youtube.com/vi/${vr.videoId}/hqdefault.jpg`;
+          let durationSec = 0;
+          const durText = vr.lengthText?.simpleText;
+          if (durText) {
+            const parts = durText.split(':').map(Number);
+            if (parts.length === 3) durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            else if (parts.length === 2) durationSec = parts[0] * 60 + parts[1];
+          }
 
-        results.push({
-          id: vr.videoId,
-          title,
-          artist,
-          duration: durationSec,
-          thumbnail: thumb,
-          url: `https://www.youtube.com/watch?v=${vr.videoId}`,
-        });
-        if (results.length >= 12) break;
+          const thumb =
+            vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+            `https://img.youtube.com/vi/${vr.videoId}/hqdefault.jpg`;
+
+          results.push({
+            id: vr.videoId,
+            title,
+            artist,
+            duration: durationSec,
+            type: 'video',
+            thumbnail: thumb,
+            url: `https://www.youtube.com/watch?v=${vr.videoId}`,
+          });
+          if (results.length >= 20) break;
+        }
       }
     }
 

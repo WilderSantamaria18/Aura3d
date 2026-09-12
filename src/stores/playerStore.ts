@@ -76,6 +76,7 @@ interface PlayerState {
   isAudioUnlocked: boolean;
   repeatMode: 'off' | 'all' | 'one';
   isShuffled: boolean;
+  shuffleHistory: number[];
   crossfadeDuration: number;
 
   // Shared / Active Visualizer mode
@@ -355,6 +356,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isAudioUnlocked: false,
   repeatMode: 'off',
   isShuffled: false,
+  shuffleHistory: [],
   crossfadeDuration: 3,
 
   visualizerMode: StorageService.getVisualizerMode(),
@@ -935,9 +937,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return queue[queueIndex];
     }
 
+    const { shuffleHistory } = get();
     let nextIndex = queueIndex + 1;
     if (isShuffled && queue.length > 1) {
-      nextIndex = Math.floor(Math.random() * queue.length);
+      // Evitar repetir la pista actual y priorizar canciones no tocadas recientemente
+      const pool = queue
+        .map((_, i) => i)
+        .filter((i) => i !== queueIndex && !shuffleHistory.slice(-Math.min(5, queue.length - 1)).includes(i));
+      const validPool = pool.length > 0 ? pool : queue.map((_, i) => i).filter((i) => i !== queueIndex);
+      nextIndex = validPool[Math.floor(Math.random() * validPool.length)];
+      set({ shuffleHistory: [...shuffleHistory, queueIndex] });
     } else if (nextIndex >= queue.length) {
       if (repeatMode === 'all') {
         nextIndex = 0;
@@ -952,7 +961,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   previousTrack: () => {
-    const { queue, queueIndex, currentTime, autoMode, baseColorHue } = get();
+    const { queue, queueIndex, currentTime, autoMode, baseColorHue, isShuffled, shuffleHistory } = get();
     if (queue.length === 0) return null;
 
     if (autoMode) {
@@ -972,7 +981,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return queue[queueIndex];
     }
 
-    const prevIndex = queueIndex > 0 ? queueIndex - 1 : queue.length - 1;
+    let prevIndex = queueIndex > 0 ? queueIndex - 1 : queue.length - 1;
+    if (isShuffled && shuffleHistory.length > 0) {
+      const newHistory = [...shuffleHistory];
+      const popped = newHistory.pop()!;
+      set({ shuffleHistory: newHistory });
+      prevIndex = popped;
+    }
+
     const prev = queue[prevIndex];
     set({ currentTrack: prev, queueIndex: prevIndex });
     return prev;
@@ -1004,11 +1020,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   toggleFavorite: (track) => {
     const { favorites } = get();
-    const isFav = favorites.some((t) => t.id === track.id);
+    const isFav = favorites.some(
+      (t) => t.id === track.id || (Boolean(track.youtubeId) && t.youtubeId === track.youtubeId)
+    );
     let updatedFavorites: Track[];
 
     if (isFav) {
-      updatedFavorites = favorites.filter((t) => t.id !== track.id);
+      updatedFavorites = favorites.filter(
+        (t) => t.id !== track.id && (!track.youtubeId || t.youtubeId !== track.youtubeId)
+      );
     } else {
       updatedFavorites = [...favorites, { ...track, isFavorite: true }];
     }
