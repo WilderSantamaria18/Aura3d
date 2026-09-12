@@ -14,8 +14,62 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Término de búsqueda requerido (mínimo 2 caracteres)', results: [] });
   }
 
+  const isPlaylistSearch = searchType === 'playlist';
+
+  // ── 1. Si el usuario configuró YOUTUBE_API_KEY oficial de Google Cloud ─────
+  const apiKey = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
+  if (apiKey) {
+    try {
+      const typeParam = isPlaylistSearch ? 'playlist' : 'video';
+      const apiUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(
+        isPlaylistSearch ? `${query} playlist` : query
+      )}&type=${typeParam}&key=${apiKey}`;
+
+      const apiRes = await fetch(apiUrl);
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        const results = (data.items || []).map((item) => {
+          if (isPlaylistSearch) {
+            return {
+              id: item.id?.playlistId || item.id,
+              title: item.snippet?.title || 'Playlist de YouTube',
+              artist: item.snippet?.channelTitle || 'YouTube Music',
+              videoCount: 'Playlist oficial',
+              type: 'playlist',
+              thumbnail:
+                item.snippet?.thumbnails?.high?.url ||
+                item.snippet?.thumbnails?.medium?.url ||
+                item.snippet?.thumbnails?.default?.url ||
+                '',
+              url: `https://www.youtube.com/playlist?list=${item.id?.playlistId || item.id}`,
+            };
+          } else {
+            const vidId = item.id?.videoId || item.id;
+            return {
+              id: vidId,
+              title: item.snippet?.title || 'Canción de YouTube',
+              artist: item.snippet?.channelTitle || 'Artista de YouTube',
+              duration: 0,
+              type: 'video',
+              thumbnail:
+                item.snippet?.thumbnails?.high?.url ||
+                item.snippet?.thumbnails?.medium?.url ||
+                `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`,
+              url: `https://www.youtube.com/watch?v=${vidId}`,
+            };
+          }
+        });
+
+        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+        return res.status(200).json({ results, source: 'official-api' });
+      }
+    } catch (apiErr) {
+      console.warn('[YouTube API v3 search error, falling back to autonomous engine]:', apiErr);
+    }
+  }
+
+  // ── 2. Fallback autónomo sin límite de cuotas ──────────────────────────────
   try {
-    const isPlaylistSearch = searchType === 'playlist';
     const filterParam = isPlaylistSearch ? '&sp=EgIQAw%253D%253D' : '';
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(
       isPlaylistSearch ? `${query} playlist` : query

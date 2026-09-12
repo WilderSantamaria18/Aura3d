@@ -21,6 +21,57 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'ID de playlist requerido', tracks: [] });
   }
 
+  // ── 1. Si el usuario configuró YOUTUBE_API_KEY oficial de Google Cloud ─────
+  const apiKey = process.env.YOUTUBE_API_KEY || process.env.VITE_YOUTUBE_API_KEY;
+  if (apiKey) {
+    try {
+      const apiUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${encodeURIComponent(
+        playlistId
+      )}&key=${apiKey}`;
+
+      const apiRes = await fetch(apiUrl);
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        const tracks = (data.items || [])
+          .filter((item) => item.snippet?.resourceId?.videoId)
+          .map((item) => {
+            const vId = item.snippet.resourceId.videoId;
+            const thumb =
+              item.snippet.thumbnails?.high?.url ||
+              item.snippet.thumbnails?.medium?.url ||
+              item.snippet.thumbnails?.default?.url ||
+              `https://img.youtube.com/vi/${vId}/hqdefault.jpg`;
+
+            return {
+              id: `yt_${vId}`,
+              title: item.snippet.title || 'Canción de Playlist',
+              artist:
+                item.snippet.videoOwnerChannelTitle ||
+                item.snippet.channelTitle ||
+                'Artista de YouTube',
+              duration: 0,
+              sourceType: 'youtube',
+              youtubeId: vId,
+              thumbnail: thumb,
+              coverUrl: thumb,
+              url: `https://www.youtube.com/watch?v=${vId}`,
+            };
+          });
+
+        res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+        return res.status(200).json({
+          playlistId,
+          count: tracks.length,
+          tracks,
+          source: 'official-api',
+        });
+      }
+    } catch (apiErr) {
+      console.warn('[YouTube API v3 playlistItems error, falling back to autonomous engine]:', apiErr);
+    }
+  }
+
+  // ── 2. Fallback autónomo sin límite de cuotas ──────────────────────────────
   try {
     const url = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
     const response = await fetch(url, {
