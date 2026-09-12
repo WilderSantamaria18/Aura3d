@@ -51,6 +51,11 @@ export class AudioEngine {
 
   private frequencyBuffer: Uint8Array | null = null;
   private isInitialized = false;
+  private isIframeMode = false;
+
+  public setIframeMode(enabled: boolean): void {
+    this.isIframeMode = enabled;
+  }
 
   private listeners: {
     timeUpdate: ((currentTime: number, duration: number) => void)[];
@@ -626,6 +631,31 @@ export class AudioEngine {
     const mids = midsCount ? Math.min(1.0, (midsSum / (midsCount * 255)) * 1.15) : 0;
     const highs = highsCount ? Math.min(1.0, (highsSum / (highsCount * 255)) * 1.2) : 0;
     const energy = this.frequencyBuffer.length ? Math.min(1.0, (totalSum / (this.frequencyBuffer.length * 255)) * 1.25) : 0;
+
+    // Si está reproduciendo vía iframe (ej. YouTube en Vercel sin CORS audio directo),
+    // simular ondas armónicas rítmicas para mantener vivo el visualizador 3D
+    if (this.isIframeMode && energy < 0.05) {
+      const now = performance.now() * 0.003;
+      const beat = Math.pow(Math.max(0, Math.sin(now * 4.0)), 4);
+      const wave = Math.sin(now * 2.5) * 0.5 + 0.5;
+      const simBass = Math.min(1.0, beat * 0.85 + 0.15);
+      const simMids = Math.min(1.0, wave * 0.55 + beat * 0.3);
+      const simHighs = Math.min(1.0, Math.sin(now * 5.5) * 0.3 + beat * 0.4 + 0.15);
+      const simEnergy = (simBass + simMids + simHighs) / 3;
+
+      for (let i = 0; i < this.frequencyBuffer.length; i++) {
+        const falloff = Math.exp(-i / 45);
+        this.frequencyBuffer[i] = Math.min(255, Math.floor((beat * falloff * 210) + (wave * 70) + Math.random() * 20));
+      }
+
+      return {
+        raw: this.frequencyBuffer,
+        bass: simBass,
+        mids: simMids,
+        highs: simHighs,
+        energy: simEnergy,
+      };
+    }
 
     return {
       raw: this.frequencyBuffer,

@@ -7,21 +7,30 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const remoteBackend = process.env.AURA_BACKEND_URL || process.env.BACKEND_URL;
+
+  // 0. Soporte para chequeo rápido de capacidades desde el frontend sin generar error 503
+  if (req.query?.check === '1' || req.query?.status === '1') {
+    return res.status(200).json({
+      hasBackend: !!remoteBackend,
+      mode: remoteBackend ? 'native' : 'iframe',
+    });
+  }
+
   const videoId = (req.query?.v || req.query?.id || '').toString().trim();
   if (!videoId || !/^[a-zA-Z0-9_-]{8,20}$/.test(videoId)) {
     return res.status(400).json({ error: 'ID de video requerido y válido' });
   }
 
   // 1. Si existe un backend con yt-dlp configurado en variables de entorno de Vercel
-  const remoteBackend = process.env.AURA_BACKEND_URL || process.env.BACKEND_URL;
   if (remoteBackend) {
     const cleanUrl = remoteBackend.replace(/\/+$/, '');
     return res.redirect(307, `${cleanUrl}/api/youtube/stream?v=${videoId}`);
   }
 
-  // Para peticiones HEAD rápidas desde el frontend, responder 503 de inmediato para activar el YouTube Player oficial sin retardo
+  // Para peticiones HEAD rápidas desde el frontend, responder 204 o 503 según disponibilidad
   if (req.method === 'HEAD') {
-    return res.status(503).end();
+    return res.status(remoteBackend ? 200 : 503).end();
   }
 
   // 2. Intentar obtener stream de audio a través de gateways públicos

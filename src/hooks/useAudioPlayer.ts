@@ -9,10 +9,11 @@
  *  5. Direct synchronization with Zustand usePlayerStore.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { usePlayerStore } from '../stores/playerStore';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { audioEngine } from '../services/audioEngine';
+import { usePlayerStore } from '../stores/playerStore';
 import type { Track } from '../types/audio';
+import { hasNativeStreamBackend, isVercelDeployment } from '../utils/backendCapabilities';
 
 // ── Global Singleton Subscription (Ensures exactly ONE listener) ───────────
 function ensureGlobalEngineSubscription() {
@@ -175,6 +176,7 @@ export const fetchRelatedTracks = async (
         continue;
       }
       const uniqueKey = `yt_${r.id}`;
+      const isVercel = isVercelDeployment();
       if (!tracksMap.has(uniqueKey)) {
         tracksMap.set(uniqueKey, {
           id: uniqueKey,
@@ -183,7 +185,8 @@ export const fetchRelatedTracks = async (
           duration: r.duration,
           sourceType: 'youtube' as const,
           youtubeId: r.id,
-          url: `/api/youtube/stream?v=${r.id}`,
+          isIframePlayback: isVercel,
+          url: isVercel ? undefined : `/api/youtube/stream?v=${r.id}`,
           coverUrl: r.thumbnail,
           addedAt: Date.now(),
         });
@@ -353,7 +356,9 @@ export const useAudioPlayer = () => {
             setDuration(audioEngine.getDuration() || 0);
           }
           setCurrentTrack({ ...track, url: blobUrl });
-        } else if (track.isIframePlayback) {
+        } else if (track.isIframePlayback || (track.youtubeId && isVercelDeployment())) {
+          track.isIframePlayback = true;
+          audioEngine.pause();
           setDuration(track.duration || 180);
           setCurrentTrack(track);
         } else if (track.url) {
@@ -362,11 +367,13 @@ export const useAudioPlayer = () => {
             setDuration(audioEngine.getDuration() || track.duration || 0);
           } catch {
             track.isIframePlayback = true;
+            audioEngine.pause();
             setDuration(track.duration || 180);
           }
           setCurrentTrack(track);
         } else if (track.youtubeId) {
           track.isIframePlayback = true;
+          audioEngine.pause();
           setDuration(track.duration || 180);
           setCurrentTrack(track);
         } else {
@@ -522,19 +529,21 @@ export const useAudioPlayer = () => {
           console.warn('[useAudioPlayer] Could not fetch YouTube info:', e);
         }
 
-        // 2. Stream audio: Intentar Web Audio stream nativo primero; conmutar a YouTube Player oficial si el backend no está disponible (ej. Vercel)
+        // 2. Stream audio: Si estamos en Vercel o sin backend nativo, usar directamente el reproductor oficial sin peticiones 503
+        const isVercel = isVercelDeployment();
+        const hasBackend = isVercel ? false : await hasNativeStreamBackend();
         const streamUrl = `/api/youtube/stream?v=${videoId}`;
-        let useIframe = false;
-        try {
-          const headCheck = await fetch(streamUrl, { method: 'HEAD' }).catch(() => null);
-          if (headCheck && !headCheck.ok) {
-            useIframe = true;
-          } else {
+        let useIframe = !hasBackend;
+
+        if (hasBackend) {
+          try {
             await audioEngine.loadTrack(streamUrl, true);
+          } catch (streamErr) {
+            console.warn('[useAudioPlayer] Stream directo no disponible, cambiando al reproductor oficial de YouTube:', streamErr);
+            useIframe = true;
           }
-        } catch (streamErr) {
-          console.warn('[useAudioPlayer] Stream directo no disponible en este host, cambiando al reproductor oficial de YouTube:', streamErr);
-          useIframe = true;
+        } else {
+          audioEngine.pause();
         }
 
         const realDur = useIframe ? (dur || 210) : (audioEngine.getDuration() || dur || 0);

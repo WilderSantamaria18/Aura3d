@@ -40,7 +40,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
 import type { Track } from '../../types/audio';
-import { YouTubeIframeFallback } from './YouTubeIframeFallback';
+import { GlobalYouTubePlayer } from './GlobalYouTubePlayer';
 
 // ── Time formatter helper ─────────────────────────────────────────────────────
 const formatTime = (seconds: number): string => {
@@ -96,6 +96,7 @@ export const MiniPlayer: React.FC = () => {
   // ── Local Component State ──────────────────────────────────────────────────
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'player' | 'search' | 'queue'>('player');
+  const [showVideoView, setShowVideoView] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubValue, setScrubValue] = useState(0);
@@ -359,10 +360,11 @@ export const MiniPlayer: React.FC = () => {
       )}
 
       {/* ── Expanded Full Floating Mini-Player (Docked Left: bottom-6 left-4) ─── */}
-      {isExpanded && (
-        <div
-          className="fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md pointer-events-auto transition-all duration-300 origin-bottom-left"
-        >
+      <div
+        className={`fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md transition-all duration-300 origin-bottom-left ${
+          isExpanded ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+        }`}
+      >
           <div
             className="flex flex-col rounded-2xl backdrop-blur-3xl bg-[#080b16]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden animate-in fade-in slide-in-from-left-4 slide-in-from-bottom-4 duration-300"
             style={themeGlowStyle}
@@ -448,9 +450,51 @@ export const MiniPlayer: React.FC = () => {
             {/* Tab Body */}
             <div className="p-4 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
               {/* ── 1. PLAYER TAB ─────────────────────────────────────────── */}
-              {activeTab === 'player' && (
-                <div className="flex flex-col gap-4">
-                  {/* Artwork & Track Information */}
+              <div className={activeTab === 'player' ? 'flex flex-col gap-4' : 'hidden'}>
+                {/* Si es pista de YouTube y la vista de video está activa: mostrar video de YouTube en el MiniPlayer */}
+                {sourceType === 'youtube' && currentTrack?.youtubeId && showVideoView ? (
+                  <div className="flex flex-col gap-3">
+                    <GlobalYouTubePlayer
+                      inMiniPlayer={true}
+                      isMiniPlayerExpanded={isExpanded}
+                      activeTab={activeTab}
+                      showVideoInPlayer={showVideoView}
+                      onToggleVideoView={() => setShowVideoView(false)}
+                      onExpandMiniPlayer={() => setIsExpanded(true)}
+                    />
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <h3 className="text-sm sm:text-base font-bold text-white truncate tracking-tight">
+                          {title}
+                        </h3>
+                        <p className="text-xs text-white/60 font-mono truncate mt-0.5">
+                          {artist}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {sourceBadge}
+                        <button
+                          onClick={() => setShowVideoView(false)}
+                          className="text-[10px] text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 px-2 py-1 rounded-lg border border-cyan-500/20 font-mono transition-colors"
+                          title="Alternar a portada"
+                        >
+                          Portada
+                        </button>
+                        {currentTrack?.youtubeId && (
+                          <a
+                            href={`https://www.youtube.com/watch?v=${currentTrack.youtubeId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-white/40 hover:text-white flex items-center gap-0.5 font-mono px-2 py-1 rounded-lg bg-white/5 border border-white/10"
+                          >
+                            YT <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Artwork & Track Information estándar */
                   <div className="flex items-center gap-3.5">
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 shadow-lg">
                       <img
@@ -478,6 +522,14 @@ export const MiniPlayer: React.FC = () => {
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         {sourceBadge}
+                        {sourceType === 'youtube' && (
+                          <button
+                            onClick={() => setShowVideoView(true)}
+                            className="text-[10px] text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 px-2 py-0.5 rounded-md border border-cyan-500/20 font-mono transition-colors flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" /> Ver Video
+                          </button>
+                        )}
                         {sourceType === 'youtube' && currentTrack?.youtubeId && (
                           <a
                             href={`https://www.youtube.com/watch?v=${currentTrack.youtubeId}`}
@@ -491,17 +543,7 @@ export const MiniPlayer: React.FC = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* YouTube Iframe Player Fallback para Vercel */}
-                  <YouTubeIframeFallback
-                    currentTrack={currentTrack}
-                    isPlaying={isPlaying}
-                    volume={isMuted ? 0 : volume}
-                    onEnded={playNext}
-                    onTimeUpdate={(t) => usePlayerStore.setState({ currentTime: t })}
-                    onDurationChange={(d) => usePlayerStore.setState({ duration: d })}
-                    onStateChange={(playing) => usePlayerStore.setState({ isPlaying: playing })}
-                  />
+                )}
 
                   {/* Interactive Seek Bar */}
                   <div className="flex flex-col gap-1.5 pt-1">
@@ -653,11 +695,9 @@ export const MiniPlayer: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              )}
 
               {/* ── 2. SEARCH TAB (YouTube / Spotify with 300ms Debounce) ──── */}
-              {activeTab === 'search' && (
-                <div className="flex flex-col gap-3">
+              <div className={activeTab === 'search' ? 'flex flex-col gap-3' : 'hidden'}>
                   {/* YouTube Search Bar */}
                   <div className="flex flex-col gap-2">
                     <div className="relative">
@@ -749,11 +789,9 @@ export const MiniPlayer: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              )}
 
               {/* ── 3. QUEUE TAB (Dynamic 50+ Infinite Queue & History) ───── */}
-              {activeTab === 'queue' && (
-                <div className="flex flex-col gap-2">
+              <div className={activeTab === 'queue' ? 'flex flex-col gap-2' : 'hidden'}>
                   <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06]">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono text-white/80 font-bold">
@@ -860,7 +898,6 @@ export const MiniPlayer: React.FC = () => {
                     </div>
                   )}
                 </div>
-              )}
 
               {/* Error Toast if applicable */}
               {audioError && (
@@ -871,7 +908,6 @@ export const MiniPlayer: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
     </>
   );
 };

@@ -294,7 +294,7 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Mini Player — right-side floating panel for local files */}
+      {/* Mini Player — panel flotante con visualización de video de YouTube integrada */}
       {hasStarted && <MiniPlayer />}
 
       {/* Keyboard Shortcuts Studio HUD */}

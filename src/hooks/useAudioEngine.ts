@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { audioEngine } from '../services/audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
 import type { Track } from '../types/audio';
+import { hasNativeStreamBackend, isVercelDeployment } from '../utils/backendCapabilities';
 import type { RadioStation } from '../config/radioStations';
 
 // ─── Stream label parser to extract Title & Artist from Tab/System Capture ──────
@@ -338,15 +339,32 @@ export const useAudioEngine = () => {
           return;
         }
 
-        if (track.url) {
-          await audioEngine.loadTrack(track.url, true);
-          const dur = audioEngine.getDuration() || track.duration || 0;
-          setDuration(dur);
+        if (track.isIframePlayback || (track.youtubeId && isVercelDeployment())) {
+          track.isIframePlayback = true;
+          audioEngine.pause();
+          setDuration(track.duration || 180);
           setCurrentTime(0);
           setCurrentTrack(track);
           setIsPlaying(true);
           setHasStarted(true);
           setAudioUnlocked(true);
+        } else if (track.url) {
+          try {
+            await audioEngine.loadTrack(track.url, true);
+            const dur = audioEngine.getDuration() || track.duration || 0;
+            setDuration(dur);
+            setCurrentTime(0);
+            setCurrentTrack(track);
+            setIsPlaying(true);
+            setHasStarted(true);
+            setAudioUnlocked(true);
+          } catch {
+            track.isIframePlayback = true;
+            audioEngine.pause();
+            setDuration(track.duration || 180);
+            setCurrentTrack(track);
+            setIsPlaying(true);
+          }
         } else {
           setCurrentTrack(track);
           setIsPlaying(true);
@@ -405,6 +423,11 @@ export const useAudioEngine = () => {
   }, [playTrack, setCurrentTime]);
 
   const togglePlayPause = useCallback(async () => {
+    const state = usePlayerStore.getState();
+    if (state.currentTrack?.isIframePlayback) {
+      setIsPlaying(!state.isPlaying);
+      return;
+    }
     if (isPlaying) {
       audioEngine.pause();
       setIsPlaying(false);
@@ -416,6 +439,12 @@ export const useAudioEngine = () => {
 
   const seek = useCallback(
     (seconds: number) => {
+      const state = usePlayerStore.getState();
+      if (state.currentTrack?.isIframePlayback) {
+        setCurrentTime(seconds);
+        window.dispatchEvent(new CustomEvent('aura:youtube-seek', { detail: { seconds } }));
+        return;
+      }
       audioEngine.seek(seconds);
       setCurrentTime(seconds);
     },
@@ -464,11 +493,23 @@ export const useAudioEngine = () => {
           console.warn('[useAudioEngine] Could not fetch YouTube metadata:', e);
         }
 
-        // 2. Connect backend audio stream
+        // 2. Stream audio: Si estamos en Vercel o sin backend nativo, usar reproductor oficial directamente
+        const isVercel = isVercelDeployment();
+        const hasBackend = isVercel ? false : await hasNativeStreamBackend();
         const streamUrl = `/api/youtube/stream?v=${videoId}`;
-        await audioEngine.loadTrack(streamUrl, true);
+        let useIframe = !hasBackend;
 
-        const realDur = audioEngine.getDuration() || duration || 0;
+        if (hasBackend) {
+          try {
+            await audioEngine.loadTrack(streamUrl, true);
+          } catch {
+            useIframe = true;
+          }
+        } else {
+          audioEngine.pause();
+        }
+
+        const realDur = useIframe ? (duration || 210) : (audioEngine.getDuration() || duration || 0);
         setDuration(realDur);
         setCurrentTime(0);
         setIsPlaying(true);
@@ -482,7 +523,8 @@ export const useAudioEngine = () => {
           duration: realDur,
           sourceType: 'youtube',
           youtubeId: videoId,
-          url: streamUrl,
+          isIframePlayback: useIframe,
+          url: useIframe ? undefined : streamUrl,
           coverUrl,
           addedAt: Date.now(),
         };
