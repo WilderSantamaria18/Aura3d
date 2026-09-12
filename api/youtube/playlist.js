@@ -1,3 +1,12 @@
+function parseDurationText(str) {
+  if (!str) return 0;
+  const parts = str.toString().trim().split(':').map(Number);
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -7,7 +16,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const playlistId = (req.query.id || req.query.list || '').toString().trim();
+  const playlistId = (req.query.id || req.query.list || '').toString().trim().replace(/^VL/, '');
   if (!playlistId) {
     return res.status(400).json({ error: 'ID de playlist requerido', tracks: [] });
   }
@@ -35,12 +44,13 @@ export default async function handler(req, res) {
     const parsed = JSON.parse(match[1]);
     const tabContents =
       parsed.contents?.twoColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content
-        ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]
-        ?.playlistVideoListRenderer?.contents || [];
+        ?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
 
     const tracks = [];
     for (const item of tabContents) {
       const pvr = item.playlistVideoRenderer;
+      const lm = item.lockupViewModel;
+
       if (pvr && pvr.videoId) {
         const title = pvr.title?.runs?.[0]?.text || pvr.title?.simpleText || 'Canción de Playlist';
         const artist =
@@ -63,8 +73,33 @@ export default async function handler(req, res) {
           coverUrl: thumb,
           url: `https://www.youtube.com/watch?v=${pvr.videoId}`,
         });
-        if (tracks.length >= 50) break;
+      } else if (lm && lm.contentId && /^[a-zA-Z0-9_-]{11}$/.test(lm.contentId)) {
+        const title = lm.metadata?.lockupMetadataViewModel?.title?.content || 'Canción de Playlist';
+        const artist =
+          lm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text?.content ||
+          'Artista de YouTube';
+        const durText =
+          lm.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailOverlayBadgeViewModel?.thumbnailBadges?.[0]?.thumbnailBadgeViewModel?.text ||
+          '';
+        const durationSec = parseDurationText(durText);
+        const thumb =
+          lm.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url ||
+          `https://img.youtube.com/vi/${lm.contentId}/hqdefault.jpg`;
+
+        tracks.push({
+          id: `yt_${lm.contentId}`,
+          title,
+          artist,
+          duration: durationSec,
+          sourceType: 'youtube',
+          youtubeId: lm.contentId,
+          thumbnail: thumb,
+          coverUrl: thumb,
+          url: `https://www.youtube.com/watch?v=${lm.contentId}`,
+        });
       }
+
+      if (tracks.length >= 60) break;
     }
 
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');

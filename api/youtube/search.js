@@ -49,6 +49,7 @@ export default async function handler(req, res) {
     for (const c of contents) {
       if (isPlaylistSearch) {
         const pr = c.playlistRenderer;
+        const lm = c.lockupViewModel;
         if (pr && pr.playlistId) {
           const title = pr.title?.simpleText || pr.title?.runs?.[0]?.text || 'Playlist de YouTube';
           const artist =
@@ -70,10 +71,34 @@ export default async function handler(req, res) {
             thumbnail: thumb,
             url: `https://www.youtube.com/playlist?list=${pr.playlistId}`,
           });
-          if (results.length >= 15) break;
+          if (results.length >= 20) break;
+        } else if (lm && lm.contentId) {
+          const title = lm.metadata?.lockupMetadataViewModel?.title?.content || 'Playlist de YouTube';
+          const artist =
+            lm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text?.content ||
+            'YouTube Music';
+          const count =
+            lm.contentImage?.collectionThumbnailViewModel?.primaryThumbnail?.thumbnailViewModel?.overlays?.[0]?.thumbnailOverlayBadgeViewModel?.thumbnailBadges?.[0]?.thumbnailBadgeViewModel?.text ||
+            'Playlist';
+          const thumb =
+            lm.contentImage?.collectionThumbnailViewModel?.primaryThumbnail?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url ||
+            '';
+
+          const cleanId = lm.contentId.replace(/^VL/, '');
+          results.push({
+            id: cleanId,
+            title,
+            artist,
+            videoCount: count,
+            type: 'playlist',
+            thumbnail: thumb,
+            url: `https://www.youtube.com/playlist?list=${cleanId}`,
+          });
+          if (results.length >= 20) break;
         }
       } else {
         const vr = c.videoRenderer;
+        const lm = c.lockupViewModel;
         if (vr && vr.videoId && !vr.videoId.startsWith('UC')) {
           const title = vr.title?.runs?.[0]?.text || 'Canción de YouTube';
           const artist =
@@ -101,6 +126,36 @@ export default async function handler(req, res) {
             type: 'video',
             thumbnail: thumb,
             url: `https://www.youtube.com/watch?v=${vr.videoId}`,
+          });
+          if (results.length >= 20) break;
+        } else if (lm && lm.contentId && /^[a-zA-Z0-9_-]{11}$/.test(lm.contentId)) {
+          const title = lm.metadata?.lockupMetadataViewModel?.title?.content || 'Canción de YouTube';
+          const artist =
+            lm.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text?.content ||
+            'Artista de YouTube';
+          const durBadge =
+            lm.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailOverlayBadgeViewModel?.thumbnailBadges?.[0]?.thumbnailBadgeViewModel?.text ||
+            '';
+
+          let durationSec = 0;
+          if (durBadge) {
+            const parts = durBadge.split(':').map(Number);
+            if (parts.length === 3) durationSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            else if (parts.length === 2) durationSec = parts[0] * 60 + parts[1];
+          }
+
+          const thumb =
+            lm.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url ||
+            `https://img.youtube.com/vi/${lm.contentId}/hqdefault.jpg`;
+
+          results.push({
+            id: lm.contentId,
+            title,
+            artist,
+            duration: durationSec,
+            type: 'video',
+            thumbnail: thumb,
+            url: `https://www.youtube.com/watch?v=${lm.contentId}`,
           });
           if (results.length >= 20) break;
         }
