@@ -1,5 +1,7 @@
 export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system' | 'radio';
-export type VisualizerMode = 'sphere' | 'blob' | 'synthwave';
+export type VisualizerMode = 'sphere' | 'blob' | 'synthwave' | 'warp' | 'terrain' | 'blackhole';
+export type VocalMode = 'off' | 'karaoke' | 'acappella';
+export type ReverbPreset = 'off' | 'studio' | 'club' | 'concert' | 'cathedral';
 export type VisualizerShape =
   | 'sphere'
   | 'rings'
@@ -110,6 +112,50 @@ export const PROFESSIONAL_PALETTES: ColorPalette[] = [
 ];
 
 export const LUCID_THEMES: LucidTheme[] = [
+  {
+    id: 'oled-pure-black',
+    name: 'OLED Pure Black',
+    primary: '#00f2fe',
+    secondary: '#ffffff',
+    glow: 'rgba(0, 242, 254, 0.40)',
+    bgGradient: '#000000',
+    glassColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    textColor: '#ffffff',
+  },
+  {
+    id: 'tokyo-drift',
+    name: 'Tokyo Drift (Cyberpunk)',
+    primary: '#ff007f',
+    secondary: '#00f2fe',
+    glow: 'rgba(255, 0, 127, 0.50)',
+    bgGradient: 'radial-gradient(ellipse at 30% 30%, #200018 0%, #001222 65%, #020008 100%)',
+    glassColor: 'rgba(255, 0, 127, 0.08)',
+    borderColor: 'rgba(255, 0, 127, 0.40)',
+    textColor: '#ff007f',
+  },
+  {
+    id: 'deep-space-aurora',
+    name: 'Deep Space Aurora',
+    primary: '#00ff87',
+    secondary: '#60efff',
+    glow: 'rgba(0, 255, 135, 0.45)',
+    bgGradient: 'radial-gradient(ellipse at 30% 30%, #001f16 0%, #001228 65%, #010408 100%)',
+    glassColor: 'rgba(0, 255, 135, 0.08)',
+    borderColor: 'rgba(0, 255, 135, 0.35)',
+    textColor: '#00ff87',
+  },
+  {
+    id: 'solar-flare',
+    name: 'Solar Flare (Ámbar)',
+    primary: '#ffaa00',
+    secondary: '#ff5500',
+    glow: 'rgba(255, 170, 0, 0.45)',
+    bgGradient: 'radial-gradient(ellipse at 30% 30%, #291200 0%, #1f0500 65%, #0a0100 100%)',
+    glassColor: 'rgba(255, 170, 0, 0.08)',
+    borderColor: 'rgba(255, 170, 0, 0.35)',
+    textColor: '#ffaa00',
+  },
   {
     id: 'cyber-prism',
     name: 'Cian & Rosa Neón',
@@ -253,6 +299,10 @@ export interface BlobCustomSettings {
   backgroundOpacity?: number;
   backgroundFit?: 'cover' | 'contain';
   backgroundScale?: number;
+  // Background Image Text Protection & Lucid Color Contrast Blend
+  backgroundContrastMode?: 'none' | 'text_clarity' | 'lucid_tint' | 'deep_cinema';
+  backgroundTextScrim?: number;
+  backgroundThemeTint?: number;
   // Rainbow Void 2D & Atmospheric Calibration & Dynamics
   backgroundAtmosphere?: BackgroundAtmosphere;
   atmosphereSpeed?: number;
@@ -312,3 +362,21 @@ export interface FrequencyData {
   highs: number;    // 0 - 1 (normalized average of high frequencies 4000Hz-20000Hz)
   energy: number;   // overall audio energy (0 - 1)
 }
+
+export type MasteringLimiterPreset = 'off' | 'punchy_club' | 'warm_tape' | 'vocal_clarity';
+
+export interface DjLoopState {
+  loopA: number | null;
+  loopB: number | null;
+  isActive: boolean;
+  cuePoints: number[];
+}
+
+export interface SessionStatsData {
+  totalSeconds: number;
+  focusSeconds: number;
+  tracksPlayed: number;
+  keysDistribution: Record<string, number>;
+  sessionStartTime: number;
+}
+

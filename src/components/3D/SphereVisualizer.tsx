@@ -182,13 +182,12 @@ const MainSphereShader = {
       float dist = length(coord);
       if (dist > 0.5) discard;
 
-      // Solid, crisp anti-aliased edge with high core opacity
-      float edgeAlpha = smoothstep(0.50, 0.32, dist);
-      float alpha = edgeAlpha * min(1.0, uOpacity * 1.35);
+      // Solid, crisp anti-aliased edge with clean opacity
+      float edgeAlpha = smoothstep(0.50, 0.40, dist);
+      float alpha = edgeAlpha * min(1.0, uOpacity);
 
-      // Solid luminous sand core (prevents background bleed-through)
-      float coreDensity = smoothstep(0.30, 0.0, dist) * 0.65;
-      vec3 finalColor = vColor.rgb * (1.35 + coreDensity);
+      // Clean particle color without artificial blurry halo
+      vec3 finalColor = vColor.rgb;
 
       gl_FragColor = vec4(finalColor, alpha);
     }
@@ -576,7 +575,7 @@ export const SphereVisualizer: React.FC<SphereVisualizerProps> = React.memo(
         u.uShape.value = getShapeId(sphereShape);
         u.uSize.value = isLucid ? 0.068 : isUltraEco ? 0.062 : isEco ? 0.058 : 0.054;
         u.uOpacity.value = isLucid ? 1.0 : Math.max(0.85, sphereOpacity);
-        u.uAudioGlow.value = 1.15 + sHighs * 0.40 + (sBass > 0.40 ? 0.28 : 0.0);
+        u.uAudioGlow.value = 1.0;
         u.uHeadYOffset.value = headPos ? (headPos.y / 6) * 0.15 : 0;
         u.uNumShockwaves.value = 0;
         u.uPixelRatio.value = dpr;

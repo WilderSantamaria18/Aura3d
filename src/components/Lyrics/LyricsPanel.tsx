@@ -449,11 +449,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       {/* Main Synchronized Scrolling Lyrics Body */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto py-6 sm:py-8 space-y-4 sm:space-y-6 scroll-smooth pr-1 my-1"
+        className="flex-1 overflow-y-auto py-8 sm:py-12 space-y-4 sm:space-y-6 scroll-smooth pr-1 my-1"
         style={{
           scrollbarWidth: 'none',
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
         }}
       >
         {lyrics.length === 0 ? (
@@ -469,21 +469,21 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
             const isActive = index === activeIndex;
             const distance = Math.abs(index - activeIndex);
 
-            // Progressive blur and opacity falloff
-            const opacity = isActive ? 1.0 : Math.max(0.20, 0.70 - distance * 0.14);
-            const blurAmount = isActive ? 0 : Math.min(3.5, distance * 0.7);
+            // Progressive blur and opacity falloff (Apple Music style)
+            const opacity = isActive ? 1.0 : Math.max(0.18, 0.65 - distance * 0.16);
+            const blurAmount = isActive ? 0 : Math.min(4.5, 1.2 + distance * 1.1);
 
             // Adaptive base font size with user offset
             const baseSizeClass = isFullscreen
               ? fontSizeOffset === -2
-                ? 'text-base sm:text-lg py-2 px-3'
+                ? 'text-lg sm:text-xl py-2 px-3'
                 : fontSizeOffset === -1
-                ? 'text-lg sm:text-xl py-2 px-4'
+                ? 'text-xl sm:text-2xl py-2.5 px-4'
                 : fontSizeOffset === 1
-                ? 'text-2xl sm:text-3xl py-3 px-5'
+                ? 'text-3xl sm:text-4xl py-3.5 px-6'
                 : fontSizeOffset >= 2
-                ? 'text-3xl sm:text-4xl py-4 px-6'
-                : 'text-xl sm:text-2xl py-2.5 px-4'
+                ? 'text-4xl sm:text-5xl py-4 px-8'
+                : 'text-2xl sm:text-3xl py-3 px-5'
               : fontSizeOffset === -2
               ? 'text-xs py-1.5 px-2.5'
               : fontSizeOffset === -1
@@ -498,22 +498,22 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               <div
                 key={index}
                 onClick={() => onSeek && onSeek(line.time)}
-                className={`rounded-2xl cursor-pointer transition-all duration-500 ease-out text-center ${baseSizeClass} ${
+                className={`rounded-2xl cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] text-center ${baseSizeClass} ${
                   isActive
-                    ? 'font-bold text-white scale-[1.03] shadow-[0_10px_35px_rgba(0,0,0,0.5)] border'
+                    ? 'font-bold text-white scale-[1.08] shadow-[0_12px_40px_rgba(0,0,0,0.6)] border'
                     : 'text-white/60 hover:text-white hover:bg-white/[0.04] font-medium'
                 }`}
                 style={{
                   opacity,
                   filter: `blur(${blurAmount}px)`,
                   backgroundColor: isActive
-                    ? `${activeColor}20`
+                    ? `${activeColor}22`
                     : undefined,
                   borderColor: isActive
-                    ? `${activeColor}60`
+                    ? `${activeColor}55`
                     : 'transparent',
                   textShadow: isActive
-                    ? `0 0 20px ${activeColor}99, 0 0 40px ${activeColor}44`
+                    ? `0 0 24px ${activeColor}, 0 0 45px ${activeColor}80`
                     : 'none',
                 }}
               >

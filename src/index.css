@@ -50,11 +50,35 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
   background-color: var(--surface-base);
-  font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  letter-spacing: -0.01em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.012em;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   caret-color: var(--accent-cyan);
+}
+
+/* ── Typographic Polish Utilities ── */
+/* 1. Tabular Figures: Prevents bouncing numbers in timestamps, BPM, and audio telemetry */
+.font-tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* 2. 3D Scrim: High-contrast legible text shadow for labels over bright 3D visualizers */
+.text-scrim-3d {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
+/* 3. Studio Headline Tracking */
+.tracking-studio-tight {
+  letter-spacing: -0.025em;
+}
+
+.tracking-studio-wide {
+  letter-spacing: 0.08em;
 }
 
 /* Text selection with restrained studio tint */
@@ -189,54 +213,70 @@ input[type="range"]:focus-visible {
 
 /* ── Global Lucid Mode Overrides & Utility Classes ── */
 .lucid-mode {
-  --accent-color: var(--lucid-primary);
-  --accent-secondary: var(--lucid-secondary);
+  --accent-color: var(--lucid-primary, #00e5ff);
+  --accent-secondary: var(--lucid-secondary, #ff088a);
+  --border-focus: var(--lucid-primary, #00e5ff);
 }
 
 .lucid-mode ::-webkit-scrollbar-thumb {
-  background: var(--lucid-primary) !important;
-  box-shadow: 0 0 10px var(--lucid-glow);
+  background: var(--lucid-primary, #00e5ff) !important;
+  box-shadow: 0 0 10px var(--lucid-glow, rgba(0, 229, 255, 0.4));
 }
 
 .lucid-mode ::-webkit-scrollbar-thumb:hover {
-  background: var(--lucid-secondary) !important;
+  background: var(--lucid-secondary, #ff088a) !important;
 }
 
 .lucid-mode input[type="range"]::-webkit-slider-thumb {
-  background: var(--lucid-primary) !important;
-  box-shadow: 0 0 12px var(--lucid-glow) !important;
+  background: var(--lucid-primary, #00e5ff) !important;
+  box-shadow: 0 0 14px var(--lucid-glow, rgba(0, 229, 255, 0.4)) !important;
 }
 
 .lucid-mode input[type="range"]::-webkit-slider-thumb:hover {
-  background: var(--lucid-secondary) !important;
-  box-shadow: 0 0 16px var(--lucid-glow) !important;
+  background: var(--lucid-secondary, #ff088a) !important;
+  box-shadow: 0 0 18px var(--lucid-glow, rgba(0, 229, 255, 0.6)) !important;
 }
 
-/* Glassmorphism panels in Lucid Mode */
-.lucid-panel {
-  background: var(--lucid-glass, rgba(57, 255, 20, 0.08)) !important;
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border-color: var(--lucid-border, rgba(57, 255, 20, 0.35)) !important;
-  box-shadow: 0 0 28px var(--lucid-glow, rgba(57, 255, 20, 0.3)), 0 12px 40px rgba(0, 0, 0, 0.8) !important;
+/* Glassmorphism panels and containers in Lucid Mode */
+.lucid-panel,
+.lucid-mode .lucid-panel {
+  background: var(--lucid-glass, rgba(8, 14, 28, 0.90)) !important;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-color: var(--lucid-border, rgba(0, 229, 255, 0.35)) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px var(--lucid-glow, rgba(0, 229, 255, 0.25)) !important;
 }
 
 /* Primary buttons in Lucid Mode */
 .lucid-btn-primary {
-  background: linear-gradient(135deg, var(--lucid-primary), var(--lucid-secondary)) !important;
+  background: linear-gradient(135deg, var(--lucid-primary, #00e5ff), var(--lucid-secondary, #ff088a)) !important;
   color: #000000 !important;
-  box-shadow: 0 0 20px var(--lucid-glow) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 22px var(--lucid-glow, rgba(0, 229, 255, 0.4)) !important;
 }
 
-/* Glowing text and borders */
+/* Glowing text, badges and borders */
 .lucid-text-glow {
-  color: var(--lucid-text, var(--lucid-primary)) !important;
-  text-shadow: 0 0 12px var(--lucid-glow);
+  color: var(--lucid-text, var(--lucid-primary, #00e5ff)) !important;
+  text-shadow: 0 0 14px var(--lucid-glow, rgba(0, 229, 255, 0.45));
 }
 
 .lucid-border-glow {
-  border-color: var(--lucid-border) !important;
-  box-shadow: 0 0 20px var(--lucid-glow) !important;
+  border-color: var(--lucid-border, rgba(0, 229, 255, 0.4)) !important;
+  box-shadow: 0 0 22px var(--lucid-glow, rgba(0, 229, 255, 0.3)) !important;
+}
+
+/* Make headers, dock pill, toolbars and dropdowns adapt cleanly in Lucid Mode */
+.lucid-mode .lucid-adaptive-border {
+  border-color: var(--lucid-border, rgba(0, 229, 255, 0.3)) !important;
+}
+
+.lucid-mode .lucid-adaptive-text {
+  color: var(--lucid-primary, #00e5ff) !important;
+}
+
+.lucid-mode .lucid-adaptive-glow {
+  box-shadow: 0 0 20px var(--lucid-glow, rgba(0, 229, 255, 0.3)) !important;
 }
 
 /* ── Dynamic Auto Mode (Modo Inteligente) CSS Variables & Utilities ── */

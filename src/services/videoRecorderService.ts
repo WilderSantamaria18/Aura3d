@@ -6,6 +6,7 @@ export type VideoAspectRatio = '16:9' | '4:3' | '1:1' | '9:16';
 export interface RecorderOptions {
   durationLimitSec?: number; // Optional auto-stop duration (e.g. 15s or 30s)
   aspectRatio?: VideoAspectRatio;
+  includeTrackCard?: boolean; // Overlay song card & Aura3D branding for TikTok / Reels / Shorts
   onProgress?: (elapsedSec: number) => void;
   onFinish?: (blobUrl: string, fileName: string) => void;
   onError?: (err: Error) => void;
@@ -176,6 +177,9 @@ class VideoRecorderService {
             }
 
             cropCtx.drawImage(hiddenVideo, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+            if (options.includeTrackCard) {
+              this.drawTrackWatermark(cropCtx, targetW, targetH, selectedRatio);
+            }
             requestAnimationFrame(drawCropFrame);
           };
 
@@ -228,6 +232,9 @@ class VideoRecorderService {
             }
 
             cropCtx.drawImage(canvas, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+            if (options.includeTrackCard) {
+              this.drawTrackWatermark(cropCtx, targetW, targetH, selectedRatio);
+            }
             requestAnimationFrame(drawCanvasFrame);
           };
 
@@ -437,6 +444,79 @@ class VideoRecorderService {
 
     options.onFinish?.(this.activeBlobUrl, fileName);
     this.notifyState();
+  }
+
+  /**
+   * Draw cinematic track info watermark card onto recorded video frame
+   */
+  private drawTrackWatermark(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    ratio: VideoAspectRatio
+  ): void {
+    const currentTrack = usePlayerStore.getState().currentTrack;
+    const title = currentTrack?.title || 'Aura3D Soundscape';
+    const artist = currentTrack?.artist || 'DAW Studio Visualizer';
+
+    ctx.save();
+    const isVertical = ratio === '9:16';
+    const cardW = isVertical ? Math.min(width * 0.88, 620) : Math.min(width * 0.46, 540);
+    const cardH = isVertical ? 116 : 82;
+    const cardX = (width - cardW) / 2;
+    const cardY = isVertical ? height - cardH - 140 : height - cardH - 50;
+
+    // Outer subtle shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
+
+    // Background Glass Pill
+    ctx.fillStyle = 'rgba(7, 10, 20, 0.84)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(cardX, cardY, cardW, cardH, 20);
+    } else {
+      ctx.rect(cardX, cardY, cardW, cardH);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+
+    // Aura 3D Accent Tag
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText('● AURA 3D STUDIO', cardX + 22, cardY + (isVertical ? 32 : 25));
+
+    // Song Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px sans-serif';
+    const maxTitleLen = isVertical ? 26 : 30;
+    const displayTitle = title.length > maxTitleLen ? title.substring(0, maxTitleLen - 2) + '...' : title;
+    ctx.fillText(displayTitle, cardX + 22, cardY + (isVertical ? 64 : 50));
+
+    // Artist Name
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.font = '13px monospace';
+    const maxArtistLen = isVertical ? 30 : 36;
+    const displayArtist = artist.length > maxArtistLen ? artist.substring(0, maxArtistLen - 2) + '...' : artist;
+    ctx.fillText(displayArtist, cardX + 22, cardY + (isVertical ? 92 : 70));
+
+    // Animated Mini Spectrum Indicator Bars on right side of card
+    const barsX = cardX + cardW - 65;
+    const barsY = cardY + cardH / 2;
+    const t = performance.now() * 0.007;
+    ctx.fillStyle = '#00e5ff';
+    for (let i = 0; i < 5; i++) {
+      const barH = 10 + Math.sin(t + i * 1.3) * 9;
+      ctx.fillRect(barsX + i * 8, barsY - barH / 2, 4, barH);
+    }
+
+    ctx.restore();
   }
 
   private cleanupTimer() {

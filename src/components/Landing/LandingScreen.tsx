@@ -1,14 +1,14 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Disc3,
   ChevronDown,
   ArrowRight,
   Headphones,
   Mic,
-  Sparkles,
   Sliders,
   Activity,
   Layers,
+  UploadCloud,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -30,6 +30,7 @@ export const LandingScreen: React.FC = () => {
 
   const [activeStage, setActiveStage] = useState(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState(false);
+  const [isDraggingHero, setIsDraggingHero] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollProgressRef = useRef<number>(0);
@@ -40,6 +41,22 @@ export const LandingScreen: React.FC = () => {
   const section1Ref = useRef<HTMLElement>(null);
   const section2Ref = useRef<HTMLElement>(null);
   const section3Ref = useRef<HTMLElement>(null);
+
+  // Keyboard shortcut listener: Space to launch, M for mic
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleStartExperience();
+      } else if (e.key === 'm' || e.key === 'M') {
+        handleMicStart();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 60 FPS zero-rerender scroll handler:
   // - Updates 3D Three.js camera directly via mutable ref
@@ -115,38 +132,39 @@ export const LandingScreen: React.FC = () => {
       {/* ── 3D Scene Background linked to Scroll Progress via zero-rerender ref ── */}
       <Landing3DScene scrollProgressRef={scrollProgressRef} isTransitioningOut={isTransitioningOut} />
 
-      {/* ── Floating Right Navigation Dots ── */}
+      {/* ── Floating Right Navigation Channel Strip ── */}
       <nav
-        className="fixed right-3 sm:right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col items-end gap-3 font-mono text-[10px]"
-        aria-label="Etapas de navegación"
+        className="fixed right-3 sm:right-6 top-1/2 -translate-y-1/2 z-40 hidden md:flex flex-col items-end gap-2.5 font-mono text-[10px]"
+        aria-label="Canales de navegación"
       >
         {[
-          { label: '01 INTRO & OSC', idx: 0 },
-          { label: '02 DSP MIXER', idx: 1 },
-          { label: '03 RAINBOW VOID', idx: 2 },
-          { label: '04 ENTRAR', idx: 3 },
-        ].map((stage) => {
-          const isActive = activeStage === stage.idx;
+          { ch: 'CH 01', label: 'CONSOLA' },
+          { ch: 'CH 02', label: 'DSP EQ' },
+          { ch: 'CH 03', label: 'TORNAMESA' },
+          { ch: 'CH 04', label: 'ACCESO' },
+        ].map((stage, idx) => {
+          const isActive = activeStage === idx;
           return (
             <button
-              key={stage.idx}
-              onClick={() => scrollToStage(stage.idx)}
+              key={idx}
+              onClick={() => scrollToStage(idx)}
               className="flex items-center gap-2 group transition-all cursor-pointer"
             >
               <span
-                className={`transition-all duration-300 uppercase tracking-widest ${
+                className={`transition-all duration-200 tracking-wider ${
                   isActive
-                    ? 'text-white font-semibold'
-                    : 'text-white/30 group-hover:text-white/70'
+                    ? 'text-[#f0f4fc] font-semibold'
+                    : 'text-[#556075] group-hover:text-[#8b95a5]'
                 }`}
               >
+                <span className="text-[9px] text-[#00e5ff] mr-1.5">{stage.ch}</span>
                 {stage.label}
               </span>
               <span
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded transition-all duration-200 ${
                   isActive
-                    ? 'w-6 bg-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.8)]'
-                    : 'w-2 bg-white/20 group-hover:bg-white/50'
+                    ? 'w-5 bg-[#00e5ff]'
+                    : 'w-1.5 bg-white/20 group-hover:bg-white/40'
                 }`}
               />
             </button>
@@ -164,26 +182,32 @@ export const LandingScreen: React.FC = () => {
       </div>
 
       {/* ── Fixed Studio Brand Header ── */}
-      <header className="fixed top-0 left-0 right-0 z-30 px-6 sm:px-12 py-5 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2.5 pointer-events-auto">
+      <header className="fixed top-0 left-0 right-0 z-30 px-6 sm:px-12 py-4 flex items-center justify-between pointer-events-none">
+        <div className="flex items-center gap-3 pointer-events-auto">
           <div className="w-8 h-8 rounded-lg bg-[#070a14]/90 border border-white/10 flex items-center justify-center backdrop-blur-md shadow-lg">
             <Disc3 className="w-4 h-4 text-cyan-400 animate-[spin_12s_linear_infinite]" />
           </div>
-          <span className="font-mono text-xs uppercase tracking-[0.25em] text-white/90">
+          <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#f0f4fc]">
             Aura3D <span className="text-cyan-400 font-semibold">Studio</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-md text-[10px] font-mono text-white/50">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="hidden sm:inline">60 FPS // 3D Engine</span>
-            <span className="sm:hidden">Ready</span>
-          </div>
+        {/* Live Studio Hardware Telemetry Ribbon */}
+        <div className="hidden lg:flex items-center gap-3 font-mono text-[10px] text-[#8b95a5] px-3.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] backdrop-blur-md pointer-events-auto">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
+            <span className="text-[#f0f4fc]">48.0 kHz</span> // 32-BIT FLOAT
+          </span>
+          <span className="text-white/20">|</span>
+          <span>DSP LATENCY &lt; 8ms</span>
+          <span className="text-white/20">|</span>
+          <span className="text-[#00e5ff]">WEB AUDIO NODE</span>
+        </div>
 
+        <div className="flex items-center gap-3 pointer-events-auto">
           <button
             onClick={handleStartExperience}
-            className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-mono tracking-wider uppercase text-white transition-all shadow-sm active:scale-95"
+            className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-mono tracking-wider uppercase text-white transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             Entrar →
           </button>
@@ -201,48 +225,91 @@ export const LandingScreen: React.FC = () => {
 
         {/* Center Hero Card with Zoom Transform */}
         <div
-          className={`max-w-2xl w-full flex flex-col items-center text-center space-y-5 transition-[transform,opacity] duration-500 ease-out will-change-[transform,opacity] ${
+          className={`max-w-2xl w-full flex flex-col items-center text-center space-y-4 transition-[transform,opacity] duration-500 ease-out will-change-[transform,opacity] ${
             activeStage === 0
               ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto'
               : 'scale-[0.94] opacity-40 translate-y-4 pointer-events-none'
           }`}
         >
-          {/* Eyebrow tag */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full border border-white/[0.12] bg-white/[0.04] text-white/80 text-[11px] font-mono tracking-wider backdrop-blur-md shadow-lg">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>ESTUDIO ACÚSTICO ESPACIAL 3D // WEB AUDIO API</span>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-5xl sm:text-7xl md:text-8xl font-light tracking-tight text-white font-sans">
-            AURA<span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-violet-300 to-pink-400">3D</span>
+          {/* Architectural Solid Title (No AI gradient text anti-pattern) */}
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-light tracking-tight text-[#f0f4fc] font-sans">
+            AURA<span className="font-semibold text-[#00e5ff] ml-1">3D</span>
           </h1>
 
-          <p className="max-w-md mx-auto text-white/60 font-light text-xs sm:text-sm leading-relaxed tracking-wide font-mono">
-            Arquitectura de audio espacial en tiempo real con shaders GPU y micro-física de ondas.
+          <p className="max-w-md mx-auto text-[#8b95a5] font-normal text-xs sm:text-sm leading-relaxed tracking-normal font-sans">
+            Estación de audio espacial en tiempo real con shaders WebGL y micro-física acústica.
           </p>
 
-          {/* Real-time Oscilloscope Component */}
+          {/* Real-time Oscilloscope with Interactive Wave Mode */}
           <div className="w-full max-w-md pt-1">
             <StudioOscilloscope color="#00e5ff" />
           </div>
 
+          {/* Quick Audio Dropzone in Hero */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingHero(true);
+            }}
+            onDragLeave={() => setIsDraggingHero(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDraggingHero(false);
+              if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+                handleFileLoaded(e.dataTransfer.files[0]);
+              }
+            }}
+            className={`w-full max-w-md p-3.5 rounded-xl border transition-all cursor-pointer ${
+              isDraggingHero
+                ? 'border-[#00e5ff] bg-[#00e5ff]/15 scale-[1.02]'
+                : 'border-white/10 bg-[#070b16]/70 hover:border-white/25 hover:bg-[#070b16]/90'
+            }`}
+          >
+            <label className="flex items-center gap-3 cursor-pointer w-full">
+              <div className="w-8 h-8 rounded-lg bg-[#00e5ff]/10 border border-[#00e5ff]/25 flex items-center justify-center text-[#00e5ff] flex-shrink-0">
+                <UploadCloud className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="text-xs font-medium text-[#f0f4fc]">
+                  Arrastra cualquier audio aquí o examinar
+                </div>
+                <div className="text-[10px] text-[#8b95a5] font-mono mt-0.5">
+                  FLAC, WAV, MP3, OGG // Inicio instantáneo
+                </div>
+              </div>
+              <span className="text-[10px] font-mono uppercase px-2 py-1 rounded bg-white/[0.05] border border-white/10 text-white/70 flex-shrink-0">
+                Cargar
+              </span>
+              <input
+                type="file"
+                accept="audio/*,.mp3,.wav,.flac,.ogg"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleFileLoaded(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+          </div>
+
           {/* Action CTAs */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 w-full justify-center">
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 w-full justify-center">
             <button
               onClick={handleStartExperience}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-white text-black font-semibold text-xs sm:text-sm tracking-wider uppercase hover:bg-cyan-100 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(255,255,255,0.15)]"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-white text-black font-semibold text-xs sm:text-sm tracking-wider uppercase hover:bg-slate-100 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.5)] cursor-pointer"
             >
               <Headphones className="w-4 h-4 text-black" />
-              <span>Iniciar Experiencia</span>
+              <span>Iniciar Motor 3D</span>
               <ArrowRight className="w-4 h-4 text-black/70" />
             </button>
 
             <button
               onClick={handleMicStart}
-              className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.10] border border-white/[0.10] text-xs sm:text-sm font-mono tracking-wider uppercase text-white/80 hover:text-white transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.10] border border-white/[0.10] text-xs sm:text-sm font-mono tracking-wider uppercase text-white/80 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Mic className="w-4 h-4 text-cyan-400" />
+              <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse" />
+              <Mic className="w-4 h-4 text-[#00ff9d]" />
               <span>Micrófono Directo</span>
             </button>
           </div>
@@ -252,12 +319,12 @@ export const LandingScreen: React.FC = () => {
         <div className="pt-2">
           <button
             onClick={() => scrollToStage(1)}
-            className="flex flex-col items-center gap-1.5 text-white/40 hover:text-cyan-400 transition-colors group cursor-pointer"
+            className="flex flex-col items-center gap-1.5 text-[#8b95a5] hover:text-[#00e5ff] transition-colors group cursor-pointer"
           >
             <span className="text-[10px] font-mono tracking-[0.2em] uppercase">
               Explorar Consola DSP ↓
             </span>
-            <ChevronDown className="w-4 h-4 text-cyan-400 animate-bounce" />
+            <ChevronDown className="w-4 h-4 text-[#00e5ff] group-hover:translate-y-1 transition-transform duration-300 ease-out" />
           </button>
         </div>
       </section>
@@ -370,18 +437,31 @@ export const LandingScreen: React.FC = () => {
           />
         </div>
 
-        {/* System Footer */}
-        <footer className="w-full max-w-4xl pt-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] font-mono text-white/40">
-          <div>Aura3D Audio Workstation v2.5</div>
-          <div className="flex items-center gap-4">
+        {/* System Studio Footer with Keyboard Shortcuts Ribbon */}
+        <footer className="w-full max-w-4xl pt-4 border-t border-white/[0.08] flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] font-mono text-[#8b95a5]">
+          <div className="flex items-center gap-3">
+            <span className="text-[#f0f4fc] font-medium">Aura3D Workstation</span>
+            <span className="text-white/20">|</span>
+            <span className="text-[#556075]">REV 2026.4</span>
+          </div>
+
+          {/* Serigraphed Studio Keyboard Shortcuts */}
+          <div className="flex items-center gap-3 text-[9px] text-[#8b95a5]">
+            <span><kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-[#f0f4fc]">ESPACIO</kbd> Iniciar</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-[#f0f4fc]">M</kbd> Micrófono</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-[#f0f4fc]">SCROLL</kbd> Canales</span>
+            <span><kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-[#f0f4fc]">G</kbd> Modo Galería</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[#8b95a5]">
             <span className="flex items-center gap-1">
-              <Activity className="w-3 h-3 text-cyan-400" /> Web Audio API
+              <Activity className="w-3 h-3 text-[#00e5ff]" /> 48 kHz DSP
             </span>
             <span className="flex items-center gap-1">
-              <Sliders className="w-3 h-3 text-emerald-400" /> 10-Band EQ
+              <Sliders className="w-3 h-3 text-[#00ff9d]" /> 10-Band EQ
             </span>
             <span className="flex items-center gap-1">
-              <Layers className="w-3 h-3 text-pink-400" /> GPU 3D Shaders
+              <Layers className="w-3 h-3 text-[#ff007f]" /> WebGL Shaders
             </span>
           </div>
         </footer>

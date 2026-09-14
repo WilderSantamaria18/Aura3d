@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { HeaderBar } from './components/UI/HeaderBar';
-import { VisualizerQuickControls } from './components/UI/VisualizerQuickControls';
 import { Controls } from './components/Player/Controls';
 import { ProgressBar } from './components/Player/ProgressBar';
 import { MiniPlayer } from './components/Player/MiniPlayer';
@@ -12,8 +11,9 @@ import { useAnalytics } from './hooks/useAnalytics';
 import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
-import { DEFAULT_DARK_THEME } from './types/audio';
-import { AlertCircle } from 'lucide-react';
+import { DEFAULT_DARK_THEME, hexToRgba } from './types/audio';
+import { AlertCircle, Play, Pause, Maximize2 } from 'lucide-react';
+import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
 import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
@@ -22,21 +22,31 @@ import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
 import { QuickstartStudioModal } from './components/UI/QuickstartStudioModal';
 import { UserProfileModal } from './components/UI/UserProfileModal';
 import { SystemRequirementsModal } from './components/UI/SystemRequirementsModal';
-
+import { UniversalCommandPalette } from './components/UI/UniversalCommandPalette';
+import { SessionStatsModal } from './components/UI/SessionStatsModal';
 
 import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackground';
+import { RgbGlitchOverlay } from './components/Visualizers/RgbGlitchOverlay';
+import { CinematicPostFx } from './components/UI/CinematicPostFx';
+import { RetroCrtOverlay } from './components/UI/RetroCrtOverlay';
+import { AmbientGlow } from './components/UI/AmbientGlow';
+import { CameraPresetBar } from './components/UI/CameraPresetBar';
+import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer';
 import { Sliders } from 'lucide-react';
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
+const WarpTunnelVisualizer = lazy(() => import('./components/Visualizers/WarpTunnelVisualizer'));
+const TerrainVisualizer = lazy(() => import('./components/Visualizers/TerrainVisualizer'));
+const BlackHoleVisualizer = lazy(() => import('./components/Visualizers/BlackHoleVisualizer'));
+const AuralisStoryCardModal = lazy(() => import('./components/UI/AuralisStoryCardModal'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
 const EqualizerModal = lazy(() => import('./components/UI/EqualizerModal'));
 const PlaylistSidebar = lazy(() => import('./components/UI/PlaylistSidebar'));
 const LyricsOverlay = lazy(() => import('./components/Lyrics/LyricsOverlay'));
-const PresetsModal = lazy(() => import('./components/UI/PresetsModal'));
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -48,6 +58,8 @@ export const App: React.FC = () => {
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const lucidPrimaryColor = usePlayerStore((s) => s.lucidPrimaryColor);
+  const lucidSecondaryColor = usePlayerStore((s) => s.lucidSecondaryColor);
   const autoMode = usePlayerStore((s) => s.autoMode);
   const autoPalette = usePlayerStore((s) => s.autoPalette);
   const vrMode = usePlayerStore((s) => s.vrMode);
@@ -60,11 +72,48 @@ export const App: React.FC = () => {
   const setSysReqModalOpen = usePlayerStore((s) => s.setSysReqModalOpen);
   const blobSettings = usePlayerStore((s) => s.blobSettings);
   const updateBlobSettings = usePlayerStore((s) => s.updateBlobSettings);
+  const sleepTimerMinutes = usePlayerStore((s) => s.sleepTimerMinutes);
+  const decrementSleepTimer = usePlayerStore((s) => s.decrementSleepTimer);
+  const setCommandPaletteOpen = usePlayerStore((s) => s.setCommandPaletteOpen);
 
+  // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [setCommandPaletteOpen]);
+
+  // Sleep Timer 1-second countdown effect
+  useEffect(() => {
+    if (sleepTimerMinutes <= 0) return;
+    const timer = window.setInterval(() => {
+      decrementSleepTimer();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sleepTimerMinutes, decrementSleepTimer]);
+
+  const userInteracting = usePlayerStore((s) => s.userInteracting);
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const isSpotifyConnected = usePlayerStore((s) => s.isSpotifyConnected);
+  const { togglePlayPause: engineTogglePlayPause } = useAudioEngine();
+  const { togglePlayPause: spotifyTogglePlayPause } = useSpotifyPlayer();
+
+  const [isDockHovered, setIsDockHovered] = useState(false);
   const isUiIdle = usePlayerStore((s) => s.isUiIdle);
   const setIsUiIdle = usePlayerStore((s) => s.setIsUiIdle);
   const isUiHidden = blobSettings?.isUiHidden || false;
-  const shouldHideUI = isUiIdle || isUiHidden;
+
+  // Zen Ghost mode: Auto-collapses the bottom dock to a micro-pill with LED spectrum
+  // when orbiting the 3D scene (userInteracting) or idle, giving 100% unobstructed screen to the 3D scene
+  const isZenGhostMode = hasStarted && (userInteracting || isUiIdle) && !isDockHovered && !isUiHidden;
+  const shouldHideUI = isUiHidden;
+
   const [showLanding, setShowLanding] = useState(!hasStarted);
   const idleTimerRef = useRef<number | null>(null);
 
@@ -113,6 +162,23 @@ export const App: React.FC = () => {
     };
   }, [resetIdleTimer]);
 
+  // Global shortcut 'G' to toggle Gallery Mode (pure 3D immersion)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.key === 'g' || e.key === 'G') {
+        updateBlobSettings({ isUiHidden: !isUiHidden });
+      } else if (e.key === 'Escape' && isUiHidden) {
+        updateBlobSettings({ isUiHidden: false });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isUiHidden, updateBlobSettings]);
+
   // Global Drag and Drop files onto window
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -133,29 +199,34 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  const activeTheme = isLucid ? lucidTheme : DEFAULT_DARK_THEME;
+  const activePrimary = isLucid ? (lucidPrimaryColor || lucidTheme?.primary || '#00e5ff') : '#00e5ff';
+  const activeSecondary = isLucid ? (lucidSecondaryColor || lucidTheme?.secondary || '#ff007f') : '#ff007f';
+  const activeGlow = isLucid ? hexToRgba(activePrimary, 0.40) : 'rgba(0, 229, 255, 0.35)';
+  const activeGlass = isLucid ? hexToRgba(activePrimary, 0.08) : 'rgba(8, 12, 22, 0.90)';
+  const activeBorder = isLucid ? hexToRgba(activePrimary, 0.35) : 'rgba(255, 255, 255, 0.08)';
+  const activeBg = isLucid
+    ? `radial-gradient(ellipse at 30% 30%, ${hexToRgba(activePrimary, 0.14)} 0%, ${hexToRgba(activeSecondary, 0.06)} 50%, #03050c 85%, #000000 100%)`
+    : autoMode
+    ? autoPalette.bg
+    : '#04060d';
 
   return (
     <div
       ref={rootRef}
-      className={`relative w-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] overflow-hidden select-none font-sans transition-all duration-700 ${
-        isLucid ? 'lucid-mode' : ''
-      } ${isUiIdle && hasStarted ? 'cursor-none' : ''}`}
+      className={`relative w-full h-[100dvh] overflow-hidden select-none font-sans transition-colors duration-700 ${
+        isLucid ? `lucid-${lucidTheme.id}` : ''
+      }`}
       style={{
-        '--lucid-primary': activeTheme.primary,
-        '--lucid-secondary': activeTheme.secondary,
-        '--lucid-glow': activeTheme.glow,
-        '--lucid-glass': activeTheme.glassColor,
-        '--lucid-border': activeTheme.borderColor,
-        '--lucid-text': activeTheme.textColor,
-        '--lucid-bg': activeTheme.bgGradient,
-        background: isLucid
-          ? activeTheme.bgGradient
-          : autoMode
-          ? autoPalette.bg
-          : '#04060d',
+        '--lucid-primary': activePrimary,
+        '--lucid-secondary': activeSecondary,
+        '--lucid-glow': activeGlow,
+        '--lucid-glass': activeGlass,
+        '--lucid-border': activeBorder,
+        '--lucid-text': activePrimary,
+        '--lucid-bg': activeBg,
+        background: activeBg,
         boxShadow: isLucid
-          ? `inset 0 0 120px ${activeTheme.glow}`
+          ? `inset 0 0 120px ${activeGlow}`
           : autoMode
           ? `inset 0 0 120px ${autoPalette.glow}`
           : undefined,
@@ -164,16 +235,17 @@ export const App: React.FC = () => {
       {/* 0. Full-Screen Atmosphere Canvas Background (only for visualizers, not on landing index) */}
       {hasStarted && <AtmosphereBackground />}
 
-      {/* 0.1 Botón flotante para restaurar interfaz cuando está oculta en Modo Puro */}
+      {/* 0.1 Botón flotante para restaurar interfaz cuando está oculta en Modo Puro / Galería */}
       {isUiHidden && hasStarted && (
         <button
           type="button"
           onClick={() => updateBlobSettings({ isUiHidden: false })}
-          className="fixed top-4 right-4 z-50 px-3 py-2 rounded-xl bg-[#090d18]/90 text-white/90 hover:text-white border border-white/20 backdrop-blur-xl shadow-2xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-xs font-mono select-none"
-          title="Restaurar interfaz y controles"
+          className="fixed top-4 right-4 z-50 px-3.5 py-2 rounded-2xl bg-[#070913]/80 hover:bg-[#070913]/95 text-white/80 hover:text-white border border-white/[0.08] border-t-white/[0.14] backdrop-blur-3xl shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-xs font-mono select-none pointer-events-auto group"
+          title="Restaurar interfaz y controles (o presiona 'G' o Esc)"
         >
-          <Sliders className="w-4 h-4 text-cyan-400" />
-          <span className="hidden sm:inline">Mostrar UI</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+          <Sliders className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-45 transition-transform" />
+          <span className="text-[11px] font-medium">Modo Galería (Presiona 'G' o Esc)</span>
         </button>
       )}
 
@@ -202,12 +274,29 @@ export const App: React.FC = () => {
               <SceneContainer />
             ) : visualizerMode === 'blob' ? (
               <RainbowBlobVisualizer />
-            ) : (
+            ) : visualizerMode === 'synthwave' ? (
               <SynthwaveGridVisualizer />
+            ) : visualizerMode === 'warp' ? (
+              <WarpTunnelVisualizer />
+            ) : visualizerMode === 'terrain' ? (
+              <TerrainVisualizer />
+            ) : (
+              <BlackHoleVisualizer />
             )}
           </Suspense>
         )}
       </div>
+
+      {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
+      {hasStarted && <RgbGlitchOverlay />}
+      {hasStarted && <CinematicPostFx />}
+      {hasStarted && <RetroCrtOverlay />}
+
+      {/* Reactive Ambient Glow Backdrop & Space Dust */}
+      {hasStarted && <AmbientGlow />}
+
+      {/* 3D Cinematic Camera Presets Toolbar */}
+      {hasStarted && !shouldHideUI && <CameraPresetBar />}
 
       {/* 3. Floating Header UI */}
       {hasStarted && (
@@ -222,35 +311,107 @@ export const App: React.FC = () => {
 
 
 
-      {/* 5. Floating Bottom Player & Quick Visualizer Controls */}
+      {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-4 md:p-5 transition-all duration-700 pointer-events-none flex flex-col items-center gap-1.5 sm:gap-2.5 ${
-            shouldHideUI ? 'opacity-0 translate-y-6 pointer-events-none' : 'opacity-100 translate-y-0'
+          className={`fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-4 md:p-5 transition-all duration-500 pointer-events-none flex flex-col items-center ${
+            shouldHideUI || isZenGhostMode
+              ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
+              : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
           }`}
+          onMouseEnter={() => setIsDockHovered(true)}
+          onMouseLeave={() => setIsDockHovered(false)}
         >
-          {/* Quick Visualizer Adjustments (Shape, Auto Mode, Radius, Opacity, FFT Bars) */}
-          <div className="pointer-events-auto max-w-full overflow-x-auto px-1">
-            <VisualizerQuickControls />
-          </div>
-
-          {/* Main Glassmorphic Player Bar */}
           <div
-            className={`w-[clamp(320px,94vw,840px)] rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 flex flex-col gap-2 pointer-events-auto transition-all duration-300 ${
-              isLucid ? 'lucid-panel' : 'bg-[#060811]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.8)]'
+            className={`w-[clamp(320px,94vw,840px)] rounded-2xl p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
+              isLucid
+                ? 'lucid-panel opacity-90 hover:opacity-100'
+                : 'bg-[#070913]/70 hover:bg-[#070913]/90 backdrop-blur-2xl hover:backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.14] shadow-[0_20px_60px_rgba(0,0,0,0.75)] opacity-85 hover:opacity-100 scale-[0.99] hover:scale-100'
             }`}
             style={
               isLucid
                 ? {
                     backgroundColor: lucidTheme.glassColor,
                     borderColor: lucidTheme.borderColor,
-                    boxShadow: `0 20px 50px rgba(0,0,0,0.8), 0 0 35px ${lucidTheme.glow}`,
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.12) inset',
                   }
                 : undefined
             }
           >
+            {/* Main Player Transport & Progress */}
             <ProgressBar />
             <Controls />
+          </div>
+        </div>
+      )}
+
+      {/* Zen Ghost Micro-Pill Dock (Visible when rotating sphere or idle) */}
+      {hasStarted && !isUiHidden && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 transition-all duration-500 ${
+            isZenGhostMode
+              ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+              : 'opacity-0 translate-y-8 pointer-events-none scale-90'
+          }`}
+          onMouseEnter={() => {
+            setIsDockHovered(true);
+            resetIdleTimer();
+          }}
+          onClick={() => {
+            setIsDockHovered(true);
+            resetIdleTimer();
+          }}
+        >
+          <div
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border shadow-[0_12px_32px_rgba(0,0,0,0.85)] cursor-pointer backdrop-blur-2xl transition-all hover:scale-105 ${
+              isLucid
+                ? 'lucid-panel'
+                : 'bg-[#070913]/85 border-white/15 text-white'
+            }`}
+            style={
+              isLucid
+                ? {
+                    backgroundColor: lucidTheme.glassColor,
+                    borderColor: lucidTheme.borderColor,
+                  }
+                : undefined
+            }
+            title="Auto-Dock Zen Ghost: Clic para expandir controles de estudio"
+          >
+            {/* LED Micro-Spectrum Bars */}
+            <div className="flex items-center h-4">
+              <MiniSpectrumBars />
+            </div>
+
+            {/* Track Info */}
+            <div className="max-w-[110px] sm:max-w-[150px] truncate">
+              <span className="text-[11px] font-medium text-white/90 block truncate leading-tight">
+                {currentTrack?.title || 'Aura 3D'}
+              </span>
+              <span className="text-[9px] text-white/40 font-mono block truncate leading-none mt-0.5">
+                {currentTrack?.artist || 'DAW Studio'}
+              </span>
+            </div>
+
+            {/* Quick Play/Pause */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isSpotifyConnected) {
+                  spotifyTogglePlayPause();
+                } else {
+                  engineTogglePlayPause();
+                }
+              }}
+              className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95"
+              title={isPlaying ? 'Pausar' : 'Reproducir'}
+            >
+              {isPlaying ? (
+                <Pause className="w-2.5 h-2.5 fill-current" />
+              ) : (
+                <Play className="w-2.5 h-2.5 fill-current translate-x-0.5" />
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -262,11 +423,9 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-
-
       {/* Error Notification */}
       {error && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-200 text-xs flex items-center gap-2 shadow-xl backdrop-blur-xl animate-bounce">
+        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-200 text-xs flex items-center gap-2 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -315,14 +474,23 @@ export const App: React.FC = () => {
         onClose={() => setSysReqModalOpen(false)}
       />
 
+      {/* Universal Command Palette (Ctrl+K / ⌘K) */}
+      <UniversalCommandPalette />
+
+      {/* Session Listening Stats Modal */}
+      <SessionStatsModal />
+
+      {/* Auralis Story Card 9:16 Social Export Modal */}
+      <Suspense fallback={null}>
+        <AuralisStoryCardModal />
+      </Suspense>
+
       {/* 3D Air Virtual Instruments Controls HUD */}
       {hasStarted && <AirInstrumentControls />}
 
 
-      {/* Scene Presets & Atmospheres Modal */}
-      <Suspense fallback={null}>
-        <PresetsModal />
-      </Suspense>
+      {/* Global YouTube Player Controller — singleton, no DOM output here */}
+      <GlobalYouTubeController />
 
       {/* Global Universal Drag & Drop Ingestion Zone */}
       <UniversalDropZone onFilesDropped={loadAudioFiles} />

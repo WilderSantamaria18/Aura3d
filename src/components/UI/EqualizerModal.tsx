@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { StorageService } from '../../services/storageService';
+import { AudioEngine } from '../../services/audioEngine';
 
 interface EQPreset {
   id: string;
@@ -164,128 +165,275 @@ export const EqualizerModal: React.FC = () => {
     }
   };
 
-  // Dibujo de la curva de respuesta de frecuencia en tiempo real
+  // ── FabFilter Pro-Q Style Interactive Graph with Live FFT Spectrum & Draggable Nodes ──
+  const [hoveredBandIdx, setHoveredBandIdx] = useState<number | null>(null);
+  const [draggingBandIdx, setDraggingBandIdx] = useState<number | null>(null);
+  const [tooltipInfo, setTooltipInfo] = useState<{ x: number; y: number; text: string } | null>(null);
+
+  // Continuous animation loop for real-time FFT spectrum background
   useEffect(() => {
+    let animId: number;
+
+    const render = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const W = canvas.parentElement?.clientWidth || 600;
+      const H = 130;
+
+      if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = `${W}px`;
+        canvas.style.height = `${H}px`;
+      }
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
+
+      const marginL = 38;
+      const availW = W - marginL - 16;
+
+      // 1. Grid & dB Reference Lines (+12, +6, 0, -6, -12)
+      const dbSteps = [12, 6, 0, -6, -12];
+      dbSteps.forEach((db) => {
+        const y = H / 2 - (db / 12) * (H * 0.42);
+        ctx.strokeStyle = db === 0 ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = db === 0 ? 1 : 0.8;
+        ctx.setLineDash(db === 0 ? [] : [2, 4]);
+
+        ctx.beginPath();
+        ctx.moveTo(marginL, y);
+        ctx.lineTo(W - 12, y);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${db > 0 ? '+' : ''}${db}`, marginL - 6, y);
+      });
+      ctx.setLineDash([]);
+
+      // 2. Real-time RTA FFT Spectrum (FabFilter Analyzer Background)
+      const freqData = AudioEngine.getInstance().getFrequencyData();
+      if (freqData && freqData.raw && freqData.raw.length > 0) {
+        const raw = freqData.raw;
+        const binCount = Math.min(64, raw.length);
+        const specWidth = availW / binCount;
+
+        const specGrad = ctx.createLinearGradient(0, H, 0, 0);
+        specGrad.addColorStop(0, 'rgba(0, 229, 255, 0.02)');
+        specGrad.addColorStop(0.7, 'rgba(0, 229, 255, 0.12)');
+        specGrad.addColorStop(1, 'rgba(168, 85, 247, 0.22)');
+
+        ctx.fillStyle = specGrad;
+        ctx.beginPath();
+        ctx.moveTo(marginL, H - 4);
+
+        for (let i = 0; i < binCount; i++) {
+          const val = raw[Math.floor((i / binCount) * (raw.length * 0.7))] / 255;
+          const barX = marginL + i * specWidth;
+          const barY = H - 4 - val * (H * 0.75);
+          ctx.lineTo(barX, barY);
+        }
+        ctx.lineTo(marginL + availW, H - 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 3. Spline points for the 10 bands
+      const points: { x: number; y: number; gain: number; bandIdx: number }[] = [];
+      eqBands.forEach((band, idx) => {
+        const x = marginL + (idx / (eqBands.length - 1)) * availW;
+        const gain = isBypassed ? 0 : band.gain;
+        const y = H / 2 - (gain / 12) * (H * 0.42);
+        points.push({ x, y, gain, bandIdx: idx });
+      });
+
+      if (points.length >= 2) {
+        // Shaded curve area
+        const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
+        fillGrad.addColorStop(0, isLucid ? `${activeColor}25` : 'rgba(0, 229, 255, 0.18)');
+        fillGrad.addColorStop(1, 'transparent');
+
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[i === 0 ? 0 : i - 1];
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
+
+          const cp1x = p1.x + (p2.x - p0.x) / 6;
+          const cp1y = p1.y + (p2.y - p0.y) / 6;
+          const cp2x = p2.x - (p3.x - p1.x) / 6;
+          const cp2y = p2.y - (p3.y - p1.y) / 6;
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+        ctx.lineTo(points[points.length - 1].x, H / 2);
+        ctx.lineTo(points[0].x, H / 2);
+        ctx.closePath();
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // High-definition Curve stroke
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[i === 0 ? 0 : i - 1];
+          const p1 = points[i];
+          const p2 = points[i + 1];
+          const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
+
+          const cp1x = p1.x + (p2.x - p0.x) / 6;
+          const cp1y = p1.y + (p2.y - p0.y) / 6;
+          const cp2x = p2.x - (p3.x - p1.x) / 6;
+          const cp2y = p2.y - (p3.y - p1.y) / 6;
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+        ctx.strokeStyle = isLucid ? activeColor : '#00e5ff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 4. Interactive Nodes for each band
+        points.forEach((p, idx) => {
+          const isTargeted = hoveredBandIdx === idx || draggingBandIdx === idx;
+
+          if (isTargeted) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+            ctx.fillStyle = isLucid ? `${activeColor}40` : 'rgba(0, 229, 255, 0.3)';
+            ctx.fill();
+          }
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, isTargeted ? 4.5 : 3, 0, Math.PI * 2);
+          ctx.fillStyle = isTargeted ? '#ffffff' : isLucid ? activeColor : '#00e5ff';
+          ctx.fill();
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
+
+      ctx.restore();
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [eqBands, isLucid, activeColor, isBypassed, hoveredBandIdx, draggingBandIdx]);
+
+  // Pointer Drag Handlers on Canvas
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!canvas || isBypassed) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W = canvas.parentElement?.clientWidth || 600;
-    const H = 90;
+    const marginL = 38;
+    const availW = rect.width - marginL - 16;
 
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, W, H);
-
-    // Líneas de referencia dB (+12, 0, -12)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 4]);
-    
-    // +12 dB
-    const yPlus12 = H / 2 - (12 / 12) * (H * 0.4);
-    ctx.beginPath();
-    ctx.moveTo(36, yPlus12);
-    ctx.lineTo(W - 16, yPlus12);
-    ctx.stroke();
-
-    // 0 dB (Línea central más visible)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-    ctx.beginPath();
-    ctx.moveTo(36, H / 2);
-    ctx.lineTo(W - 16, H / 2);
-    ctx.stroke();
-
-    // -12 dB
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-    const yMinus12 = H / 2 - (-12 / 12) * (H * 0.4);
-    ctx.beginPath();
-    ctx.moveTo(36, yMinus12);
-    ctx.lineTo(W - 16, yMinus12);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Etiquetas de dB en el lateral izquierdo
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.font = '8px monospace';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('+12', 30, yPlus12);
-    ctx.fillText('0dB', 30, H / 2);
-    ctx.fillText('-12', 30, yMinus12);
-
-    // Puntos de spline para las 10 bandas
-    const points: { x: number; y: number }[] = [];
-    const marginL = 40;
-    const availW = W - marginL - 16;
+    let closestIdx = -1;
+    let minDist = 22;
 
     eqBands.forEach((band, idx) => {
-      const x = marginL + (idx / (eqBands.length - 1)) * availW;
-      const gain = isBypassed ? 0 : band.gain;
-      const y = H / 2 - (gain / 12) * (H * 0.4);
-      points.push({ x, y });
+      const bx = marginL + (idx / (eqBands.length - 1)) * availW;
+      const by = rect.height / 2 - (band.gain / 12) * (rect.height * 0.42);
+      const dist = Math.hypot(x - bx, y - by);
+      if (dist < minDist) {
+        minDist = dist;
+        closestIdx = idx;
+      }
     });
 
-    if (points.length < 2) return;
-
-    // Relleno de área bajo la curva
-    const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
-    fillGrad.addColorStop(0, isLucid ? `${activeColor}20` : 'rgba(0, 229, 255, 0.12)');
-    fillGrad.addColorStop(1, 'transparent');
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i === 0 ? 0 : i - 1];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
-
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    if (closestIdx !== -1) {
+      setDraggingBandIdx(closestIdx);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
-    ctx.lineTo(points[points.length - 1].x, H / 2);
-    ctx.lineTo(points[0].x, H / 2);
-    ctx.closePath();
-    ctx.fillStyle = fillGrad;
-    ctx.fill();
+  };
 
-    // Trazo de la curva
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i === 0 ? 0 : i - 1];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[i + 2 >= points.length ? points.length - 1 : i + 2];
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const marginL = 38;
+    const availW = rect.width - marginL - 16;
 
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    if (draggingBandIdx !== null) {
+      const H = rect.height;
+      const normY = (H / 2 - y) / (H * 0.42);
+      const newGain = Math.min(12, Math.max(-12, Math.round(normY * 12 * 2) / 2));
+      const band = eqBands[draggingBandIdx];
+      if (band) {
+        setEqBandGain(band.id, newGain);
+        setTooltipInfo({
+          x,
+          y: Math.max(10, y - 24),
+          text: `${band.label}: ${newGain > 0 ? '+' : ''}${newGain} dB`,
+        });
+      }
+      return;
     }
-    ctx.strokeStyle = isLucid ? activeColor : '#00e5ff';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
 
-    // Nodos de control en cada banda
-    points.forEach((p) => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = isLucid ? activeColor : '#00e5ff';
-      ctx.fill();
+    // Hover detection
+    let closestIdx: number | null = null;
+    let minDist = 20;
+
+    eqBands.forEach((band, idx) => {
+      const bx = marginL + (idx / (eqBands.length - 1)) * availW;
+      const by = rect.height / 2 - (band.gain / 12) * (rect.height * 0.42);
+      const dist = Math.hypot(x - bx, y - by);
+      if (dist < minDist) {
+        minDist = dist;
+        closestIdx = idx;
+      }
     });
-  }, [eqBands, isLucid, activeColor, isBypassed]);
+
+    setHoveredBandIdx(closestIdx);
+    if (closestIdx !== null) {
+      const band = eqBands[closestIdx];
+      setTooltipInfo({
+        x,
+        y: Math.max(10, y - 24),
+        text: `${band.label}: ${band.gain > 0 ? '+' : ''}${band.gain} dB`,
+      });
+    } else {
+      setTooltipInfo(null);
+    }
+  };
+
+  const handleCanvasPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (draggingBandIdx !== null) {
+      setDraggingBandIdx(null);
+      setTooltipInfo(null);
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // pointer capture fallback
+      }
+    }
+  };
+
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (hoveredBandIdx !== null) {
+      const band = eqBands[hoveredBandIdx];
+      if (band) {
+        setEqBandGain(band.id, 0);
+      }
+    }
+  };
 
   if (!isEqualizerOpen) return null;
 
@@ -353,8 +501,27 @@ export const EqualizerModal: React.FC = () => {
               </span>
               <span>{isBypassed ? 'Modo Bypass Flat' : 'Filtros Activos'}</span>
             </div>
-            <div className="w-full relative pt-0.5 bg-black/30 rounded-xl border border-white/[0.04] p-1.5">
-              <canvas ref={canvasRef} className="w-full block rounded-lg" />
+            <div className="w-full relative pt-0.5 bg-black/40 rounded-xl border border-white/[0.06] p-1.5 overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                onPointerDown={handleCanvasPointerDown}
+                onPointerMove={handleCanvasPointerMove}
+                onPointerUp={handleCanvasPointerUp}
+                onPointerCancel={handleCanvasPointerUp}
+                onDoubleClick={handleCanvasDoubleClick}
+                className="w-full block rounded-lg cursor-crosshair touch-none select-none"
+              />
+              {tooltipInfo && (
+                <div
+                  className="absolute pointer-events-none px-2 py-0.5 rounded-md bg-[#070913]/95 border border-cyan-500/40 text-[9px] font-mono text-cyan-300 shadow-xl -translate-x-1/2 z-20 whitespace-nowrap"
+                  style={{ left: `${tooltipInfo.x}px`, top: `${tooltipInfo.y}px` }}
+                >
+                  {tooltipInfo.text}
+                </div>
+              )}
+              <div className="absolute bottom-2 right-3 pointer-events-none text-[8px] font-mono text-white/30 hidden sm:block">
+                Arrastra los nodos • Doble clic para 0dB
+              </div>
             </div>
           </div>
 

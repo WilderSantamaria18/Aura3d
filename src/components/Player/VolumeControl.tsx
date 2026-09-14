@@ -53,7 +53,7 @@ export const VolumeControl: React.FC = () => {
           step="0.01"
           value={currentVol}
           onChange={handleVolumeChange}
-          className="w-full h-1 bg-white/[0.08] rounded-full appearance-none cursor-pointer transition-all hover:bg-white/[0.15] accent-white"
+          className="w-full h-[2px] group-hover:h-[3px] bg-white/[0.12] rounded-full appearance-none cursor-pointer transition-all hover:bg-white/[0.25] accent-white"
           style={
             isLucid
               ? { accentColor: lucidTheme.primary }

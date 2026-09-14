@@ -396,11 +396,16 @@ export const useAudioEngine = () => {
   const playNext = useCallback(async () => {
     const state = usePlayerStore.getState();
     let next = state.nextTrack();
-    if (!next && state.queue.length > 0) {
+    if (!next && state.isInfiniteRadioActive && state.queue.length > 0) {
       next = state.queue[0];
       usePlayerStore.setState({ queueIndex: 0, currentTrack: next });
     }
     if (next) {
+      if (state.isHarmonicSyncActive) {
+        audioEngine.harmonicCrossfade(2.5);
+      } else if (state.isCrossfadeActive) {
+        audioEngine.crossfade(state.crossfadeDuration || 2.0);
+      }
       await playTrack(next);
     } else if (state.currentTrack) {
       await playTrack(state.currentTrack);

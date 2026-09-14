@@ -1,5 +1,7 @@
-import React from 'react';
-import { Cast, FolderOpen, Mic, Square, Play, Pause } from 'lucide-react';
+import React, { useState } from 'react';
+import { Cast, FolderOpen, Mic, Square, Play, Pause, Radio } from 'lucide-react';
+import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { RADIO_STATIONS } from '../../config/radioStations';
 
 interface AudioSourceSelectorProps {
   onStartSystemCapture: () => void;
@@ -20,6 +22,9 @@ export const AudioSourceSelector: React.FC<AudioSourceSelectorProps> = ({
   isCapturing,
   isPlaying,
 }) => {
+  const [isRadioOpen, setIsRadioOpen] = useState(false);
+  const { playRadioStation } = useAudioEngine();
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -78,6 +83,58 @@ export const AudioSourceSelector: React.FC<AudioSourceSelectorProps> = ({
         </svg>
         <span>Spotify</span>
       </button>
+
+      {/* 5. Radio 24/7 Selector */}
+      <div className="relative">
+        <button
+          onClick={() => setIsRadioOpen(!isRadioOpen)}
+          className={`px-3 py-2 rounded-lg border font-mono text-xs tracking-wider uppercase flex items-center gap-2 transition-all active:scale-95 ${
+            isRadioOpen
+              ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40'
+              : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-white/80 hover:text-white'
+          }`}
+          title="Radio Web en Vivo 24/7"
+        >
+          <Radio className="w-3.5 h-3.5 text-fuchsia-400" />
+          <span>Radio 24/7</span>
+        </button>
+
+        {isRadioOpen && (
+          <div className="absolute left-0 bottom-full mb-2 w-52 p-2 rounded-xl bg-[#080b16]/95 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 flex flex-col gap-1 text-xs font-mono animate-in fade-in zoom-in-95">
+            <span className="text-[10px] text-white/40 px-2 pt-1 uppercase tracking-wider font-semibold">
+              Estaciones 24/7
+            </span>
+            <button
+              onClick={() => {
+                const s = RADIO_STATIONS.find((r) => r.id === 'radio_vaporwaves') || RADIO_STATIONS[2];
+                if (s) playRadioStation(s);
+                setIsRadioOpen(false);
+              }}
+              className="flex items-center justify-between p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/5 transition-all text-left"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-fuchsia-400" />
+                <span>Synthwave 80s</span>
+              </div>
+              <span className="text-[9px] text-fuchsia-400 font-bold">LIVE</span>
+            </button>
+            <button
+              onClick={() => {
+                const s = RADIO_STATIONS.find((r) => r.id === 'radio_groove_salad') || RADIO_STATIONS[0];
+                if (s) playRadioStation(s);
+                setIsRadioOpen(false);
+              }}
+              className="flex items-center justify-between p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/5 transition-all text-left"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Lo-Fi Chillout</span>
+              </div>
+              <span className="text-[9px] text-emerald-400 font-bold">LIVE</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 4. Play / Pause & Stop Controls */}
       {isCapturing && (

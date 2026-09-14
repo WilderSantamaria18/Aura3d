@@ -7,6 +7,7 @@ export const VideoRecorderButton: React.FC = () => {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [targetDuration, setTargetDuration] = useState<number | null>(null);
   const [aspectRatio, setAspectRatio] = useState<VideoAspectRatio>('16:9');
+  const [includeTrackCard, setIncludeTrackCard] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -32,12 +33,16 @@ export const VideoRecorderButton: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const handleStart = async (limitSec?: number) => {
+  const handleStart = async (limitSec?: number, customRatio?: VideoAspectRatio) => {
     setIsMenuOpen(false);
+    const chosenRatio = customRatio || aspectRatio;
+    if (customRatio) setAspectRatio(customRatio);
     setTargetDuration(limitSec || null);
+
     const started = await videoRecorder.startRecording({
       durationLimitSec: limitSec,
-      aspectRatio,
+      aspectRatio: chosenRatio,
+      includeTrackCard,
       onFinish: (_url, fileName) => {
         setDownloadSuccess(`Descargado: ${fileName}`);
         setTargetDuration(null);
@@ -178,28 +183,65 @@ export const VideoRecorderButton: React.FC = () => {
             </button>
           </div>
 
+          {/* Social Media Watermark Toggle */}
+          <div className="mb-2 p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-between">
+            <span className="text-[10px] text-white/70">Tarjeta de canción:</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIncludeTrackCard(!includeTrackCard);
+              }}
+              className={`px-2 py-0.5 rounded text-[9px] font-mono transition-colors ${
+                includeTrackCard
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  : 'bg-white/5 text-white/40'
+              }`}
+            >
+              {includeTrackCard ? 'ACTIVADA' : 'DESACTIVADA'}
+            </button>
+          </div>
+
+          {/* 1-Click Social Media & DAW Presets */}
           <div className="space-y-1">
             <button
-              onClick={() => handleStart(15)}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+              onClick={() => handleStart(15, '9:16')}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
             >
-              <span>Clip Rápido</span>
-              <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">15 seg</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs">📱</span>
+                <span className="text-[11px]">Reel / TikTok 9:16</span>
+              </span>
+              <span className="text-[10px] text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded font-bold">15s</span>
             </button>
 
             <button
-              onClick={() => handleStart(30)}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+              onClick={() => handleStart(30, '9:16')}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
             >
-              <span>Clip Medio</span>
-              <span className="text-[10px] text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">30 seg</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs">📱</span>
+                <span className="text-[11px]">Story Vertical 9:16</span>
+              </span>
+              <span className="text-[10px] text-pink-400 bg-pink-500/15 px-1.5 py-0.5 rounded font-bold">30s</span>
             </button>
 
             <button
-              onClick={() => handleStart()}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left"
+              onClick={() => handleStart(30, '16:9')}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
             >
-              <span>Grabación Libre</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs">🖥️</span>
+                <span className="text-[11px]">Clip Panorámico 16:9</span>
+              </span>
+              <span className="text-[10px] text-cyan-400 bg-cyan-500/15 px-1.5 py-0.5 rounded font-bold">30s</span>
+            </button>
+
+            <button
+              onClick={() => handleStart(undefined, aspectRatio)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/70 hover:text-white transition-colors text-left"
+            >
+              <span className="text-[11px]">Grabación Libre</span>
               <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Manual</span>
             </button>
           </div>

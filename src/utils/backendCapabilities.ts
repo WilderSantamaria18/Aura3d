@@ -14,16 +14,21 @@ export async function hasNativeStreamBackend(): Promise<boolean> {
     return cachedHasNativeBackend;
   }
 
-  // Detección rápida de Vercel por hostname
+  // Detección rápida de entornos sin backend: Vercel y localhost dev
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    // Si estamos en *.vercel.app o dominio de producción sin backend configurado
+    // Vercel deployment sin backend configurado
     if (host.includes('vercel.app')) {
       const envBackend = (import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_BACKEND_URL;
       if (!envBackend) {
         cachedHasNativeBackend = false;
         return false;
       }
+    }
+    // Localhost / dev: la función serverless no existe, evitar error 400 en consola
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
+      cachedHasNativeBackend = false;
+      return false;
     }
   }
 

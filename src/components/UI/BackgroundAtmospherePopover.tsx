@@ -13,6 +13,7 @@ import {
   Eye,
   EyeOff,
   RotateCcw,
+  MousePointer,
 } from 'lucide-react';
 
 export const BackgroundAtmospherePopover: React.FC = () => {
@@ -22,6 +23,8 @@ export const BackgroundAtmospherePopover: React.FC = () => {
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
+    mouseEffectsEnabled,
+    toggleMouseEffects,
   } = usePlayerStore();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -352,6 +355,92 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
                   />
                 </div>
+
+                {/* ── Control de Contraste, Legibilidad de Letras y Fusión Cromática ── */}
+                <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-cyan-500/[0.04] border border-cyan-400/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono font-semibold text-cyan-300">
+                      Contraste & Fusión de Color
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono uppercase font-bold">
+                      {blobSettings.backgroundContrastMode === 'lucid_tint'
+                        ? 'Fusión Lúcida'
+                        : blobSettings.backgroundContrastMode === 'deep_cinema'
+                        ? 'Cine Oscuro'
+                        : blobSettings.backgroundContrastMode === 'none'
+                        ? 'Puro'
+                        : 'Legibilidad'}
+                    </span>
+                  </div>
+
+                  {/* Mode Selector Buttons */}
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      { id: 'text_clarity', label: 'Protección Texto', desc: 'Contraste nítido para letras' },
+                      { id: 'lucid_tint', label: 'Fusión Lúcida', desc: 'Combina con el color del tema' },
+                      { id: 'deep_cinema', label: 'Cine Oscuro', desc: 'Oscurecimiento cinematográfico' },
+                      { id: 'none', label: 'Sin Filtro', desc: 'Imagen 100% directa' },
+                    ].map((m) => {
+                      const isActive = (blobSettings.backgroundContrastMode || 'text_clarity') === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => updateBlobSettings({ backgroundContrastMode: m.id as any })}
+                          className={`p-1.5 rounded-lg text-left transition-all border ${
+                            isActive
+                              ? 'bg-cyan-500/20 text-white border-cyan-400/50 shadow-sm'
+                              : 'bg-black/30 text-white/60 border-white/[0.06] hover:text-white hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <div className="text-[10px] font-mono font-semibold">{m.label}</div>
+                          <div className="text-[8px] text-white/40 leading-tight truncate">{m.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Scrim & Protection Slider */}
+                  {(blobSettings.backgroundContrastMode || 'text_clarity') !== 'none' && (
+                    <>
+                      <div className="flex flex-col gap-1 mt-1">
+                        <div className="flex justify-between text-[10px] font-mono text-white/70">
+                          <span>Oscurecimiento / Contraste Letras</span>
+                          <span className="text-cyan-300 font-mono">
+                            {Math.round((blobSettings.backgroundTextScrim ?? 0.65) * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={blobSettings.backgroundTextScrim ?? 0.65}
+                          onChange={(e) => updateBlobSettings({ backgroundTextScrim: parseFloat(e.target.value) })}
+                          className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between text-[10px] font-mono text-white/70">
+                          <span>Intensidad de Tinte del Tema</span>
+                          <span className="text-cyan-300 font-mono">
+                            {Math.round((blobSettings.backgroundThemeTint ?? 0.35) * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={blobSettings.backgroundThemeTint ?? 0.35}
+                          onChange={(e) => updateBlobSettings({ backgroundThemeTint: parseFloat(e.target.value) })}
+                          className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -517,6 +606,28 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     onChange={(e) => updateBlobSettings({ atmosphereSmoothing: parseFloat(e.target.value) })}
                     className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-purple-400"
                   />
+                </div>
+
+                {/* Mouse & Cursor Particle Trail Toggle */}
+                <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-white/90">
+                      <MousePointer className={`w-3.5 h-3.5 ${mouseEffectsEnabled ? 'text-cyan-400' : 'text-white/40'}`} />
+                      <span>Efectos de Cursor 3D</span>
+                    </div>
+                    <span className="text-[9px] text-white/40">Desactivado por defecto (ahorro de FPS)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleMouseEffects}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase transition-all ${
+                      mouseEffectsEnabled
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        : 'bg-white/5 text-white/40 border border-white/10 hover:text-white'
+                    }`}
+                  >
+                    {mouseEffectsEnabled ? 'Activo' : 'Eco (Off)'}
+                  </button>
                 </div>
 
                 {/* Quick Reset to Defaults */}

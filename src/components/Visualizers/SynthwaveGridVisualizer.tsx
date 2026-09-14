@@ -41,11 +41,16 @@ interface RoadParticle {
  */
 export const SynthwaveGridVisualizer: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { isPlaying, isLucid, lucidPrimaryColor, lucidSecondaryColor, lucidTheme, musicSensitivity, blobSettings } =
-    usePlayerStore();
   const { getSmoothedData } = useVisualizer(0.12);
-
-  const hasAtmosphere = (blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none') || !!blobSettings.customBackgroundImage;
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const musicSensitivity = usePlayerStore((s) => s.musicSensitivity);
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const lucidPrimaryColor = usePlayerStore((s) => s.lucidPrimaryColor);
+  const lucidSecondaryColor = usePlayerStore((s) => s.lucidSecondaryColor);
+  const blobSettings = usePlayerStore((s) => s.blobSettings);
+  const mouseEffectsEnabled = usePlayerStore((s) => s.mouseEffectsEnabled);
+  const hasAtmosphere = Boolean(blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -72,7 +77,9 @@ export const SynthwaveGridVisualizer: React.FC = () => {
       H = canvas.height = window.innerHeight;
     };
 
-    window.addEventListener('mousemove', onMouseMove);
+    if (mouseEffectsEnabled) {
+      window.addEventListener('mousemove', onMouseMove);
+    }
     window.addEventListener('resize', onResize);
 
     // 1. Stars in the upper sky
@@ -451,7 +458,7 @@ export const SynthwaveGridVisualizer: React.FC = () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('resize', onResize);
     };
-  }, [isPlaying, isLucid, lucidPrimaryColor, lucidSecondaryColor, lucidTheme, musicSensitivity, getSmoothedData]);
+  }, [isPlaying, isLucid, lucidPrimaryColor, lucidSecondaryColor, lucidTheme, musicSensitivity, getSmoothedData, mouseEffectsEnabled]);
 
   return (
     <div

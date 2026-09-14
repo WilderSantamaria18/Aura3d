@@ -31,6 +31,42 @@ export const DEMO_TRACKS: Track[] = [
   },
 ];
 
+export const LIVE_RADIO_TRACKS: Track[] = [
+  {
+    id: 'radio_synthwave_plaza',
+    title: 'Nightwave Plaza 24/7',
+    artist: 'Vaporwave & Synthwave Live Radio',
+    album: 'Live Web Broadcast',
+    duration: 0,
+    sourceType: 'radio',
+    url: 'https://plaza.one/mp3',
+    coverUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop&q=80',
+    addedAt: Date.now(),
+  },
+  {
+    id: 'radio_groove_salad',
+    title: 'SomaFM Groove Salad 24/7',
+    artist: 'Ambient & Lo-Fi Chillout',
+    album: 'Live Web Broadcast',
+    duration: 0,
+    sourceType: 'radio',
+    url: 'https://ice1.somafm.com/groovesalad-128-mp3',
+    coverUrl: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=300&h=300&fit=crop&q=80',
+    addedAt: Date.now(),
+  },
+  {
+    id: 'radio_synth_city',
+    title: 'SomaFM Synth City 24/7',
+    artist: 'Retro Synthwave & Electro 80s',
+    album: 'Live Web Broadcast',
+    duration: 0,
+    sourceType: 'radio',
+    url: 'https://ice1.somafm.com/synthwaves-128-mp3',
+    coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&h=300&fit=crop&q=80',
+    addedAt: Date.now(),
+  },
+];
+
 /**
  * Generador Procedural de Beat Musical en Web Audio API nativo.
  * Produce:

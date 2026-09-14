@@ -480,7 +480,38 @@ export const useAudioPlayer = () => {
 
   const playNext = useCallback(async () => {
     const state = usePlayerStore.getState();
+    if (state.isCrossfadeActive) {
+      audioEngine.crossfade(state.crossfadeDuration || 2);
+    }
+
     let next = state.nextTrack();
+
+    // Auto Infinite Radio: if queue is ending, auto-fetch recommendations
+    if (!next || state.queueIndex >= state.queue.length - 2) {
+      const current = state.currentTrack;
+      if (current) {
+        fetchRelatedTracks(
+          current.youtubeId || current.id,
+          current.title,
+          current.artist,
+          current.duration
+        )
+          .then((newTracks) => {
+            if (newTracks && newTracks.length > 0) {
+              const currentQ = usePlayerStore.getState().queue;
+              const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
+              const fresh = newTracks.filter((t) => !existingIds.has(t.id) && !existingIds.has(t.youtubeId));
+              if (fresh.length > 0) {
+                usePlayerStore.setState({
+                  queue: [...currentQ, ...fresh],
+                });
+              }
+            }
+          })
+          .catch((err) => console.warn('[playNext] Infinite radio fetch failed', err));
+      }
+    }
+
     if (!next && state.queue.length > 0) {
       next = state.queue[0];
       usePlayerStore.setState({ queueIndex: 0, currentTrack: next });

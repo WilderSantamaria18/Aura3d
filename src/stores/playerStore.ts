@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { Track, Playlist, EqualizerBand, VisualizerMode, VisualizerShape, WaveEffectMode, BlobCustomSettings, LucidTheme } from '../types/audio';
+import type { Track, Playlist, EqualizerBand, VisualizerMode, VisualizerShape, WaveEffectMode, BlobCustomSettings, LucidTheme, ReverbPreset, MasteringLimiterPreset, VocalMode } from '../types/audio';
 import { LUCID_THEMES, PROFESSIONAL_PALETTES, createLucidTheme } from '../types/audio';
 import { StorageService, DEFAULT_BLOB_SETTINGS } from '../services/storageService';
-import { DEFAULT_EQ_BANDS } from '../services/audioEngine';
+import { DEFAULT_EQ_BANDS, audioEngine } from '../services/audioEngine';
 
 export interface HandLandmark {
   x: number;
@@ -25,6 +25,8 @@ export interface AutoPalette {
   glow: string;
   bg: string;
 }
+
+export type CameraPreset = 'front' | 'orbit' | 'top' | 'driver' | 'drone';
 
 interface PlayerState {
   // App navigation state
@@ -78,6 +80,99 @@ interface PlayerState {
   isShuffled: boolean;
   shuffleHistory: number[];
   crossfadeDuration: number;
+  isCrossfadeActive: boolean;
+  toggleCrossfade: () => void;
+
+  // 8D Audio & Spatial Panning DSP
+  is8DAudioActive: boolean;
+  eightDSpeed: number;
+  toggle8DAudio: () => void;
+  set8DSpeed: (speed: number) => void;
+
+  // Virtual Studio Reverb
+  reverbPreset: ReverbPreset;
+  setReverbPreset: (preset: ReverbPreset) => void;
+
+  // Post-Processing Reactive Glitch & Shockwave
+  isRgbGlitchActive: boolean;
+  toggleRgbGlitch: () => void;
+
+  // Sleep Timer
+  sleepTimerMinutes: number;
+  sleepTimerRemainingSec: number;
+  setSleepTimer: (minutes: number) => void;
+  decrementSleepTimer: () => void;
+
+  // Retro CRT & Film Grain
+  isRetroCrtActive: boolean;
+  toggleRetroCrt: () => void;
+  setRetroCrt: (active: boolean) => void;
+
+  // 3D Audio Ribbons
+  showAudioRibbons: boolean;
+  toggleAudioRibbons: () => void;
+  setShowAudioRibbons: (show: boolean) => void;
+
+  // 3D Floating Karaoke Lyrics
+  isLyrics3DActive: boolean;
+  toggleLyrics3D: () => void;
+  setLyrics3DActive: (active: boolean) => void;
+
+  // Audio DSP: Underwater Club Filter
+  isUnderwaterActive: boolean;
+  toggleUnderwater: () => void;
+
+  // Audio DSP: Speed & Pitch Shifter (Slowed + Reverb / Nightcore)
+  dspSpeedMode: 'normal' | 'slowed' | 'nightcore';
+  setDspSpeedMode: (mode: 'normal' | 'slowed' | 'nightcore') => void;
+
+  // Audio DSP: Binaural Beats & Solfeggio 432Hz
+  binauralMode: 'off' | 'alpha' | 'theta' | 'solfeggio432';
+  setBinauralMode: (mode: 'off' | 'alpha' | 'theta' | 'solfeggio432') => void;
+
+  // Studio Dynamic Mastering Limiter
+  masteringPreset: MasteringLimiterPreset;
+  setMasteringPreset: (preset: MasteringLimiterPreset) => void;
+
+  // Vocal Remover & Karaoke / Instrumental DSP
+  vocalMode: VocalMode;
+  setVocalMode: (mode: VocalMode) => void;
+  toggleVocalMode: () => void;
+
+  // Auralis Story Card 9:16 Modal
+  isStoryCardOpen: boolean;
+  setStoryCardOpen: (open: boolean) => void;
+
+  // DJ Looper A-B & Cue Points
+  loopA: number | null;
+  loopB: number | null;
+  isLoopActive: boolean;
+  setLoopPointA: () => void;
+  setLoopPointB: () => void;
+  clearLoop: () => void;
+  cuePoints: number[];
+  setCuePoint: (index: number) => void;
+  jumpToCuePoint: (index: number) => void;
+
+  // Harmonic DJ Sync & Infinite Radio
+  isHarmonicSyncActive: boolean;
+  toggleHarmonicSync: () => void;
+  isInfiniteRadioActive: boolean;
+  toggleInfiniteRadio: () => void;
+
+  // Modals & Panels: Command Palette & Session Stats
+  isCommandPaletteOpen: boolean;
+  setCommandPaletteOpen: (open: boolean) => void;
+  isSessionStatsOpen: boolean;
+  setSessionStatsOpen: (open: boolean) => void;
+
+  // Quick 3-Band Equalizer (MiniPlayer)
+  threeBandEQ: { bass: number; mids: number; treble: number };
+  setThreeBandGain: (band: 'bass' | 'mids' | 'treble', gain: number) => void;
+
+  // 3D Cinematic Camera Preset
+  cameraPreset: CameraPreset;
+  setCameraPreset: (preset: CameraPreset) => void;
 
   // Shared / Active Visualizer mode
   visualizerMode: VisualizerMode;
@@ -271,6 +366,9 @@ interface PlayerState {
   toggleSysReqModal: () => void;
   setPerformanceTier: (tier: 'high' | 'medium' | 'eco') => void;
   cyclePerformanceTier: () => void;
+  mouseEffectsEnabled: boolean;
+  setMouseEffectsEnabled: (enabled: boolean) => void;
+  toggleMouseEffects: () => void;
   setUserProfile: (profile: { id: string; username: string; email?: string; role: string; isGuest: boolean; genres?: string[] } | null) => void;
   isShortcutsModalOpen: boolean;
   setShortcutsModalOpen: (isOpen: boolean) => void;
@@ -358,6 +456,40 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isShuffled: false,
   shuffleHistory: [],
   crossfadeDuration: 3,
+  isCrossfadeActive: true,
+
+  is8DAudioActive: false,
+  eightDSpeed: 0.18,
+  reverbPreset: 'off' as ReverbPreset,
+  isRgbGlitchActive: false,
+  sleepTimerMinutes: 0,
+  sleepTimerRemainingSec: 0,
+  threeBandEQ: { bass: 0, mids: 0, treble: 0 },
+
+  // Retro CRT & Ribbons & Audio DSP
+  isRetroCrtActive: false,
+  showAudioRibbons: true,
+  isLyrics3DActive: true,
+  isUnderwaterActive: false,
+  dspSpeedMode: 'normal',
+  binauralMode: 'off',
+  masteringPreset: 'off' as MasteringLimiterPreset,
+  vocalMode: 'off',
+  isStoryCardOpen: false,
+
+  // DJ Looper A-B & Cues
+  loopA: null,
+  loopB: null,
+  isLoopActive: false,
+  cuePoints: [0, 0, 0],
+
+  // Harmonic Sync & Infinite Radio
+  isHarmonicSyncActive: true,
+  isInfiniteRadioActive: true,
+
+  // Panels
+  isCommandPaletteOpen: false,
+  isSessionStatsOpen: false,
 
   visualizerMode: StorageService.getVisualizerMode(),
   visualizerShape: StorageService.getSphereShape(),
@@ -394,6 +526,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   autoFeedbackToast: false,
   autoNotification: null,
+  cameraPreset: 'front',
   isMicActive: false,
   showFrequencyBars: false,
   sphereOpacity: 0.9,
@@ -428,6 +561,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isProfileModalOpen: false,
   isSysReqModalOpen: false,
   performanceTier: StorageService.getPerformanceTier(),
+  mouseEffectsEnabled: StorageService.getMouseEffectsEnabled(),
   userProfile: {
     id: 'usr_guest',
     username: 'Invitado',
@@ -458,6 +592,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       current === 'high' ? 'medium' : current === 'medium' ? 'eco' : 'high';
     StorageService.savePerformanceTier(next);
     set({ performanceTier: next });
+  },
+  setMouseEffectsEnabled: (mouseEffectsEnabled) => {
+    StorageService.saveMouseEffectsEnabled(mouseEffectsEnabled);
+    set({ mouseEffectsEnabled });
+  },
+  toggleMouseEffects: () => {
+    const next = !get().mouseEffectsEnabled;
+    StorageService.saveMouseEffectsEnabled(next);
+    set({ mouseEffectsEnabled: next });
   },
   setUserProfile: (userProfile) => set({ userProfile }),
 
@@ -1098,6 +1241,87 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setRepeatMode: (repeatMode) => set({ repeatMode }),
   toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
   setCrossfadeDuration: (crossfadeDuration) => set({ crossfadeDuration }),
+  toggleCrossfade: () => set((state) => ({ isCrossfadeActive: !state.isCrossfadeActive })),
+
+  toggle8DAudio: () => {
+    const next = !get().is8DAudioActive;
+    set({ is8DAudioActive: next });
+    audioEngine.set8DMode(next, get().eightDSpeed);
+  },
+  set8DSpeed: (eightDSpeed) => {
+    set({ eightDSpeed });
+    audioEngine.set8DSpeed(eightDSpeed);
+  },
+  setReverbPreset: (reverbPreset) => {
+    set({ reverbPreset });
+    audioEngine.setReverbPreset(reverbPreset);
+  },
+  toggleRgbGlitch: () => set((state) => ({ isRgbGlitchActive: !state.isRgbGlitchActive })),
+
+  setSleepTimer: (minutes) => {
+    set({
+      sleepTimerMinutes: minutes,
+      sleepTimerRemainingSec: minutes * 60,
+    });
+  },
+  decrementSleepTimer: () => {
+    const { sleepTimerRemainingSec, volume } = get();
+    if (sleepTimerRemainingSec <= 0) return;
+    const next = sleepTimerRemainingSec - 1;
+    // Exponential gentle fade-out during final 30 seconds
+    if (next === 30) {
+      audioEngine.fadeMasterVolume(0, 30);
+    }
+    if (next <= 0) {
+      set({ sleepTimerMinutes: 0, sleepTimerRemainingSec: 0, isPlaying: false });
+      audioEngine.pause();
+      // Restore master volume level for next user playback
+      audioEngine.setVolume(volume);
+    } else {
+      set({ sleepTimerRemainingSec: next });
+    }
+  },
+
+  // Retro CRT & Film Grain Actions
+  toggleRetroCrt: () => set((state) => ({ isRetroCrtActive: !state.isRetroCrtActive })),
+  setRetroCrt: (isRetroCrtActive) => set({ isRetroCrtActive }),
+
+  // 3D Audio Ribbons Actions
+  toggleAudioRibbons: () => set((state) => ({ showAudioRibbons: !state.showAudioRibbons })),
+  setShowAudioRibbons: (showAudioRibbons) => set({ showAudioRibbons }),
+
+  // 3D Floating Lyrics Actions
+  toggleLyrics3D: () => set((state) => ({ isLyrics3DActive: !state.isLyrics3DActive })),
+  setLyrics3DActive: (isLyrics3DActive) => set({ isLyrics3DActive }),
+
+  // Audio DSP: Underwater Club Action
+  toggleUnderwater: () => {
+    const next = !get().isUnderwaterActive;
+    set({ isUnderwaterActive: next });
+    audioEngine.setUnderwaterMode(next);
+  },
+
+  // Audio DSP: Speed & Pitch Shift
+  setDspSpeedMode: (dspSpeedMode) => {
+    set({ dspSpeedMode });
+    audioEngine.applyDspProfile(dspSpeedMode);
+  },
+
+  // Audio DSP: Binaural Beats & 432Hz
+  setBinauralMode: (binauralMode) => {
+    set({ binauralMode });
+    if (binauralMode === 'off') {
+      audioEngine.stopBinauralBeats();
+    } else {
+      audioEngine.startBinauralBeats(binauralMode, 0.08);
+    }
+  },
+
+  setThreeBandGain: (band, gain) => {
+    const current = { ...get().threeBandEQ, [band]: gain };
+    set({ threeBandEQ: current });
+    audioEngine.setThreeBandEQ(current.bass, current.mids, current.treble);
+  },
 
   setIntensityScore: (intensityScore) => set({ intensityScore }),
   setSessionHighScore: (sessionHighScore) => {
@@ -1159,6 +1383,70 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       };
     });
   },
+
+  setCameraPreset: (preset) => set({ cameraPreset: preset }),
+
+  // Mastering Limiter Action
+  setMasteringPreset: (masteringPreset) => {
+    audioEngine.setMasteringPreset(masteringPreset);
+    set({ masteringPreset });
+  },
+
+  // Vocal Remover & Karaoke Actions
+  setVocalMode: (vocalMode) => {
+    audioEngine.setVocalMode(vocalMode);
+    set({ vocalMode });
+  },
+  toggleVocalMode: () => {
+    const curr = get().vocalMode;
+    const next: VocalMode = curr === 'off' ? 'karaoke' : curr === 'karaoke' ? 'acappella' : 'off';
+    audioEngine.setVocalMode(next);
+    set({ vocalMode: next });
+  },
+
+  setStoryCardOpen: (isStoryCardOpen) => set({ isStoryCardOpen }),
+
+  // DJ Looper Actions
+  setLoopPointA: () =>
+    set((state) => {
+      const a = state.currentTime;
+      const b = state.loopB;
+      const isActive = b !== null && b > a;
+      audioEngine.setLoopPoints(a, b, isActive);
+      return { loopA: a, isLoopActive: isActive };
+    }),
+
+  setLoopPointB: () =>
+    set((state) => {
+      const a = state.loopA;
+      const b = state.currentTime;
+      const isActive = a !== null && b > a;
+      audioEngine.setLoopPoints(a, b, isActive);
+      return { loopB: b, isLoopActive: isActive };
+    }),
+
+  clearLoop: () => {
+    audioEngine.clearLoop();
+    set({ loopA: null, loopB: null, isLoopActive: false });
+  },
+
+  setCuePoint: (index) =>
+    set((state) => {
+      const cues = [...state.cuePoints];
+      cues[index] = state.currentTime;
+      return { cuePoints: cues };
+    }),
+
+  jumpToCuePoint: (index) => {
+    const point = get().cuePoints[index] || 0;
+    audioEngine.seek(point);
+    set({ currentTime: point });
+  },
+
+  toggleHarmonicSync: () => set((state) => ({ isHarmonicSyncActive: !state.isHarmonicSyncActive })),
+  toggleInfiniteRadio: () => set((state) => ({ isInfiniteRadioActive: !state.isInfiniteRadioActive })),
+  setCommandPaletteOpen: (isCommandPaletteOpen) => set({ isCommandPaletteOpen }),
+  setSessionStatsOpen: (isSessionStatsOpen) => set({ isSessionStatsOpen }),
 }));
 
 // Expose store globally for QA console tests

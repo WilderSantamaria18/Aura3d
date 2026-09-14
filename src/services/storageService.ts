@@ -27,6 +27,7 @@ const STORAGE_KEYS = {
   VISUALIZER_MODE: 'auralis_visualizer_mode_v1',
   ACTIVE_EQ_PRESET_ID: 'auralis_active_eq_preset_id_v1',
   PERFORMANCE_TIER: 'auralis_performance_tier_v1',
+  MOUSE_EFFECTS: 'auralis_mouse_effects_v1',
   USER_TOKEN: 'auralis_user_jwt_token',
 };
 
@@ -48,6 +49,9 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   backgroundOpacity: 0.85,
   backgroundFit: 'cover',
   backgroundScale: 1.0,
+  backgroundContrastMode: 'text_clarity',
+  backgroundTextScrim: 0.65,
+  backgroundThemeTint: 0.35,
   backgroundAtmosphere: 'none', // Por defecto desactivado (fondo limpio etéreo)
   atmosphereSpeed: 1.0,
   atmosphereGlow: 1.0,
@@ -193,7 +197,20 @@ export class StorageService {
 
   public static saveFavorites(favorites: Track[]): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
+      const sanitized = favorites.map((t) => ({
+        id: t.id,
+        title: t.title || 'Pista desconocida',
+        artist: t.artist || 'Aura3D',
+        album: t.album,
+        duration: t.duration || 0,
+        sourceType: t.sourceType || 'local',
+        url: typeof t.url === 'string' && !t.url.startsWith('blob:') ? t.url : undefined,
+        youtubeId: t.youtubeId,
+        coverUrl: t.coverUrl,
+        addedAt: t.addedAt || Date.now(),
+        isFavorite: true,
+      }));
+      localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(sanitized));
     } catch (e) {
       console.warn('Failed to save favorites to LocalStorage', e);
     }
@@ -236,9 +253,12 @@ export class StorageService {
   public static getVisualizerMode(): VisualizerMode {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.VISUALIZER_MODE) as VisualizerMode;
-      return val === 'sphere' || val === 'blob' || val === 'synthwave' ? val : 'sphere';
+      if (val === 'blob' || val === 'synthwave' || val === 'warp' || val === 'terrain') {
+        return val;
+      }
+      return 'blob';
     } catch {
-      return 'sphere';
+      return 'blob';
     }
   }
 
@@ -502,6 +522,24 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.PERFORMANCE_TIER, tier);
     } catch (e) {
       console.warn('Failed to save performance tier to LocalStorage', e);
+    }
+  }
+
+  public static getMouseEffectsEnabled(): boolean {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.MOUSE_EFFECTS);
+      // Disabled by default for maximum GPU/CPU performance
+      return val === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  public static saveMouseEffectsEnabled(enabled: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.MOUSE_EFFECTS, String(enabled));
+    } catch (e) {
+      console.warn('Failed to save mouse effects preference to LocalStorage', e);
     }
   }
 

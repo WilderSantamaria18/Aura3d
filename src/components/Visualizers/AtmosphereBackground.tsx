@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
+import { hexToRgba } from '../../types/audio';
 
 interface Ripple {
   x: number;
@@ -90,6 +91,9 @@ export const AtmosphereBackground: React.FC = () => {
   const effectiveBgBlur = bgBlur;
   const bgFit = blobSettings.backgroundFit || 'cover';
   const bgScale = blobSettings.backgroundScale || 1.0;
+  const bgContrastMode = blobSettings.backgroundContrastMode || 'text_clarity';
+  const textScrim = blobSettings.backgroundTextScrim !== undefined ? blobSettings.backgroundTextScrim : 0.65;
+  const themeTint = blobSettings.backgroundThemeTint !== undefined ? blobSettings.backgroundThemeTint : 0.35;
 
   // Atmosphere dynamic modifiers
   const atmoSpeed = blobSettings.atmosphereSpeed || 1.0;
@@ -986,11 +990,19 @@ export const AtmosphereBackground: React.FC = () => {
               transformOrigin: 'center center',
             }}
           />
-          {isLucid && (
+
+          {/* Adaptive Text Contrast & Lucid Color Fusion Scrim Layer */}
+          {bgContrastMode !== 'none' && (
             <div
-              className="absolute inset-0 pointer-events-none mix-blend-overlay transition-opacity duration-300"
+              className="absolute inset-0 pointer-events-none transition-all duration-300"
               style={{
-                background: `radial-gradient(circle at center, ${primaryColor}22 0%, transparent 65%), linear-gradient(to bottom, transparent, ${secondaryColor}25)`,
+                background:
+                  bgContrastMode === 'deep_cinema'
+                    ? `radial-gradient(ellipse at 50% 50%, rgba(3, 5, 12, ${textScrim * 0.75}) 0%, rgba(1, 2, 6, ${Math.min(1, textScrim * 1.15)}) 100%)`
+                    : bgContrastMode === 'lucid_tint'
+                    ? `radial-gradient(ellipse at 50% 40%, ${hexToRgba(primaryColor, themeTint * 0.35)} 0%, rgba(4, 6, 14, ${textScrim}) 85%), linear-gradient(180deg, rgba(3, 5, 12, ${textScrim * 0.8}) 0%, ${hexToRgba(secondaryColor, themeTint * 0.25)} 50%, rgba(1, 2, 6, ${textScrim * 1.05}) 100%)`
+                    : /* text_clarity (default) */
+                      `radial-gradient(ellipse at 50% 50%, rgba(3, 6, 14, ${textScrim * 0.65}) 0%, rgba(1, 3, 8, ${Math.min(0.98, textScrim * 1.1)}) 100%), linear-gradient(180deg, rgba(2, 4, 10, ${textScrim * 0.7}) 0%, transparent 40%, transparent 60%, rgba(2, 4, 10, ${textScrim * 0.85}) 100%)`,
               }}
             />
           )}

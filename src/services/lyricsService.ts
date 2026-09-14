@@ -96,16 +96,28 @@ export class LyricsService {
     }
 
     // Limpiar títulos de YouTube como "(Official Video)", "[4K]", etc.
-    const sanitizedTitle = cleanTitle
+    let sanitizedTitle = cleanTitle
       .replace(/\s*[\(\[](official\s*video|video\s*oficial|audio\s*oficial|visualizer|lyric\s*video|hd|4k|remix|en\s*vivo)[\)\]]/gi, '')
       .replace(/\|.*$/, '')
       .trim() || cleanTitle;
 
+    let effArtist = cleanArtist;
+    let effTitle = sanitizedTitle;
+
+    // Detect "Artist - Track" in title (very common in YouTube)
+    if (sanitizedTitle.includes(' - ')) {
+      const parts = sanitizedTitle.split(' - ');
+      if (parts.length >= 2) {
+        effArtist = parts[0].trim();
+        effTitle = parts.slice(1).join(' - ').trim();
+      }
+    }
+
     try {
       // 1. Try exact match on LRCLIB /api/get
       const params = new URLSearchParams({
-        track_name: sanitizedTitle,
-        artist_name: cleanArtist,
+        track_name: effTitle,
+        artist_name: effArtist,
       });
 
       if (album && album.trim()) {
@@ -120,17 +132,19 @@ export class LyricsService {
       // If 404 with album/duration constraints, retry without album and duration for broader match
       if ((!res || !res.ok) && (album || duration)) {
         const relaxedParams = new URLSearchParams({
-          track_name: sanitizedTitle,
-          artist_name: cleanArtist,
+          track_name: effTitle,
+          artist_name: effArtist,
         });
         res = await fetch(`https://lrclib.net/api/get?${relaxedParams.toString()}`).catch(() => null);
       }
 
-      // If still not found, try search endpoint
+      // If still not found, try search endpoint by query (q=) for maximal resilience
       if (!res || !res.ok) {
+        const queryStr = `${effArtist} ${effTitle}`.trim();
         const searchRes = await fetch(
-          `https://lrclib.net/api/search?track_name=${encodeURIComponent(sanitizedTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
+          `https://lrclib.net/api/search?q=${encodeURIComponent(queryStr)}`
         ).catch(() => null);
+
         if (searchRes && searchRes.ok) {
           const list = await searchRes.json();
           if (Array.isArray(list) && list.length > 0) {

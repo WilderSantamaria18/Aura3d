@@ -38,11 +38,19 @@ import {
   Sparkles,
   Eye,
   Heart,
+  Minimize2,
+  Maximize2,
+  Trash2,
+  Moon,
+  Download,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
 import type { Track } from '../../types/audio';
 import { GlobalYouTubePlayer } from './GlobalYouTubePlayer';
+import { audioEngine } from '../../services/audioEngine';
+import { StorageService } from '../../services/storageService';
 
 // ── Time formatter helper ─────────────────────────────────────────────────────
 const formatTime = (seconds: number): string => {
@@ -58,6 +66,67 @@ const YouTubeIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }
     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
   </svg>
 );
+
+// ── Mini Waveform Real-Time Spectrum Canvas ──────────────────────────────────
+const MiniWaveform: React.FC<{
+  progress: number;
+  activeColor: string;
+  isPlaying: boolean;
+}> = ({ progress, activeColor, isPlaying }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    const barCount = 36;
+
+    const render = () => {
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      const freqData = audioEngine.getFrequencyData();
+      const raw = freqData.raw;
+      const step = raw.length > 0 ? Math.floor(raw.length / barCount) : 1;
+      const barWidth = width / barCount - 1.5;
+
+      for (let i = 0; i < barCount; i++) {
+        const rawVal = isPlaying && raw.length > 0 ? raw[i * step] / 255 : 0.12 + Math.sin(i * 0.35) * 0.06;
+        const barHeight = Math.max(3, rawVal * (height - 4));
+        const x = i * (barWidth + 1.5);
+        const y = (height - barHeight) / 2;
+
+        const isPlayed = (x / width) * 100 <= progress;
+        ctx.fillStyle = isPlayed ? activeColor : 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(x, y, Math.max(1, barWidth), barHeight, 2);
+        } else {
+          ctx.rect(x, y, Math.max(1, barWidth), barHeight);
+        }
+        ctx.fill();
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    animId = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(animId);
+  }, [progress, activeColor, isPlaying]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={280}
+      height={26}
+      className="w-full h-full pointer-events-none rounded-lg"
+    />
+  );
+};
 
 export const MiniPlayer: React.FC = () => {
   // ── Hook Audio Controls (Single Source of Truth) ───────────────────────────
@@ -97,16 +166,74 @@ export const MiniPlayer: React.FC = () => {
   const setQueue = usePlayerStore((s) => s.setQueue);
   const favorites = usePlayerStore((s) => s.favorites);
   const toggleFavorite = usePlayerStore((s) => s.toggleFavorite);
+  const threeBandEQ = usePlayerStore((s) => s.threeBandEQ);
+  const setThreeBandGain = usePlayerStore((s) => s.setThreeBandGain);
+  const sleepTimerMinutes = usePlayerStore((s) => s.sleepTimerMinutes);
+  const sleepTimerRemainingSec = usePlayerStore((s) => s.sleepTimerRemainingSec);
+  const setSleepTimer = usePlayerStore((s) => s.setSleepTimer);
 
   // ── Local Component State ──────────────────────────────────────────────────
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isZenMode, setIsZenMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'player' | 'search' | 'queue' | 'favorites'>('player');
   const [showVideoView, setShowVideoView] = useState(true);
+  const [showQuickEQ, setShowQuickEQ] = useState(false);
   const [searchFilter, setSearchFilter] = useState<'video' | 'playlist'>('video');
   const [searchQuery, setSearchQuery] = useState('');
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubValue, setScrubValue] = useState(0);
   const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
+
+  const handleClearFavorites = () => {
+    if (favorites.length === 0) return;
+    if (window.confirm('¿Deseas vaciar todas tus canciones favoritas de la lista?')) {
+      usePlayerStore.setState({ favorites: [] });
+      StorageService.saveFavorites([]);
+    }
+  };
+
+  const handleExportJSON = () => {
+    try {
+      const data = {
+        version: 'aura3d_v1',
+        exportedAt: new Date().toISOString(),
+        favorites,
+        playlists: StorageService.getPlaylists(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Aura3D_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export backup', err);
+    }
+  };
+
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (Array.isArray(parsed.favorites)) {
+          usePlayerStore.setState({ favorites: parsed.favorites });
+          StorageService.saveFavorites(parsed.favorites);
+        }
+        if (Array.isArray(parsed.playlists)) {
+          StorageService.savePlaylists(parsed.playlists);
+        }
+        alert('¡Copia de seguridad importada exitosamente!');
+      } catch (err) {
+        alert('Archivo de copia de seguridad no válido');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const isCurrentFav = currentTrack
     ? favorites.some(
@@ -114,7 +241,23 @@ export const MiniPlayer: React.FC = () => {
       )
     : false;
 
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
+
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    const rotX = -(y / (rect.height / 2)) * 4.5;
+    const rotY = (x / (rect.width / 2)) * 4.5;
+    setTilt({ rotateX: rotX, rotateY: rotY });
+  };
+
+  const handleCardMouseLeave = () => {
+    setTilt({ rotateX: 0, rotateY: 0 });
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jsonImportInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ── Debounce Search Effect (300ms) ──────────────────────────────────────────
@@ -286,8 +429,65 @@ export const MiniPlayer: React.FC = () => {
         className="hidden"
       />
 
+      {/* ── Zen Mode Ultra-Compact Floating Micro-Pill ─────────────────────── */}
+      {isZenMode && !isExpanded && (
+        <div className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300">
+          <div
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-full backdrop-blur-2xl bg-[#060812]/90 border border-white/15 shadow-[0_15px_35px_rgba(0,0,0,0.85)] select-none"
+            style={themeGlowStyle}
+          >
+            {/* 3 dancing audio bars */}
+            <div className="flex items-end gap-0.5 h-3.5 w-3.5 flex-shrink-0">
+              <span
+                className={`w-1 rounded-full bg-cyan-400 transition-all duration-150 ${
+                  isPlaying ? 'h-3 animate-pulse' : 'h-1 opacity-40'
+                }`}
+              />
+              <span
+                className={`w-1 rounded-full bg-cyan-300 transition-all duration-150 ${
+                  isPlaying ? 'h-3.5 animate-bounce' : 'h-1.5 opacity-40'
+                }`}
+              />
+              <span
+                className={`w-1 rounded-full bg-cyan-400 transition-all duration-150 ${
+                  isPlaying ? 'h-2 animate-pulse' : 'h-1 opacity-40'
+                }`}
+              />
+            </div>
+
+            {/* Truncated track title */}
+            <span className="text-xs font-medium text-white/90 truncate max-w-[120px] sm:max-w-[160px]">
+              {title}
+            </span>
+
+            {/* Play / Pause Mini */}
+            <button
+              onClick={togglePlay}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-black hover:bg-white/90 active:scale-95 transition-all shadow text-xs"
+              style={
+                isLucid
+                  ? { backgroundColor: lucidTheme.primary, color: '#000' }
+                  : { backgroundColor: 'var(--color-primary, #ffffff)', color: '#000' }
+              }
+              title={isPlaying ? 'Pausar' : 'Reproducir'}
+            >
+              {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current translate-x-0.5" />}
+            </button>
+
+            {/* Exit Zen Mode Button */}
+            <button
+              onClick={() => setIsZenMode(false)}
+              className="p-1 text-white/40 hover:text-white rounded-md hover:bg-white/10 transition-colors"
+              title="Restaurar Mini-Player estándar"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Collapsed Dock Pill (Docked on Left: bottom-6 left-4) ──────────── */}
-      {!isExpanded && (
+      {!isExpanded && !isZenMode && (
         <div
           className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform"
         >
@@ -377,6 +577,15 @@ export const MiniPlayer: React.FC = () => {
                 {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
               </button>
 
+              {/* Botón Zen Mode */}
+              <button
+                onClick={() => setIsZenMode(true)}
+                className="p-1.5 text-white/40 hover:text-cyan-300 rounded-lg hover:bg-white/10 transition-colors"
+                title="Activar Modo Zen (píldora ultracompacta)"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+
               <button
                 onClick={() => setIsExpanded(true)}
                 className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
@@ -397,7 +606,13 @@ export const MiniPlayer: React.FC = () => {
       >
           <div
             className="flex flex-col rounded-2xl backdrop-blur-3xl bg-[#080b16]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.9)] overflow-hidden animate-in fade-in slide-in-from-left-4 slide-in-from-bottom-4 duration-300"
-            style={themeGlowStyle}
+            style={{
+              ...themeGlowStyle,
+              transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
+              transition: tilt.rotateX === 0 ? 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'transform 0.08s ease-out',
+            }}
+            onMouseMove={handleCardMouseMove}
+            onMouseLeave={handleCardMouseLeave}
           >
             {/* Header: Title, Source & Collapse/Close */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white/[0.02]">
@@ -496,14 +711,7 @@ export const MiniPlayer: React.FC = () => {
                 {/* Si es pista de YouTube y la vista de video está activa */}
                 {sourceType === 'youtube' && currentTrack?.youtubeId && showVideoView ? (
                   <div className="flex flex-col gap-3">
-                    <GlobalYouTubePlayer
-                      inMiniPlayer={true}
-                      isMiniPlayerExpanded={isExpanded}
-                      activeTab={activeTab}
-                      showVideoInPlayer={showVideoView}
-                      onToggleVideoView={() => setShowVideoView(false)}
-                      onExpandMiniPlayer={() => setIsExpanded(true)}
-                    />
+                    <GlobalYouTubePlayer showVideoInPlayer={isExpanded && activeTab === 'player' && showVideoView} />
                     <div className="flex items-center justify-between gap-2 px-1">
                       <div className="flex flex-col min-w-0 flex-1">
                         <h3 className="text-sm sm:text-base font-bold text-white truncate tracking-tight">
@@ -548,24 +756,58 @@ export const MiniPlayer: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
                 ) : (
-                  /* Artwork & Track Information estándar */
+                  /* Artwork & Track Information estándar con Vinilo 3D */
                   <div className="flex items-center gap-3.5">
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex-shrink-0 shadow-lg">
-                      <img
-                        src={coverUrl}
-                        alt={title}
-                        className={`w-full h-full object-cover transition-transform duration-700 ${
-                          isPlaying ? 'scale-105' : 'scale-100'
+                    {/* Vinyl Slide-out Container */}
+                    <div className="relative flex-shrink-0">
+                      {/* Realistic Grooved Vinyl Disc */}
+                      <div
+                        className={`absolute top-0 bottom-0 left-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full shadow-2xl transition-all duration-700 ease-out pointer-events-none flex items-center justify-center ${
+                          isPlaying
+                            ? 'translate-x-5 sm:translate-x-7 opacity-100'
+                            : 'translate-x-0 opacity-0'
                         }`}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&h=300&fit=crop&q=80';
+                        style={{
+                          background: 'repeating-radial-gradient(circle, #0e0e12 0px, #14141a 2px, #0a0a0d 3px, #181822 5px)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.9)',
+                          zIndex: 0,
                         }}
-                      />
-                      {isPlaying && (
-                        <div className="absolute inset-0 bg-cyan-500/10 pointer-events-none" />
-                      )}
+                      >
+                        {/* Center Vinyl Label (Spinning at 33 RPM) */}
+                        <div
+                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden border border-white/30 shadow-inner flex items-center justify-center ${
+                            isPlaying ? 'animate-spin' : ''
+                          }`}
+                          style={{ animationDuration: '2.4s' }}
+                        >
+                          <img
+                            src={coverUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute w-1.5 h-1.5 rounded-full bg-black border border-white/50" />
+                        </div>
+                      </div>
+
+                      {/* Foreground Album Cover Sleeve */}
+                      <div className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 shadow-lg">
+                        <img
+                          src={coverUrl}
+                          alt={title}
+                          className={`w-full h-full object-cover transition-transform duration-700 ${
+                            isPlaying ? 'scale-105' : 'scale-100'
+                          }`}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&h=300&fit=crop&q=80';
+                          }}
+                        />
+                        {isPlaying && (
+                          <div className="absolute inset-0 bg-cyan-500/10 pointer-events-none" />
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-col min-w-0 flex-1">
@@ -612,6 +854,272 @@ export const MiniPlayer: React.FC = () => {
                     </div>
                   </div>
                 )}
+                  {/* Real-time Spectrum MiniWaveform Scrubber */}
+                  <div className="flex flex-col gap-1.5 pt-3 border-t border-white/[0.08]">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-white/50 px-0.5">
+                      <span className="text-white/70 font-semibold">{formatTime(displayCurrentTime)}</span>
+                      <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Radio className="w-2.5 h-2.5 animate-pulse" /> Onda en Vivo
+                      </span>
+                      <span>{formatTime(duration)}</span>
+                    </div>
+
+                    <div
+                      className="relative w-full h-8 bg-black/40 rounded-xl overflow-hidden border border-white/10 group px-1 flex items-center shadow-inner cursor-pointer"
+                      onMouseDown={handleSeekMouseDown}
+                      onTouchStart={handleSeekMouseDown}
+                    >
+                      <MiniWaveform
+                        progress={progressPercent}
+                        activeColor={isLucid ? lucidTheme.primary : '#00f2fe'}
+                        isPlaying={isPlaying}
+                      />
+                      <input
+                        type="range"
+                        min={0}
+                        max={duration > 0 ? duration : 100}
+                        step={0.1}
+                        value={displayCurrentTime}
+                        onChange={handleSeekChange}
+                        onMouseUp={handleSeekMouseUp}
+                        onTouchEnd={handleSeekMouseUp}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
+                        title="Arrastra para avanzar o retroceder"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Primary Transport Controls */}
+                  <div className="flex items-center justify-between pt-2 px-1">
+                    {/* Shuffle & Prev */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={toggleShuffle}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          isShuffled ? 'text-cyan-400 bg-cyan-500/15' : 'text-white/40 hover:text-white'
+                        }`}
+                        title="Modo aleatorio"
+                      >
+                        <Shuffle className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={playPrevious}
+                        className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                        title="Pista anterior"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Big Center Play/Pause */}
+                    <button
+                      onClick={togglePlay}
+                      className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white text-black hover:scale-105 active:scale-95 transition-all shadow-lg"
+                      style={
+                        isLucid
+                          ? { backgroundColor: lucidTheme.primary, color: '#000' }
+                          : { backgroundColor: '#ffffff', color: '#000' }
+                      }
+                      title={isPlaying ? 'Pausar' : 'Reproducir'}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-4 h-4 fill-current" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-current translate-x-0.5" />
+                      )}
+                    </button>
+
+                    {/* Next & Repeat */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={playNext}
+                        className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                        title="Siguiente pista"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={cycleRepeat}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          repeatMode !== 'off' ? 'text-cyan-400 bg-cyan-500/15' : 'text-white/40 hover:text-white'
+                        }`}
+                        title={`Repetir: ${repeatMode}`}
+                      >
+                        {repeatMode === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Volume Slider */}
+                  <div className="flex items-center gap-2 px-1 pt-1 border-t border-white/[0.04]">
+                    <button
+                      onClick={toggleMute}
+                      className="p-1 text-white/40 hover:text-white transition-colors"
+                      title={isMuted ? 'Activar sonido' : 'Silenciar'}
+                    >
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                      ) : volume < 0.5 ? (
+                        <Volume1 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className="flex-1 h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/20"
+                      title={`Volumen: ${Math.round(volume * 100)}%`}
+                    />
+                    <span className="text-[10px] font-mono text-white/40 w-7 text-right">
+                      {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                    </span>
+                  </div>
+
+                  {/* ── Utilities Bar: EQ 3-Band, Sleep Timer, Backup JSON ── */}
+                  <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.06]">
+                    <div className="flex items-center justify-between gap-1 text-[11px] font-mono">
+                      {/* EQ Toggle */}
+                      <button
+                        onClick={() => setShowQuickEQ(!showQuickEQ)}
+                        className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 transition-all ${
+                          showQuickEQ || threeBandEQ.bass !== 0 || threeBandEQ.mids !== 0 || threeBandEQ.treble !== 0
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                            : 'bg-white/[0.03] hover:bg-white/[0.08] text-white/60 border-white/10'
+                        }`}
+                        title="Ecualizador rápido de 3 bandas (Bajos, Medios, Agudos)"
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span>EQ 3-Band</span>
+                      </button>
+
+                      {/* Sleep Timer Selector */}
+                      <div className="flex items-center gap-1 bg-white/[0.03] px-1.5 py-0.5 rounded-lg border border-white/10">
+                        <Moon className={`w-3 h-3 ${sleepTimerMinutes > 0 ? 'text-amber-300 animate-pulse' : 'text-white/40'}`} />
+                        {sleepTimerMinutes > 0 ? (
+                          <button
+                            onClick={() => setSleepTimer(0)}
+                            className="text-[10px] text-amber-300 font-bold hover:underline"
+                            title="Haz clic para cancelar temporizador"
+                          >
+                            {formatTime(sleepTimerRemainingSec)}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            {[15, 30, 60].map((m) => (
+                              <button
+                                key={m}
+                                onClick={() => setSleepTimer(m)}
+                                className="text-[10px] text-white/50 hover:text-white px-1 rounded hover:bg-white/10 transition-colors"
+                              >
+                                {m}m
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Backup Export / Import */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={handleExportJSON}
+                          className="p-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors"
+                          title="Exportar respaldo de favoritos y listas (JSON)"
+                        >
+                          <Download className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => jsonImportInputRef.current?.click()}
+                          className="p-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors"
+                          title="Restaurar copia de respaldo (JSON)"
+                        >
+                          <Upload className="w-3 h-3" />
+                        </button>
+                        <input
+                          ref={jsonImportInputRef}
+                          type="file"
+                          accept=".json"
+                          className="hidden"
+                          onChange={handleImportJSON}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Quick 3-Band Equalizer */}
+                    {showQuickEQ && (
+                      <div className="p-2.5 rounded-xl bg-[#070913]/70 backdrop-blur-xl border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between text-[10px] font-mono text-white/60">
+                          <span className="tracking-[0.14em] uppercase text-[9px]">AJUSTES TONALES DSP</span>
+                          <button
+                            onClick={() => {
+                              setThreeBandGain('bass', 0);
+                              setThreeBandGain('mids', 0);
+                              setThreeBandGain('treble', 0);
+                            }}
+                            className="text-white/60 hover:text-white hover:underline transition-colors text-[9px]"
+                          >
+                            Restablecer (0 dB)
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {/* Bass */}
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] text-white/70 font-mono">Bajos</span>
+                            <input
+                              type="range"
+                              min={-12}
+                              max={12}
+                              step={1}
+                              value={threeBandEQ.bass}
+                              onChange={(e) => setThreeBandGain('bass', parseFloat(e.target.value))}
+                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                            />
+                            <span className="text-[9px] font-mono text-white/80">
+                              {threeBandEQ.bass > 0 ? `+${threeBandEQ.bass}` : threeBandEQ.bass} dB
+                            </span>
+                          </div>
+
+                          {/* Mids */}
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] text-white/70 font-mono">Medios</span>
+                            <input
+                              type="range"
+                              min={-12}
+                              max={12}
+                              step={1}
+                              value={threeBandEQ.mids}
+                              onChange={(e) => setThreeBandGain('mids', parseFloat(e.target.value))}
+                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                            />
+                            <span className="text-[9px] font-mono text-white/80">
+                              {threeBandEQ.mids > 0 ? `+${threeBandEQ.mids}` : threeBandEQ.mids} dB
+                            </span>
+                          </div>
+
+                          {/* Treble */}
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] text-white/70 font-mono">Agudos</span>
+                            <input
+                              type="range"
+                              min={-12}
+                              max={12}
+                              step={1}
+                              value={threeBandEQ.treble}
+                              onChange={(e) => setThreeBandGain('treble', parseFloat(e.target.value))}
+                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                            />
+                            <span className="text-[9px] font-mono text-white/80">
+                              {threeBandEQ.treble > 0 ? `+${threeBandEQ.treble}` : threeBandEQ.treble} dB
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
               </div>
 
               {/* ── 2. SEARCH TAB (Filtro Canciones / Playlists del Artista) ──── */}
@@ -768,6 +1276,15 @@ export const MiniPlayer: React.FC = () => {
                   <span className="text-xs font-mono text-rose-300 font-bold flex items-center gap-1.5">
                     <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" /> Canciones Favoritas ({favorites.length})
                   </span>
+                  {favorites.length > 0 && (
+                    <button
+                      onClick={handleClearFavorites}
+                      className="flex items-center gap-1 text-[10px] font-mono text-rose-400/80 hover:text-rose-300 transition-colors px-2 py-0.5 rounded-lg hover:bg-rose-500/10 border border-rose-500/20"
+                      title="Eliminar todas las canciones favoritas guardadas"
+                    >
+                      <Trash2 className="w-3 h-3" /> Vaciar
+                    </button>
+                  )}
                 </div>
 
                 {favorites.length === 0 ? (

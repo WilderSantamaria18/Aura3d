@@ -5,7 +5,12 @@ import type { VisualizerShape } from '../../types/audio';
 import { SPHERE_3D_GEOMETRIES, RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { useAIDirectorPhase } from '../../services/aiSceneDirectorService';
 
-export const VisualizerQuickControls: React.FC = React.memo(() => {
+interface VisualizerQuickControlsProps {
+  className?: string;
+  embedded?: boolean;
+}
+
+export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = React.memo(({ className = '', embedded = false }) => {
   const {
     visualizerMode,
     sphereShape,
@@ -38,9 +43,12 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
   } = usePlayerStore();
 
   const isBlob = visualizerMode === 'blob';
+  const isWarp = visualizerMode === 'warp';
+  const isSynthwave = visualizerMode === 'synthwave';
+  const isTerrain = visualizerMode === 'terrain';
   const currentScale = isBlob ? blobScale : sphereScale;
   const setScale = isBlob ? setBlobScale : setSphereScale;
-  const scaleLabel = isBlob ? 'Blob' : '3D';
+  const scaleLabel = isBlob ? 'Blob' : isWarp ? 'Warp' : isSynthwave ? 'Highway' : isTerrain ? 'Terrain' : '3D';
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
   const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
@@ -49,14 +57,18 @@ export const VisualizerQuickControls: React.FC = React.memo(() => {
 
   return (
     <div
-      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs select-none shadow-[0_12px_32px_-4px_rgba(0,0,0,0.7)] flex-wrap justify-center transition-all duration-180 bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08]"
+      className={`flex items-center gap-1.5 sm:gap-2 text-xs select-none flex-wrap justify-center transition-all duration-200 ${
+        embedded
+          ? 'px-1 py-0.5 bg-transparent'
+          : 'px-2.5 sm:px-3 py-1 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.4)] bg-[#070913]/60 backdrop-blur-2xl border border-white/[0.05] border-t-white/[0.10]'
+      } ${className}`}
       style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
-      {/* ── 1. Selector de Geometría / Efecto (Esfera 3D vs Rainbow Void) ── */}
-      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors border border-white/[0.06]">
-        <Shapes className="w-3.5 h-3.5 text-white/50" />
-        <span className="text-[9px] font-mono tracking-wider px-1 py-0.5 rounded bg-white/[0.06] text-white/70 font-semibold uppercase">
-          {isBlob ? '2D VOID' : '3D SPHERE'}
+      {/* ── 1. Selector de Geometría / Efecto (Esfera 3D vs Rainbow Void vs Warp vs Terrain) ── */}
+      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors border border-white/[0.04]">
+        <Shapes className="w-3.5 h-3.5 text-white/40" />
+        <span className="text-[9px] font-mono tracking-[0.16em] px-1 py-0.2 rounded bg-white/[0.04] text-white/60 font-medium uppercase">
+          {isBlob ? '2D VOID' : isWarp ? '3D WARP' : isSynthwave ? '3D ROAD' : isTerrain ? '3D TERRAIN' : '3D SPHERE'}
         </span>
         {isBlob ? (
           <select

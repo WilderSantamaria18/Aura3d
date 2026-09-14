@@ -9,11 +9,13 @@ import {
   Music,
   Activity,
 } from 'lucide-react';
+import { BeatTapGame } from './BeatTapGame';
 
 export const GamificationHUD: React.FC = () => {
   const { gameState, genrePrediction } = useGamification();
   const { totalListeningTime, isLucid, lucidTheme, hasStarted } = usePlayerStore();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isBeatTapOpen, setIsBeatTapOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Layer 4 UI optimization: useDeferredValue prevents React updates from blocking main thread / 60 FPS
@@ -222,6 +224,18 @@ export const GamificationHUD: React.FC = () => {
             </div>
           </div>
 
+          {/* Launch Beat Tap Game Mode Button */}
+          <button
+            onClick={() => {
+              setIsExpanded(false);
+              setIsBeatTapOpen(true);
+            }}
+            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-500/40 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md group cursor-pointer"
+          >
+            <Flame className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>MODO BEAT TAP (JUGAR)</span>
+          </button>
+
           {/* Dynamic Status Feedback */}
           <div className="pt-1 flex items-center justify-between text-[9px] border-t border-white/[0.06]">
             <span className="text-white/40 flex items-center gap-1">
@@ -248,6 +262,12 @@ export const GamificationHUD: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Beat Tap Interactive Game Modal */}
+      <BeatTapGame
+        isOpen={isBeatTapOpen}
+        onClose={() => setIsBeatTapOpen(false)}
+      />
     </div>
   );
 };

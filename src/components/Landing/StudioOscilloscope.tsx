@@ -1,17 +1,21 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface StudioOscilloscopeProps {
   color?: string;
 }
 
+type WaveformMode = 'harmonic' | 'sine' | 'pulse';
+
 /**
  * StudioOscilloscope
- * Osciloscopio de fósforo CRT de alta precisión con trazado de ondas armónicas en tiempo real.
+ * Osciloscopio de fósforo CRT de alta precisión con trazado de ondas armónicas en tiempo real
+ * y selector interactivo de forma de onda.
  */
 export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
   color = '#00e5ff',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [waveMode, setWaveMode] = useState<WaveformMode>('harmonic');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,21 +62,32 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
       ctx.lineTo(w / 2, h);
       ctx.stroke();
 
-      // Dual harmonic waveform
+      // Waveform calculation based on active mode
       ctx.beginPath();
       for (let x = 0; x < w; x++) {
         const nx = x / w;
-        const wave1 = Math.sin(nx * Math.PI * 6 + elapsed * 4.5) * 18;
-        const wave2 = Math.sin(nx * Math.PI * 14 - elapsed * 6) * 8;
-        const wave3 = Math.cos(nx * Math.PI * 2 + elapsed * 2) * 5;
-        const beatPulse = Math.sin(elapsed * 2.2) > 0.4 ? 1.25 : 0.85;
-        const y = cy + (wave1 + wave2 + wave3) * beatPulse;
+        let yOffset = 0;
 
+        if (waveMode === 'sine') {
+          yOffset = Math.sin(nx * Math.PI * 6 + elapsed * 5) * 20;
+        } else if (waveMode === 'pulse') {
+          const raw = Math.sin(nx * Math.PI * 8 + elapsed * 4);
+          yOffset = (raw > 0.1 ? 16 : -16) * Math.sin(nx * Math.PI);
+        } else {
+          // Harmonic mode
+          const wave1 = Math.sin(nx * Math.PI * 6 + elapsed * 4.5) * 18;
+          const wave2 = Math.sin(nx * Math.PI * 14 - elapsed * 6) * 8;
+          const wave3 = Math.cos(nx * Math.PI * 2 + elapsed * 2) * 5;
+          const beatPulse = Math.sin(elapsed * 2.2) > 0.4 ? 1.25 : 0.85;
+          yOffset = (wave1 + wave2 + wave3) * beatPulse;
+        }
+
+        const y = cy + yOffset;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
 
-      // Phosphor trace glow layer (hardware-accelerated wide stroke, 0 CPU blur overhead)
+      // Phosphor trace glow layer
       ctx.strokeStyle = color;
       ctx.globalAlpha = 0.25;
       ctx.lineWidth = 4.5;
@@ -86,11 +101,21 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
 
       // Bright leading sweep point
       const sweepX = (elapsed * 90) % w;
-      const sweepY =
-        cy +
-        (Math.sin((sweepX / w) * Math.PI * 6 + elapsed * 4.5) * 18 +
-          Math.sin((sweepX / w) * Math.PI * 14 - elapsed * 6) * 8) *
+      const sweepNx = sweepX / w;
+      let sweepYOffset = 0;
+      if (waveMode === 'sine') {
+        sweepYOffset = Math.sin(sweepNx * Math.PI * 6 + elapsed * 5) * 20;
+      } else if (waveMode === 'pulse') {
+        const raw = Math.sin(sweepNx * Math.PI * 8 + elapsed * 4);
+        sweepYOffset = (raw > 0.1 ? 16 : -16) * Math.sin(sweepNx * Math.PI);
+      } else {
+        sweepYOffset =
+          (Math.sin(sweepNx * Math.PI * 6 + elapsed * 4.5) * 18 +
+            Math.sin(sweepNx * Math.PI * 14 - elapsed * 6) * 8) *
           (Math.sin(elapsed * 2.2) > 0.4 ? 1.25 : 0.85);
+      }
+
+      const sweepY = cy + sweepYOffset;
 
       // Glow halo around point
       ctx.beginPath();
@@ -111,22 +136,44 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [color]);
+  }, [color, waveMode]);
 
   return (
-    <div className="relative w-full h-24 rounded-lg overflow-hidden bg-[#030712] border border-white/[0.08] shadow-inner">
+    <div className="relative w-full h-24 rounded-xl overflow-hidden bg-[#05070d] border border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(0,0,0,0.5)] group">
+      {/* Corner rack screw markers */}
+      <span className="absolute top-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
+      <span className="absolute top-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
+      <span className="absolute bottom-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
+      <span className="absolute bottom-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
+
       <canvas
         ref={canvasRef}
         width={320}
         height={96}
         className="w-full h-full object-cover"
       />
-      <div className="absolute top-1.5 left-2 flex items-center gap-1.5 font-mono text-[9px] text-white/40 pointer-events-none">
-        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-        <span>OSC-1 // REALTIME FFT</span>
+
+      <div className="absolute top-2 left-4 flex items-center gap-2 font-mono text-[9px] text-[#8b95a5]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] animate-pulse" />
+        <span className="tracking-wider">OSC-1 // REALTIME FFT</span>
       </div>
-      <div className="absolute top-1.5 right-2 font-mono text-[9px] text-white/40 pointer-events-none">
-        48 kHz
+
+      {/* Waveform Selector Badge */}
+      <button
+        type="button"
+        onClick={() =>
+          setWaveMode((prev) => (prev === 'harmonic' ? 'sine' : prev === 'sine' ? 'pulse' : 'harmonic'))
+        }
+        className="absolute top-2 right-4 px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 font-mono text-[9px] uppercase tracking-wider text-[#00e5ff] transition-colors cursor-pointer"
+        title="Clic para alternar forma de onda del osciloscopio"
+      >
+        MODE: {waveMode}
+      </button>
+
+      {/* Telemetry bottom bar */}
+      <div className="absolute bottom-1.5 left-4 right-4 flex items-center justify-between font-mono text-[8px] text-[#556075]">
+        <span>48.0 kHz SAMPLING</span>
+        <span className="tabular-nums">RMS: -14.2 dB</span>
       </div>
     </div>
   );
