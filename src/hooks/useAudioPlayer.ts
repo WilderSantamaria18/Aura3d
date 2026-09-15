@@ -177,7 +177,7 @@ export const fetchRelatedTracks = async (
   duration = 0
 ): Promise<Track[]> => {
   const tracksMap = new Map<string, Track>();
-  const cleanTitle = title.toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+  const cleanTitle = title.toLowerCase().replace(/[[({].*?[\])}]/g, '').trim();
   const isMixFormat =
     duration > 900 ||
     /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|live set|enganchado|compil/i.test(title);
@@ -185,7 +185,7 @@ export const fetchRelatedTracks = async (
   const addResultsToMap = (results: YouTubeSearchResult[]) => {
     for (const r of results) {
       if (!r || !r.id || r.id === videoId) continue;
-      const rTitleClean = (r.title || '').toLowerCase().replace(/[\(\[\{].*?[\)\]\}]/g, '').trim();
+      const rTitleClean = (r.title || '').toLowerCase().replace(/[[({].*?[\])}]/g, '').trim();
       if (cleanTitle.length > 3 && (rTitleClean === cleanTitle || (rTitleClean.includes(cleanTitle) && rTitleClean.length < cleanTitle.length + 8))) {
         continue;
       }
@@ -275,6 +275,26 @@ export const useAudioPlayer = () => {
   const [searchResults, setSearchResults] = useState<YouTubeSearchResult[]>([]);
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeBlobUrlRef = useRef<string | null>(null);
+
+  // ── Error listener from native audio pipeline ──────────────────────────────
+  useEffect(() => {
+    const unsub = audioEngine.onError((msg) => {
+      setError(msg);
+      usePlayerStore.setState({ isPlaying: false });
+    });
+    return unsub;
+  }, []);
+
+  // ── Clean up blob URL on hook unmount ──────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (activeBlobUrlRef.current) {
+        URL.revokeObjectURL(activeBlobUrlRef.current);
+        activeBlobUrlRef.current = null;
+      }
+    };
+  }, []);
 
   // ── Fine-grained Zustand selectors to avoid excessive re-renders ─────────────
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -393,7 +413,11 @@ export const useAudioPlayer = () => {
           (typeof track.url === 'string' && (track.url.includes('youtube.com') || track.url.includes('youtu.be')));
 
         if (track.file) {
+          if (activeBlobUrlRef.current) {
+            URL.revokeObjectURL(activeBlobUrlRef.current);
+          }
           const blobUrl = URL.createObjectURL(track.file);
+          activeBlobUrlRef.current = blobUrl;
           try {
             const arrayBuffer = await track.file.arrayBuffer();
             const dur = await audioEngine.loadArrayBuffer(arrayBuffer, track.file.name);
@@ -404,6 +428,10 @@ export const useAudioPlayer = () => {
           }
           setCurrentTrack({ ...track, url: blobUrl });
         } else if (isYouTube) {
+          if (activeBlobUrlRef.current) {
+            URL.revokeObjectURL(activeBlobUrlRef.current);
+            activeBlobUrlRef.current = null;
+          }
           const isVercel = isVercelDeployment();
           const hasBackend = isVercel ? false : await hasNativeStreamBackend();
           const useIframe = !hasBackend || track.isIframePlayback || (Boolean(track.url) && track.url!.includes('youtube.com'));
@@ -553,7 +581,12 @@ export const useAudioPlayer = () => {
         const parts = nameWithoutExt.split(' - ');
         const artist = parts.length > 1 ? parts[0].trim() : 'Archivo local';
         const title = parts.length > 1 ? parts[1].trim() : nameWithoutExt.trim();
+        
+        if (activeBlobUrlRef.current) {
+          URL.revokeObjectURL(activeBlobUrlRef.current);
+        }
         const blobUrl = URL.createObjectURL(file);
+        activeBlobUrlRef.current = blobUrl;
 
         let durationSecs = 0;
         try {

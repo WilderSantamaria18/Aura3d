@@ -57,19 +57,19 @@ export const VisualizerSettingsModal: React.FC = () => {
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md pointer-events-auto select-none font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-aura-backdrop">
       <div
-        className="w-full max-w-2xl border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#090d18]"
+        className="w-full max-w-2xl border border-white/[0.08] rounded-[20px] p-4 sm:p-5 shadow-[var(--shadow-modal)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-aura-modal"
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/80">
-              <Sliders className="w-4 h-4 text-[#00e5ff]" />
+            <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm">
+              <Sliders className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-white font-medium text-sm sm:text-base tracking-wide">
+              <h2 className="text-white font-bold text-sm sm:text-base tracking-tight">
                 Calibración del Visualizador
               </h2>
               <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
@@ -80,7 +80,7 @@ export const VisualizerSettingsModal: React.FC = () => {
 
           <button
             onClick={() => setVisualizerSettingsOpen(false)}
-            className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.05] transition-colors"
+            className="p-1.5 text-white/40 hover:text-white rounded-[8px] hover:bg-white/[0.06] transition-colors"
             aria-label="Cerrar ventana"
           >
             <X className="w-4 h-4" />

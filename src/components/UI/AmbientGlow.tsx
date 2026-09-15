@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { audioEngine } from '../../services/audioEngine';
+import { fftWorkerService } from '../../services/fftWorkerService';
 
 interface Particle {
   x: number;
@@ -118,8 +119,8 @@ export const AmbientGlow: React.FC = React.memo(() => {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist > 3) {
-            const freq = audioEngine.getFrequencyData();
-            const trebleBoost = freq.highs || 0;
+            const workerBands = fftWorkerService.getLatestBands();
+            const trebleBoost = workerBands.treble || 0;
             const spawnCount = Math.min(4, Math.floor(dist / 8) + 1);
 
             for (let s = 0; s < spawnCount; s++) {

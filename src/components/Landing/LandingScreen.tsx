@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   Disc3,
   ChevronDown,
@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
-import { Landing3DScene } from './Landing3DScene';
+const Landing3DScene = React.lazy(() =>
+  import('./Landing3DScene').then((m) => ({ default: m.Landing3DScene }))
+);
 import { StudioOscilloscope } from './StudioOscilloscope';
 import { StudioMixerDeck } from './StudioMixerDeck';
 import { StudioTurntableDeck } from './StudioTurntableDeck';
@@ -42,6 +44,30 @@ export const LandingScreen: React.FC = () => {
   const section2Ref = useRef<HTMLElement>(null);
   const section3Ref = useRef<HTMLElement>(null);
 
+  const handleStartExperience = useCallback(async () => {
+    setIsTransitioningOut(true);
+    await unlockAudio();
+    setTimeout(() => {
+      setHasStarted(true);
+    }, 450);
+  }, [unlockAudio, setHasStarted]);
+
+  const handleMicStart = useCallback(async () => {
+    setIsTransitioningOut(true);
+    await toggleMicrophone();
+    setTimeout(() => {
+      setHasStarted(true);
+    }, 450);
+  }, [toggleMicrophone, setHasStarted]);
+
+  const handleFileLoaded = (file: File) => {
+    setIsTransitioningOut(true);
+    loadFile(file);
+    setTimeout(() => {
+      setHasStarted(true);
+    }, 450);
+  };
+
   // Keyboard shortcut listener: Space to launch, M for mic
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,7 +82,7 @@ export const LandingScreen: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleStartExperience, handleMicStart]);
 
   // 60 FPS zero-rerender scroll handler:
   // - Updates 3D Three.js camera directly via mutable ref
@@ -91,30 +117,6 @@ export const LandingScreen: React.FC = () => {
     refs[stageIdx]?.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleStartExperience = async () => {
-    setIsTransitioningOut(true);
-    await unlockAudio();
-    setTimeout(() => {
-      setHasStarted(true);
-    }, 450);
-  };
-
-  const handleMicStart = async () => {
-    setIsTransitioningOut(true);
-    await toggleMicrophone();
-    setTimeout(() => {
-      setHasStarted(true);
-    }, 450);
-  };
-
-  const handleFileLoaded = (file: File) => {
-    setIsTransitioningOut(true);
-    loadFile(file);
-    setTimeout(() => {
-      setHasStarted(true);
-    }, 450);
-  };
-
   return (
     <div
       ref={containerRef}
@@ -130,7 +132,9 @@ export const LandingScreen: React.FC = () => {
       }}
     >
       {/* ── 3D Scene Background linked to Scroll Progress via zero-rerender ref ── */}
-      <Landing3DScene scrollProgressRef={scrollProgressRef} isTransitioningOut={isTransitioningOut} />
+      <React.Suspense fallback={null}>
+        <Landing3DScene scrollProgressRef={scrollProgressRef} isTransitioningOut={isTransitioningOut} />
+      </React.Suspense>
 
       {/* ── Floating Right Navigation Channel Strip ── */}
       <nav
@@ -231,12 +235,12 @@ export const LandingScreen: React.FC = () => {
               : 'scale-[0.94] opacity-40 translate-y-4 pointer-events-none'
           }`}
         >
-          {/* Architectural Solid Title (No AI gradient text anti-pattern) */}
-          <h1 className="text-6xl sm:text-7xl md:text-8xl font-light tracking-tight text-[#f0f4fc] font-sans">
-            AURA<span className="font-semibold text-[#00e5ff] ml-1">3D</span>
+          {/* Architectural Solid Title (High Contrast & Studio Typography) */}
+          <h1 className="text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-studio-tight text-white font-heading text-scrim-3d">
+            AURA<span className="font-extrabold text-[#00e5ff] ml-1 drop-shadow-[0_0_25px_rgba(0,229,255,0.6)]">3D</span>
           </h1>
 
-          <p className="max-w-md mx-auto text-[#8b95a5] font-normal text-xs sm:text-sm leading-relaxed tracking-normal font-sans">
+          <p className="max-w-md mx-auto text-slate-300 font-medium text-xs sm:text-sm leading-relaxed tracking-normal font-display text-scrim-3d">
             Estación de audio espacial en tiempo real con shaders WebGL y micro-física acústica.
           </p>
 
@@ -259,25 +263,25 @@ export const LandingScreen: React.FC = () => {
                 handleFileLoaded(e.dataTransfer.files[0]);
               }
             }}
-            className={`w-full max-w-md p-3.5 rounded-xl border transition-all cursor-pointer ${
+            className={`w-full max-w-md p-3.5 rounded-[12px] border transition-all cursor-pointer ${
               isDraggingHero
-                ? 'border-[#00e5ff] bg-[#00e5ff]/15 scale-[1.02]'
-                : 'border-white/10 bg-[#070b16]/70 hover:border-white/25 hover:bg-[#070b16]/90'
+                ? 'border-cyan-400 bg-cyan-500/10 scale-[1.01] shadow-md'
+                : 'border-white/[0.08] bg-[#0c101a]/90 backdrop-blur-2xl hover:border-white/[0.15] hover:bg-[#0c101a]/95 shadow-[0_16px_40px_rgba(0,0,0,0.6)]'
             }`}
           >
             <label className="flex items-center gap-3 cursor-pointer w-full">
-              <div className="w-8 h-8 rounded-lg bg-[#00e5ff]/10 border border-[#00e5ff]/25 flex items-center justify-center text-[#00e5ff] flex-shrink-0">
+              <div className="w-8 h-8 rounded-[8px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 flex-shrink-0 shadow-sm">
                 <UploadCloud className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <div className="text-xs font-medium text-[#f0f4fc]">
+                <div className="text-xs font-semibold text-white text-scrim-3d">
                   Arrastra cualquier audio aquí o examinar
                 </div>
-                <div className="text-[10px] text-[#8b95a5] font-mono mt-0.5">
+                <div className="text-[10px] text-white/50 font-mono mt-0.5">
                   FLAC, WAV, MP3, OGG // Inicio instantáneo
                 </div>
               </div>
-              <span className="text-[10px] font-mono uppercase px-2 py-1 rounded bg-white/[0.05] border border-white/10 text-white/70 flex-shrink-0">
+              <span className="text-[10px] font-mono font-semibold uppercase px-2.5 py-1 rounded-[6px] bg-white/[0.08] border border-white/[0.12] text-white flex-shrink-0 btn-spring">
                 Cargar
               </span>
               <input
@@ -294,22 +298,22 @@ export const LandingScreen: React.FC = () => {
           </div>
 
           {/* Action CTAs */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 w-full justify-center">
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1 w-full justify-center">
             <button
               onClick={handleStartExperience}
-              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-white text-black font-semibold text-xs sm:text-sm tracking-wider uppercase hover:bg-slate-100 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.5)] cursor-pointer"
+              className="w-full sm:w-auto px-7 py-3 rounded-[10px] bg-white text-black font-semibold text-xs sm:text-sm tracking-wide uppercase btn-spring flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,0,0,0.4)] cursor-pointer"
             >
               <Headphones className="w-4 h-4 text-black" />
               <span>Iniciar Motor 3D</span>
-              <ArrowRight className="w-4 h-4 text-black/70" />
+              <ArrowRight className="w-4 h-4 text-black/60" />
             </button>
 
             <button
               onClick={handleMicStart}
-              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.10] border border-white/[0.10] text-xs sm:text-sm font-mono tracking-wider uppercase text-white/80 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3 rounded-[10px] bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] text-xs sm:text-sm font-mono font-medium tracking-wide uppercase text-white btn-spring flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
-              <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse" />
-              <Mic className="w-4 h-4 text-[#00ff9d]" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <Mic className="w-4 h-4 text-emerald-400" />
               <span>Micrófono Directo</span>
             </button>
           </div>

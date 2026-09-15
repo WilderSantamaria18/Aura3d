@@ -447,8 +447,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       </div>
 
       {/* Main Synchronized Scrolling Lyrics Body */}
+      {/* Main Synchronized Scrolling Lyrics Body */}
       <div
         ref={containerRef}
+        role="list"
+        aria-label="Letras sincronizadas de la canción"
         className="flex-1 overflow-y-auto py-8 sm:py-12 space-y-4 sm:space-y-6 scroll-smooth pr-1 my-1"
         style={{
           scrollbarWidth: 'none',
@@ -457,10 +460,10 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         }}
       >
         {lyrics.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/40">
-            <AlignLeft className="w-10 h-10 mb-3 opacity-30 animate-pulse text-cyan-400" />
-            <p className="text-sm font-medium text-white/80 mb-1">Sin letras sincronizadas disponibles</p>
-            <p className="text-xs text-white/40 max-w-xs">
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/60">
+            <AlignLeft className="w-10 h-10 mb-3 opacity-40 animate-pulse text-cyan-400" />
+            <p className="text-sm font-medium text-white/90 mb-1">Sin letras sincronizadas disponibles</p>
+            <p className="text-xs text-white/60 max-w-xs">
               Reproduce una canción con soporte de letras o sube un archivo LRC personalizado.
             </p>
           </div>
@@ -470,7 +473,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
             const distance = Math.abs(index - activeIndex);
 
             // Progressive blur and opacity falloff (Apple Music style)
-            const opacity = isActive ? 1.0 : Math.max(0.18, 0.65 - distance * 0.16);
+            const opacity = isActive ? 1.0 : Math.max(0.25, 0.70 - distance * 0.16);
             const blurAmount = isActive ? 0 : Math.min(4.5, 1.2 + distance * 1.1);
 
             // Adaptive base font size with user offset
@@ -497,27 +500,50 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
             return (
               <div
                 key={index}
+                role="listitem"
+                tabIndex={0}
+                aria-current={isActive ? 'true' : undefined}
+                aria-label={`Línea ${index + 1}: ${line.text}`}
                 onClick={() => onSeek && onSeek(line.time)}
-                className={`rounded-2xl cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] text-center ${baseSizeClass} ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (onSeek) onSeek(line.time);
+                  }
+                }}
+                className={`rounded-2xl cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] text-center ${baseSizeClass} ${
                   isActive
-                    ? 'font-bold text-white scale-[1.08] shadow-[0_12px_40px_rgba(0,0,0,0.6)] border'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.04] font-medium'
+                    ? 'font-black scale-[1.06] shadow-[0_12px_40px_rgba(0,0,0,0.7)] border backdrop-blur-md'
+                    : 'text-white/70 hover:text-white hover:bg-white/[0.05] font-medium'
                 }`}
                 style={{
                   opacity,
                   filter: `blur(${blurAmount}px)`,
                   backgroundColor: isActive
-                    ? `${activeColor}22`
+                    ? `${activeColor}18`
                     : undefined,
                   borderColor: isActive
-                    ? `${activeColor}55`
+                    ? `${activeColor}45`
                     : 'transparent',
-                  textShadow: isActive
-                    ? `0 0 24px ${activeColor}, 0 0 45px ${activeColor}80`
+                  boxShadow: isActive
+                    ? `0 8px 32px -4px ${activeColor}33, inset 0 1px 0 rgba(255,255,255,0.2)`
                     : 'none',
                 }}
               >
-                <span className="inline-block transition-transform duration-300">
+                <span
+                  className={`inline-block transition-all duration-300 ${
+                    isActive
+                      ? 'text-white font-extrabold tracking-tight'
+                      : ''
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          textShadow: `0 0 20px ${activeColor}, 0 0 40px ${activeColor}80, 0 2px 10px rgba(0,0,0,0.9)`,
+                        }
+                      : undefined
+                  }
+                >
                   {line.text}
                 </span>
               </div>
@@ -527,7 +553,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       </div>
 
       {/* Bottom status readout */}
-      <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-white/50 font-mono flex-shrink-0 relative z-20">
+      <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-white/65 font-mono flex-shrink-0 relative z-20">
         <span className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full transition-colors ${
@@ -538,7 +564,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           {isPlaying ? 'SINCRONIZACIÓN FLUIDA EN TIEMPO REAL' : 'AUDIO PAUSADO'}
         </span>
         <div className="flex items-center gap-3">
-          <span className="text-white/40 capitalize">
+          <span className="text-white/60 capitalize">
             {FONT_OPTIONS.find((f) => f.id === selectedFont)?.label.split(' ')[0]}
           </span>
           <span>{lyrics.length > 0 ? `${lyrics.length} LÍNEAS` : '0 LÍNEAS'}</span>

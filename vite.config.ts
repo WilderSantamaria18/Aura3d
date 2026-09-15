@@ -1,12 +1,64 @@
-import { defineConfig } from 'vite';
+/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  test: {
+    include: ['src/tests/**/*.test.ts'],
+    environment: 'node',
+  },
   plugins: [
     react(),
     tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      manifest: false, // Uses public/manifest.json
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.destination === 'style' || request.destination === 'script' || request.destination === 'worker',
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'aura3d-static-resources',
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              },
+            },
+          },
+          {
+            urlPattern: ({ request }) => request.destination === 'image' || request.destination === 'font',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'aura3d-media-assets',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 24 * 60 * 60, // 60 days
+              },
+            },
+          },
+          {
+            urlPattern: ({ request, url }) => request.destination === 'audio' || /\.(?:mp3|wav|ogg|m4a|aac|flac)$/i.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'aura3d-audio-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 14 * 24 * 60 * 60, // 14 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200, 206],
+              },
+            },
+          },
+        ],
+      },
+    }),
   ],
   server: {
     port: 5173,
@@ -25,34 +77,18 @@ export default defineConfig({
     },
   },
   build: {
-    // 3D WebGL vendor bundle (Three.js + R3F + Drei + three-stdlib) is ~900 KB minified (240 KB gzip).
-    // It is code-split via React.lazy and only fetched when 3D scene is mounted.
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            const normalized = id.replace(/\\/g, '/');
-            if (normalized.includes('/node_modules/three/') || normalized.includes('\\node_modules\\three\\')) {
-              return 'three-core';
-            }
-            if (normalized.includes('@react-three/drei') || normalized.includes('three-stdlib')) {
-              return 'three-drei';
-            }
-            if (normalized.includes('@react-three/fiber')) {
-              return 'r3f-core';
-            }
-            if (id.includes('chart.js') || id.includes('react-chartjs-2')) {
-              return 'chart-vendor';
-            }
-            if (id.includes('lucide-react')) {
-              return 'icons-vendor';
-            }
-            if (id.includes('socket.io-client')) {
-              return 'socket-vendor';
-            }
-          }
-        },
+    // 3D WebGL vendor bundle is code-split via React.lazy and loaded on demand
+    chunkSizeWarningLimit: 1200,
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies: (_filename, deps) => {
+        // Filter out deferred 3D visualizers, charts, and heavy studio modules from initial HTML modulepreload
+        return deps.filter(
+          (dep) =>
+            !dep.includes('chart') &&
+            !dep.includes('Visualizer') &&
+            !dep.includes('Admin')
+        );
       },
     },
   },

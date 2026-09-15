@@ -167,33 +167,45 @@ const TunnelRings: React.FC<{
     }
   });
 
+  // Create and memoize ring meshes and their materials
+  const rings = useMemo(() => {
+    return Array.from({ length: RING_COUNT }).map((_, i) => {
+      const progress = i / RING_COUNT;
+      const ringColor = color1.clone().lerp(color2, progress);
+      const material = new THREE.LineBasicMaterial({
+        color: ringColor,
+        transparent: true,
+        opacity: 0.6,
+        linewidth: 2,
+        blending: THREE.AdditiveBlending,
+      });
+      const loop = new THREE.LineLoop(ringGeometry, material);
+      return { loop, material };
+    });
+  }, [ringGeometry, color1, color2]);
+
+  // Clean up materials and ring geometry on unmount
+  useEffect(() => {
+    return () => {
+      rings.forEach(({ material, loop }) => {
+        material.dispose();
+        loop.geometry.dispose();
+      });
+      ringGeometry.dispose();
+    };
+  }, [rings, ringGeometry]);
+
   return (
     <group ref={groupRef}>
-      {Array.from({ length: RING_COUNT }).map((_, i) => {
-        const progress = i / RING_COUNT;
-        const ringColor = color1.clone().lerp(color2, progress);
-
-        return (
-          <primitive
-            key={i}
-            object={
-              new THREE.LineLoop(
-                ringGeometry,
-                new THREE.LineBasicMaterial({
-                  color: ringColor,
-                  transparent: true,
-                  opacity: 0.6,
-                  linewidth: 2,
-                  blending: THREE.AdditiveBlending,
-                })
-              )
-            }
-            ref={(el: THREE.LineLoop) => {
-              if (el) ringMeshes.current[i] = el;
-            }}
-          />
-        );
-      })}
+      {rings.map(({ loop }, i) => (
+        <primitive
+          key={i}
+          object={loop}
+          ref={(el: THREE.LineLoop) => {
+            if (el) ringMeshes.current[i] = el;
+          }}
+        />
+      ))}
     </group>
   );
 };

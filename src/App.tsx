@@ -11,27 +11,21 @@ import { useAnalytics } from './hooks/useAnalytics';
 import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
-import { DEFAULT_DARK_THEME, hexToRgba } from './types/audio';
-import { AlertCircle, Play, Pause, Maximize2 } from 'lucide-react';
+import { hexToRgba } from './types/audio';
+import { AlertCircle, Play, Pause } from 'lucide-react';
 import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
-import { KeyboardShortcutsModal } from './components/UI/KeyboardShortcutsModal';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
-import { QuickstartStudioModal } from './components/UI/QuickstartStudioModal';
-import { UserProfileModal } from './components/UI/UserProfileModal';
-import { SystemRequirementsModal } from './components/UI/SystemRequirementsModal';
-import { UniversalCommandPalette } from './components/UI/UniversalCommandPalette';
-import { SessionStatsModal } from './components/UI/SessionStatsModal';
-
 import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackground';
 import { RgbGlitchOverlay } from './components/Visualizers/RgbGlitchOverlay';
-import { CinematicPostFx } from './components/UI/CinematicPostFx';
 import { RetroCrtOverlay } from './components/UI/RetroCrtOverlay';
 import { AmbientGlow } from './components/UI/AmbientGlow';
 import { CameraPresetBar } from './components/UI/CameraPresetBar';
 import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer';
+import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
+import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
@@ -40,13 +34,19 @@ const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/Rainbo
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
 const WarpTunnelVisualizer = lazy(() => import('./components/Visualizers/WarpTunnelVisualizer'));
 const TerrainVisualizer = lazy(() => import('./components/Visualizers/TerrainVisualizer'));
-const BlackHoleVisualizer = lazy(() => import('./components/Visualizers/BlackHoleVisualizer'));
+// BlackHoleVisualizer removed from UI
 const AuralisStoryCardModal = lazy(() => import('./components/UI/AuralisStoryCardModal'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
 const EqualizerModal = lazy(() => import('./components/UI/EqualizerModal'));
 const PlaylistSidebar = lazy(() => import('./components/UI/PlaylistSidebar'));
 const LyricsOverlay = lazy(() => import('./components/Lyrics/LyricsOverlay'));
+const KeyboardShortcutsModal = lazy(() => import('./components/UI/KeyboardShortcutsModal'));
+const QuickstartStudioModal = lazy(() => import('./components/UI/QuickstartStudioModal'));
+const UserProfileModal = lazy(() => import('./components/UI/UserProfileModal'));
+const SystemRequirementsModal = lazy(() => import('./components/UI/SystemRequirementsModal'));
+const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalCommandPalette'));
+const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -122,8 +122,6 @@ export const App: React.FC = () => {
     if (hasStarted) {
       const timer = window.setTimeout(() => setShowLanding(false), 1100);
       return () => clearTimeout(timer);
-    } else {
-      setShowLanding(true);
     }
   }, [hasStarted]);
 
@@ -147,7 +145,7 @@ export const App: React.FC = () => {
         setIsUiIdle(true);
       }, 4500);
     }
-  }, [hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, vrMode]);
+  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, vrMode]);
 
   useEffect(() => {
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
@@ -240,12 +238,12 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => updateBlobSettings({ isUiHidden: false })}
-          className="fixed top-4 right-4 z-50 px-3.5 py-2 rounded-2xl bg-[#070913]/80 hover:bg-[#070913]/95 text-white/80 hover:text-white border border-white/[0.08] border-t-white/[0.14] backdrop-blur-3xl shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-xs font-mono select-none pointer-events-auto group"
+          className="fixed top-4 right-4 z-50 px-3.5 py-2 rounded-[var(--radius-card)] bg-[var(--surface-dock)] hover:bg-[var(--surface-overlay)] text-white/80 hover:text-white border border-[var(--border-subtle)] backdrop-blur-3xl shadow-[var(--shadow-card)] transition-all hover:scale-105 active:scale-[0.97] flex items-center gap-2 text-xs font-sans select-none pointer-events-auto group btn-spring"
           title="Restaurar interfaz y controles (o presiona 'G' o Esc)"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
           <Sliders className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-45 transition-transform" />
-          <span className="text-[11px] font-medium">Modo Galería (Presiona 'G' o Esc)</span>
+          <span className="text-[11px] font-medium">Modo Galería (G / Esc)</span>
         </button>
       )}
 
@@ -278,10 +276,8 @@ export const App: React.FC = () => {
               <SynthwaveGridVisualizer />
             ) : visualizerMode === 'warp' ? (
               <WarpTunnelVisualizer />
-            ) : visualizerMode === 'terrain' ? (
-              <TerrainVisualizer />
             ) : (
-              <BlackHoleVisualizer />
+              <TerrainVisualizer />
             )}
           </Suspense>
         )}
@@ -289,7 +285,6 @@ export const App: React.FC = () => {
 
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
       {hasStarted && <RgbGlitchOverlay />}
-      {hasStarted && <CinematicPostFx />}
       {hasStarted && <RetroCrtOverlay />}
 
       {/* Reactive Ambient Glow Backdrop & Space Dust */}
@@ -323,10 +318,10 @@ export const App: React.FC = () => {
           onMouseLeave={() => setIsDockHovered(false)}
         >
           <div
-            className={`w-[clamp(320px,94vw,840px)] rounded-2xl p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
+            className={`w-[clamp(320px,94vw,840px)] rounded-[var(--radius-dock)] p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
               isLucid
                 ? 'lucid-panel opacity-90 hover:opacity-100'
-                : 'bg-[#070913]/70 hover:bg-[#070913]/90 backdrop-blur-2xl hover:backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.14] shadow-[0_20px_60px_rgba(0,0,0,0.75)] opacity-85 hover:opacity-100 scale-[0.99] hover:scale-100'
+                : 'ios-glass-dock opacity-90 hover:opacity-100'
             }`}
             style={
               isLucid
@@ -363,10 +358,10 @@ export const App: React.FC = () => {
           }}
         >
           <div
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border shadow-[0_12px_32px_rgba(0,0,0,0.85)] cursor-pointer backdrop-blur-2xl transition-all hover:scale-105 ${
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-[var(--radius-pill)] border shadow-[var(--shadow-dock)] cursor-pointer backdrop-blur-2xl transition-all hover:scale-105 ${
               isLucid
                 ? 'lucid-panel'
-                : 'bg-[#070913]/85 border-white/15 text-white'
+                : 'bg-[var(--surface-dock)] border-[var(--border-subtle)] text-white'
             }`}
             style={
               isLucid
@@ -425,7 +420,7 @@ export const App: React.FC = () => {
 
       {/* Error Notification */}
       {error && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-200 text-xs flex items-center gap-2 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed top-20 right-6 z-50 p-4 rounded-[var(--radius-card)] bg-[var(--surface-card)] border border-rose-500/20 text-rose-200 text-xs flex items-center gap-2 shadow-[var(--shadow-card)] backdrop-blur-xl animate-aura-popover">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -456,29 +451,21 @@ export const App: React.FC = () => {
       {/* Mini Player — panel flotante con visualización de video de YouTube integrada */}
       {hasStarted && <MiniPlayer />}
 
-      {/* Keyboard Shortcuts Studio HUD */}
-      <KeyboardShortcutsModal />
+      {/* Studio Modals — Lazy Loaded via Suspense for optimal bundle size */}
+      <Suspense fallback={null}>
+        <KeyboardShortcutsModal />
+        <QuickstartStudioModal />
+        <UserProfileModal />
+        <SystemRequirementsModal
+          isOpen={isSysReqModalOpen}
+          onClose={() => setSysReqModalOpen(false)}
+        />
+        <UniversalCommandPalette />
+        <SessionStatsModal />
+      </Suspense>
 
       {/* WebGL Context Loss Auto-Recovery Toast */}
       <WebGLContextHandler />
-
-      {/* Studio First-Run Quickstart Onboarding */}
-      <QuickstartStudioModal />
-
-      {/* User Profile & Performance Settings Modal */}
-      <UserProfileModal />
-
-      {/* Recommended System Requirements Diagnostics Modal */}
-      <SystemRequirementsModal
-        isOpen={isSysReqModalOpen}
-        onClose={() => setSysReqModalOpen(false)}
-      />
-
-      {/* Universal Command Palette (Ctrl+K / ⌘K) */}
-      <UniversalCommandPalette />
-
-      {/* Session Listening Stats Modal */}
-      <SessionStatsModal />
 
       {/* Auralis Story Card 9:16 Social Export Modal */}
       <Suspense fallback={null}>
@@ -497,14 +484,19 @@ export const App: React.FC = () => {
 
       {/* Auto Color Dynamic Feedback Toast */}
       <AutoModeToast />
+
+      {/* Screen Reader ARIA Live Region Audio Announcer */}
+      <AudioAnnouncer />
     </div>
   );
 };
 
 export const AppWithProviders: React.FC = () => (
-  <AutoThemeProvider>
-    <App />
-  </AutoThemeProvider>
+  <ErrorBoundary>
+    <AutoThemeProvider>
+      <App />
+    </AutoThemeProvider>
+  </ErrorBoundary>
 );
 
 export default AppWithProviders;

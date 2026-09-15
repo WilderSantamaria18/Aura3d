@@ -57,6 +57,13 @@ const AudioTerrainMesh: React.FC<{
     return [geo, orig];
   }, [primaryColor, secondaryColor]);
 
+  // Clean up geometry in GPU memory
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const dt = Math.min(delta, 0.1);

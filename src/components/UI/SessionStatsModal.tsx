@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Headphones, Music, Radio, X, RotateCcw, Zap, Sparkles, BarChart2 } from 'lucide-react';
+import { Clock, Music, Radio, X, RotateCcw, Sparkles, BarChart2 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { sessionStatsService } from '../../services/sessionStatsService';
 import type { SessionStatsData } from '../../types/audio';
@@ -34,27 +34,27 @@ export const SessionStatsModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-aura-backdrop"
       onClick={() => setSessionStatsOpen(false)}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-[#080b16]/95 border border-white/10 shadow-[0_24px_70px_rgba(0,0,0,0.85)] p-5 flex flex-col gap-4 font-mono text-xs text-white/90 z-10 animate-in zoom-in-95 duration-150"
+        className="w-full max-w-md rounded-[var(--radius-modal)] glass-panel p-5 flex flex-col gap-4 font-display text-xs text-white/90 z-10 animate-aura-modal"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+            <div className="p-1.5 rounded-[10px] bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">
               <BarChart2 className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Estadísticas de la Sesión</h3>
-              <p className="text-[10px] text-white/40">Telemetría de escucha & enfoque en tiempo real</p>
+              <h3 className="text-base font-bold text-white font-heading tracking-studio-tight">Estadísticas de la Sesión</h3>
+              <p className="text-[10px] text-white/50 tracking-wide font-display">Telemetría de escucha & enfoque en tiempo real</p>
             </div>
           </div>
           <button
             onClick={() => setSessionStatsOpen(false)}
-            className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+            className="p-1 rounded-[8px] text-white/40 hover:text-white hover:bg-white/[0.06] btn-spring transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -63,61 +63,61 @@ export const SessionStatsModal: React.FC = () => {
         {/* Metrics Grid */}
         <div className="grid grid-cols-2 gap-2.5">
           {/* Total Time */}
-          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider flex items-center gap-1">
+          <div className="p-3 rounded-[var(--radius-card)] bg-white/[0.03] border border-[var(--border-subtle)] flex flex-col gap-1">
+            <span className="text-[10px] text-white/50 uppercase tracking-wider flex items-center gap-1 font-display">
               <Clock className="w-3 h-3 text-cyan-400" /> Tiempo Total
             </span>
-            <span className="text-lg font-bold text-white tabular-nums">
+            <span className="text-2xl font-bold text-white font-display font-tabular">
               {formatHoursMinutes(stats.totalSeconds)}
             </span>
-            <span className="text-[9px] text-white/40">Reproducción activa</span>
+            <span className="text-[10px] text-white/40 tracking-wide">Reproducción activa</span>
           </div>
 
           {/* Focus & Lo-Fi Time */}
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider flex items-center gap-1">
+            <span className="text-[10px] text-white/50 uppercase tracking-wider flex items-center gap-1 font-display">
               <Sparkles className="w-3 h-3 text-amber-400" /> Modo Focus & Lo-Fi
             </span>
-            <span className="text-lg font-bold text-amber-300 tabular-nums">
+            <span className="text-2xl font-bold text-amber-300 font-display font-tabular">
               {formatHoursMinutes(stats.focusSeconds)}
             </span>
-            <span className="text-[9px] text-amber-400/60 font-semibold">{focusPercent}% de la sesión</span>
+            <span className="text-[10px] text-amber-400/60 font-semibold tracking-wide">{focusPercent}% de la sesión</span>
           </div>
 
           {/* Tracks Count */}
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider flex items-center gap-1">
+            <span className="text-[10px] text-white/50 uppercase tracking-wider flex items-center gap-1 font-display">
               <Music className="w-3 h-3 text-purple-400" /> Canciones
             </span>
-            <span className="text-lg font-bold text-purple-300 tabular-nums">
+            <span className="text-2xl font-bold text-purple-300 font-display font-tabular">
               {stats.tracksPlayed}
             </span>
-            <span className="text-[9px] text-white/40">Pistas escuchadas</span>
+            <span className="text-[10px] text-white/40 tracking-wide">Pistas escuchadas</span>
           </div>
 
           {/* Dominant Harmonic Key */}
           <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex flex-col gap-1">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider flex items-center gap-1">
+            <span className="text-[10px] text-white/50 uppercase tracking-wider flex items-center gap-1 font-display">
               <Radio className="w-3 h-3 text-emerald-400" /> Tonalidad Predilecta
             </span>
-            <span className="text-lg font-bold text-emerald-300">
+            <span className="text-2xl font-bold text-emerald-300 font-display font-tabular">
               {dominantKey}
             </span>
-            <span className="text-[9px] text-white/40">Código Camelot dominante</span>
+            <span className="text-[10px] text-white/40 tracking-wide">Código Camelot dominante</span>
           </div>
         </div>
 
         {/* Camelot Keys Histogram */}
         {sortedKeys.length > 0 && (
-          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col gap-2">
-            <span className="text-[10px] text-white/40 uppercase tracking-wider">
+          <div className="p-3 rounded-[var(--radius-card)] bg-white/[0.02] border border-[var(--border-subtle)] flex flex-col gap-2">
+            <span className="text-[10px] text-white/50 uppercase tracking-wider font-display">
               Claves Armónicas Detectadas
             </span>
             <div className="flex flex-wrap gap-1.5">
               {sortedKeys.map(([k, count]) => (
                 <div
                   key={k}
-                  className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 flex items-center gap-1 text-[10px]"
+                  className="px-2 py-1 rounded-[var(--radius-badge)] bg-white/[0.04] border border-[var(--border-subtle)] flex items-center gap-1 text-[10px]"
                 >
                   <span className="font-bold text-cyan-300">{k}</span>
                   <span className="text-white/40">×{count}</span>
@@ -128,10 +128,10 @@ export const SessionStatsModal: React.FC = () => {
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+        <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
           <button
             onClick={() => sessionStatsService.resetStats()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all text-[11px]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-control)] bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white btn-spring transition-all text-[11px]"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Reiniciar Sesión</span>
@@ -139,7 +139,7 @@ export const SessionStatsModal: React.FC = () => {
 
           <button
             onClick={() => setSessionStatsOpen(false)}
-            className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-semibold transition-all text-[11px]"
+            className="px-4 py-1.5 rounded-[var(--radius-control)] bg-white hover:bg-white/90 text-black font-semibold btn-spring transition-all text-[11px] shadow-[var(--shadow-subtle)]"
           >
             Aceptar
           </button>
@@ -148,3 +148,5 @@ export const SessionStatsModal: React.FC = () => {
     </div>
   );
 };
+
+export default SessionStatsModal;

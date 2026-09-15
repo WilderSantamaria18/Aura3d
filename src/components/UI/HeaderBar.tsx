@@ -38,7 +38,14 @@ import {
   Activity,
   SlidersHorizontal,
   ExternalLink,
+  Globe,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '../../i18n';
+import { useThemeManager } from '../../services/themeService';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
@@ -60,7 +67,6 @@ const VISUALIZERS = [
   { id: 'synthwave', name: 'Synthwave 3D', icon: Grid, desc: 'Carretera neón retrofuturista' },
   { id: 'warp', name: 'Túnel Warp', icon: Zap, desc: 'Túnel hipersónico 3D reactivo' },
   { id: 'terrain', name: 'Terreno 3D', icon: Mountain, desc: 'Ondas Cyberpunk en relieve' },
-  { id: 'blackhole', name: 'Agujero Negro', icon: Disc3, desc: 'Singularidad cuántica & plasma 3D' },
 ] as const;
 
 const CIRCLE_OF_FIFTHS = [
@@ -132,6 +138,9 @@ const SOUNDSCAPE_CHANNELS: Array<{
 ];
 
 export const HeaderBar: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const currentLang = i18n.language?.startsWith('en') ? 'en' : 'es';
+  const { mode: themeMode, accent: currentAccent, setThemeMode, setAccentColor, availableAccents } = useThemeManager();
   const {
     visualizerMode,
     setVisualizerMode,
@@ -345,10 +354,10 @@ export const HeaderBar: React.FC = () => {
 
         <div className="hidden min-[380px]:flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold tracking-[0.15em] text-xs uppercase text-white/90">
+            <span className="font-semibold tracking-[0.15em] font-display text-[13px] uppercase text-white/90">
               Auralis
             </span>
-            <span className="text-[8px] tracking-wider uppercase font-mono px-1.5 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.02]">
+            <span className="text-[9px] tracking-wider uppercase font-display font-tabular px-1.5 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.02]">
               Studio
             </span>
             <MiniSpectrumBars />
@@ -385,23 +394,30 @@ export const HeaderBar: React.FC = () => {
             return (
               <button
                 onClick={() => setActiveMenu(activeMenu === 'visualizers' ? null : 'visualizers')}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] text-xs font-mono transition-all shadow-[0_12px_32px_rgba(0,0,0,0.5)] ${
+                aria-haspopup="true"
+                aria-expanded={activeMenu === 'visualizers'}
+                aria-label="Seleccionar modo de visualización"
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl glass-panel text-xs font-display transition-all cursor-pointer ${
                   activeMenu === 'visualizers'
                     ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                    : 'text-white/80 hover:text-white hover:bg-white/[0.04]'
+                    : 'text-white/90 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title="Seleccionar Modo de Visualización (Rainbow Void, Synthwave 3D, Warp, Terreno)"
               >
                 <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
                 <span className="font-medium text-[11px] sm:text-xs">{currentViz.name}</span>
-                <ChevronDown className="w-3 h-3 text-white/30" />
+                <ChevronDown className="w-3 h-3 text-white/50" />
               </button>
             );
           })()}
 
           {activeMenu === 'visualizers' && (
-            <div className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 top-full mt-2 w-64 p-2 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95">
-              <span className="text-[10px] font-mono text-white/40 px-2 pt-1 uppercase tracking-wider">
+            <div
+              role="menu"
+              aria-label="Modos de visualización interactivos"
+              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-2 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95"
+            >
+              <span className="text-[10px] font-mono text-white/65 px-2 pt-1 uppercase tracking-wider">
                 Visualizadores Interactivos
               </span>
               {VISUALIZERS.map((viz) => {
@@ -410,21 +426,23 @@ export const HeaderBar: React.FC = () => {
                 return (
                   <button
                     key={viz.id}
+                    role="menuitem"
+                    aria-label={`Activar visualizador ${viz.name}`}
                     onClick={() => {
                       setVisualizerMode(viz.id as any);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 min-h-[40px] rounded-xl text-xs font-mono transition-all cursor-pointer ${
                       isActive
                         ? 'bg-white/10 text-white border border-white/20 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5 border border-transparent'
+                        : 'text-white/80 hover:text-white hover:bg-white/5 border border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-white/40'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-white/60'}`} />
                       <div className="flex flex-col text-left">
-                        <span className="font-medium text-xs text-white/90">{viz.name}</span>
-                        <span className="text-[9px] text-white/40 tracking-wider font-mono">{viz.desc}</span>
+                        <span className="font-medium text-xs text-white">{viz.name}</span>
+                        <span className="text-[9px] text-white/60 tracking-wider font-mono">{viz.desc}</span>
                       </div>
                     </div>
                     {isActive && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
@@ -439,22 +457,29 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setActiveMenu(activeMenu === 'dsp' ? null : 'dsp')}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] text-xs font-mono transition-all shadow-[0_12px_32px_rgba(0,0,0,0.5)] ${
+            aria-haspopup="true"
+            aria-expanded={activeMenu === 'dsp'}
+            aria-label="Efectos de Audio y DSP"
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] text-xs font-mono transition-all shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer ${
               activeMenu === 'dsp' || isAnyDspActive
                 ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                : 'text-white/70 hover:text-white hover:bg-white/[0.04]'
+                : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
             }`}
             title="Efectos de Audio y DSP de Estudio: Masterización, Audio 8D, Reverb, Pitch y Modulación"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isAnyDspActive ? 'text-cyan-400' : 'text-white/60'}`} />
+            <Headphones className={`w-3.5 h-3.5 ${isAnyDspActive ? 'text-cyan-400' : 'text-white/70'}`} />
             <span className="hidden sm:inline text-[11px]">Efectos & DSP</span>
             <span className="sm:hidden text-[11px]">DSP</span>
             {isAnyDspActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />}
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-3 h-3 text-white/50" />
           </button>
 
           {activeMenu === 'dsp' && (
-            <div className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 top-full mt-2 w-[350px] sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-xs font-mono">
+            <div
+              role="region"
+              aria-label="Panel de efectos y DSP de audio"
+              className="fixed inset-x-3 top-14 max-w-[390px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto scrollbar-thin p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-xs font-mono"
+            >
               {/* Selector de 3 Pestañas Claras */}
               <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[10px] font-mono">
                 <button
@@ -837,15 +862,15 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setActiveMenu(activeMenu === 'intel_hub' ? null : 'intel_hub')}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#090d18]/90 backdrop-blur-xl border shadow-[0_8px_24px_rgba(0,0,0,0.5)] text-xs font-mono transition-all hover:bg-white/[0.05] cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-xl border shadow-sm text-xs font-mono transition-all hover:bg-white/[0.05] cursor-pointer ${
               activeMenu === 'intel_hub' || soundscapeActiveCount > 0
-                ? 'border-purple-500/60 bg-purple-500/15 text-white shadow-[0_0_15px_rgba(168,85,247,0.25)]'
+                ? 'border-purple-500/50 bg-purple-500/15 text-white'
                 : 'border-white/[0.08] hover:border-purple-500/40 text-white/90'
             }`}
             title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
           >
             {/* Camelot Badge */}
-            <span className="text-[9px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded border border-purple-500/30">
+            <span className="text-[9px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[4px] border border-purple-500/30">
               {harmonicKey.camelot}
             </span>
             <span className="hidden md:inline text-[11px] font-medium text-white/80">
@@ -877,12 +902,12 @@ export const HeaderBar: React.FC = () => {
 
           {/* Popover Unificado del Hub de Inteligencia */}
           {activeMenu === 'intel_hub' && (
-            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-white font-mono">
+            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.08] shadow-[0_24px_60px_rgba(0,0,0,0.75)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-white font-mono">
               {/* Selector de Pestañas del Hub */}
-              <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[10px] font-mono">
+              <div className="flex items-center p-0.5 rounded-[12px] bg-white/[0.04] border border-white/[0.06] text-[10px] font-mono">
                 <button
                   onClick={() => setIntelTab('harmonic')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
                     intelTab === 'harmonic'
                       ? 'bg-purple-500 text-white font-bold shadow-sm'
                       : 'text-white/60 hover:text-white'
@@ -893,7 +918,7 @@ export const HeaderBar: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setIntelTab('soundscapes')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
                     intelTab === 'soundscapes'
                       ? 'bg-cyan-500 text-black font-bold shadow-sm'
                       : 'text-white/60 hover:text-white'
@@ -1345,14 +1370,17 @@ export const HeaderBar: React.FC = () => {
           )}
         </div>
 
-        {/* 3. Menú Unificado: Ajustes & Sistema (Biblioteca, Letras, EQ, Estadísticas, Rendimiento, Mouse, Sleep Timer) */}
+        {/* 3. Menú Unificado: Ajustes & Sistema */}
         <div className="relative">
           <button
             onClick={() => setActiveMenu(activeMenu === 'settings' ? null : 'settings')}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border shadow-[0_12px_32px_rgba(0,0,0,0.5)] ${
+            aria-haspopup="true"
+            aria-expanded={activeMenu === 'settings'}
+            aria-label="Ajustes de Sistema y Herramientas"
+            className={`px-2.5 py-1.5 min-h-[36px] rounded-[12px] text-xs font-mono transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
               activeMenu === 'settings' || isEqualizerOpen || isLyricsOpen || isSidebarOpen || sleepTimerMinutes > 0
-                ? 'bg-purple-500/15 text-purple-300 border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]'
-                : 'bg-[#070913]/70 backdrop-blur-3xl text-white/70 border-white/[0.06] hover:text-white hover:bg-white/[0.04]'
+                ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
+                : 'bg-[#0c101a]/90 backdrop-blur-3xl text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
             }`}
             title="Ajustes de Sistema: Biblioteca, Letras, Ecualizador, Temporizador, Rendimiento y Atajos"
           >
@@ -1363,14 +1391,18 @@ export const HeaderBar: React.FC = () => {
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-3 h-3 text-white/50" />
           </button>
 
           {activeMenu === 'settings' && (
-            <div className="absolute right-0 top-full mt-2 w-64 p-2.5 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono">
+            <div
+              role="menu"
+              aria-label="Ajustes de Sistema"
+              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 p-2.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.1] shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono"
+            >
               {/* Sección Vistas & Utilidades */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-[10px] font-mono text-white/65 px-2 uppercase tracking-wider">
                   Vistas & Utilidades
                 </span>
                 <div className="flex flex-col gap-1 mt-1">
@@ -1380,7 +1412,7 @@ export const HeaderBar: React.FC = () => {
                       setSidebarOpen(!isSidebarOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
                       isSidebarOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -1388,7 +1420,7 @@ export const HeaderBar: React.FC = () => {
                       <ListMusic className="w-4 h-4 text-purple-400" />
                       <span>Biblioteca de Pistas</span>
                     </div>
-                    {isSidebarOpen && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">B</span>
                   </button>
 
                   {/* Letras */}
@@ -1397,7 +1429,7 @@ export const HeaderBar: React.FC = () => {
                       setLyricsOpen(!isLyricsOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
                       isLyricsOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -1405,7 +1437,7 @@ export const HeaderBar: React.FC = () => {
                       <AlignLeft className="w-4 h-4 text-emerald-400" />
                       <span>Letras Sincronizadas</span>
                     </div>
-                    {isLyricsOpen && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">L</span>
                   </button>
 
                   {/* Ecualizador Pro-Q */}
@@ -1414,7 +1446,7 @@ export const HeaderBar: React.FC = () => {
                       setEqualizerOpen(!isEqualizerOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
                       isEqualizerOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -1422,7 +1454,7 @@ export const HeaderBar: React.FC = () => {
                       <Sliders className="w-4 h-4 text-cyan-400" />
                       <span>Ecualizador 10 Bandas</span>
                     </div>
-                    {isEqualizerOpen && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">E</span>
                   </button>
 
                   {/* Estadísticas de Sesión */}
@@ -1431,11 +1463,62 @@ export const HeaderBar: React.FC = () => {
                       setSessionStatsOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
                   >
                     <Clock className="w-4 h-4 text-amber-400" />
                     <span>Estadísticas de Sesión</span>
                   </button>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/[0.06] my-0.5" />
+
+              {/* Sección Tema & Acento Dinámico */}
+              <div>
+                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                  Tema Visual & Acento
+                </span>
+                <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-[12px] bg-white/[0.02] border border-white/[0.04]">
+                  {/* Selector de Modo: Auto / Dark / Light */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-white/70">Tema</span>
+                    <div className="flex gap-1 p-0.5 rounded-[8px] bg-black/40 border border-white/[0.08]">
+                      {(['auto', 'dark', 'light'] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setThemeMode(m)}
+                          className={`px-2 py-0.5 rounded-[6px] text-[10px] font-mono font-medium transition-all ${
+                            themeMode === m
+                              ? 'bg-white/20 text-white font-bold shadow-sm'
+                              : 'text-white/50 hover:text-white'
+                          }`}
+                        >
+                          {m === 'auto' ? 'Auto' : m === 'dark' ? 'Oscuro' : 'Claro'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Selector de Color de Acento */}
+                  <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+                    <span className="text-[11px] text-white/70">Acento</span>
+                    <div className="flex items-center gap-1.5">
+                      {availableAccents.map((acc) => (
+                        <button
+                          key={acc.id}
+                          onClick={() => setAccentColor(acc.id)}
+                          title={acc.label}
+                          aria-label={`Seleccionar acento ${acc.label}`}
+                          className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                            currentAccent === acc.id
+                              ? 'scale-125 ring-2 ring-white ring-offset-1 ring-offset-black'
+                              : 'opacity-70 hover:opacity-100 hover:scale-110'
+                          }`}
+                          style={{ backgroundColor: acc.hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1450,33 +1533,33 @@ export const HeaderBar: React.FC = () => {
                   {/* Rendimiento Gráfico */}
                   <button
                     onClick={cyclePerformanceTier}
-                    className="flex items-center justify-between p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <Gauge className="w-4 h-4 text-amber-400" />
                       <span>Rendimiento Gráfico</span>
                     </div>
-                    <span className="text-[9px] uppercase font-bold text-amber-300 px-1.5 py-0.5 bg-amber-500/15 rounded border border-amber-500/30">
+                    <span className="text-[9px] uppercase font-bold text-amber-300 px-1.5 py-0.5 bg-amber-500/15 rounded-[4px] border border-amber-500/30">
                       {performanceTier}
                     </span>
                   </button>
 
-                  {/* Efectos de Mouse */}
+                  {/* Efectos de Cursor */}
                   <button
                     onClick={toggleMouseEffects}
-                    className="flex items-center justify-between p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <MousePointer className={`w-4 h-4 ${mouseEffectsEnabled ? 'text-cyan-400' : 'text-white/40'}`} />
                       <span>Efectos de Cursor</span>
                     </div>
-                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border text-white/50 border-white/10">
+                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-[4px] border text-white/50 border-white/10">
                       {mouseEffectsEnabled ? 'Activo' : 'Eco'}
                     </span>
                   </button>
 
                   {/* Sleep Timer Preset Rápido */}
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-white/[0.02] border border-white/[0.04]">
                     <div className="flex items-center gap-2 text-white/70">
                       <Clock className="w-4 h-4 text-amber-400" />
                       <span>Sleep Timer</span>
@@ -1486,7 +1569,7 @@ export const HeaderBar: React.FC = () => {
                         <button
                           key={mins}
                           onClick={() => setSleepTimer(mins)}
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition-all ${
+                          className={`px-1.5 py-0.5 rounded-[4px] text-[9px] font-mono font-bold transition-all ${
                             sleepTimerMinutes === mins
                               ? 'bg-amber-500 text-black'
                               : 'bg-white/10 text-white/60 hover:text-white'
@@ -1504,7 +1587,7 @@ export const HeaderBar: React.FC = () => {
                       toggleShortcutsModal();
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
                   >
                     <Keyboard className="w-4 h-4 text-blue-400" />
                     <span>Atajos de Teclado (?)</span>
@@ -1515,17 +1598,26 @@ export const HeaderBar: React.FC = () => {
           )}
         </div>
 
-        {/* 4. Pod: Estilo Lúcido & Fondo */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+        {/* 4. Pod: Estilo Lúcido & Fondo & Idioma */}
+        <div className="flex items-center gap-1 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
+          <button
+            onClick={() => changeLanguage(currentLang === 'es' ? 'en' : 'es')}
+            className="px-2 py-1 rounded-[8px] text-[11px] font-mono font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+            title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
+            aria-label={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="uppercase">{currentLang}</span>
+          </button>
           <LucidToggle />
           <BackgroundAtmospherePopover />
         </div>
 
         {/* 5. Acciones Rápidas: Compartir, Modo Inmersivo & Pantalla Completa */}
-        <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-0.5 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
           <button
             onClick={handleShare}
-            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors hidden sm:flex"
+            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors hidden sm:flex"
             title="Compartir sesión de música"
             aria-label="Compartir"
           >
@@ -1534,7 +1626,7 @@ export const HeaderBar: React.FC = () => {
 
           <button
             onClick={() => updateBlobSettings({ isUiHidden: true })}
-            className="p-1.5 rounded-lg text-white/50 hover:text-cyan-300 hover:bg-white/[0.04] transition-colors hidden min-[440px]:flex"
+            className="p-1.5 rounded-[8px] text-white/50 hover:text-cyan-300 hover:bg-white/[0.04] transition-colors hidden min-[440px]:flex"
             title="Modo Galería / Inmersión Pura (Atajo: G)"
             aria-label="Modo Galería"
           >
@@ -1543,7 +1635,7 @@ export const HeaderBar: React.FC = () => {
 
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
+            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             aria-label="Pantalla completa"
           >

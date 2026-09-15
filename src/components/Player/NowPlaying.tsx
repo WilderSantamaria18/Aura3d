@@ -34,17 +34,17 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
   const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <div className="w-full h-full bg-[#070a14]/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl p-5 shadow-2xl flex flex-col justify-between select-none">
+    <div className="w-full h-full glass-panel rounded-2xl p-5 flex flex-col justify-between select-none font-display">
       {/* Top Header Badge */}
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span className="text-[11px] font-mono tracking-wider text-white/70 uppercase">
+          <span className="text-[11px] font-display font-tabular tracking-wider text-white/70 uppercase">
             {label}
           </span>
         </div>
 
-        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-white/50">
+        <span className="text-[10px] uppercase font-display px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.08] text-white/50">
           {isCapturing ? 'Activo' : 'En Espera'}
         </span>
       </div>
@@ -77,10 +77,10 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
 
         {/* Track Title and Artist */}
         <div className="space-y-1 max-w-full px-4">
-          <h3 className="text-white font-medium text-base sm:text-lg truncate tracking-tight">
+          <h3 className="text-white font-bold text-base sm:text-xl truncate tracking-studio-tight font-heading">
             {title}
           </h3>
-          <p className="text-white/40 text-xs truncate font-mono">
+          <p className="text-white/50 text-xs truncate tracking-wide">
             {artist}
           </p>
         </div>
@@ -96,7 +96,7 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <div className="flex justify-between text-[10px] font-mono tabular-nums text-white/40">
+            <div className="flex justify-between text-[11px] font-display font-tabular text-white/50">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>

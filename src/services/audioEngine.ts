@@ -69,6 +69,7 @@ export class AudioEngine {
 
   private frequencyBuffer: Uint8Array | null = null;
   private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
   private isIframeMode = false;
 
   private underwaterFilter: BiquadFilterNode | null = null;
@@ -98,10 +99,12 @@ export class AudioEngine {
     timeUpdate: ((currentTime: number, duration: number) => void)[];
     ended: (() => void)[];
     stateChange: ((isPlaying: boolean) => void)[];
+    error: ((errorMsg: string) => void)[];
   } = {
     timeUpdate: [],
     ended: [],
     stateChange: [],
+    error: [],
   };
 
   private constructor() {
@@ -110,6 +113,13 @@ export class AudioEngine {
     this.audioElement.preload = 'auto';
 
     this.setupAudioElementListeners(this.audioElement);
+  }
+
+  public onError(callback: (errorMsg: string) => void): () => void {
+    this.listeners.error.push(callback);
+    return () => {
+      this.listeners.error = this.listeners.error.filter((cb) => cb !== callback);
+    };
   }
 
   public static getInstance(): AudioEngine {
@@ -145,7 +155,8 @@ export class AudioEngine {
     });
 
     audio.addEventListener('play', () => {
-      if (!this.loadedAudioBuffer) {
+      // Guard against race conditions where pause() occurred before play resolved
+      if (!this.loadedAudioBuffer && !audio.paused) {
         this.listeners.stateChange.forEach((cb) => cb(true));
       }
     });
@@ -153,6 +164,18 @@ export class AudioEngine {
     audio.addEventListener('pause', () => {
       if (!this.loadedAudioBuffer) {
         this.listeners.stateChange.forEach((cb) => cb(false));
+      }
+    });
+
+    audio.addEventListener('error', () => {
+      if (!this.loadedAudioBuffer) {
+        this.listeners.stateChange.forEach((cb) => cb(false));
+        const err = audio.error;
+        const msg = err
+          ? `Error de reproducción (${err.code}): ${err.message || 'No se pudo cargar el audio'}`
+          : 'Error al cargar pista de audio';
+        console.warn('[AudioEngine]', msg);
+        this.listeners.error.forEach((cb) => cb(msg));
       }
     });
   }
@@ -165,144 +188,156 @@ export class AudioEngine {
       return;
     }
 
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    this.audioContext = new AudioContextClass();
-
-    // Master Analyser Node for FFT computation — ultra-low latency & zero temporal lag
-    this.analyser = this.audioContext.createAnalyser();
-    this.analyser.fftSize = 512;
-    this.analyser.smoothingTimeConstant = 0.8;
-    this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount);
-
-    // Master Gain (Controls speaker output volume independently from FFT)
-    this.masterGain = this.audioContext.createGain();
-    this.masterGain.gain.setValueAtTime(0.85, this.audioContext.currentTime);
-
-    // Build Equalizer filter chain
-    this.eqFilters = this.bands.map((band) => {
-      const filter = this.audioContext!.createBiquadFilter();
-      filter.type = band.type;
-      filter.frequency.setValueAtTime(band.frequency, this.audioContext!.currentTime);
-      filter.gain.setValueAtTime(band.gain, this.audioContext!.currentTime);
-      return filter;
-    });
-
-    // Connect EQ filters in series: filter[0] -> filter[1] -> ... -> filter[n]
-    for (let i = 0; i < this.eqFilters.length - 1; i++) {
-      this.eqFilters[i].connect(this.eqFilters[i + 1]);
+    if (this.initPromise) {
+      return this.initPromise;
     }
 
-    // Reverb Parallel Bus (Dry / Wet)
-    this.dryGain = this.audioContext.createGain();
-    this.dryGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+    this.initPromise = (async () => {
+      try {
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioContext = new AudioContextClass();
 
-    this.convolver = this.audioContext.createConvolver();
-    this.wetGain = this.audioContext.createGain();
-    this.wetGain.gain.setValueAtTime(0.0, this.audioContext.currentTime);
+        // Master Analyser Node for FFT computation — ultra-low latency & zero temporal lag
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 512;
+        this.analyser.smoothingTimeConstant = 0.8;
+        this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
-    // 8D Stereo Panner Node
-    if (typeof this.audioContext.createStereoPanner === 'function') {
-      this.stereoPanner = this.audioContext.createStereoPanner();
-    }
+        // Master Gain (Controls speaker output volume independently from FFT)
+        this.masterGain = this.audioContext.createGain();
+        this.masterGain.gain.setValueAtTime(0.85, this.audioContext.currentTime);
 
-    // Underwater / Outside the Club Muffled Filter
-    this.underwaterFilter = this.audioContext.createBiquadFilter();
-    this.underwaterFilter.type = 'lowpass';
-    this.underwaterFilter.frequency.setValueAtTime(this.isUnderwater ? 450 : 22000, this.audioContext.currentTime);
-    this.underwaterFilter.Q.setValueAtTime(this.isUnderwater ? 2.5 : 0.7, this.audioContext.currentTime);
+        // Build Equalizer filter chain
+        this.eqFilters = this.bands.map((band) => {
+          const filter = this.audioContext!.createBiquadFilter();
+          filter.type = band.type;
+          filter.frequency.setValueAtTime(band.frequency, this.audioContext!.currentTime);
+          filter.gain.setValueAtTime(band.gain, this.audioContext!.currentTime);
+          return filter;
+        });
 
-    // Strict Web Audio DSP routing:
-    // Source -> EQ Filters -> Underwater Filter -> AnalyserNode -> [Dry + (Convolver -> Wet)] -> [StereoPanner 8D] -> GainNode (masterGain) -> AudioContext.destination
-    const lastFilter = this.eqFilters[this.eqFilters.length - 1];
-    lastFilter.connect(this.underwaterFilter);
-    this.underwaterFilter.connect(this.analyser);
+        // Connect EQ filters in series: filter[0] -> filter[1] -> ... -> filter[n]
+        for (let i = 0; i < this.eqFilters.length - 1; i++) {
+          this.eqFilters[i].connect(this.eqFilters[i + 1]);
+        }
 
-    this.analyser.connect(this.dryGain);
-    this.analyser.connect(this.convolver);
-    this.convolver.connect(this.wetGain);
+        // Reverb Parallel Bus (Dry / Wet)
+        this.dryGain = this.audioContext.createGain();
+        this.dryGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
-    if (this.stereoPanner) {
-      this.dryGain.connect(this.stereoPanner);
-      this.wetGain.connect(this.stereoPanner);
-      this.stereoPanner.connect(this.masterGain);
-    } else {
-      this.dryGain.connect(this.masterGain);
-      this.wetGain.connect(this.masterGain);
-    }
+        this.convolver = this.audioContext.createConvolver();
+        this.wetGain = this.audioContext.createGain();
+        this.wetGain.gain.setValueAtTime(0.0, this.audioContext.currentTime);
 
-    // Master Limiting Dynamics Compressor -> Destination
-    this.masteringCompressor = this.audioContext.createDynamicsCompressor();
-    this.masterGain.connect(this.masteringCompressor);
-    this.masteringCompressor.connect(this.audioContext.destination);
-    this.setMasteringPreset(this.currentMasteringPreset);
+        // 8D Stereo Panner Node
+        if (typeof this.audioContext.createStereoPanner === 'function') {
+          this.stereoPanner = this.audioContext.createStereoPanner();
+        }
 
-    // Vocal Remover / Instrumental / A Cappella DSP Routing Node
-    this.vocalInGain = this.audioContext.createGain();
-    this.vocalOutGain = this.audioContext.createGain();
+        // Underwater / Outside the Club Muffled Filter
+        this.underwaterFilter = this.audioContext.createBiquadFilter();
+        this.underwaterFilter.type = 'lowpass';
+        this.underwaterFilter.frequency.setValueAtTime(this.isUnderwater ? 450 : 22000, this.audioContext.currentTime);
+        this.underwaterFilter.Q.setValueAtTime(this.isUnderwater ? 2.5 : 0.7, this.audioContext.currentTime);
 
-    // 1. Direct Bypass
-    this.vocalBypassGain = this.audioContext.createGain();
-    this.vocalBypassGain.gain.setValueAtTime(this.vocalMode === 'off' ? 1.0 : 0.0, this.audioContext.currentTime);
-    this.vocalInGain.connect(this.vocalBypassGain);
-    this.vocalBypassGain.connect(this.vocalOutGain);
+        // Strict Web Audio DSP routing:
+        // Source -> EQ Filters -> Underwater Filter -> AnalyserNode -> [Dry + (Convolver -> Wet)] -> [StereoPanner 8D] -> GainNode (masterGain) -> AudioContext.destination
+        const lastFilter = this.eqFilters[this.eqFilters.length - 1];
+        lastFilter.connect(this.underwaterFilter);
+        this.underwaterFilter.connect(this.analyser);
 
-    // 2. Karaoke / Instrumental (M/S Center Vocal Inversion with Bass Preservation)
-    const vocalSplitter = this.audioContext.createChannelSplitter(2);
-    this.vocalInGain.connect(vocalSplitter);
+        this.analyser.connect(this.dryGain);
+        this.analyser.connect(this.convolver);
+        this.convolver.connect(this.wetGain);
 
-    const karaokeMerger = this.audioContext.createChannelMerger(2);
-    const phaseInverter = this.audioContext.createGain();
-    phaseInverter.gain.setValueAtTime(-1.0, this.audioContext.currentTime);
+        if (this.stereoPanner) {
+          this.dryGain.connect(this.stereoPanner);
+          this.wetGain.connect(this.stereoPanner);
+          this.stereoPanner.connect(this.masterGain);
+        } else {
+          this.dryGain.connect(this.masterGain);
+          this.wetGain.connect(this.masterGain);
+        }
 
-    vocalSplitter.connect(karaokeMerger, 0, 0); // L to L
-    vocalSplitter.connect(karaokeMerger, 1, 1); // R to R
-    vocalSplitter.connect(phaseInverter, 1);     // R to inverter
-    phaseInverter.connect(karaokeMerger, 0, 0);  // -R to L (cancels Mid)
+        // Master Limiting Dynamics Compressor -> Destination
+        this.masteringCompressor = this.audioContext.createDynamicsCompressor();
+        this.masterGain.connect(this.masteringCompressor);
+        this.masteringCompressor.connect(this.audioContext.destination);
+        this.setMasteringPreset(this.currentMasteringPreset);
 
-    // Bass Preserver (Keep sub-bass < 160Hz from being canceled)
-    const bassPreserveFilter = this.audioContext.createBiquadFilter();
-    bassPreserveFilter.type = 'lowpass';
-    bassPreserveFilter.frequency.setValueAtTime(160, this.audioContext.currentTime);
-    bassPreserveFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
-    this.vocalInGain.connect(bassPreserveFilter);
+        // Vocal Remover / Instrumental / A Cappella DSP Routing Node
+        this.vocalInGain = this.audioContext.createGain();
+        this.vocalOutGain = this.audioContext.createGain();
 
-    const bassPreserveGain = this.audioContext.createGain();
-    bassPreserveGain.gain.setValueAtTime(0.85, this.audioContext.currentTime);
-    bassPreserveFilter.connect(bassPreserveGain);
+        // 1. Direct Bypass
+        this.vocalBypassGain = this.audioContext.createGain();
+        this.vocalBypassGain.gain.setValueAtTime(this.vocalMode === 'off' ? 1.0 : 0.0, this.audioContext.currentTime);
+        this.vocalInGain.connect(this.vocalBypassGain);
+        this.vocalBypassGain.connect(this.vocalOutGain);
 
-    this.vocalKaraokeGain = this.audioContext.createGain();
-    this.vocalKaraokeGain.gain.setValueAtTime(this.vocalMode === 'karaoke' ? 1.0 : 0.0, this.audioContext.currentTime);
-    karaokeMerger.connect(this.vocalKaraokeGain);
-    bassPreserveGain.connect(this.vocalKaraokeGain);
-    this.vocalKaraokeGain.connect(this.vocalOutGain);
+        // 2. Karaoke / Instrumental (M/S Center Vocal Inversion with Bass Preservation)
+        const vocalSplitter = this.audioContext.createChannelSplitter(2);
+        this.vocalInGain.connect(vocalSplitter);
 
-    // 3. A Cappella (Center Vocal Isolation with Side suppression)
-    const vocalBandpass = this.audioContext.createBiquadFilter();
-    vocalBandpass.type = 'bandpass';
-    vocalBandpass.frequency.setValueAtTime(1400, this.audioContext.currentTime);
-    vocalBandpass.Q.setValueAtTime(0.65, this.audioContext.currentTime);
-    this.vocalInGain.connect(vocalBandpass);
+        const karaokeMerger = this.audioContext.createChannelMerger(2);
+        const phaseInverter = this.audioContext.createGain();
+        phaseInverter.gain.setValueAtTime(-1.0, this.audioContext.currentTime);
 
-    this.vocalAcappellaGain = this.audioContext.createGain();
-    this.vocalAcappellaGain.gain.setValueAtTime(this.vocalMode === 'acappella' ? 1.25 : 0.0, this.audioContext.currentTime);
-    vocalBandpass.connect(this.vocalAcappellaGain);
-    this.vocalAcappellaGain.connect(this.vocalOutGain);
+        vocalSplitter.connect(karaokeMerger, 0, 0); // L to L
+        vocalSplitter.connect(karaokeMerger, 1, 1); // R to R
+        vocalSplitter.connect(phaseInverter, 1);     // R to inverter
+        phaseInverter.connect(karaokeMerger, 0, 0);  // -R to L (cancels Mid)
 
-    // Connect vocalOutGain into first EQ Filter
-    this.vocalOutGain.connect(this.eqFilters[0]);
+        // Bass Preserver (Keep sub-bass < 160Hz from being canceled)
+        const bassPreserveFilter = this.audioContext.createBiquadFilter();
+        bassPreserveFilter.type = 'lowpass';
+        bassPreserveFilter.frequency.setValueAtTime(160, this.audioContext.currentTime);
+        bassPreserveFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
+        this.vocalInGain.connect(bassPreserveFilter);
 
-    // Single MediaElementAudioSourceNode routing the lone <audio> element through Web Audio API into vocalInGain
-    this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
-    this.sourceNode.connect(this.vocalInGain);
+        const bassPreserveGain = this.audioContext.createGain();
+        bassPreserveGain.gain.setValueAtTime(0.85, this.audioContext.currentTime);
+        bassPreserveFilter.connect(bassPreserveGain);
 
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
+        this.vocalKaraokeGain = this.audioContext.createGain();
+        this.vocalKaraokeGain.gain.setValueAtTime(this.vocalMode === 'karaoke' ? 1.0 : 0.0, this.audioContext.currentTime);
+        karaokeMerger.connect(this.vocalKaraokeGain);
+        bassPreserveGain.connect(this.vocalKaraokeGain);
+        this.vocalKaraokeGain.connect(this.vocalOutGain);
 
-    this.isInitialized = true;
-    usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
+        // 3. A Cappella (Center Vocal Isolation with Side suppression)
+        const vocalBandpass = this.audioContext.createBiquadFilter();
+        vocalBandpass.type = 'bandpass';
+        vocalBandpass.frequency.setValueAtTime(1400, this.audioContext.currentTime);
+        vocalBandpass.Q.setValueAtTime(0.65, this.audioContext.currentTime);
+        this.vocalInGain.connect(vocalBandpass);
+
+        this.vocalAcappellaGain = this.audioContext.createGain();
+        this.vocalAcappellaGain.gain.setValueAtTime(this.vocalMode === 'acappella' ? 1.25 : 0.0, this.audioContext.currentTime);
+        vocalBandpass.connect(this.vocalAcappellaGain);
+        this.vocalAcappellaGain.connect(this.vocalOutGain);
+
+        // Connect vocalOutGain into first EQ Filter
+        this.vocalOutGain.connect(this.eqFilters[0]);
+
+        // Single MediaElementAudioSourceNode routing the lone <audio> element through Web Audio API into vocalInGain
+        this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+        this.sourceNode.connect(this.vocalInGain);
+
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+
+        this.isInitialized = true;
+        usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
+      } finally {
+        this.initPromise = null;
+      }
+    })();
+
+    return this.initPromise;
   }
 
   /**
@@ -631,12 +666,9 @@ export class AudioEngine {
         this.bufferIsPlaying = false;
         this.listeners.stateChange.forEach((cb) => cb(false));
       }
-      // Also suspend context so analyser goes quiet
-      this.audioContext?.suspend();
       return;
     }
     this.audioElement.pause();
-    this.audioContext?.suspend();
   }
 
   public async resume(): Promise<void> {
@@ -930,7 +962,7 @@ export class AudioEngine {
   }
 
   // ── Harmonic DJ Crossfade (BPM & Camelot Beat-Sync) ───────────────────────
-  public async harmonicCrossfade(durationSec = 2.5, fromKey?: string, toKey?: string): Promise<void> {
+  public async harmonicCrossfade(durationSec = 2.5, _fromKey?: string, _toKey?: string): Promise<void> {
     if (!this.masterGain || !this.audioContext) return;
     const now = this.audioContext.currentTime;
     const currentGain = this.masterGain.gain.value;

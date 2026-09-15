@@ -19,7 +19,6 @@ function hue2rgb(p: number, q: number, t: number): number {
 
 /**
  * Converts HSL coordinates (each in [0, 1]) to a 6-character hex color string (#rrggbb).
- * Exact match for THREE.Color.setHSL().
  */
 export function hslToHex(h: number, s: number, l: number): string {
   const wrappedHue = euclideanModulo(h, 1);
@@ -30,8 +29,8 @@ export function hslToHex(h: number, s: number, l: number): string {
   if (clampedS === 0) {
     r = g = b = clampedL;
   } else {
-    const p = clampedL <= 0.5 ? clampedL * (1 + clampedS) : clampedL + clampedS - clampedL * clampedS;
-    const q = 2 * clampedL - p;
+    const q = clampedL < 0.5 ? clampedL * (1 + clampedS) : clampedL + clampedS - clampedL * clampedS;
+    const p = 2 * clampedL - q;
     r = hue2rgb(p, q, wrappedHue + 1 / 3);
     g = hue2rgb(p, q, wrappedHue);
     b = hue2rgb(p, q, wrappedHue - 1 / 3);

@@ -76,7 +76,6 @@ export const AtmosphereBackground: React.FC = () => {
     isPlaying,
     isMicActive,
     musicSensitivity,
-    visualizerMode,
   } = usePlayerStore();
   const { getSmoothedData } = useVisualizer(0.2);
 
@@ -117,7 +116,6 @@ export const AtmosphereBackground: React.FC = () => {
   const prevBassRef = useRef(0);
   const smoothedBassRef = useRef(0);
   const smoothedEnergyRef = useRef(0);
-  const lastKickTimeRef = useRef(0);
 
   // Transition smoothing between atmospheric states
   const currentAtmosphereRef = useRef<string>(atmosphere);
@@ -964,6 +962,9 @@ export const AtmosphereBackground: React.FC = () => {
     lucidTheme,
     autoMode,
     dynamicColor,
+    primaryColor,
+    secondaryColor,
+    glowColor,
     blobSettings.kickThreshold,
     blobSettings.kickPower,
     customBg,

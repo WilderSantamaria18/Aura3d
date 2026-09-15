@@ -112,7 +112,7 @@ export const ProgressBar: React.FC = React.memo(() => {
       style={{ color: isLucid ? lucidTheme.primary : 'rgba(255, 255, 255, 0.45)' }}
     >
       {/* Current Time Display */}
-      <span className="w-11 text-right font-mono text-[11px] tabular-nums text-white/50 shrink-0">
+      <span className="w-11 text-right font-display font-tabular text-[11px] text-white/60 tracking-wide shrink-0">
         {formatTime(isDragging ? dragTime : currentTime)}
       </span>
 
@@ -228,7 +228,7 @@ export const ProgressBar: React.FC = React.memo(() => {
         {/* Hover preview line & tooltip */}
         {hoverTime !== null && !isDragging && (
           <div
-            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded-md bg-[#070913]/95 border border-white/20 text-[9px] font-mono text-white/90 tabular-nums pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.8)] z-30"
+            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded-md glass-panel text-[10px] font-display font-tabular text-white/90 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.8)] z-30"
             style={{ left: `${hoverPos}%` }}
           >
             {formatTime(hoverTime)}
@@ -249,7 +249,7 @@ export const ProgressBar: React.FC = React.memo(() => {
       </div>
 
       {/* Duration Display */}
-      <span className="w-11 text-left font-mono text-[11px] tabular-nums text-white/40 shrink-0">
+      <span className="w-11 text-left font-display font-tabular text-[11px] text-white/50 tracking-wide shrink-0">
         {formatTime(duration)}
       </span>
     </div>

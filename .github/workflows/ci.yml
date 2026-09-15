@@ -1,0 +1,67 @@
+name: Aura3D CI/CD & Automated Quality Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  quality-gate:
+    name: TypeCheck, Unit Tests, E2E, A11y & Visual Regression
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Check & Production Build (Vite + PWA)
+        run: npm run build
+
+      - name: Run Unit Tests (Vitest)
+        run: npx vitest run
+
+      - name: Install Playwright Browsers (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Dev / Preview Server
+        run: npm run preview -- --port 5173 &
+        env:
+          NODE_ENV: production
+
+      - name: Wait for App Server
+        run: npx wait-on http://localhost:5173 --timeout 60000
+
+      - name: Run Playwright E2E Tests
+        run: npx playwright test e2e/player-flows.spec.ts
+        env:
+          CI: true
+
+      - name: Run Axe Automated WCAG AA Accessibility Audit
+        run: npx playwright test e2e/accessibility.spec.ts
+        env:
+          CI: true
+
+      - name: Run Visual Regression Snapshot Tests
+        run: npx playwright test e2e/visual-regression.spec.ts
+        env:
+          CI: true
+
+      - name: Upload Test Results and Diff Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-quality-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14

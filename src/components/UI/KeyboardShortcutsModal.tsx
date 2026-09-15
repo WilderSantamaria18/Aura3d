@@ -9,7 +9,7 @@ interface ShortcutRowProps {
 }
 
 const ShortcutRow: React.FC<ShortcutRowProps> = ({ keys, description, icon }) => (
-  <div className="flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-white/[0.03] transition-colors group">
+  <div className="flex items-center justify-between py-2 px-2.5 rounded-[10px] hover:bg-white/[0.04] transition-colors group">
     <div className="flex items-center gap-2.5 text-xs text-white/80">
       {icon && <span className="text-white/40 group-hover:text-white/70 transition-colors">{icon}</span>}
       <span>{description}</span>
@@ -18,7 +18,7 @@ const ShortcutRow: React.FC<ShortcutRowProps> = ({ keys, description, icon }) =>
       {keys.map((k, i) => (
         <kbd
           key={i}
-          className="min-w-[24px] h-6 px-1.5 flex items-center justify-center text-[11px] font-mono font-medium rounded border border-white/15 bg-white/[0.06] text-white/90 shadow-[0_2px_0_rgba(0,0,0,0.5)]"
+          className="min-w-[24px] h-6 px-1.5 flex items-center justify-center text-[11px] font-mono font-medium rounded-[6px] border border-white/15 bg-white/[0.06] text-white/90 shadow-sm"
         >
           {k}
         </kbd>
@@ -37,21 +37,18 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xl p-4 animate-in fade-in duration-200"
       onClick={() => setShortcutsModalOpen(false)}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-[#090D18]/95 border border-white/12 shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-5 text-white flex flex-col gap-4 max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.08] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.1)] p-5 text-white flex flex-col gap-4 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          boxShadow: '0 24px 60px -10px rgba(0,0,0,0.9), 0 0 1px 1px rgba(255,255,255,0.08)',
-        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
+          <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center border"
+              className="w-8 h-8 rounded-[10px] flex items-center justify-center border shadow-sm"
               style={{
                 backgroundColor: `${accentColor}15`,
                 borderColor: `${accentColor}40`,
@@ -61,10 +58,10 @@ export const KeyboardShortcutsModal: React.FC = () => {
               <Keyboard className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-wide flex items-center gap-2">
-                Atajos de Teclado de Estudio
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60">
-                  Aura3D
+              <h2 className="text-sm font-bold tracking-tight flex items-center gap-2">
+                Atajos de Teclado
+                <span className="text-[9px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">
+                  STUDIO
                 </span>
               </h2>
               <p className="text-[11px] text-white/40 font-mono">Control táctil de alta precisión</p>
@@ -72,7 +69,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
           </div>
           <button
             onClick={() => setShortcutsModalOpen(false)}
-            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors"
             aria-label="Cerrar modal"
           >
             <X className="w-4 h-4" />
@@ -127,3 +124,5 @@ export const KeyboardShortcutsModal: React.FC = () => {
     </div>
   );
 };
+
+export default KeyboardShortcutsModal;

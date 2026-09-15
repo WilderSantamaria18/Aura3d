@@ -141,12 +141,13 @@ export const Controls: React.FC = React.memo(() => {
         {currentTrack && (
           <button
             onClick={() => toggleFavorite(currentTrack)}
-            className={`p-1.5 rounded-md transition-colors flex-shrink-0 ${
+            className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
               isFav
                 ? 'text-rose-500 hover:text-rose-400'
-                : 'text-white/30 hover:text-white/70 hover:bg-white/[0.04]'
+                : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
             }`}
             title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
           >
             <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500' : ''}`} />
           </button>
@@ -159,28 +160,34 @@ export const Controls: React.FC = React.memo(() => {
       </div>
 
       {/* Main Playback Buttons */}
-      <div className="flex items-center justify-center gap-2 sm:gap-4 w-full sm:w-auto">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-4 w-full sm:w-auto">
         <button
           onClick={toggleShuffle}
-          className={`p-2 rounded-md transition-colors ${
-            isShuffled ? 'text-white bg-white/10' : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+          className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+            isShuffled
+              ? isLucid
+                ? 'text-white bg-white/20 shadow-sm'
+                : 'text-white bg-white/15 shadow-sm'
+              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
           }`}
-          title={isShuffled ? 'Aleatorio activado' : 'Activar aleatorio'}
+          title={isShuffled ? 'Desactivar Aleatorio (S)' : 'Activar Aleatorio (S)'}
+          aria-label={isShuffled ? 'Desactivar modo aleatorio' : 'Activar modo aleatorio'}
         >
-          <Shuffle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <Shuffle className="w-4 h-4" />
         </button>
 
         <button
           onClick={handlePrevious}
-          className="p-2 rounded-md text-white/60 hover:text-white hover:bg-white/[0.04] transition-transform active:scale-95"
-          title="Canción Anterior"
+          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          title="Canción Anterior (Shift+←)"
+          aria-label="Canción anterior"
         >
           <SkipBack className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
         </button>
 
         <button
           onClick={handlePlayPause}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-[0_4px_16px_rgba(0,0,0,0.6)] border border-white/20 flex-shrink-0 hover:scale-105"
+          className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center btn-spring shadow-[0_4px_16px_rgba(0,0,0,0.4)] border border-white/20 flex-shrink-0 group cursor-pointer"
           style={
             autoMode
               ? {
@@ -197,7 +204,8 @@ export const Controls: React.FC = React.memo(() => {
                   color: '#000000',
                 }
           }
-          title={isPlaying ? 'Pausar' : 'Reproducir'}
+          title={isPlaying ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'}
+          aria-label={isPlaying ? 'Pausar reproducción' : 'Iniciar reproducción'}
         >
           {isPlaying ? (
             <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
@@ -208,27 +216,29 @@ export const Controls: React.FC = React.memo(() => {
 
         <button
           onClick={handleNext}
-          className="p-2 rounded-md text-white/60 hover:text-white hover:bg-white/[0.04] transition-transform active:scale-95"
-          title="Siguiente Canción"
+          className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          title="Siguiente Canción (Shift+→)"
+          aria-label="Siguiente canción"
         >
           <SkipForward className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
         </button>
 
         <button
           onClick={cycleRepeat}
-          className={`p-2 rounded-md transition-colors ${
+          className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
             repeatMode !== 'off'
               ? isLucid
-                ? 'text-white bg-white/15'
-                : 'text-white bg-white/10'
-              : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+                ? 'text-white bg-white/20 shadow-sm'
+                : 'text-white bg-white/15 shadow-sm'
+              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
           }`}
-          title={`Repetición: ${repeatMode}`}
+          title={`Repetición: ${repeatMode} (R)`}
+          aria-label={`Modo de repetición actual: ${repeatMode}. Clic para cambiar.`}
         >
           {repeatMode === 'one' ? (
-            <Repeat1 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Repeat1 className="w-4 h-4" />
           ) : (
-            <Repeat className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Repeat className="w-4 h-4" />
           )}
         </button>
 
@@ -239,41 +249,42 @@ export const Controls: React.FC = React.memo(() => {
             e.stopPropagation();
             AudioEngine.getInstance().triggerDjScratch();
           }}
-          className={`p-2 rounded-md transition-all ${
+          className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-all cursor-pointer ${
             isPlaying
               ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 active:scale-90'
-              : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
           }`}
           title="Freno de Vinilo Analógico (Tape Stop) • Doble clic / Shift+Clic: Scratch DJ"
           aria-label="Freno de vinilo analógico"
         >
-          <Disc3 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
+          <Disc3 className={`w-4 h-4 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
         </button>
 
         {/* DJ Looper A-B & Cues Popover Button */}
         <div className="relative">
           <button
             onClick={() => setIsLooperOpen(!isLooperOpen)}
-            className={`p-2 rounded-md transition-all flex items-center gap-1 ${
+            className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-all gap-1 cursor-pointer ${
               isLoopActive
-                ? 'text-amber-400 bg-amber-400/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.3)]'
-                : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
+                ? 'text-amber-400 bg-amber-400/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
             }`}
             title="Bucle DJ [A-B] & Puntos Cue"
             aria-label="Bucle DJ A-B"
+            aria-expanded={isLooperOpen}
           >
             {isLoopActive ? (
-              <BookmarkCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+              <BookmarkCheck className="w-4 h-4 text-amber-400" />
             ) : (
-              <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Bookmark className="w-4 h-4" />
             )}
             {isLoopActive && <span className="text-[9px] font-mono font-bold text-amber-400">A-B</span>}
           </button>
 
           {isLooperOpen && (
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-2.5 text-xs font-mono animate-in fade-in zoom-in-95">
+            <div className="absolute bottom-full mb-2 right-0 sm:left-1/2 sm:-translate-x-1/2 w-64 max-w-[calc(100vw-2rem)] p-3 rounded-[12px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.1] shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-50 flex flex-col gap-2.5 text-xs font-mono animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-white/65 font-bold flex items-center gap-1.5">
                   <Bookmark className="w-3 h-3 text-amber-400" /> DJ Looper & Cues
                 </span>
                 {isLoopActive && (

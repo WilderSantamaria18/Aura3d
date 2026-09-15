@@ -74,7 +74,7 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
 
       <div className="relative flex items-center h-4 group">
         {/* Track de audio */}
-        <div className="relative w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-all group-hover:h-1.5">
+        <div className="relative w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-transform duration-150 group-hover:scale-y-150 origin-center">
           <div
             className="h-full rounded-full transition-[width] duration-75"
             style={{

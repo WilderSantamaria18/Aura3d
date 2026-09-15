@@ -76,9 +76,9 @@ export const BackgroundAtmospherePopover: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all duration-200 border active:scale-95 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-xs font-sans transition-all duration-200 border active:scale-[0.97] ${
           isOpen || hasActiveBg
-            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
+            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20'
             : 'bg-white/[0.03] text-white/70 hover:text-white border-white/[0.08] hover:bg-white/[0.06]'
         }`}
         style={

@@ -74,14 +74,14 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
     <>
       {/* Mobile backdrop for tap-away */}
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] sm:hidden"
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] sm:hidden animate-aura-backdrop"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Proportional Dropdown Popover aligned under trigger */}
       <div
-        className="fixed inset-x-3 top-14 max-w-[360px] mx-auto sm:mx-0 sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[340px] max-h-[min(500px,calc(100vh-5rem))] overflow-y-auto p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 custom-scrollbar text-white font-mono"
+        className="fixed inset-x-3 top-14 max-w-[360px] mx-auto sm:mx-0 sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[340px] max-h-[min(500px,calc(100vh-5rem))] overflow-y-auto p-3 rounded-2xl glass-panel z-50 flex flex-col gap-2.5 animate-aura-popover custom-scrollbar text-white font-display"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -91,7 +91,7 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
               <Sparkles className="w-3.5 h-3.5" />
             </span>
             <div className="flex flex-col">
-              <div className="text-xs font-semibold text-white flex items-center gap-1.5 leading-tight">
+              <div className="text-sm font-bold text-white flex items-center gap-1.5 leading-tight font-heading tracking-studio-tight">
                 <span>Ambientes Lo-Fi</span>
                 {activeCount > 0 && (
                   <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-bold">
@@ -99,7 +99,7 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
                   </span>
                 )}
               </div>
-              <span className="text-[9px] text-white/40 font-sans mt-0.5">
+              <span className="text-[10px] text-white/50 tracking-wide mt-0.5">
                 Sintetizador Web Audio nativo
               </span>
             </div>
@@ -108,9 +108,9 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
           <div className="flex items-center gap-1">
             <button
               onClick={() => soundscapeEngine.toggleMasterMute()}
-              className={`p-1.5 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-lg border btn-spring transition-all ${
                 config.masterMuted
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.2)]'
                   : 'bg-white/[0.05] text-white/60 border-white/[0.08] hover:text-white'
               }`}
               title={config.masterMuted ? 'Desmutear ambientes' : 'Mutear todos los ambientes'}
@@ -119,7 +119,7 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] btn-spring transition-colors"
               title="Cerrar"
             >
               <X className="w-3.5 h-3.5" />
@@ -146,10 +146,10 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm shrink-0">{ch.emoji}</span>
                     <div className="truncate">
-                      <div className="text-[11px] font-medium text-white/95 truncate leading-tight">
+                      <div className="text-[12px] font-bold text-white/95 truncate leading-tight tracking-studio-tight font-heading">
                         {ch.title}
                       </div>
-                      <div className="text-[8px] text-white/40 font-sans truncate">{ch.subtitle}</div>
+                      <div className="text-[10px] text-white/50 truncate tracking-wide font-sans">{ch.subtitle}</div>
                     </div>
                   </div>
 
@@ -159,7 +159,7 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
                     </span>
                     <button
                       onClick={() => soundscapeEngine.toggleChannel(ch.type)}
-                      className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all tracking-wider ${
+                      className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase btn-spring transition-all tracking-wider ${
                         state.enabled
                           ? 'bg-cyan-400 text-black shadow-[0_0_10px_rgba(0,229,255,0.4)]'
                           : 'bg-white/10 text-white/50 hover:text-white'

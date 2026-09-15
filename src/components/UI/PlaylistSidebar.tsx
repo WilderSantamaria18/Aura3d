@@ -17,6 +17,7 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { RADIO_STATIONS } from '../../config/radioStations';
 import { PresetService } from '../../services/presetService';
+import { EmptyState } from '../Common/EmptyState';
 import type { Track } from '../../types/audio';
 
 export const PlaylistSidebar: React.FC = () => {
@@ -85,92 +86,113 @@ export const PlaylistSidebar: React.FC = () => {
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="fixed inset-y-0 left-0 z-50 w-80 sm:w-96 bg-[#090d18]/98 border-r border-white/[0.08] backdrop-blur-2xl shadow-[16px_0_48px_rgba(0,0,0,0.85)] flex flex-col transition-all duration-300 pointer-events-auto select-none animate-in slide-in-from-left duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Biblioteca de Audio de Estudio"
+      className="fixed inset-y-0 left-0 z-50 w-full sm:w-96 max-w-[100vw] bg-[#0c101a]/95 border-r border-white/[0.1] backdrop-blur-3xl shadow-[20px_0_60px_rgba(0,0,0,0.85)] flex flex-col transition-all duration-300 pointer-events-auto select-none animate-in slide-in-from-left duration-200"
       style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
       {/* Header */}
-      <div className="p-3.5 border-b border-white/[0.06] flex items-center justify-between">
+      <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-            <ListMusic className="w-3.5 h-3.5 text-[#00e5ff]" />
+          <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm">
+            <ListMusic className="w-4 h-4" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-white font-medium text-xs sm:text-sm tracking-wide">Biblioteca de Estudio</h3>
-            <p className="text-[10px] font-mono text-white/40">Gestor de colas, listas y radio</p>
+            <h3 className="text-white font-semibold text-xs sm:text-sm tracking-tight">Biblioteca de Estudio</h3>
+            <p className="text-[10px] font-mono text-white/65">Gestor de colas, listas y radio</p>
           </div>
         </div>
 
         <button
           onClick={() => setSidebarOpen(false)}
-          className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.06] transition-colors"
+          className="p-1.5 text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.08] transition-colors cursor-pointer"
           aria-label="Cerrar biblioteca"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] px-2 pt-1.5 gap-0.5 text-xs overflow-x-auto">
-        <button
-          onClick={() => {
-            setActiveTab('queue');
-            setSelectedPlaylistId(null);
-          }}
-          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
-            activeTab === 'queue'
-              ? 'border-[#00e5ff] text-white font-semibold'
-              : 'border-transparent text-white/40 hover:text-white/80'
-          }`}
+      {/* iOS Segmented Control Tabs */}
+      <div className="p-2 border-b border-white/[0.08]">
+        <div
+          role="tablist"
+          aria-label="Secciones de la biblioteca"
+          className="flex p-1 bg-white/[0.04] border border-white/[0.08] rounded-[12px] gap-0.5 text-xs overflow-x-auto"
         >
-          <Music className="w-3.5 h-3.5" /> Cola ({queue.length})
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'queue'}
+            aria-controls="tabpanel-queue"
+            onClick={() => {
+              setActiveTab('queue');
+              setSelectedPlaylistId(null);
+            }}
+            className={`flex-1 min-h-[36px] py-1.5 px-2 rounded-[10px] font-medium transition-all flex items-center justify-center gap-1 text-[11px] whitespace-nowrap cursor-pointer ${
+              activeTab === 'queue'
+                ? 'bg-white/15 text-white font-semibold shadow-sm'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <Music className="w-3 h-3" /> Cola ({queue.length})
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab('favorites');
-            setSelectedPlaylistId(null);
-          }}
-          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
-            activeTab === 'favorites'
-              ? 'border-[#00e5ff] text-white font-semibold'
-              : 'border-transparent text-white/40 hover:text-white/80'
-          }`}
-        >
-          <Heart className="w-3.5 h-3.5" /> Favoritos ({favorites.length})
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'favorites'}
+            aria-controls="tabpanel-favorites"
+            onClick={() => {
+              setActiveTab('favorites');
+              setSelectedPlaylistId(null);
+            }}
+            className={`flex-1 min-h-[36px] py-1.5 px-2 rounded-[10px] font-medium transition-all flex items-center justify-center gap-1 text-[11px] whitespace-nowrap cursor-pointer ${
+              activeTab === 'favorites'
+                ? 'bg-white/15 text-white font-semibold shadow-sm'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <Heart className="w-3 h-3" /> Favoritos ({favorites.length})
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab('playlists');
-            setSelectedPlaylistId(null);
-          }}
-          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
-            activeTab === 'playlists'
-              ? 'border-[#00e5ff] text-white font-semibold'
-              : 'border-transparent text-white/40 hover:text-white/80'
-          }`}
-        >
-          <ListMusic className="w-3.5 h-3.5" /> Playlists ({playlists.length})
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'playlists'}
+            aria-controls="tabpanel-playlists"
+            onClick={() => {
+              setActiveTab('playlists');
+              setSelectedPlaylistId(null);
+            }}
+            className={`flex-1 min-h-[36px] py-1.5 px-2 rounded-[10px] font-medium transition-all flex items-center justify-center gap-1 text-[11px] whitespace-nowrap cursor-pointer ${
+              activeTab === 'playlists'
+                ? 'bg-white/15 text-white font-semibold shadow-sm'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <ListMusic className="w-3 h-3" /> Listas ({playlists.length})
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab('radio');
-            setSelectedPlaylistId(null);
-          }}
-          className={`pb-2 px-2 border-b-2 font-medium transition-colors flex items-center gap-1.5 text-xs whitespace-nowrap ${
-            activeTab === 'radio'
-              ? 'border-[#00e5ff] text-white font-semibold'
-              : 'border-transparent text-white/40 hover:text-white/80'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5" /> Radio ({RADIO_STATIONS.length})
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'radio'}
+            aria-controls="tabpanel-radio"
+            onClick={() => {
+              setActiveTab('radio');
+              setSelectedPlaylistId(null);
+            }}
+            className={`flex-1 min-h-[36px] py-1.5 px-2 rounded-[10px] font-medium transition-all flex items-center justify-center gap-1 text-[11px] whitespace-nowrap cursor-pointer ${
+              activeTab === 'radio'
+                ? 'bg-white/15 text-white font-semibold shadow-sm'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <Radio className="w-3 h-3" /> Radio
+          </button>
+        </div>
       </div>
 
       {/* Action Bar / Audio File Pick */}
       <div className="p-3 bg-white/[0.01] border-b border-white/[0.04] flex items-center gap-2">
-        <label className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-xl text-xs font-mono text-white/80 hover:text-white cursor-pointer transition-all active:scale-98">
+        <label className="flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-[10px] text-xs font-sans text-white/90 hover:text-white cursor-pointer transition-all active:scale-[0.98]">
           <Upload className="w-3.5 h-3.5 text-[#00e5ff]" />
           <span>Importar Audio Local</span>
           <input
@@ -189,11 +211,11 @@ export const PlaylistSidebar: React.FC = () => {
         {activeTab === 'queue' && (
           <div className="space-y-1">
             {queue.length === 0 ? (
-              <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center space-y-2 my-4">
-                <Upload className="w-6 h-6 text-white/30 mx-auto" />
-                <p className="text-xs text-white/70 font-medium">Arrastra tus archivos de audio aquí</p>
-                <p className="text-[10px] text-white/40 font-mono">Formatos: MP3, WAV, FLAC, OGG, M4A</p>
-              </div>
+              <EmptyState
+                icon={Upload}
+                title="Cola de reproducción vacía"
+                description="Arrastra tus archivos de audio aquí o carga pistas desde tu biblioteca."
+              />
             ) : (
               queue.map((track, idx) => (
                 <TrackItem
@@ -212,10 +234,11 @@ export const PlaylistSidebar: React.FC = () => {
         {activeTab === 'favorites' && (
           <div className="space-y-1">
             {favorites.length === 0 ? (
-              <div className="text-center py-12 space-y-2">
-                <Heart className="w-6 h-6 text-white/20 mx-auto" />
-                <p className="text-white/40 text-xs font-mono">Sin favoritos guardados</p>
-              </div>
+              <EmptyState
+                icon={Heart}
+                title="Sin favoritos guardados"
+                description="Haz clic en el icono de corazón en cualquier canción para añadirla a tu lista de favoritos."
+              />
             ) : (
               favorites.map((track) => (
                 <TrackItem
@@ -432,36 +455,38 @@ const TrackItem: React.FC<{
 }> = ({ track, isActive, onPlay, onRemove }) => {
   return (
     <div
-      className={`p-2 rounded-xl flex items-center justify-between gap-2.5 group transition-colors border ${
+      className={`p-2.5 rounded-[12px] flex items-center justify-between gap-3 group transition-all border btn-spring ${
         isActive
-          ? 'bg-white/[0.08] border-white/[0.15] text-white shadow-sm'
-          : 'bg-white/[0.02] border-transparent hover:border-white/[0.06] hover:bg-white/[0.04] text-white/80'
+          ? 'bg-white/[0.08] border-white/[0.14] text-white shadow-sm'
+          : 'bg-white/[0.02] border-white/[0.04] hover:border-white/[0.08] hover:bg-white/[0.05] text-white/80'
       }`}
     >
       <div onClick={onPlay} className="flex-1 min-w-0 cursor-pointer flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+        <div className={`w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0 transition-colors ${
+          isActive ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/[0.04] border border-white/[0.08]'
+        }`}>
           {isActive ? (
             /* Mini-ecualizador animado de 3 barras */
-            <div className="flex items-end gap-[1.5px] h-3 w-3 justify-center">
-              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.6s_ease-in-out_infinite] h-full" />
-              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.15s] h-2/3" />
-              <span className="w-[2px] bg-[#00e5ff] rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.3s] h-4/5" />
+            <div className="flex items-end gap-[1.5px] h-3.5 w-3.5 justify-center">
+              <span className="w-[2px] bg-cyan-400 rounded-full animate-[pulse_0.6s_ease-in-out_infinite] h-full" />
+              <span className="w-[2px] bg-cyan-400 rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.15s] h-2/3" />
+              <span className="w-[2px] bg-cyan-400 rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.3s] h-4/5" />
             </div>
           ) : (
             <Music className="w-3.5 h-3.5 text-white/30 group-hover:text-white/70" />
           )}
         </div>
         <div className="truncate">
-          <p className="text-xs font-medium truncate text-white">{track.title}</p>
-          <p className="text-[10px] text-white/40 truncate font-mono">{track.artist}</p>
+          <p className="text-xs font-medium truncate text-white tracking-tight">{track.title}</p>
+          <p className="text-[10px] text-white/40 truncate font-mono mt-0.5">{track.artist}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100">
+      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
         {onRemove && (
           <button
             onClick={onRemove}
-            className="p-1 text-white/30 hover:text-rose-400 rounded-lg hover:bg-white/[0.05] transition-colors"
+            className="p-1.5 text-white/30 hover:text-rose-400 rounded-[6px] hover:bg-rose-500/10 transition-colors"
             title="Eliminar de la cola"
             aria-label="Eliminar"
           >

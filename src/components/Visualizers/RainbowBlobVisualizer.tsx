@@ -662,6 +662,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     musicSensitivity,
     isLucid,
     lucidTheme,
+    lucidPrimaryColor,
     autoMode,
     dynamicColor,
     cloudParticles,

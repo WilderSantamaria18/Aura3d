@@ -2,45 +2,133 @@
 
 :root {
   color-scheme: dark;
-  /* Paleta de Superficies Neutras (Dark Slate Studio) */
-  --surface-base: #05070d;
-  --surface-canvas: #090d18;
-  --surface-raised: #101524;
-  --surface-overlay: #171d30;
-  --surface-hover: #1f263e;
+  
+  /* ── 1. Superficies & Capas de Elevación (iOS Minimalist Surfaces) ── */
+  --surface-base: #06080e;
+  --surface-canvas: #080b14;
+  --surface-dock: rgba(12, 16, 28, 0.92);
+  --surface-card: rgba(18, 24, 38, 0.70);
+  --surface-overlay: rgba(10, 14, 24, 0.95);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(255, 255, 255, 0.10);
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.12);
+  /* ── 2. Bordes Especulares & Contraste Sutil ── */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-highlight: rgba(255, 255, 255, 0.22);
   --border-focus: #00e5ff;
 
-  --text-primary: #f0f4fc;
-  --text-secondary: #8b95a5;
-  --text-tertiary: #556075;
+  /* ── 3. Tipografía & Jerarquía de Contraste iOS (WCAG AA Compliant) ── */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(245, 247, 252, 0.82);
+  --text-tertiary: rgba(245, 247, 252, 0.62);
+  --text-muted: rgba(245, 247, 252, 0.48);
+  --text-disabled: rgba(245, 247, 252, 0.30);
 
-  /* Acentos funcionales de audio */
+  /* ── 4. Acentos Semánticos Funcionales & Estados ── */
+  --status-success: #34c759;
+  --status-warning: #ff9500;
+  --status-error: #ff3b30;
+  --status-info: #007aff;
+  --ios-blue: #007aff;
+  --ios-cyan: #00e5ff;
+  --ios-green: #34c759;
+  --ios-orange: #ff9500;
+  --ios-pink: #ff2d55;
+  --ios-purple: #af52de;
   --accent-cyan: #00e5ff;
-  --accent-emerald: #00ff9d;
-  --accent-amber: #ff9100;
-  --accent-violet: #7928ca;
+  --accent-violet: #a855f7;
+  --accent-amber: #ff9500;
+  --accent-rose: #ff2d55;
+  --accent-emerald: #34c759;
+  --accent-active: var(--accent-cyan);
 
-  /* Variables Dinámicas Globales (IA Audio & Paleta Armónica Reactiva) */
-  --color-primary: #00f2fe;
+  /* ── 5. Escala de Espaciado Estricta (8pt Grid System) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── 6. Motion Design & Tiempos Estándar ── */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ── 7. Variables Dinámicas Globales ── */
+  --color-primary: var(--accent-active, #00f2fe);
   --color-secondary: #ff007f;
-  --color-accent: #a855f7;
-  --color-glow: rgba(0, 242, 254, 0.45);
+  --color-accent: var(--accent-active, #a855f7);
+  --color-glow: rgba(0, 242, 254, 0.20);
   --color-bg-atmosphere: #060814;
   --ai-beat-pulse: 0;
-  --ai-bloom-intensity: 1.33;
+  --ai-bloom-intensity: 1.0;
+  --color-secondary: #ff007f;
+  --color-accent: #a855f7;
+  --color-glow: rgba(0, 242, 254, 0.20);
+  --color-bg-atmosphere: #060814;
+  --ai-beat-pulse: 0;
+  --ai-bloom-intensity: 1.0;
 
-  --bg-primary: #0A0A0F;
-  --bg-surface: #121218;
-  --bg-circle: #0D0D12;
-  --accent: #FFFFFF;
-  --radius-panel: 16px;
+  /* ── 8. Geometría & Escala de Radios Estricta (Regla: 20px Contenedores / 12px Cards / 10px Controls) ── */
+  --radius-container: 20px;
+  --radius-dock: 20px;
+  --radius-modal: 20px;
   --radius-card: 12px;
-  --radius-control: 8px;
-  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --radius-control: 10px;
+  --radius-pill: 9999px;
+  --radius-badge: 6px;
+
+  /* ── 9. Sombras de Elevación iOS (Neutras y Claras) ── */
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.40);
+  --shadow-dock: 0 16px 40px -8px rgba(0, 0, 0, 0.60), 0 0 1px rgba(255, 255, 255, 0.10);
+  --shadow-modal: 0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.12);
+  --transition-spring: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  
   background-color: var(--surface-base);
+}
+
+/* ── Light Mode Design System Theme ── */
+[data-theme="light"] {
+  color-scheme: light;
+  --surface-base: #f4f6fb;
+  --surface-canvas: #edf1f8;
+  --surface-dock: rgba(255, 255, 255, 0.94);
+  --surface-card: rgba(255, 255, 255, 0.88);
+  --surface-overlay: rgba(255, 255, 255, 0.97);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --surface-active: rgba(0, 0, 0, 0.08);
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.14);
+  --border-highlight: rgba(0, 0, 0, 0.22);
+  --border-focus: var(--accent-active, #007aff);
+
+  --text-primary: #0a0d14;
+  --text-secondary: rgba(15, 20, 32, 0.82);
+  --text-tertiary: rgba(15, 20, 32, 0.62);
+  --text-muted: rgba(15, 20, 32, 0.48);
+  --text-disabled: rgba(15, 20, 32, 0.30);
+
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+  --shadow-dock: 0 16px 40px -8px rgba(0, 0, 0, 0.10), 0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-modal: 0 24px 60px -12px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.14);
+
+  --color-bg-atmosphere: #e9eef7;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 html, body, #root {
@@ -50,14 +138,103 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
   background-color: var(--surface-base);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  letter-spacing: -0.012em;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", 'Outfit', 'Inter', "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  letter-spacing: -0.015em;
   user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   caret-color: var(--accent-cyan);
+}
+
+.font-display {
+  font-family: 'Space Grotesk', 'Outfit', sans-serif;
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.font-heading {
+  font-family: 'Syne', 'Outfit', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ── Typographic Scale Hierarchy (Display, H1, H2, H3, Body, Caption, Mono) ── */
+.type-display {
+  font-size: 2.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.type-h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.type-h2 {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.type-h3 {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
+.type-body {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  font-weight: 400;
+}
+
+.type-caption {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  font-weight: 500;
+}
+
+.type-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Tactile Microinteraction Utilities ── */
+.btn-spring {
+  transition: transform var(--duration-fast, 150ms) var(--ease-smooth, cubic-bezier(0.16, 1, 0.3, 1)),
+              opacity var(--duration-fast, 150ms) ease,
+              background-color var(--duration-fast, 150ms) ease,
+              border-color var(--duration-fast, 150ms) ease;
+}
+.btn-spring:active {
+  transform: scale(0.96);
+}
+
+.btn-press {
+  transition: transform var(--duration-fast, 150ms) var(--ease-smooth, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.btn-press:active {
+  transform: scale(0.94);
+}
+
+.card-interactive {
+  transition: transform var(--duration-base, 250ms) var(--ease-smooth, cubic-bezier(0.16, 1, 0.3, 1)),
+              border-color var(--duration-base, 250ms) ease,
+              background-color var(--duration-base, 250ms) ease,
+              box-shadow var(--duration-base, 250ms) ease;
+}
+.card-interactive:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 /* ── Typographic Polish Utilities ── */
@@ -113,6 +290,260 @@ html, body, #root {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Scrollbar Thin Utility */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 9999px;
+}
+
+/* Slow Spin for Source Badge Disc Icon */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
+}
+
+/* ── Ultra-Smooth GPU-Accelerated Animation Engine (Lag-Free & Natural) ── */
+@keyframes auraModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes auraBackdropIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+@keyframes auraPopoverIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes auraFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes auraZoomIn95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Modal and Popover Spring Classes */
+.animate-aura-modal {
+  animation: auraModalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  transform-origin: center center;
+}
+
+.animate-aura-backdrop {
+  animation: auraBackdropIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, backdrop-filter;
+}
+
+.animate-aura-popover {
+  animation: auraPopoverIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  transform-origin: top right;
+}
+
+/* Universal Smooth Animate-In Fallback (Zero-Lag 60fps GPU acceleration for all existing modals/popovers) */
+.animate-in {
+  animation-duration: 0.26s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+.animate-in.fade-in {
+  animation-name: auraFadeIn;
+}
+.animate-in.zoom-in-95,
+.animate-in.fade-in.zoom-in-95 {
+  animation-name: auraZoomIn95;
+}
+
+/* Micro-interaction Spring Button: zero layout thrash, pure GPU transform */
+.btn-spring {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+.btn-spring:hover {
+  transform: translateY(-1px) scale(1.025);
+}
+.btn-spring:active {
+  transform: translateY(0.5px) scale(0.965);
+}
+
+/* ── Preset Flash Overlay (PresetsModal.tsx) ── */
+@keyframes pm-flash {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+/* ── Exit Animation Keyframes (Smooth Dismissal) ── */
+@keyframes auraModalOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+@keyframes auraFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes auraSlideUpIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Exit Animation Utility Classes */
+.animate-aura-modal-out {
+  animation: auraModalOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.animate-aura-fade-out {
+  animation: auraFadeOut 0.18s ease forwards;
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.animate-aura-slide-up {
+  animation: auraSlideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ── iOS-Inspired Glassmorphic Elevation & Surface Utilities ── */
+.ios-glass-dock {
+  background: var(--surface-dock);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-dock);
+  border-radius: var(--radius-dock);
+}
+
+.ios-glass-card {
+  background: var(--surface-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
+  transition: all 0.2s ease;
+}
+.ios-glass-card:hover {
+  border-color: var(--border-medium);
+  background: var(--surface-hover);
+}
+
+.ios-glass-modal {
+  background: var(--surface-overlay);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--border-medium);
+  box-shadow: var(--shadow-modal);
+  border-radius: var(--radius-modal);
+}
+
+.ios-btn {
+  border-radius: var(--radius-control);
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ios-btn:active {
+  transform: scale(0.97);
+}
+
+.ios-focus-ring {
+  outline: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.ios-focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 4px var(--accent-cyan);
+}
+
+.ios-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* Luxury Realistic Contrast Scrim: high contrast without distracting starkness */
+.contrast-scrim-realistic {
+  background: radial-gradient(circle at top left, rgba(16, 22, 40, 0.85) 0%, rgba(5, 8, 18, 0.95) 100%);
+  box-shadow: 
+    0 24px 64px -12px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* Studio Precision Range Input (Slim track, solid circular thumb) */
@@ -140,14 +571,44 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.18);
 }
 
-input[type="range"]:focus-visible {
-  outline: 1px solid #00e5ff;
-  outline-offset: 2px;
+/* High-Visibility Accessible Focus Indicator */
+:focus-visible {
+  outline: 2px solid #00e5ff !important;
+  outline-offset: 2px !important;
 }
 
-:focus-visible {
-  outline: 1px solid #00e5ff;
-  outline-offset: 2px;
+/* Touch Target Minimum (44x44px for WCAG 2.5.5 / mobile ergonomics) */
+.touch-target-44 {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Screen Reader Only Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Accessibility: Reduced Motion (Vestibular Safety) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Background animated movement */
@@ -240,11 +701,38 @@ input[type="range"]:focus-visible {
 /* Glassmorphism panels and containers in Lucid Mode */
 .lucid-panel,
 .lucid-mode .lucid-panel {
-  background: var(--lucid-glass, rgba(8, 14, 28, 0.90)) !important;
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-color: var(--lucid-border, rgba(0, 229, 255, 0.35)) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px var(--lucid-glow, rgba(0, 229, 255, 0.25)) !important;
+  background: var(--lucid-glass, rgba(8, 14, 28, 0.75)) !important;
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid var(--lucid-border, rgba(255, 255, 255, 0.08)) !important;
+  border-top-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.8), 0 0 40px var(--lucid-glow, rgba(0, 229, 255, 0.15)) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel {
+  background: linear-gradient(145deg, rgba(14, 18, 34, 0.8), rgba(6, 8, 16, 0.9));
+  backdrop-filter: blur(40px) saturate(250%);
+  -webkit-backdrop-filter: blur(40px) saturate(250%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.8);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
+    0 16px 40px -8px rgba(0, 0, 0, 0.95),
+    0 0 40px -10px var(--color-glow, rgba(0, 229, 255, 0.15));
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(145deg, rgba(18, 22, 42, 0.85), rgba(8, 12, 22, 0.95));
+  box-shadow: 
+    inset 0 1px 2px rgba(255, 255, 255, 0.25),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
+    0 24px 48px -12px rgba(0, 0, 0, 1),
+    0 0 50px -5px var(--color-glow, rgba(0, 229, 255, 0.3));
+  transform: translateY(-1px) scale(1.005);
 }
 
 /* Primary buttons in Lucid Mode */
@@ -362,4 +850,28 @@ input[type="range"]:focus-visible {
     margin-top: calc(env(viewport-segment-top 0 1));
   }
 }
+
+/* ── Prefers-Reduced-Motion Accessibility Support ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin-slow,
+  .animate-spin,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-in {
+    animation: none !important;
+  }
+  .btn-spring:active,
+  .btn-press:active {
+    transform: none !important;
+  }
+}
+
 

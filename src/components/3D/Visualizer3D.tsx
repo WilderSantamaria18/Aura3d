@@ -4,6 +4,7 @@ import { OrbitControls, Sphere, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { optimizeImageTexture } from '../../services/imageOptimizer';
 import { audioEngine } from '../../services/audioEngine';
+import { fftWorkerService } from '../../services/fftWorkerService';
 
 interface Visualizer3DProps {
   frequencyData?: Uint8Array;
@@ -102,6 +103,9 @@ const SphereWithBars: React.FC<{
     if (frameCounter.current % 2 === 0) {
       const freshData = audioEngine.getFrequencyData();
       if (freshData && freshData.raw) {
+        // Delegate off-thread spectral computation to Web Worker
+        fftWorkerService.analyzeFrame(freshData.raw);
+
         const step = Math.max(1, Math.floor(freshData.raw.length / BAR_COUNT));
         let sum = 0;
         for (let i = 0; i < BAR_COUNT; i++) {
@@ -114,13 +118,15 @@ const SphereWithBars: React.FC<{
     }
 
     const { frequencies, volume } = audioDataRef.current;
+    const workerBands = fftWorkerService.getLatestBands();
+    const transientBonus = workerBands.isTransientPeak ? 0.08 : 0;
 
     // Direct mesh update on sphere
     if (sphereRef.current) {
       sphereRef.current.rotation.x = Math.sin(t * 0.15) * 0.2;
       sphereRef.current.rotation.y += 0.008;
 
-      const targetScaleVal = radius * (1.0 + volume * 0.45);
+      const targetScaleVal = radius * (1.0 + (volume + transientBonus) * 0.45);
       tempScaleVec.set(targetScaleVal, targetScaleVal, targetScaleVal);
       sphereRef.current.scale.lerp(tempScaleVec, 0.1);
     }

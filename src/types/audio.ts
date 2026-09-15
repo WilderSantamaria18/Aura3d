@@ -1,5 +1,5 @@
 export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system' | 'radio';
-export type VisualizerMode = 'sphere' | 'blob' | 'synthwave' | 'warp' | 'terrain' | 'blackhole';
+export type VisualizerMode = 'sphere' | 'blob' | 'synthwave' | 'warp' | 'terrain';
 export type VocalMode = 'off' | 'karaoke' | 'acappella';
 export type ReverbPreset = 'off' | 'studio' | 'club' | 'concert' | 'cathedral';
 export type VisualizerShape =

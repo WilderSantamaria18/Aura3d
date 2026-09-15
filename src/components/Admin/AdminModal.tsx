@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { socketService } from '../../services/socketService';
-import { AdminDashboard } from './AdminDashboard';
+const AdminDashboard = React.lazy(() => import('./AdminDashboard'));
 import { X, Lock, Shield, User, Key, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
 export const AdminModal: React.FC = () => {
@@ -16,17 +16,19 @@ export const AdminModal: React.FC = () => {
 
   // Check existing token on modal open
   useEffect(() => {
-    if (isAdminModalOpen) {
-      setIsCheckingToken(true);
-      socketService
-        .verifyAdminToken()
-        .then((valid) => {
-          setIsAuthenticated(valid);
-        })
-        .finally(() => {
-          setIsCheckingToken(false);
-        });
-    }
+    if (!isAdminModalOpen) return;
+    let isMounted = true;
+    socketService
+      .verifyAdminToken()
+      .then((valid) => {
+        if (isMounted) setIsAuthenticated(valid);
+      })
+      .finally(() => {
+        if (isMounted) setIsCheckingToken(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [isAdminModalOpen]);
 
   if (!isAdminModalOpen) return null;
@@ -84,7 +86,18 @@ export const AdminModal: React.FC = () => {
             </span>
           </div>
         ) : isAuthenticated ? (
-          <AdminDashboard onLogout={handleLogout} />
+          <React.Suspense
+            fallback={
+              <div className="py-24 flex flex-col items-center justify-center gap-3 font-mono text-center">
+                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                <span className="text-xs text-white/50 tracking-widest uppercase">
+                  Cargando consola analítica...
+                </span>
+              </div>
+            }
+          >
+            <AdminDashboard onLogout={handleLogout} />
+          </React.Suspense>
         ) : (
           /* ── Admin Login Card ── */
           <div className="max-w-md mx-auto py-8 sm:py-12 flex flex-col items-center text-center font-mono">

@@ -399,6 +399,9 @@ interface PlayerState {
   }) => void;
 }
 
+let lastNextTrackTimestamp = 0;
+let lastPrevTrackTimestamp = 0;
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   analyser: null,
   audioContext: null,
@@ -1063,6 +1066,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const { queue, queueIndex, repeatMode, isShuffled, autoMode, baseColorHue } = get();
     if (queue.length === 0) return null;
 
+    // Deduplicate rapid onEnded calls or dual-hook listeners (< 250ms interval)
+    const now = Date.now();
+    if (now - lastNextTrackTimestamp < 250) {
+      return queue[queueIndex] || null;
+    }
+    lastNextTrackTimestamp = now;
+
     if (autoMode) {
       const nextHue = (baseColorHue + 60) % 360;
       set({
@@ -1106,6 +1116,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   previousTrack: () => {
     const { queue, queueIndex, currentTime, autoMode, baseColorHue, isShuffled, shuffleHistory } = get();
     if (queue.length === 0) return null;
+
+    // Deduplicate rapid prev calls (< 250ms interval)
+    const now = Date.now();
+    if (now - lastPrevTrackTimestamp < 250) {
+      return queue[queueIndex] || null;
+    }
+    lastPrevTrackTimestamp = now;
 
     if (autoMode) {
       const nextHue = (baseColorHue + 300) % 360;

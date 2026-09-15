@@ -234,6 +234,40 @@ const BlackHoleCore: React.FC<{
   const verticalDiskMatRef = useRef<THREE.ShaderMaterial>(null);
   const photonicMatRef = useRef<THREE.ShaderMaterial>(null);
 
+  // Instance-scoped shader uniforms (prevents cross-instance mutation leaks)
+  const diskUniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uBass: { value: 0 },
+      uMid: { value: 0 },
+      uTreble: { value: 0 },
+      uPrimaryColor: { value: new THREE.Color(primaryColor) },
+      uSecondaryColor: { value: new THREE.Color(secondaryColor) },
+    }),
+    [primaryColor, secondaryColor]
+  );
+
+  const verticalDiskUniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uBass: { value: 0 },
+      uMid: { value: 0 },
+      uTreble: { value: 0 },
+      uPrimaryColor: { value: new THREE.Color(primaryColor) },
+      uSecondaryColor: { value: new THREE.Color(secondaryColor) },
+    }),
+    [primaryColor, secondaryColor]
+  );
+
+  const photonicUniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uBass: { value: 0 },
+      uColor: { value: new THREE.Color(primaryColor) },
+    }),
+    [primaryColor]
+  );
+
   // Relativistic Jets Particles (Ejected from north and south poles on heavy beats)
   const [jetPositions, jetVelocities] = useMemo(() => {
     const pCount = 300;
@@ -330,7 +364,7 @@ const BlackHoleCore: React.FC<{
           ref={photonicMatRef}
           vertexShader={PhotonicRingShader.vertexShader}
           fragmentShader={PhotonicRingShader.fragmentShader}
-          uniforms={PhotonicRingShader.uniforms}
+          uniforms={photonicUniforms}
           transparent
           blending={THREE.AdditiveBlending}
           side={THREE.BackSide}
@@ -344,7 +378,7 @@ const BlackHoleCore: React.FC<{
           ref={diskMatRef}
           vertexShader={AccretionDiskShader.vertexShader}
           fragmentShader={AccretionDiskShader.fragmentShader}
-          uniforms={AccretionDiskShader.uniforms}
+          uniforms={diskUniforms}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
@@ -359,7 +393,7 @@ const BlackHoleCore: React.FC<{
           ref={verticalDiskMatRef}
           vertexShader={AccretionDiskShader.vertexShader}
           fragmentShader={AccretionDiskShader.fragmentShader}
-          uniforms={AccretionDiskShader.uniforms}
+          uniforms={verticalDiskUniforms}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
@@ -421,7 +455,7 @@ export const BlackHoleVisualizer: React.FC = () => {
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
-          preserveDrawingBuffer: true,
+          preserveDrawingBuffer: false,
         }}
         dpr={[1.0, 1.5]}
       >

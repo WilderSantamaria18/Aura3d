@@ -247,10 +247,10 @@ export const UserProfileModal: React.FC = () => {
     >
       <div className="space-y-4 select-none">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+        <div className="flex items-center gap-1 p-1 rounded-[12px] bg-white/[0.02] border border-white/[0.06]">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
               activeTab === 'profile'
                 ? 'bg-white/10 text-white border border-white/20 shadow-sm'
                 : 'text-white/50 hover:text-white/80'
@@ -262,7 +262,7 @@ export const UserProfileModal: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('performance')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
               activeTab === 'performance'
                 ? 'bg-white/10 text-white border border-white/20 shadow-sm'
                 : 'text-white/50 hover:text-white/80'
@@ -275,7 +275,7 @@ export const UserProfileModal: React.FC = () => {
           {userProfile?.isGuest && (
             <button
               onClick={() => setActiveTab('auth')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
                 activeTab === 'auth'
                   ? 'bg-cyan-400/15 text-cyan-300 border border-cyan-400/30'
                   : 'text-cyan-400/70 hover:text-cyan-300'
@@ -684,3 +684,5 @@ export const UserProfileModal: React.FC = () => {
     </StudioModal>
   );
 };
+
+export default UserProfileModal;

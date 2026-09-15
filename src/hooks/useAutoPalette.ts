@@ -15,6 +15,7 @@ export const useAutoPalette = () => {
   const targetHue = useRef(baseColorHue / 360);
   const frameRef = useRef<number | undefined>(undefined);
   const lastHexRef = useRef<string>('#00f2fe');
+  const lastCommitTimeRef = useRef<number>(0);
 
   // Sync when base hue changes (e.g. end of track)
   useEffect(() => {
@@ -61,7 +62,10 @@ export const useAutoPalette = () => {
 
       const hex = hslToHex(wrappedHue, saturation, lightness);
 
-      if (hex !== lastHexRef.current) {
+      // Throttle React Zustand dispatch to ~10 FPS (every 100ms) to eliminate React DOM churn
+      // CSS custom properties & canvas transition smoothly via CSS transition
+      if (hex !== lastHexRef.current && now - lastCommitTimeRef.current >= 100) {
+        lastCommitTimeRef.current = now;
         lastHexRef.current = hex;
         setDynamicColor(hex);
       }

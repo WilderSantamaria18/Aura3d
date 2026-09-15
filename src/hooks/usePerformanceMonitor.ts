@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 
 export type PerformanceTier = 'high' | 'eco' | 'ultra_eco';
@@ -15,52 +15,8 @@ export interface PerformanceInfo {
   enableComplexEffects: boolean;
 }
 
-/**
- * Detects if the device has an integrated / low-power GPU or mobile chipset
- */
-export const detectLowPowerGpu = (): { isIntegrated: boolean; isMobile: boolean; gpuName: string } => {
-  if (typeof window === 'undefined') {
-    return { isIntegrated: false, isMobile: false, gpuName: 'Unknown' };
-  }
-
-  const isMobile =
-    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
-
-  let isIntegrated = isMobile;
-  let gpuName = 'Generic GPU';
-
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (gl) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        gpuName = (gl as any).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
-        const lower = gpuName.toLowerCase();
-        if (
-          lower.includes('intel') ||
-          lower.includes('uhd') ||
-          lower.includes('hd graphics') ||
-          lower.includes('iris') ||
-          lower.includes('mali') ||
-          lower.includes('adreno') ||
-          lower.includes('powervr') ||
-          lower.includes('software') ||
-          lower.includes('llvmpipe')
-        ) {
-          isIntegrated = true;
-        }
-      }
-    }
-  } catch {
-    // Ignore context creation errors
-  }
-
-  return { isIntegrated: !!isIntegrated, isMobile: !!isMobile, gpuName };
-};
+import { detectLowPowerGpu } from '../utils/gpuDetector';
+export { detectLowPowerGpu };
 
 export const usePerformanceMonitor = () => {
   const hardwareInfo = useRef(detectLowPowerGpu());
@@ -73,6 +29,31 @@ export const usePerformanceMonitor = () => {
   const lastFpsCheck = useRef(performance.now());
   const fpsHistory = useRef<number[]>([]);
   const lastModeChange = useRef(performance.now());
+  const longTasksCount = useRef<number>(0);
+
+  // PerformanceObserver for Long Tasks detection (> 50ms main thread blocking)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'PerformanceObserver' in window) {
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.duration > 50) {
+              longTasksCount.current += 1;
+              if (import.meta.env.DEV && entry.duration > 100) {
+                console.warn(
+                  `[PerformanceObserver] Long task detectada: ${entry.duration.toFixed(1)}ms`
+                );
+              }
+            }
+          }
+        });
+        observer.observe({ entryTypes: ['longtask'] });
+        return () => observer.disconnect();
+      } catch {
+        // Fallback if longtask entryType not supported
+      }
+    }
+  }, []);
 
   // Notify user on auto-adjustment
   const triggerPerformanceToast = useCallback((mode: PerformanceTier) => {

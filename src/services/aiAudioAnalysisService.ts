@@ -98,6 +98,24 @@ class AIAudioAnalysisService {
 
   private listeners = new Set<(features: AIAudioFeatures, palette: AIDynamicPalette) => void>();
   private cssUpdateCounter = 0;
+  private fftBuffer: Uint8Array | null = null;
+  private lastBroadcastTime = 0;
+  private readonly BROADCAST_INTERVAL_MS = 33; // ~30 fps cap for React tree re-renders
+
+  constructor() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          if (this.animId) {
+            cancelAnimationFrame(this.animId);
+            this.animId = null;
+          }
+        } else if (this.isRunning && !this.animId) {
+          this.loop();
+        }
+      });
+    }
+  }
 
   public start(): void {
     if (this.isRunning) return;
@@ -138,8 +156,11 @@ class AIAudioAnalysisService {
 
     if (analyser && isPlaying) {
       const bufferLength = analyser.frequencyBinCount;
-      const data = new Uint8Array(bufferLength);
-      analyser.getByteFrequencyData(data);
+      if (!this.fftBuffer || this.fftBuffer.length !== bufferLength) {
+        this.fftBuffer = new Uint8Array(bufferLength);
+      }
+      analyser.getByteFrequencyData(this.fftBuffer as any);
+      const data = this.fftBuffer;
 
       const sampleRate = analyser.context.sampleRate || 44100;
       const nyquist = sampleRate / 2;
@@ -350,8 +371,11 @@ class AIAudioAnalysisService {
         state.setDynamicColor(primaryHex);
       }
 
-      // Broadcast to listeners
-      this.listeners.forEach((fn) => fn(this.currentFeatures, this.currentPalette));
+      // Broadcast to listeners with ~30fps throttle to eliminate React 60fps churn
+      if (now - this.lastBroadcastTime >= this.BROADCAST_INTERVAL_MS) {
+        this.lastBroadcastTime = now;
+        this.listeners.forEach((fn) => fn(this.currentFeatures, this.currentPalette));
+      }
     }
 
     this.animId = requestAnimationFrame(this.loop);

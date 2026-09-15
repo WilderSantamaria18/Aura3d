@@ -1,0 +1,63 @@
+{
+  "app": {
+    "title": "Aura3D Studio",
+    "tagline": "Next-Gen 3D Audio Visualizer & Music Player",
+    "welcome": "Welcome to Aura3D"
+  },
+  "header": {
+    "openPalette": "Command palette (Ctrl+K)",
+    "quickstart": "Quickstart Guide",
+    "systemReq": "System Requirements",
+    "shortcuts": "Keyboard Shortcuts",
+    "admin": "Admin Dashboard",
+    "stats": "Session Stats",
+    "language": "Language",
+    "es": "Spanish",
+    "en": "English"
+  },
+  "controls": {
+    "play": "Start playback",
+    "pause": "Pause playback",
+    "next": "Next track",
+    "previous": "Previous track",
+    "shuffle": "Shuffle mode",
+    "repeat": "Repeat",
+    "equalizer": "Audio equalizer (E)",
+    "lyrics": "Lyrics (L)",
+    "volume": "Volume"
+  },
+  "equalizer": {
+    "title": "10-Band Studio Equalizer",
+    "subtitle": "Pro Web Audio DSP Engine",
+    "bypass": "Bypass",
+    "bypassActive": "Bypass Enabled",
+    "bypassInactive": "Bypass Disabled",
+    "reset": "Reset to Flat",
+    "presets": "Studio Presets",
+    "preamp": "Preamp",
+    "close": "Close equalizer"
+  },
+  "announcer": {
+    "nowPlaying": "Now playing: {{title}} by {{artist}}",
+    "paused": "Playback paused",
+    "stopped": "Playback stopped",
+    "eqPreset": "Equalizer preset changed to {{preset}}",
+    "eqBypassOn": "Equalizer bypassed",
+    "eqBypassOff": "Equalizer enabled",
+    "visualizerMode": "Visualizer mode changed to {{mode}}",
+    "volume": "Volume adjusted to {{volume}}%"
+  },
+  "commandPalette": {
+    "placeholder": "Type a command or search music...",
+    "noResults": "No matching commands found",
+    "navigation": "Navigation",
+    "audio": "Audio Controls",
+    "presets": "Visualization Presets",
+    "system": "System",
+    "theme": "Theme"
+  },
+  "pwa": {
+    "offlineReady": "App ready to work offline",
+    "updateAvailable": "New version available. Click to refresh."
+  }
+}

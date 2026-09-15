@@ -1,0 +1,63 @@
+{
+  "app": {
+    "title": "Aura3D Studio",
+    "tagline": "Next-Gen 3D Audio Visualizer & Music Player",
+    "welcome": "Bienvenido a Aura3D"
+  },
+  "header": {
+    "openPalette": "Paleta de comandos (Ctrl+K)",
+    "quickstart": "Guía Rápida",
+    "systemReq": "Requisitos del Sistema",
+    "shortcuts": "Atajos de Teclado",
+    "admin": "Panel de Administración",
+    "stats": "Estadísticas",
+    "language": "Idioma",
+    "es": "Español",
+    "en": "English"
+  },
+  "controls": {
+    "play": "Iniciar reproducción",
+    "pause": "Pausar reproducción",
+    "next": "Siguiente canción",
+    "previous": "Canción anterior",
+    "shuffle": "Modo aleatorio",
+    "repeat": "Repetir",
+    "equalizer": "Ecualizador de audio (E)",
+    "lyrics": "Letras (L)",
+    "volume": "Volumen"
+  },
+  "equalizer": {
+    "title": "Ecualizador de Estudio de 10 Bandas",
+    "subtitle": "Motor DSP de Audio Web Pro",
+    "bypass": "Bypass",
+    "bypassActive": "Bypass Activado",
+    "bypassInactive": "Bypass Desactivado",
+    "reset": "Restablecer a Plano",
+    "presets": "Presets de Estudio",
+    "preamp": "Preamplificador",
+    "close": "Cerrar ecualizador"
+  },
+  "announcer": {
+    "nowPlaying": "Reproduciendo: {{title}} de {{artist}}",
+    "paused": "Reproducción pausada",
+    "stopped": "Reproducción detenida",
+    "eqPreset": "Preset de ecualización cambiado a {{preset}}",
+    "eqBypassOn": "Ecualizador desactivado (bypass)",
+    "eqBypassOff": "Ecualizador activado",
+    "visualizerMode": "Modo de visualizador cambiado a {{mode}}",
+    "volume": "Volumen ajustado al {{volume}}%"
+  },
+  "commandPalette": {
+    "placeholder": "Escribe un comando o busca música...",
+    "noResults": "No se encontraron comandos coincidentes",
+    "navigation": "Navegación",
+    "audio": "Controles de Audio",
+    "presets": "Presets de Visualización",
+    "system": "Sistema",
+    "theme": "Tema"
+  },
+  "pwa": {
+    "offlineReady": "Aplicación lista para funcionar sin conexión",
+    "updateAvailable": "Nueva versión disponible. Haz clic para actualizar."
+  }
+}

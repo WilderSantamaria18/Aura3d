@@ -52,36 +52,40 @@ export const StudioModal: React.FC<StudioModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md pointer-events-auto select-none font-sans"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="studio-modal-title"
+      aria-describedby={subtitle ? 'studio-modal-desc' : undefined}
     >
       <div
-        className={`w-full ${maxWidthStyles[maxWidth]} border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#090d18] ${className}`}
+        className={`w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} border border-white/[0.12] rounded-[20px] p-4 sm:p-6 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-in zoom-in-95 duration-150 ${className}`}
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#00e5ff]">
+              <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm flex-shrink-0">
                 {icon}
               </div>
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-white font-medium text-sm sm:text-base tracking-wide">
+                <h2 id="studio-modal-title" className="text-white font-bold text-sm sm:text-base tracking-tight">
                   {title}
                 </h2>
                 {badge && (
-                  <span className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.02] text-white/50 uppercase">
+                  <span className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 text-cyan-300 font-bold uppercase">
                     {badge}
                   </span>
                 )}
               </div>
               {subtitle && (
-                <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
+                <p id="studio-modal-desc" className="text-white/65 text-[11px] font-mono tracking-wider mt-0.5">
                   {subtitle}
                 </p>
               )}
@@ -92,7 +96,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
             {headerRight}
             <button
               onClick={onClose}
-              className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/[0.05] transition-colors cursor-pointer"
+              className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.08] transition-colors cursor-pointer"
               aria-label="Cerrar modal"
             >
               <X className="w-4 h-4" />
@@ -100,8 +104,8 @@ export const StudioModal: React.FC<StudioModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto space-y-4 py-3 scrollbar-thin scrollbar-thumb-white/10 pr-1">
+        {/* Body Content */}
+        <div className="flex-1 overflow-y-auto pt-3.5 pr-1 scrollbar-thin scrollbar-thumb-white/10">
           {children}
         </div>
       </div>
