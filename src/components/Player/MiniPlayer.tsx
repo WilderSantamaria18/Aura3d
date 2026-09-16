@@ -83,6 +83,23 @@ const MiniWaveform: React.FC<{
     let animId: number;
     const barCount = 42;
 
+    const resolveCanvasColor = (color: string): string => {
+      if (!color || typeof color !== 'string') return '#2bdcd2';
+      if (color.startsWith('var(')) {
+        try {
+          const varName = color.replace(/^var\(\s*|[\s\)]+$/g, '');
+          const val = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+          if (val) return val;
+        } catch {
+          // fallback
+        }
+        return '#2bdcd2';
+      }
+      return color;
+    };
+
+    const resolvedActiveColor = resolveCanvasColor(activeColor);
+
     const render = () => {
       const width = canvas.width;
       const height = canvas.height;
@@ -102,7 +119,7 @@ const MiniWaveform: React.FC<{
         const isPlayed = (x / width) * 100 <= progress;
         if (isPlayed) {
           const grad = ctx.createLinearGradient(0, y, 0, y + barHeight);
-          grad.addColorStop(0, activeColor);
+          grad.addColorStop(0, resolvedActiveColor);
           grad.addColorStop(1, 'rgba(255, 255, 255, 0.7)');
           ctx.fillStyle = grad;
         } else {
@@ -413,7 +430,7 @@ export const MiniPlayer: React.FC = () => {
     }
   }, [sourceType]);
 
-  const activeColor = isLucid ? (lucidTheme?.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
+  const activeColor = isLucid ? (lucidTheme?.primary || '#2bdcd2') : '#2bdcd2';
 
   const themeGlowStyle = isLucid
     ? {
