@@ -75,11 +75,11 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
     (rating: 'PERFECT' | 'GREAT' | 'GOOD' | 'MISS', basePoints: number) => {
       const points = basePoints * multiplier;
 
-      let color = '#00f2fe';
-      if (rating === 'PERFECT') color = '#39ff14';
-      else if (rating === 'GREAT') color = '#00f2fe';
-      else if (rating === 'GOOD') color = '#ffd700';
-      else color = '#ff0055';
+      let color = 'var(--ios-teal)';
+      if (rating === 'PERFECT') color = 'var(--status-success)';
+      else if (rating === 'GREAT') color = 'var(--ios-teal)';
+      else if (rating === 'GOOD') color = 'var(--status-warning)';
+      else color = 'var(--status-error)';
 
       const effectId = Date.now() + Math.random();
       setHitEffects((prev) => [
@@ -194,7 +194,7 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
       // Draw Center Target Ring
       ctx.beginPath();
       ctx.arc(centerX, centerY, targetRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = isTargetActive ? '#ffffff' : 'rgba(0, 242, 254, 0.45)';
+      ctx.strokeStyle = isTargetActive ? 'rgba(255, 255, 255, 1)' : 'rgba(43, 220, 210, 0.45)';
       ctx.lineWidth = isTargetActive ? 4 : 2;
       ctx.stroke();
 
@@ -230,9 +230,9 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
           ctx.beginPath();
           ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
           const alpha = Math.min(1, Math.max(0.1, progress * 1.2));
-          ctx.strokeStyle = `rgba(0, 242, 254, ${alpha})`;
+          ctx.strokeStyle = `rgba(43, 220, 210, ${alpha})`;
           ctx.lineWidth = 3;
-          ctx.shadowColor = '#00f2fe';
+          ctx.shadowColor = 'rgba(43, 220, 210, 1)';
           ctx.shadowBlur = progress > 0.8 ? 12 : 4;
           ctx.stroke();
           ctx.shadowBlur = 0;
@@ -248,17 +248,17 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
 
   if (!isOpen) return null;
 
-  const activeColor = isLucid ? lucidTheme.primary : '#00f2fe';
+  const activeColor = isLucid ? (lucidTheme?.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md pointer-events-auto select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 material-regular pointer-events-auto select-none animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-sm sm:max-w-md rounded-3xl bg-[#070a16]/95 border border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col p-5 font-mono"
-        style={{ borderColor: `${activeColor}40` }}
+        className="relative w-full max-w-sm sm:max-w-md rounded-modal bg-[var(--surface-overlay)]/95 border border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col p-5 font-mono"
+        style={{ borderColor: 'rgba(43, 220, 210, 0.40)' }}
       >
         {/* Glow Header */}
         <div
-          className="absolute -top-20 -left-20 w-48 h-48 rounded-full pointer-events-none blur-3xl opacity-30"
+          className="absolute -top-20 -left-20 w-48 h-48 rounded-pill pointer-events-none blur-3xl opacity-30"
           style={{ backgroundColor: activeColor }}
         />
 
@@ -272,8 +272,9 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            className="min-h-11 min-w-11 p-2 text-white/40 hover:text-white rounded-control hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
             title="Cerrar minijuego"
+            aria-label="Cerrar minijuego"
           >
             <X className="w-5 h-5" />
           </button>
@@ -281,15 +282,15 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
 
         {/* Score & Multiplier HUD */}
         <div className="grid grid-cols-3 gap-2 my-3 relative z-10 text-center">
-          <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            <span className="text-[10px] text-white/40 uppercase">Puntos</span>
-            <div className="text-xl font-bold text-white tabular-nums">{score}</div>
+          <div className="p-2.5 rounded-card bg-white/[0.03] border border-white/[0.06]">
+            <span className="text-caption text-white/40 uppercase">Puntos</span>
+            <div className="text-xl font-bold text-white font-tabular">{score}</div>
           </div>
 
-          <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            <span className="text-[10px] text-white/40 uppercase">Combo</span>
+          <div className="p-2.5 rounded-card bg-white/[0.03] border border-white/[0.06]">
+            <span className="text-caption text-white/40 uppercase">Combo</span>
             <div
-              className={`text-xl font-bold tabular-nums transition-transform ${
+              className={`text-xl font-bold font-tabular transition-transform ${
                 combo > 0 ? 'text-amber-400 scale-105' : 'text-white/40'
               }`}
             >
@@ -297,22 +298,22 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
             </div>
           </div>
 
-          <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            <span className="text-[10px] text-white/40 uppercase">Multiplicador</span>
-            <div className="text-xl font-bold text-cyan-300 tabular-nums">{multiplier}X</div>
+          <div className="p-2.5 rounded-card bg-white/[0.03] border border-white/[0.06]">
+            <span className="text-caption text-white/40 uppercase">Multiplicador</span>
+            <div className="text-xl font-bold text-cyan-300 font-tabular">{multiplier}X</div>
           </div>
         </div>
 
         {/* Game Arena / Canvas */}
         <div
           onClick={handleTap}
-          className="relative w-full h-64 sm:h-72 rounded-2xl bg-black/40 border border-white/10 cursor-pointer overflow-hidden flex items-center justify-center group active:scale-[0.99] transition-transform"
+          className="relative w-full h-64 sm:h-72 rounded-modal bg-black/40 border border-white/10 cursor-pointer overflow-hidden flex items-center justify-center group active:scale-[0.99] transition-transform"
         >
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
           {/* Central Target Button Indicator */}
           <div
-            className={`w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all duration-100 relative z-10 pointer-events-none ${
+            className={`w-20 h-20 rounded-pill flex flex-col items-center justify-center transition-all duration-100 relative z-10 pointer-events-none ${
               isTargetActive
                 ? 'scale-110 bg-cyan-500/30 border-2 border-white'
                 : 'bg-white/5 border border-cyan-400/40 shadow-[0_0_20px_rgba(0,242,254,0.25)]'
@@ -322,7 +323,7 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
             }}
           >
             <Zap className="w-5 h-5 text-cyan-400" />
-            <span className="text-[9px] font-bold text-white/80 mt-0.5 uppercase tracking-wider">
+            <span className="text-caption font-bold text-white/80 mt-0.5 uppercase tracking-wider">
               ¡PULSA!
             </span>
           </div>
@@ -336,19 +337,19 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
                 style={{ color: eff.color }}
               >
                 <span>{eff.text}</span>
-                {eff.points > 0 && <span className="text-xs">+{eff.points}</span>}
+                {eff.points > 0 && <span className="text-xs font-tabular">+{eff.points}</span>}
               </div>
             ))}
           </div>
 
           {/* Prompt banner if song paused */}
           {!isPlaying && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-4 text-center z-30">
+            <div className="absolute inset-0 bg-black/70 material-thin flex flex-col items-center justify-center p-4 text-center z-30">
               <Volume2 className="w-8 h-8 text-cyan-400 mb-2 animate-pulse" />
               <span className="text-xs text-white/90 font-bold">
                 Reproduce música para activar los beats
               </span>
-              <span className="text-[10px] text-white/40 mt-1">
+              <span className="text-caption text-white/40 mt-1">
                 Los anillos convergen al compás del bombo y el ritmo
               </span>
             </div>
@@ -356,15 +357,15 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
         </div>
 
         {/* Footer controls & high score */}
-        <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/[0.08] text-xs text-white/50">
+        <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/[0.08] text-caption text-white/50">
           <div className="flex items-center gap-1.5">
             <Trophy className="w-4 h-4 text-yellow-400" />
             <span>Récord:</span>
-            <span className="text-white font-bold tabular-nums">{highScore}</span>
+            <span className="text-white font-bold font-tabular">{highScore}</span>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-white/30 hidden sm:inline">
+            <span className="text-caption text-white/30 hidden sm:inline">
               Usa [ESPACIO] o toca el círculo
             </span>
             <button
@@ -373,10 +374,11 @@ export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => 
                 setCombo(0);
                 beatsRef.current = [];
               }}
-              className="flex items-center gap-1 p-1 text-white/40 hover:text-white transition-colors"
+              className="min-h-11 min-w-11 flex items-center justify-center p-2 text-white/40 hover:text-white transition-colors cursor-pointer rounded-control"
               title="Reiniciar partida"
+              aria-label="Reiniciar partida"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-4 h-4" />
             </button>
           </div>
         </div>

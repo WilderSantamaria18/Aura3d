@@ -143,7 +143,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
       )}
 
       {/* Action and Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick">
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -152,7 +152,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por usuario o email..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+              className="w-full pl-9 pr-3 py-2 rounded-control bg-white/5 border border-white/10 text-white text-caption placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono min-h-11"
             />
           </div>
 
@@ -161,19 +161,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value as any)}
-              className="pl-8 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer"
+              className="pl-8 pr-3 py-2 rounded-control bg-white/5 border border-white/10 text-white text-caption focus:outline-none focus:border-cyan-400 cursor-pointer font-mono min-h-11"
             >
-              <option value="all" className="bg-[#0b0f1e] text-white">Todos los roles</option>
-              <option value="superadmin" className="bg-[#0b0f1e] text-white">Superadmin</option>
-              <option value="admin" className="bg-[#0b0f1e] text-white">Admin</option>
-              <option value="user" className="bg-[#0b0f1e] text-white">Usuario</option>
+              <option value="all" className="bg-[var(--surface-card)] text-white">Todos los roles</option>
+              <option value="superadmin" className="bg-[var(--surface-card)] text-white">Superadmin</option>
+              <option value="admin" className="bg-[var(--surface-card)] text-white">Admin</option>
+              <option value="user" className="bg-[var(--surface-card)] text-white">Usuario</option>
             </select>
           </div>
         </div>
 
         <button
           onClick={onExportCSV}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/30 text-xs font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(0,242,254,0.15)] w-full sm:w-auto justify-center"
+          className="min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-400/30 text-caption font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(0,242,254,0.15)] w-full sm:w-auto justify-center cursor-pointer font-mono"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Exportar CSV</span>
@@ -181,11 +181,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
       </div>
 
       {/* Users Table */}
-      <div className="rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+      <div className="rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-caption border-collapse font-mono">
             <thead>
-              <tr className="bg-white/5 border-b border-white/10 text-white/50 text-[10px] uppercase tracking-widest">
+              <tr className="bg-white/5 border-b border-white/10 text-white/50 text-caption uppercase tracking-widest">
                 <th className="p-3.5">Usuario</th>
                 <th className="p-3.5">Email</th>
                 <th className="p-3.5">Rol</th>
@@ -299,32 +299,33 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
 
       {/* User Profile Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-3xl bg-[#0b0f1e]/95 border border-white/10 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-4 font-mono">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 material-thick animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-modal bg-[var(--surface-overlay)]/95 border border-white/10 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.9)] space-y-4 font-mono">
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-colors"
+              className="absolute top-4 right-4 min-h-11 min-w-11 p-2 rounded-pill bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 transition-colors flex items-center justify-center cursor-pointer"
+              aria-label="Cerrar modal"
             >
               <X className="w-4 h-4" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-indigo-500/30 border border-white/10 flex items-center justify-center text-base font-bold text-white shadow-lg">
+              <div className="w-12 h-12 rounded-card bg-gradient-to-br from-cyan-500/30 to-indigo-500/30 border border-white/10 flex items-center justify-center text-base font-bold text-white shadow-lg">
                 {selectedUser.username.substring(0, 2).toUpperCase()}
               </div>
               <div>
                 <h3 className="text-base font-bold text-white tracking-wide">{selectedUser.username}</h3>
-                <p className="text-xs text-white/50">{selectedUser.email}</p>
+                <p className="text-caption text-white/50">{selectedUser.email}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-white/40 block text-[10px] uppercase tracking-widest font-bold">Rol</span>
+            <div className="grid grid-cols-2 gap-2 pt-2 text-caption">
+              <div className="p-3 rounded-card bg-white/5 border border-white/5">
+                <span className="text-white/40 block text-caption uppercase tracking-widest font-bold">Rol</span>
                 <span className="font-bold text-cyan-300 uppercase mt-0.5 block">{selectedUser.role}</span>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-white/40 block text-[10px] uppercase tracking-widest font-bold">Estado</span>
+              <div className="p-3 rounded-card bg-white/5 border border-white/5">
+                <span className="text-white/40 block text-caption uppercase tracking-widest font-bold">Estado</span>
                 <span
                   className={`font-bold mt-0.5 block ${
                     selectedUser.isActive ? 'text-emerald-400' : 'text-red-400'
@@ -335,8 +336,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-white/5 border border-white/5 space-y-1.5 text-xs">
-              <span className="text-white/40 block text-[10px] uppercase tracking-widest font-bold">
+            <div className="p-3 rounded-card bg-white/5 border border-white/5 space-y-1.5 text-caption">
+              <span className="text-white/40 block text-caption uppercase tracking-widest font-bold">
                 Géneros Preferidos
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -344,18 +345,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
                   selectedUser.genres.map((g, i) => (
                     <span
                       key={i}
-                      className="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 text-[10px]"
+                      className="px-2 py-0.5 rounded-pill bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 text-caption"
                     >
                       {g}
                     </span>
                   ))
                 ) : (
-                  <span className="text-white/40 text-[11px]">No especificado</span>
+                  <span className="text-white/40 text-caption">No especificado</span>
                 )}
               </div>
             </div>
 
-            <div className="pt-2 text-[10px] text-white/40 space-y-1 border-t border-white/5">
+            <div className="pt-2 text-caption text-white/40 space-y-1 border-t border-white/5">
               <p>ID de Usuario: {selectedUser.id}</p>
               <p>Fecha de Creación: {new Date(selectedUser.createdAt).toLocaleString()}</p>
               {selectedUser.lastLogin && <p>Último Acceso: {new Date(selectedUser.lastLogin).toLocaleString()}</p>}
@@ -365,7 +366,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
               <div className="pt-2 flex items-center gap-2">
                 <button
                   onClick={() => handleToggleStatus(selectedUser)}
-                  className={`flex-1 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
+                  className={`min-h-11 flex-1 py-2 rounded-pill text-caption font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
                     selectedUser.isActive
                       ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/25'
                       : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
@@ -383,7 +384,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ users, onExportC
                 </button>
                 <button
                   onClick={() => handleDeleteUser(selectedUser)}
-                  className="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 transition-all flex items-center gap-1.5"
+                  className="min-h-11 px-4 py-2 rounded-pill text-caption font-bold uppercase tracking-wider bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Eliminar
                 </button>

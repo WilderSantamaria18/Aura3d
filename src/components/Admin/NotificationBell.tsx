@@ -44,12 +44,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     <div className="relative font-mono">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+        className="relative min-h-11 min-w-11 p-2.5 rounded-pill bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 flex items-center justify-center cursor-pointer"
         title="Notificaciones del Sistema"
+        aria-label="Notificaciones del Sistema"
       >
         <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(255,8,138,0.5)]">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 text-white text-caption font-bold rounded-pill flex items-center justify-center shadow-[0_0_10px_rgba(255,8,138,0.5)] font-tabular">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -61,13 +62,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
           {/* Dropdown Card */}
-          <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#0b0f1e]/95 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 overflow-hidden backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-modal bg-[var(--surface-overlay)]/95 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50 overflow-hidden material-thick animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="p-3 border-b border-white/10 bg-black/40 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <h3 className="text-xs font-bold text-white tracking-widest uppercase">NOTIFICACIONES</h3>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/20">
+                <h3 className="text-caption font-bold text-white tracking-widest uppercase font-mono">NOTIFICACIONES</h3>
+                <span className="text-caption px-2 py-0.5 rounded-pill bg-cyan-500/15 text-cyan-300 border border-cyan-400/20 font-tabular font-mono">
                   {unreadCount} nuevas
                 </span>
               </div>
@@ -76,8 +77,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 {unreadCount > 0 && (
                   <button
                     onClick={onMarkAllAsRead}
-                    className="p-1.5 rounded-lg text-[10px] text-white/50 hover:text-emerald-300 hover:bg-white/5 transition-colors"
+                    className="min-h-11 min-w-11 p-2 rounded-control text-caption text-white/50 hover:text-emerald-300 hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                     title="Marcar todas como leídas"
+                    aria-label="Marcar todas como leídas"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>
@@ -85,8 +87,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 {notifications.length > 0 && (
                   <button
                     onClick={onClearAll}
-                    className="p-1.5 rounded-lg text-[10px] text-white/50 hover:text-red-400 hover:bg-white/5 transition-colors"
+                    className="min-h-11 min-w-11 p-2 rounded-control text-caption text-white/50 hover:text-red-400 hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                     title="Limpiar todas"
+                    aria-label="Limpiar todas"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -95,9 +98,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             </div>
 
             {/* List */}
-            <div className="max-h-80 overflow-y-auto divide-y divide-white/5">
+            <div className="max-h-80 overflow-y-auto divide-y divide-white/5 font-mono">
               {notifications.length === 0 ? (
-                <div className="p-8 text-center text-white/40 text-xs flex flex-col items-center gap-2">
+                <div className="p-8 text-center text-white/40 text-caption flex flex-col items-center gap-2">
                   <Bell className="w-6 h-6 opacity-20" />
                   <span>No hay notificaciones recientes</span>
                 </div>
@@ -113,12 +116,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     <div className="mt-0.5">{getIcon(notif.type)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <h4 className="text-xs font-bold text-white truncate">{notif.title}</h4>
-                        <span className="text-[9px] text-white/40 flex-shrink-0">
+                        <h4 className="text-caption font-bold text-white truncate">{notif.title}</h4>
+                        <span className="text-caption text-white/40 flex-shrink-0 font-tabular">
                           {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      <p className="text-[11px] text-white/70 mt-0.5 leading-snug">{notif.message}</p>
+                      <p className="text-caption text-white/70 mt-0.5 leading-snug">{notif.message}</p>
                     </div>
                   </div>
                 ))

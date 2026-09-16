@@ -53,13 +53,13 @@ const HAND_CONNECTIONS: [number, number][] = [
 ];
 
 const GESTURE_LABELS: Record<string, { label: string; action: string; color: string }> = {
-  fist: { label: 'PUÑO', action: 'CAMBIAR PALETA / TEMA', color: '#ff088a' },
-  one: { label: 'SIGNO 1', action: 'PANTALLA COMPLETA', color: '#00f2fe' },
-  open: { label: 'MANO ABIERTA', action: 'ROTACIÓN 3D FLUIDA', color: '#39FF14' },
-  pinch: { label: 'PELLIZCO', action: 'ZOOM / ESCALA 3D', color: '#FFD700' },
-  thumbs_up: { label: 'PULGAR ARRIBA', action: 'REPRODUCIR / PAUSA', color: '#00ffb3' },
-  peace: { label: 'PAZ / V', action: 'MODO AUTO COLOR', color: '#c471ed' },
-  unknown: { label: 'DETECTANDO...', action: 'ESPERANDO GESTO', color: '#ffffff' },
+  fist: { label: 'PUÑO', action: 'CAMBIAR PALETA / TEMA', color: 'var(--ios-pink)' },
+  one: { label: 'SIGNO 1', action: 'PANTALLA COMPLETA', color: 'var(--ios-teal)' },
+  open: { label: 'MANO ABIERTA', action: 'ROTACIÓN 3D FLUIDA', color: 'var(--ios-green)' },
+  pinch: { label: 'PELLIZCO', action: 'ZOOM / ESCALA 3D', color: 'var(--ios-yellow)' },
+  thumbs_up: { label: 'PULGAR ARRIBA', action: 'REPRODUCIR / PAUSA', color: 'var(--status-success)' },
+  peace: { label: 'PAZ / V', action: 'MODO AUTO COLOR', color: 'var(--ios-purple)' },
+  unknown: { label: 'DETECTANDO...', action: 'ESPERANDO GESTO', color: 'var(--label-primary)' },
 };
 
 export const PoseTracker: React.FC = () => {
@@ -239,7 +239,7 @@ export const PoseTracker: React.FC = () => {
         const x2 = p2.x * W;
         const y2 = p2.y * H;
 
-        let strokeColor = '#00f2fe';
+        let strokeColor = 'rgba(43, 220, 210, 1)';
 
         if (startIdx >= 11 && endIdx <= 21 && (startIdx % 2 === 1 || endIdx % 2 === 1)) {
           // Left Arm -> Bass Reactive
@@ -252,7 +252,7 @@ export const PoseTracker: React.FC = () => {
           // Right Arm -> Treble Reactive
           strokeColor = autoMode
             ? autoPalette.secondary
-            : `rgba(0, 242, 254, ${0.75 + highs * 0.25})`;
+            : `rgba(43, 220, 210, ${0.75 + highs * 0.25})`;
         } else if (startIdx >= 23 || endIdx >= 23) {
           // Legs -> Kick Reactive
           strokeColor = autoMode
@@ -281,17 +281,17 @@ export const PoseTracker: React.FC = () => {
         const jx = pt.x * W;
         const jy = pt.y * H;
 
-        let jointColor = '#ffffff';
+        let jointColor = 'rgba(255, 255, 255, 1)';
         let radius = 2.5;
 
         if (idx === 15 || idx === 16) {
-          jointColor = idx === 15 ? '#ff088a' : '#00f2fe';
+          jointColor = idx === 15 ? 'rgba(255, 8, 138, 1)' : 'rgba(43, 220, 210, 1)';
           radius = 4.0 + (idx === 15 ? bass : highs) * 2.5;
         } else if (idx === 0) {
-          jointColor = '#FFD700';
+          jointColor = 'rgba(255, 215, 0, 1)';
           radius = 3.5 + energy * 2;
         } else if (idx === 27 || idx === 28) {
-          jointColor = '#39FF14';
+          jointColor = 'rgba(57, 255, 20, 1)';
           radius = 3.0 + bass * 2;
         }
 
@@ -337,7 +337,7 @@ export const PoseTracker: React.FC = () => {
         ctx.lineTo(x2, y2);
         ctx.strokeStyle = isLucid
           ? lucidTheme.primary
-          : `rgba(0, 242, 254, ${0.75 + highs * 0.25})`;
+          : `rgba(43, 220, 210, ${0.75 + highs * 0.25})`;
         ctx.lineWidth = 2.0;
         ctx.stroke();
       });
@@ -350,13 +350,13 @@ export const PoseTracker: React.FC = () => {
         const jy = pt.y * H;
         const isTip = idx !== 0;
 
-        let jointColor = '#ffffff';
+        let jointColor = 'rgba(255, 255, 255, 1)';
         let radius = isTip ? 3.5 + bass * 2 : 2.5;
 
         if (idx === 4 || idx === 8) {
-          jointColor = '#ff088a';
+          jointColor = 'rgba(255, 8, 138, 1)';
         } else if (isTip) {
-          jointColor = '#39FF14';
+          jointColor = 'rgba(57, 255, 20, 1)';
         }
 
         ctx.beginPath();
@@ -376,7 +376,7 @@ export const PoseTracker: React.FC = () => {
           ctx.beginPath();
           ctx.moveTo(thumb.x * W, thumb.y * H);
           ctx.lineTo(index.x * W, index.y * H);
-          ctx.strokeStyle = '#FFD700';
+          ctx.strokeStyle = 'rgba(255, 215, 0, 1)';
           ctx.lineWidth = 2.5;
           ctx.stroke();
         }
@@ -785,22 +785,22 @@ export const PoseTracker: React.FC = () => {
     <div className="fixed bottom-28 sm:bottom-32 right-3 sm:right-6 z-40 select-none pointer-events-auto">
       {/* Toast Feedback Popup */}
       {gestureFeedback && (
-        <div className="mb-2 px-3.5 py-1.5 rounded-xl bg-black/95 border border-emerald-400 text-emerald-300 text-xs font-mono font-semibold shadow-[0_0_20px_rgba(0,255,179,0.5)] animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2">
+        <div className="mb-2 px-3.5 py-1.5 rounded-card bg-black/95 border border-emerald-400 text-emerald-300 text-caption font-mono font-semibold shadow-[0_0_20px_rgba(0,255,179,0.5)] animate-in fade-in zoom-in-95 duration-150 flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
           <span>{gestureFeedback}</span>
         </div>
       )}
 
       <div
-        className={`relative overflow-hidden rounded-3xl transition-all duration-500 ${
+        className={`relative overflow-hidden rounded-modal transition-all duration-500 ${
           showPreview ? 'w-60 sm:w-64' : 'w-auto'
         } ${
           autoMode
-            ? 'bg-[#060a17]/90'
+            ? 'bg-[var(--surface-overlay)]/90'
             : isLucid
-            ? 'bg-[#060a17]/90 border border-emerald-400/50 shadow-[0_0_35px_rgba(57,255,20,0.3)]'
-            : 'bg-[#090e1c]/90 border border-cyan-400/40 shadow-[0_0_30px_rgba(0,242,254,0.3)]'
-        } backdrop-blur-2xl`}
+            ? 'bg-[var(--surface-overlay)]/90 border border-emerald-400/50 shadow-[0_0_35px_rgba(57,255,20,0.3)]'
+            : 'bg-[var(--surface-overlay)]/90 border border-cyan-400/40 shadow-[0_0_30px_rgba(0,242,254,0.3)]'
+        } material-thick`}
         style={
           autoMode
             ? {
@@ -814,11 +814,11 @@ export const PoseTracker: React.FC = () => {
         <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/10 bg-black/40">
           <div className="flex items-center gap-2">
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-pill ${
                 vrTrackingMode === 'body' ? 'bg-pink-500' : 'bg-emerald-400'
               } animate-ping`}
             />
-            <span className="text-[10px] font-mono tracking-widest text-white uppercase flex items-center gap-1 font-bold">
+            <span className="text-caption font-mono tracking-widest text-white uppercase flex items-center gap-1 font-bold">
               {vrTrackingMode === 'body' ? (
                 <>
                   <Flame className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
@@ -836,24 +836,27 @@ export const PoseTracker: React.FC = () => {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className="p-1 text-white/50 hover:text-white transition-colors"
+              className="min-h-11 min-w-11 p-2 rounded-control text-white/50 hover:text-white transition-colors flex items-center justify-center cursor-pointer"
               title={showPreview ? 'Ocultar cámara' : 'Mostrar cámara'}
+              aria-label={showPreview ? 'Ocultar cámara' : 'Mostrar cámara'}
             >
               {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className={`p-1 transition-colors ${
+              className={`min-h-11 min-w-11 p-2 rounded-control transition-colors flex items-center justify-center cursor-pointer ${
                 showSettings ? 'text-cyan-300' : 'text-white/50 hover:text-white'
               }`}
               title="Ajustes de VR"
+              aria-label="Ajustes de VR"
             >
               <Sliders className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setVrMode(false)}
-              className="p-1 text-white/50 hover:text-red-400 transition-colors"
+              className="min-h-11 min-w-11 p-2 rounded-control text-white/50 hover:text-red-400 transition-colors flex items-center justify-center cursor-pointer"
               title="Desactivar VR"
+              aria-label="Desactivar VR"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -864,23 +867,25 @@ export const PoseTracker: React.FC = () => {
         <div className="p-1.5 bg-black/60 border-b border-white/10 flex items-center gap-1">
           <button
             onClick={() => setVrTrackingMode('body')}
-            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-mono font-semibold transition-all flex items-center justify-center gap-1 ${
+            className={`min-h-11 flex-1 py-1 px-2 rounded-control text-caption font-mono font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               vrTrackingMode === 'body'
                 ? 'bg-gradient-to-r from-pink-500/30 to-purple-500/30 text-pink-300 border border-pink-500/50 shadow-[0_0_12px_rgba(255,8,138,0.3)]'
                 : 'text-white/50 hover:text-white hover:bg-white/5'
             }`}
           >
-            <span>🕺 Cuerpo</span>
+            <Activity className="w-3.5 h-3.5 text-pink-400" />
+            <span>Cuerpo</span>
           </button>
           <button
             onClick={() => setVrTrackingMode('hands')}
-            className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-mono font-semibold transition-all flex items-center justify-center gap-1 ${
+            className={`min-h-11 flex-1 py-1 px-2 rounded-control text-caption font-mono font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               vrTrackingMode === 'hands'
                 ? 'bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 text-emerald-300 border border-emerald-400/50 shadow-[0_0_12px_rgba(0,255,179,0.3)]'
                 : 'text-white/50 hover:text-white hover:bg-white/5'
             }`}
           >
-            <span>🤲 2 Manos</span>
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            <span>2 Manos</span>
           </button>
         </div>
 
@@ -909,7 +914,7 @@ export const PoseTracker: React.FC = () => {
             {!isCameraReady && !errorMessage && (
               <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-2">
                 <Activity className="w-6 h-6 text-cyan-400 animate-spin" />
-                <span className="text-[10px] font-mono text-cyan-300 tracking-wider">
+                <span className="text-caption font-mono text-cyan-300 tracking-wider">
                   ACTIVANDO CÁMARA...
                 </span>
               </div>
@@ -917,9 +922,9 @@ export const PoseTracker: React.FC = () => {
 
             {/* No Detection Warning (>2s) */}
             {isCameraReady && isNoDetection && !errorMessage && !isSleeping && (
-              <div className="absolute top-2 left-2 right-2 p-2 rounded-xl bg-red-950/90 border border-red-500/60 shadow-[0_0_20px_rgba(255,0,0,0.5)] backdrop-blur-md text-center flex items-center justify-center gap-1.5 text-[9px] font-mono text-red-200 animate-pulse">
+              <div className="absolute top-2 left-2 right-2 p-2 rounded-card bg-red-950/90 border border-red-500/60 shadow-[0_0_20px_rgba(255,0,0,0.5)] material-regular text-center flex items-center justify-center gap-1.5 text-caption font-mono text-red-200 animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                <span>🔴 Cámara activa, pero sin detección. ¿Estás en el encuadre?</span>
+                <span>Cámara activa, pero sin detección. ¿Estás en el encuadre?</span>
               </div>
             )}
 
@@ -927,16 +932,16 @@ export const PoseTracker: React.FC = () => {
             {isCameraReady && isSleeping && !errorMessage && (
               <div
                 onClick={wakeUp}
-                className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center gap-2 cursor-pointer z-20 backdrop-blur-md animate-in fade-in duration-300"
+                className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center gap-2 cursor-pointer z-20 material-regular animate-in fade-in duration-300"
               >
                 <Moon className="w-7 h-7 text-yellow-300 animate-bounce" />
                 <span className="text-xs font-bold text-yellow-300 tracking-wider">
                   MODO AHORRO ACTIVADO
                 </span>
-                <p className="text-[10px] text-white/70 font-mono leading-tight max-w-[200px]">
+                <p className="text-caption text-white/70 font-mono leading-tight max-w-[200px]">
                   Pausado por inactividad (10s) para ahorrar 100% de CPU.
                 </p>
-                <span className="mt-1 px-3 py-1 rounded-full bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-[10px] font-bold animate-pulse">
+                <span className="mt-1 px-3 py-1 rounded-pill bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-caption font-bold animate-pulse">
                   Toca para reactivar
                 </span>
               </div>
@@ -946,12 +951,12 @@ export const PoseTracker: React.FC = () => {
             {errorMessage && (
               <div className="absolute inset-0 bg-black/95 p-3.5 flex flex-col items-center justify-center text-center gap-2.5">
                 <span className="text-xs text-red-400 font-bold">Error de Cámara</span>
-                <p className="text-[10px] text-white/70 font-mono leading-relaxed">{errorMessage}</p>
+                <p className="text-caption text-white/70 font-mono leading-relaxed">{errorMessage}</p>
                 <button
                   onClick={() => setRetryCount((c) => c + 1)}
-                  className="px-3 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-mono flex items-center gap-1.5 hover:bg-cyan-500/30 transition-all"
+                  className="min-h-11 px-3 py-1.5 rounded-pill bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-caption font-mono flex items-center gap-1.5 hover:bg-cyan-500/30 transition-all cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3" />
+                  <RefreshCw className="w-3.5 h-3.5" />
                   REINTENTAR
                 </button>
               </div>
@@ -959,17 +964,27 @@ export const PoseTracker: React.FC = () => {
 
             {/* Mode-Specific Real-Time HUD Gauge */}
             {isCameraReady && !errorMessage && (
-              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between px-2.5 py-1 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 text-[9px] font-mono">
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between px-2.5 py-1.5 rounded-card bg-black/75 material-regular border border-white/10 text-caption font-mono">
                 {vrTrackingMode === 'body' ? (
                   <>
                     <span className="text-white/60 flex items-center gap-1">
                       <Zap className="w-3 h-3 text-yellow-400" /> DANZA:
                     </span>
                     <span
-                      className="font-bold tracking-wider"
-                      style={{ color: danceLevel === 'party' ? '#ff088a' : '#00f2fe' }}
+                      className="font-bold tracking-wider flex items-center gap-1"
+                      style={{ color: danceLevel === 'party' ? 'var(--ios-pink)' : 'var(--ios-teal)' }}
                     >
-                      {danceLevel === 'party' ? '🔥 MODO FIESTA' : danceLevel === 'dancing' ? '⚡ BAILANDO' : 'LISTO'}
+                      {danceLevel === 'party' ? (
+                        <>
+                          <Flame className="w-3 h-3 text-pink-400 inline" /> MODO FIESTA
+                        </>
+                      ) : danceLevel === 'dancing' ? (
+                        <>
+                          <Zap className="w-3 h-3 text-yellow-400 inline" /> BAILANDO
+                        </>
+                      ) : (
+                        'LISTO'
+                      )}
                     </span>
                   </>
                 ) : (
@@ -977,7 +992,7 @@ export const PoseTracker: React.FC = () => {
                     <span style={{ color: activeGestureInfo.color }} className="font-bold">
                       {activeGestureInfo.label}
                     </span>
-                    <span className="text-white/50 text-[8px] truncate max-w-[110px]">
+                    <span className="text-white/50 text-caption font-tabular truncate max-w-[110px]">
                       {activeGestureInfo.action}
                     </span>
                   </>
@@ -989,12 +1004,12 @@ export const PoseTracker: React.FC = () => {
 
         {/* Quick Settings Panel */}
         {showSettings && (
-          <div className="p-3 bg-black/90 border-t border-white/10 space-y-3 text-[10px] font-mono text-white/70 animate-in fade-in duration-150">
+          <div className="p-3 bg-black/90 border-t border-white/10 space-y-3 text-caption font-mono text-white/70 animate-in fade-in duration-150">
             {/* 1. Opacity Slider */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-white/90">Opacidad Esfera 3D:</span>
-                <span className="text-cyan-300 font-bold">{Math.round(sphereOpacity * 100)}%</span>
+                <span className="text-cyan-300 font-bold font-tabular">{Math.round(sphereOpacity * 100)}%</span>
               </div>
               <input
                 type="range"
@@ -1002,8 +1017,9 @@ export const PoseTracker: React.FC = () => {
                 max="1.0"
                 step="0.05"
                 value={sphereOpacity}
+                aria-label="Opacidad Esfera 3D"
                 onChange={(e) => setSphereOpacity(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-white/20 rounded-lg cursor-pointer accent-cyan-400"
+                className="w-full h-1.5 bg-white/20 rounded-pill cursor-pointer accent-cyan-400"
               />
             </div>
 
@@ -1013,7 +1029,7 @@ export const PoseTracker: React.FC = () => {
                 <span className="text-white/90">
                   {visualizerMode === 'blob' ? 'Escala Blob 2D:' : 'Escala Esfera 3D:'}
                 </span>
-                <span className="text-pink-300 font-bold">
+                <span className="text-pink-300 font-bold font-tabular">
                   {visualizerMode === 'blob' ? '0.50x (FIJO)' : `${sphereScale.toFixed(2)}x`}
                 </span>
               </div>
@@ -1022,6 +1038,7 @@ export const PoseTracker: React.FC = () => {
                 min="0.5"
                 max={visualizerMode === 'blob' ? 0.5 : 2.5}
                 step="0.05"
+                aria-label="Escala Visualizador"
                 disabled={visualizerMode === 'blob'}
                 value={visualizerMode === 'blob' ? 0.5 : sphereScale}
                 onChange={(e) => {
@@ -1030,7 +1047,7 @@ export const PoseTracker: React.FC = () => {
                     setSphereScale(val);
                   }
                 }}
-                className={`w-full h-1.5 bg-white/20 rounded-lg accent-pink-500 ${
+                className={`w-full h-1.5 bg-white/20 rounded-pill accent-pink-500 ${
                   visualizerMode === 'blob' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                 }`}
               />
@@ -1056,7 +1073,7 @@ export const PoseTracker: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span>Sensibilidad Giro:</span>
-                    <span className="text-cyan-300 font-semibold">{handSensitivity.toFixed(1)}x</span>
+                    <span className="text-cyan-300 font-semibold font-tabular">{handSensitivity.toFixed(1)}x</span>
                   </div>
                   <input
                     type="range"
@@ -1064,8 +1081,9 @@ export const PoseTracker: React.FC = () => {
                     max="3.0"
                     step="0.1"
                     value={handSensitivity}
+                    aria-label="Sensibilidad Giro"
                     onChange={(e) => setHandSensitivity(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-white/20 rounded-lg cursor-pointer accent-emerald-400"
+                    className="w-full h-1 bg-white/20 rounded-pill cursor-pointer accent-emerald-400"
                   />
                 </div>
               </div>
@@ -1075,9 +1093,9 @@ export const PoseTracker: React.FC = () => {
               <span>Pantalla Completa:</span>
               <button
                 onClick={toggleFullscreen}
-                className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1 hover:bg-cyan-500/30 transition-all"
+                className="min-h-11 px-3 py-1 rounded-control text-caption bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1.5 hover:bg-cyan-500/30 transition-all cursor-pointer"
               >
-                <Maximize2 className="w-2.5 h-2.5" />
+                <Maximize2 className="w-3.5 h-3.5" />
                 <span>Fullscreen</span>
               </button>
             </div>

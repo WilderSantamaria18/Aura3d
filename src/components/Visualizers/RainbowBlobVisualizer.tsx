@@ -873,7 +873,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
             boxShadow: isLucid
               ? `0 0 35px ${lucidTheme.glow}`
               : '0 0 45px rgba(0, 242, 254, 0.20), 0 0 70px rgba(255, 8, 138, 0.12)',
-            backdropFilter: 'blur(18px) saturate(160%)',
+            backdropFilter: 'var(--material-visualizer)',
           }}
         />
 
@@ -890,7 +890,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
             height: `${circleDimension}px`,
             backgroundColor: isSunset ? '#000000' : isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
             borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.14)',
-            backdropFilter: isSunset ? 'none' : 'blur(20px) saturate(150%)',
+            backdropFilter: isSunset ? 'none' : 'var(--material-visualizer)',
           }}
         >
           {/* Hardware Ring / Bezel que rodea el logo */}
@@ -962,7 +962,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           <div
             className="w-6 h-6 rounded-badge flex items-center justify-center transition-colors"
             style={{
-              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(43, 220, 210, 0.15)',
+              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'color-mix(in srgb, var(--ios-teal) 15%, transparent)',
             }}
           >
             <Sliders
@@ -975,7 +975,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
             Rainbow Void
           </span>
 
-          <span className="hidden sm:inline-block text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
+          <span className="hidden sm:inline-block text-caption font-mono tracking-wider px-1.5 py-0.5 rounded-badge border border-border-subtle text-white/50 bg-white/[0.03]">
             CALIBRACIÓN
           </span>
 
@@ -990,8 +990,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       {/* Panel de Control Editable (Z-Index: 50, pointer-events: auto) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-50 rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 pointer-events-auto ${
-            isLucid ? 'lucid-panel' : 'bg-[#070a14]/98 backdrop-blur-2xl border border-white/[0.08]'
+          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-50 rounded-modal p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 pointer-events-auto ${
+            isLucid ? 'lucid-panel' : 'material-thick bg-surface-elevated/95 border border-border-subtle'
           }`}
           style={
             isLucid
@@ -1003,20 +1003,20 @@ export const RainbowBlobVisualizer: React.FC = () => {
               : undefined
           }
         >
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+          <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
             <div className="flex items-center gap-2">
               <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center"
+                className="w-6 h-6 rounded-control flex items-center justify-center"
                 style={{
-                  backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+                  backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'color-mix(in srgb, var(--ios-teal) 15%, transparent)',
                 }}
               >
                 <Palette
                   className="w-3.5 h-3.5"
-                  style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
+                  style={{ color: isLucid ? lucidPrimaryColor : 'var(--ios-teal)' }}
                 />
               </div>
-              <h4 className="text-white text-sm font-medium tracking-wide">
+              <h4 className="text-white text-caption font-medium tracking-wide">
                 Calibración Rainbow Void
               </h4>
             </div>
@@ -1025,26 +1025,26 @@ export const RainbowBlobVisualizer: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveFavoritePreset}
-                className={`p-1.5 rounded-md transition-colors ${
+                className={`p-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-control transition-colors ${
                   savedPresetSuccess
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    ? 'bg-status-success/20 text-status-success border border-status-success/30'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title="Guardar combinación favorita en LocalStorage"
               >
-                {savedPresetSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                {savedPresetSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
               </button>
 
               <button
                 onClick={handleResetFixedCalibration}
-                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
+                className="p-1.5 min-h-11 min-w-11 flex items-center justify-center text-white/40 hover:text-white rounded-control hover:bg-white/[0.05] transition-colors"
                 title="Restablecer valores de calibración fija"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setBlobPanelOpen(false)}
-                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
+                className="p-1.5 min-h-11 min-w-11 flex items-center justify-center text-white/40 hover:text-white rounded-control hover:bg-white/[0.05] transition-colors"
                 aria-label="Cerrar panel"
               >
                 <X className="w-4 h-4" />
@@ -1052,15 +1052,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-3.5 text-xs text-white/80">
+          <div className="space-y-3.5 text-caption text-white/80">
             {/* 0. Selector de Atmósfera y Fondos de Pantalla Completa (CRÍTICO) */}
-            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+            <div className="p-3 bg-white/[0.03] rounded-card border border-border-subtle space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                <span className="text-caption font-mono text-white/70 font-medium flex items-center gap-1.5">
                   <Sun className="w-3.5 h-3.5 text-amber-400" />
                   Atmósfera de Fondo:
                 </span>
-                <span className="text-[9px] font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase">
+                <span className="text-caption font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded-badge border border-amber-500/20 uppercase">
                   {ATMOSPHERE_OPTIONS.find((a) => a.id === (blobSettings.backgroundAtmosphere || 'none'))?.tag || 'FONDO'}
                 </span>
               </div>
@@ -1069,11 +1069,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 onChange={(e) =>
                   updateBlobSettings({ backgroundAtmosphere: e.target.value as BackgroundAtmosphere })
                 }
-                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-amber-400 cursor-pointer"
+                className="w-full bg-surface-base text-white/90 text-caption font-mono p-2 rounded-control border border-border-subtle focus:outline-none focus:border-amber-400 cursor-pointer min-h-11"
                 title="Selecciona la atmósfera de pantalla completa independiente del núcleo"
               >
                 {ATMOSPHERE_OPTIONS.map((atm) => (
-                  <option key={atm.id} value={atm.id} className="bg-[#0b0e1b] text-white">
+                  <option key={atm.id} value={atm.id} className="bg-surface-base text-white">
                     {atm.name}
                   </option>
                 ))}
@@ -1081,24 +1081,24 @@ export const RainbowBlobVisualizer: React.FC = () => {
             </div>
 
             {/* 1. Selector de los 7 Modos Reactivos 2D del Núcleo */}
-            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+            <div className="p-3 bg-white/[0.03] rounded-card border border-border-subtle space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                <span className="text-caption font-mono text-white/70 font-medium flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-pink-400" />
                   Forma 2D del Núcleo:
                 </span>
-                <span className="text-[9px] font-mono text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20 uppercase">
+                <span className="text-caption font-mono text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded-badge border border-pink-500/20 uppercase">
                   {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || 'CORE 2D'}
                 </span>
               </div>
               <select
                 value={blobShape}
                 onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
-                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-pink-400 cursor-pointer"
+                className="w-full bg-surface-base text-white/90 text-caption font-mono p-2 rounded-control border border-border-subtle focus:outline-none focus:border-pink-400 cursor-pointer min-h-11"
                 title="Selecciona la forma geométrica 2D reactiva del núcleo"
               >
                 {RAINBOW_VOID_EFFECTS.map((fx) => (
-                  <option key={fx.id} value={fx.id} className="bg-[#0b0e1b] text-white">
+                  <option key={fx.id} value={fx.id} className="bg-surface-base text-white">
                     {fx.name} ({fx.tag})
                   </option>
                 ))}
@@ -1107,20 +1107,20 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
             {/* SECCIÓN DHONKIO EXCLUSIVA: Si está en modo Silueta & Atardecer */}
             {isSunset && (
-              <div className="p-3 bg-amber-500/[0.05] rounded-xl border border-amber-500/20 space-y-2.5">
+              <div className="p-3 bg-amber-500/[0.05] rounded-card border border-amber-500/20 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-amber-300 font-semibold flex items-center gap-1.5">
+                  <span className="text-caption font-mono text-amber-300 font-semibold flex items-center gap-1.5">
                     <Sun className="w-3.5 h-3.5" /> Composición DHONKIO:
                   </span>
-                  <span className="text-[9px] font-mono text-amber-200 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                  <span className="text-caption font-mono text-amber-200 bg-amber-500/20 px-1.5 py-0.5 rounded-badge border border-amber-500/30">
                     BLOOM 1.33x
                   </span>
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
+                  <div className="flex justify-between text-caption font-mono">
                     <span className="text-white/60">Bloom Texto & Barras:</span>
-                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioBloom ?? 1.33).toFixed(2)}x</span>
+                    <span className="text-amber-300 tabular-nums font-tabular">{(blobSettings.dhonkioBloom ?? 1.33).toFixed(2)}x</span>
                   </div>
                   <input
                     type="range"
@@ -1129,14 +1129,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     step="0.05"
                     value={blobSettings.dhonkioBloom ?? 1.33}
                     onChange={(e) => updateBlobSettings({ dhonkioBloom: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer accent-amber-400"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
+                  <div className="flex justify-between text-caption font-mono">
                     <span className="text-white/60">Power Mid (Barras Ciudad):</span>
-                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioPowerMid ?? 1.08).toFixed(3)}x</span>
+                    <span className="text-amber-300 tabular-nums font-tabular">{(blobSettings.dhonkioPowerMid ?? 1.08).toFixed(3)}x</span>
                   </div>
                   <input
                     type="range"
@@ -1145,14 +1145,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     step="0.005"
                     value={blobSettings.dhonkioPowerMid ?? 1.08}
                     onChange={(e) => updateBlobSettings({ dhonkioPowerMid: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer accent-amber-400"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
+                  <div className="flex justify-between text-caption font-mono">
                     <span className="text-white/60">Kick Boost:</span>
-                    <span className="text-amber-300 tabular-nums">{blobSettings.dhonkioKickBoost ?? 6}x</span>
+                    <span className="text-amber-300 tabular-nums font-tabular">{blobSettings.dhonkioKickBoost ?? 6}x</span>
                   </div>
                   <input
                     type="range"
@@ -1161,22 +1161,22 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     step="1"
                     value={blobSettings.dhonkioKickBoost ?? 6}
                     onChange={(e) => updateBlobSettings({ dhonkioKickBoost: parseInt(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer accent-amber-400"
                   />
                 </div>
               </div>
             )}
 
             {/* 2. Calibración Geométrica Circular Fija */}
-            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
-              <span className="text-[11px] font-mono text-white/60 block font-semibold">
+            <div className="p-3 bg-white/[0.02] border border-border-subtle rounded-card space-y-2.5">
+              <span className="text-caption font-mono text-white/60 block font-semibold">
                 Geometría Circular:
               </span>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Diámetro Halo Exterior:</span>
-                  <span className="text-white/80 tabular-nums">{blobSettings.haloSize || 202}px</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{blobSettings.haloSize || 202}px</span>
                 </div>
                 <input
                   type="range"
@@ -1184,14 +1184,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   max="450"
                   value={blobSettings.haloSize || 202}
                   onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Diámetro Núcleo (Void):</span>
-                  <span className="text-white/80 tabular-nums">{blobSettings.circleSize || 179}px</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{blobSettings.circleSize || 179}px</span>
                 </div>
                 <input
                   type="range"
@@ -1199,21 +1199,21 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   max="350"
                   value={blobSettings.circleSize || 179}
                   onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
             </div>
 
             {/* 3. Procesamiento de Audio (Web Audio API) */}
-            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
-              <span className="text-[11px] font-mono text-white/60 block font-semibold">
+            <div className="p-3 bg-white/[0.02] border border-border-subtle rounded-card space-y-2.5">
+              <span className="text-caption font-mono text-white/60 block font-semibold">
                 Procesamiento de Audio:
               </span>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Reacción al Bajo (Bass):</span>
-                  <span className="text-white/80 tabular-nums">{(blobSettings.bassBoost ?? 2.8).toFixed(1)}x</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{(blobSettings.bassBoost ?? 2.8).toFixed(1)}x</span>
                 </div>
                 <input
                   type="range"
@@ -1222,14 +1222,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   step="0.1"
                   value={blobSettings.bassBoost ?? 2.8}
                   onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Sensibilidad de Escala:</span>
-                  <span className="text-white/80 tabular-nums">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
                 </div>
                 <input
                   type="range"
@@ -1238,14 +1238,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   step="0.05"
                   value={blobSettings.scaleSensitivity ?? 1.40}
                   onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Umbral Disparo Kick:</span>
-                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
                 </div>
                 <input
                   type="range"
@@ -1254,14 +1254,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   step="0.02"
                   value={blobSettings.kickThreshold ?? 0.32}
                   onChange={(e) => updateBlobSettings({ kickThreshold: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
+                <div className="flex justify-between text-caption font-mono">
                   <span className="text-white/50">Potencia Subwoofer Kick:</span>
-                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
+                  <span className="text-white/80 tabular-nums font-tabular">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
                 </div>
                 <input
                   type="range"
@@ -1270,21 +1270,21 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   step="0.05"
                   value={blobSettings.kickPower ?? 1.60}
                   onChange={(e) => updateBlobSettings({ kickPower: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
+                  className="w-full h-2 bg-white/[0.08] rounded-pill cursor-pointer"
                 />
               </div>
             </div>
 
             {/* 4. Sistema de Color: Arcoíris vs Manual */}
             <div className="flex items-center justify-between py-1">
-              <span className="text-white/70 flex items-center gap-1.5 font-mono text-xs">
+              <span className="text-white/70 flex items-center gap-1.5 font-mono text-caption">
                 <Sparkles className="w-3.5 h-3.5 text-white/50" /> Paleta de Arcoíris:
               </span>
               <button
                 onClick={() =>
                   updateBlobSettings({ isRainbowMode: !blobSettings.isRainbowMode })
                 }
-                className={`px-3 py-1 rounded-md text-xs font-mono tracking-wider transition-all ${
+                className={`px-3 py-2 min-h-11 rounded-control text-caption font-mono tracking-wider transition-all ${
                   blobSettings.isRainbowMode
                     ? 'bg-white text-black font-semibold shadow-sm'
                     : 'bg-white/[0.06] text-white/60 hover:bg-white/[0.1]'
@@ -1295,23 +1295,23 @@ export const RainbowBlobVisualizer: React.FC = () => {
             </div>
 
             {!blobSettings.isRainbowMode && (
-              <div className="grid grid-cols-2 gap-2.5 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+              <div className="grid grid-cols-2 gap-2.5 p-2.5 bg-white/[0.03] rounded-card border border-border-subtle">
                 <div>
-                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 1:</label>
+                  <label className="block text-caption font-mono text-white/50 mb-1">Color Halo 1:</label>
                   <input
                     type="color"
                     value={blobSettings.haloColor1}
                     onChange={(e) => updateBlobSettings({ haloColor1: e.target.value })}
-                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
+                    className="w-full h-9 bg-transparent rounded-control cursor-pointer border border-white/10"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 2:</label>
+                  <label className="block text-caption font-mono text-white/50 mb-1">Color Halo 2:</label>
                   <input
                     type="color"
                     value={blobSettings.haloColor2}
                     onChange={(e) => updateBlobSettings({ haloColor2: e.target.value })}
-                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
+                    className="w-full h-9 bg-transparent rounded-control cursor-pointer border border-white/10"
                   />
                 </div>
               </div>
@@ -1319,8 +1319,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
             {/* 5. Personalización del Disco Central y Logotipo */}
             {!isSunset && (
-              <div className="pt-2 border-t border-white/[0.06] space-y-2">
-                <label className="block text-[11px] font-mono text-white/60">
+              <div className="pt-2 border-t border-border-subtle space-y-2">
+                <label className="block text-caption font-mono text-white/60">
                   Logotipo Vectorial Integrado:
                 </label>
 
@@ -1333,15 +1333,15 @@ export const RainbowBlobVisualizer: React.FC = () => {
                       <button
                         key={preset.id}
                         onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
-                        className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
+                        className={`p-2 min-h-11 rounded-card border flex flex-col items-center justify-center gap-1 transition-colors ${
                           isSelected
                             ? 'bg-white/[0.1] border-white text-white shadow-sm'
-                            : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                            : 'bg-white/[0.02] border-border-subtle text-white/40 hover:text-white hover:bg-white/[0.05]'
                         }`}
                         title={preset.name}
                       >
                         <Icon className="w-4 h-4" />
-                        <span className="text-[9px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
+                        <span className="text-caption font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
                       </button>
                     );
                   })}
@@ -1350,7 +1350,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 {/* Subida de Logo Propio con Recorte Circular y Filtros */}
                 <div className="pt-2 flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <label className="flex-1 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-mono text-white/80 hover:text-white">
+                    <label className="flex-1 py-2 px-3 min-h-11 bg-white/[0.04] hover:bg-white/[0.08] border border-border-subtle rounded-control text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-caption font-mono text-white/80 hover:text-white">
                       <Upload className="w-3.5 h-3.5 text-white/60" />
                       <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
                       <input
@@ -1369,7 +1369,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                             setTempImageForCrop(blobSettings.customLogoUrl);
                             setIsCropModalOpen(true);
                           }}
-                          className="py-2 px-3 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
+                          className="py-2 px-3 min-h-11 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-control text-caption font-mono transition-all flex items-center gap-1.5"
                           title="Abrir editor de recorte y filtros"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -1379,7 +1379,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleRemoveCustomLogo}
-                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
+                          className="p-2 min-h-11 min-w-11 flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-control transition-colors"
                           title="Eliminar logo personalizado"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

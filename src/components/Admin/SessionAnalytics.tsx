@@ -63,7 +63,7 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ sessions, on
   return (
     <div className="space-y-4 font-mono text-white select-none">
       {/* Search & Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick">
         <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           {/* Search */}
           <div className="relative flex-1 sm:w-60">
@@ -73,7 +73,7 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ sessions, on
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar canción o usuario..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
+              className="w-full pl-9 pr-3 py-2 rounded-control bg-white/5 border border-white/10 text-white text-caption placeholder-white/30 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono min-h-11"
             />
           </div>
 
@@ -83,11 +83,11 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ sessions, on
             <select
               value={genreFilter}
               onChange={(e) => setGenreFilter(e.target.value)}
-              className="pl-8 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer"
+              className="pl-8 pr-3 py-2 rounded-control bg-white/5 border border-white/10 text-white text-caption focus:outline-none focus:border-cyan-400 cursor-pointer font-mono min-h-11"
             >
-              <option value="all" className="bg-[#0b0f1e] text-white">Todos los géneros</option>
+              <option value="all" className="bg-[var(--surface-card)] text-white">Todos los géneros</option>
               {genresList.map((g) => (
-                <option key={g} value={g} className="bg-[#0b0f1e] text-white">
+                <option key={g} value={g} className="bg-[var(--surface-card)] text-white">
                   {g}
                 </option>
               ))}
@@ -100,18 +100,18 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ sessions, on
             <select
               value={cameraFilter}
               onChange={(e) => setCameraFilter(e.target.value as any)}
-              className="pl-8 pr-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-cyan-400 cursor-pointer"
+              className="pl-8 pr-3 py-2 rounded-control bg-white/5 border border-white/10 text-white text-caption focus:outline-none focus:border-cyan-400 cursor-pointer font-mono min-h-11"
             >
-              <option value="all" className="bg-[#0b0f1e] text-white">Cámara: Todas</option>
-              <option value="camera_on" className="bg-[#0b0f1e] text-white">Con Cámara VR</option>
-              <option value="camera_off" className="bg-[#0b0f1e] text-white">Sin Cámara</option>
+              <option value="all" className="bg-[var(--surface-card)] text-white">Cámara: Todas</option>
+              <option value="camera_on" className="bg-[var(--surface-card)] text-white">Con Cámara VR</option>
+              <option value="camera_off" className="bg-[var(--surface-card)] text-white">Sin Cámara</option>
             </select>
           </div>
         </div>
 
         <button
           onClick={onExportCSV}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-400/30 text-xs font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(57,255,20,0.15)] w-full sm:w-auto justify-center"
+          className="min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-400/30 text-caption font-bold tracking-wider uppercase transition-all shadow-[0_0_15px_rgba(57,255,20,0.15)] w-full sm:w-auto justify-center cursor-pointer font-mono"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Exportar Sesiones (CSV)</span>
@@ -119,11 +119,11 @@ export const SessionAnalytics: React.FC<SessionAnalyticsProps> = ({ sessions, on
       </div>
 
       {/* Sessions Table */}
-      <div className="rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+      <div className="rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-caption border-collapse font-mono">
             <thead>
-              <tr className="bg-white/5 border-b border-white/10 text-white/50 text-[10px] uppercase tracking-widest font-bold">
+              <tr className="bg-white/5 border-b border-white/10 text-white/50 text-caption uppercase tracking-widest font-bold">
                 <th className="p-3.5">Pista Musical</th>
                 <th className="p-3.5">Género Espectral (DSP)</th>
                 <th className="p-3.5">Usuario</th>

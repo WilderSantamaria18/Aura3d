@@ -9,13 +9,13 @@ const HISTORY_SIZE = 5;
 
 // Gesture Labels for HUD
 const GESTURE_LABELS: Record<string, { label: string; action: string; color: string }> = {
-  fist: { label: 'PUÑO', action: 'CAMBIAR PALETA', color: '#ff088a' },
-  one: { label: 'SIGNO 1', action: 'PANTALLA COMPLETA', color: '#00f2fe' },
-  open: { label: 'MANO ABIERTA', action: 'ROTACIÓN 3D', color: '#39FF14' },
-  pinch: { label: 'PELLIZCO', action: 'ZOOM / ESCALA', color: '#FFD700' },
-  thumbs_up: { label: 'PULGAR ARRIBA', action: 'REPRODUCIR/PAUSA', color: '#00ffb3' },
-  peace: { label: 'PAZ / V', action: 'MODO AUTO COLOR', color: '#c471ed' },
-  unknown: { label: 'DETECTANDO...', action: 'ESPERANDO GESTO', color: '#ffffff' },
+  fist: { label: 'PUÑO', action: 'CAMBIAR PALETA', color: 'var(--ios-pink)' },
+  one: { label: 'SIGNO 1', action: 'PANTALLA COMPLETA', color: 'var(--ios-teal)' },
+  open: { label: 'MANO ABIERTA', action: 'ROTACIÓN 3D', color: 'var(--ios-green)' },
+  pinch: { label: 'PELLIZCO', action: 'ZOOM / ESCALA', color: 'var(--ios-yellow)' },
+  thumbs_up: { label: 'PULGAR ARRIBA', action: 'REPRODUCIR/PAUSA', color: 'var(--status-success)' },
+  peace: { label: 'PAZ / V', action: 'MODO AUTO COLOR', color: 'var(--ios-purple)' },
+  unknown: { label: 'DETECTANDO...', action: 'ESPERANDO GESTO', color: 'var(--label-primary)' },
 };
 
 export const HandTracker: React.FC = () => {
@@ -422,7 +422,7 @@ export const HandTracker: React.FC = () => {
           {/* Top Floating Badge & Action controls */}
           <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
             <div
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-mono ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-pill border text-caption font-mono ${
                 isLucid
                   ? 'border'
                   : 'bg-black/70 border-emerald-400/50 text-emerald-300'
@@ -438,8 +438,8 @@ export const HandTracker: React.FC = () => {
               }
             >
               <span
-                className="w-1.5 h-1.5 rounded-full animate-ping"
-                style={{ backgroundColor: isLucid ? lucidTheme.primary : '#39FF14' }}
+                className="w-1.5 h-1.5 rounded-pill animate-ping"
+                style={{ backgroundColor: isLucid ? lucidTheme.primary : 'var(--ios-green)' }}
               />
               <span>VR GESTURES</span>
             </div>
@@ -447,51 +447,54 @@ export const HandTracker: React.FC = () => {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-1 rounded-full bg-black/70 text-white/70 hover:text-white"
+                className="min-h-11 min-w-11 p-2.5 rounded-pill bg-black/70 text-white/70 hover:text-white flex items-center justify-center cursor-pointer"
                 title="Ajustes de sensibilidad"
+                aria-label="Ajustes de sensibilidad"
               >
-                <Sliders className="w-3 h-3" />
+                <Sliders className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowPreview(!showPreview)}
-                className="p-1 rounded-full bg-black/70 text-white/70 hover:text-white"
+                className="min-h-11 min-w-11 p-2.5 rounded-pill bg-black/70 text-white/70 hover:text-white flex items-center justify-center cursor-pointer"
                 title={showPreview ? 'Ocultar preview' : 'Mostrar preview'}
+                aria-label={showPreview ? 'Ocultar preview' : 'Mostrar preview'}
               >
-                {showPreview ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
               <button
                 onClick={() => setVrMode(false)}
-                className="p-1 rounded-full bg-black/70 text-white/70 hover:text-pink-400"
+                className="min-h-11 min-w-11 p-2.5 rounded-pill bg-black/70 text-white/70 hover:text-pink-400 flex items-center justify-center cursor-pointer"
                 title="Cerrar modo VR"
+                aria-label="Cerrar modo VR"
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Active Gesture HUD Indicator */}
-          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between px-2 py-1 rounded-lg bg-black/75 backdrop-blur-md border border-white/10 text-[9px] font-mono">
+          <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between px-2.5 py-1.5 rounded-card bg-black/75 material-regular border border-white/10 text-caption font-mono">
             <span style={{ color: activeGestureInfo.color }} className="font-bold">
               {activeGestureInfo.label}
             </span>
-            <span className="text-white/50">{activeGestureInfo.action}</span>
+            <span className="text-white/50 font-tabular">{activeGestureInfo.action}</span>
           </div>
         </div>
 
         {/* VR Quick Controls Footer */}
         <div className="p-2.5 bg-black/85 border-t border-white/10 space-y-2">
           {/* Gesture legend & Palette toggle */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-white/80">
+          <div className="flex items-center justify-between text-caption font-mono text-white/80">
             <span className="text-cyan-300 flex items-center gap-1">
-              <Activity className="w-3 h-3 text-emerald-400" /> {isCameraReady ? 'Tracking Activo' : 'Iniciando...'}
+              <Activity className="w-3.5 h-3.5 text-emerald-400" /> {isCameraReady ? 'Tracking Activo' : 'Iniciando...'}
             </span>
 
             <button
               onClick={cyclePalette}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-300 border border-emerald-400/30 transition-all"
+              className="min-h-11 flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-white/10 hover:bg-white/20 text-emerald-300 border border-emerald-400/30 transition-all cursor-pointer"
               title="Cierra el puño para cambiar de color"
             >
-              <Palette className="w-2.5 h-2.5" />
+              <Palette className="w-3.5 h-3.5" />
               <span>{currentPal.name}</span>
             </button>
           </div>
@@ -499,9 +502,9 @@ export const HandTracker: React.FC = () => {
           {/* Expanded Settings: Sensitivity Slider */}
           {showSettings && (
             <div className="pt-2 border-t border-white/10 space-y-2 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between text-[10px] text-white/70">
+              <div className="flex items-center justify-between text-caption text-white/70">
                 <span>Sensibilidad de Giro:</span>
-                <span className="font-mono text-cyan-300">{handSensitivity.toFixed(1)}x</span>
+                <span className="font-mono font-tabular text-cyan-300">{handSensitivity.toFixed(1)}x</span>
               </div>
               <input
                 type="range"
@@ -509,17 +512,18 @@ export const HandTracker: React.FC = () => {
                 max="3.0"
                 step="0.1"
                 value={handSensitivity}
+                aria-label="Sensibilidad de Giro"
                 onChange={(e) => setHandSensitivity(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/20 rounded-lg cursor-pointer accent-emerald-400"
+                className="w-full h-1 bg-white/20 rounded-pill cursor-pointer accent-emerald-400"
               />
 
               <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] text-white/70">Pantalla:</span>
+                <span className="text-caption text-white/70">Pantalla:</span>
                 <button
                   onClick={toggleFullscreen}
-                  className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1"
+                  className="min-h-11 px-3 py-1.5 rounded-control text-caption bg-cyan-500/20 text-cyan-200 border border-cyan-400/40 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Maximize2 className="w-2.5 h-2.5" />
+                  <Maximize2 className="w-3.5 h-3.5" />
                   <span>Fullscreen</span>
                 </button>
               </div>
@@ -528,11 +532,11 @@ export const HandTracker: React.FC = () => {
         </div>
 
         {errorMessage && (
-          <div className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center text-red-300 text-[11px] leading-tight space-y-2">
+          <div className="absolute inset-0 bg-black/90 p-3 flex flex-col items-center justify-center text-center text-red-300 text-caption leading-tight space-y-2">
             <p>{errorMessage}</p>
             <button
               onClick={() => setVrMode(false)}
-              className="px-3 py-1 bg-white/10 rounded-full text-white text-[10px]"
+              className="min-h-11 px-4 py-2 bg-white/10 rounded-pill text-white text-caption cursor-pointer"
             >
               Entendido
             </button>

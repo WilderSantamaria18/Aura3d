@@ -43,15 +43,29 @@ export const AuralisStoryCardModal: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get 2d context');
 
-    // Get color from token
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'rgb(43, 220, 210)';
-    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-pink').trim() || 'rgb(255, 55, 95)';
+    const getCssVar = (name: string) =>
+      typeof document !== 'undefined'
+        ? getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+        : '';
+
+    // Get colors from tokens
+    const primaryColor = getCssVar('--ios-teal');
+    const secondaryColor = getCssVar('--ios-pink');
+    const storyBg1 = getCssVar('--story-bg-1') || getCssVar('--surface-base');
+    const storyBg2 = getCssVar('--story-bg-2') || getCssVar('--surface-overlay');
+    const storyBg3 = getCssVar('--story-bg-3') || getCssVar('--surface-dock');
+    const storyArtBg = getCssVar('--story-art-bg') || getCssVar('--surface-card');
+    const storyDisc1 = getCssVar('--story-disc-1') || getCssVar('--surface-subtle');
+    const storyDisc2 = getCssVar('--story-disc-2') || getCssVar('--surface-base');
+    const storyDisc3 = getCssVar('--story-disc-3') || getCssVar('--surface-overlay');
+    const purpleColor = getCssVar('--ios-purple');
+    const warningColor = getCssVar('--status-warning');
 
     // 1. Background Gradient
     const bgGrad = ctx.createRadialGradient(540, 500, 100, 540, 960, 1100);
-    bgGrad.addColorStop(0, 'rgba(10, 13, 30, 1)');
-    bgGrad.addColorStop(0.5, 'rgba(4, 6, 13, 1)');
-    bgGrad.addColorStop(1, 'rgba(1, 2, 4, 1)');
+    bgGrad.addColorStop(0, storyBg1);
+    bgGrad.addColorStop(0.5, storyBg2);
+    bgGrad.addColorStop(1, storyBg3);
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, 1080, 1920);
 
@@ -83,7 +97,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     // Artwork drop shadow & border
     ctx.shadowColor = `${primaryColor}60`;
     ctx.shadowBlur = 50;
-    ctx.fillStyle = 'rgba(15, 20, 36, 1)';
+    ctx.fillStyle = storyArtBg;
     ctx.beginPath();
     ctx.roundRect(artX, artY, artSize, artSize, 36);
     ctx.fill();
@@ -100,9 +114,9 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.clip();
 
     const discGrad = ctx.createRadialGradient(540, 660, 50, 540, 660, 300);
-    discGrad.addColorStop(0, 'rgba(26, 34, 56, 1)');
-    discGrad.addColorStop(0.8, 'rgba(10, 13, 24, 1)');
-    discGrad.addColorStop(1, 'rgba(5, 7, 14, 1)');
+    discGrad.addColorStop(0, storyDisc1);
+    discGrad.addColorStop(0.8, storyDisc2);
+    discGrad.addColorStop(1, storyDisc3);
     ctx.fillStyle = discGrad;
     ctx.fillRect(artX, artY, artSize, artSize);
 
@@ -120,7 +134,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.beginPath();
     ctx.arc(540, 660, 55, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(5, 7, 14, 1)';
+    ctx.fillStyle = storyDisc3;
     ctx.beginPath();
     ctx.arc(540, 660, 16, 0, Math.PI * 2);
     ctx.fill();
@@ -147,7 +161,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ios-purple').trim() || 'rgb(175, 82, 222)';
+    ctx.fillStyle = purpleColor;
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`${harmonicKey.camelot} · ${harmonicKey.shortKey}`, 350, badgeY + 10);
@@ -160,7 +174,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--status-warning').trim() || 'rgb(255, 159, 10)';
+    ctx.fillStyle = warningColor;
     ctx.font = 'bold 28px sans-serif';
     ctx.fillText(`${currentMood.label}`, 730, badgeY + 10);
 
@@ -303,7 +317,7 @@ export const AuralisStoryCardModal: React.FC = () => {
           <div className="flex flex-col items-center gap-3 my-auto">
             <div className="relative w-40 h-40 rounded-card bg-surface-subtle border border-border-subtle shadow-lg flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 rounded-card flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full border border-border-subtle flex items-center justify-center">
+                <div className="w-24 h-24 rounded-pill border border-border-subtle flex items-center justify-center">
                   <Disc3 className="w-12 h-12 text-text-secondary animate-spin" style={{ animationDuration: '14s' }} />
                 </div>
               </div>

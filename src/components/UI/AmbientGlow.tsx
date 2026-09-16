@@ -36,8 +36,8 @@ export const AmbientGlow: React.FC = React.memo(() => {
 
   // Get token color dynamically
   const tokenColor = typeof document !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'rgb(43, 220, 210)'
-    : 'rgb(43, 220, 210)';
+    ? getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim()
+    : '';
 
   const activeColor = isLucid ? (lucidPrimary || tokenColor) : (aiColor || tokenColor);
 
@@ -116,7 +116,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
         const curY = mouseRef.current.rawY;
         const prevX = mouseRef.current.prevX;
         const prevY = mouseRef.current.prevY;
-        const activeColorVal = activeColor || 'rgb(43, 220, 210)';
+        const activeColorVal = activeColor || tokenColor;
 
         if (curX > 0 && curY > 0 && prevX > 0 && prevY > 0) {
           const dx = curX - prevX;
@@ -218,14 +218,14 @@ export const AmbientGlow: React.FC = React.memo(() => {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse at center, transparent 52%, rgba(2, 4, 10, 0.45) 82%, rgba(1, 2, 6, 0.88) 100%)',
+          background: 'radial-gradient(ellipse at center, transparent 52%, var(--story-bg-2) 82%, var(--story-bg-3) 100%)',
         }}
       />
 
       {/* ── 2. Specular Follower Spotlight (Smooth radial beam that illuminates glass edges) ── */}
       {mouseEffectsEnabled && cursorPos.visible && (
         <div
-          className="absolute w-[440px] h-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none transition-opacity duration-500 mix-blend-screen"
+          className="absolute w-[440px] h-[440px] -translate-x-1/2 -translate-y-1/2 rounded-pill pointer-events-none transition-opacity duration-500 mix-blend-screen"
           style={{
             left: cursorPos.x,
             top: cursorPos.y,

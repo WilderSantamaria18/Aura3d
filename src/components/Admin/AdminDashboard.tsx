@@ -162,13 +162,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         label: 'Reproducciones',
         data: metrics.topSongs.map((s) => s.count),
         backgroundColor: [
-          'rgba(0, 242, 254, 0.75)',
+          'rgba(43, 220, 210, 0.75)',
           'rgba(255, 8, 138, 0.75)',
           'rgba(57, 255, 20, 0.75)',
           'rgba(255, 230, 0, 0.75)',
           'rgba(196, 113, 237, 0.75)',
         ],
-        borderColor: ['#00f2fe', '#ff088a', '#39FF14', '#ffe600', '#c471ed'],
+        borderColor: ['rgba(43, 220, 210, 1)', 'rgba(255, 8, 138, 1)', 'rgba(57, 255, 20, 1)', 'rgba(255, 230, 0, 1)', 'rgba(196, 113, 237, 1)'],
         borderWidth: 1.5,
         borderRadius: 8,
       },
@@ -183,8 +183,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       legend: { display: false },
       tooltip: {
         backgroundColor: 'rgba(11, 15, 30, 0.95)',
-        titleColor: '#00f2fe',
-        bodyColor: '#fff',
+        titleColor: 'rgba(43, 220, 210, 1)',
+        bodyColor: 'rgba(255, 255, 255, 1)',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
         padding: 10,
@@ -197,7 +197,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       },
       y: {
         grid: { display: false },
-        ticks: { color: '#ffffff', font: { family: 'monospace', weight: 'bold' as const } },
+        ticks: { color: 'rgba(255, 255, 255, 1)', font: { family: 'monospace', weight: 'bold' as const } },
       },
     },
   };
@@ -209,15 +209,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       {
         data: metrics.genreDistribution.map((g) => g.count),
         backgroundColor: [
-          '#00f2fe',
-          '#ff088a',
-          '#39FF14',
-          '#ffe600',
-          '#c471ed',
-          '#ff5e00',
-          '#00ffb3',
+          'rgba(43, 220, 210, 1)',
+          'rgba(255, 8, 138, 1)',
+          'rgba(57, 255, 20, 1)',
+          'rgba(255, 230, 0, 1)',
+          'rgba(196, 113, 237, 1)',
+          'rgba(255, 94, 0, 1)',
+          'rgba(0, 255, 179, 1)',
         ],
-        borderColor: '#0b0f1e',
+        borderColor: 'rgba(11, 15, 30, 1)',
         borderWidth: 2,
         hoverOffset: 6,
       },
@@ -239,8 +239,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       },
       tooltip: {
         backgroundColor: 'rgba(11, 15, 30, 0.95)',
-        titleColor: '#00f2fe',
-        bodyColor: '#fff',
+        titleColor: 'rgba(43, 220, 210, 1)',
+        bodyColor: 'rgba(255, 255, 255, 1)',
         borderColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
       },
@@ -289,17 +289,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
           <button
             onClick={loadData}
-            className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 transition-all focus-visible:ring-1 focus-visible:ring-cyan-400"
+            className="min-h-11 min-w-11 p-2.5 rounded-pill bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 transition-all flex items-center justify-center cursor-pointer focus-visible:ring-1 focus-visible:ring-cyan-400"
             title="Refrescar métricas"
+            aria-label="Refrescar métricas"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="w-4 h-4" />
           </button>
 
           <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-xs font-bold uppercase tracking-wider transition-all focus-visible:ring-1 focus-visible:ring-red-400"
+            className="min-h-11 flex items-center gap-1.5 px-3.5 py-2 rounded-pill bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-caption font-bold uppercase tracking-wider transition-all cursor-pointer focus-visible:ring-1 focus-visible:ring-red-400"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Cerrar Sesión</span>
           </button>
         </div>
@@ -309,49 +310,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${
+          className={`min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill text-caption font-bold tracking-wider uppercase transition-all border cursor-pointer ${
             activeTab === 'dashboard'
               ? 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30 shadow-[0_0_15px_rgba(0,242,254,0.2)]'
               : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
           }`}
         >
-          <LayoutDashboard className="w-3.5 h-3.5" />
+          <LayoutDashboard className="w-4 h-4" />
           <span>Dashboard Principal</span>
         </button>
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${
+          className={`min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill text-caption font-bold tracking-wider uppercase transition-all border cursor-pointer ${
             activeTab === 'users'
               ? 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30 shadow-[0_0_15px_rgba(0,242,254,0.2)]'
               : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
           }`}
         >
-          <Users className="w-3.5 h-3.5" />
+          <Users className="w-4 h-4" />
           <span>Gestión de Usuarios</span>
         </button>
 
         <button
           onClick={() => setActiveTab('sessions')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${
+          className={`min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill text-caption font-bold tracking-wider uppercase transition-all border cursor-pointer ${
             activeTab === 'sessions'
               ? 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30 shadow-[0_0_15px_rgba(0,242,254,0.2)]'
               : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
           }`}
         >
-          <Music className="w-3.5 h-3.5" />
+          <Music className="w-4 h-4" />
           <span>Análisis de Sesiones</span>
         </button>
 
         <button
           onClick={() => setActiveTab('performance')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all border ${
+          className={`min-h-11 flex items-center gap-2 px-4 py-2 rounded-pill text-caption font-bold tracking-wider uppercase transition-all border cursor-pointer ${
             activeTab === 'performance'
               ? 'bg-cyan-500/15 text-cyan-300 border-cyan-400/30 shadow-[0_0_15px_rgba(0,242,254,0.2)]'
               : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
           }`}
         >
-          <Cpu className="w-3.5 h-3.5" />
+          <Cpu className="w-4 h-4" />
           <span>Rendimiento del Sistema</span>
         </button>
       </div>
@@ -362,79 +363,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           {/* ── 4 Main Live Stat Cards ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Active Users */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-cyan-400/30 transition-all">
-              <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-cyan-400/30 transition-all">
+              <div className="flex items-center justify-between text-white/50 text-caption uppercase tracking-widest font-bold">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-cyan-400" />
                   USUARIOS ACTIVOS
                 </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-2 h-2 rounded-pill bg-emerald-400 animate-pulse" />
               </div>
-              <span className="text-3xl font-bold text-white tracking-tight my-1">
+              <span className="text-3xl font-bold text-white tracking-tight my-1 font-tabular">
                 {metrics.activeUsersCount}
               </span>
-              <span className="text-[10px] text-cyan-300/70">Conexiones en tiempo real</span>
+              <span className="text-caption text-cyan-300/70 font-mono">Conexiones en tiempo real</span>
             </div>
 
             {/* Active Cameras */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-emerald-400/30 transition-all">
-              <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-emerald-400/30 transition-all">
+              <div className="flex items-center justify-between text-white/50 text-caption uppercase tracking-widest font-bold">
                 <span className="flex items-center gap-1.5">
                   <Video className="w-3.5 h-3.5 text-emerald-400" />
                   CÁMARAS ACTIVAS
                 </span>
-                <span className="text-[9px] text-emerald-400 font-bold">
+                <span className="text-caption text-emerald-400 font-bold font-tabular">
                   {Math.round((metrics.camerasActiveCount / Math.max(1, metrics.activeUsersCount)) * 100)}%
                 </span>
               </div>
-              <span className="text-3xl font-bold text-emerald-300 tracking-tight my-1">
+              <span className="text-3xl font-bold text-emerald-300 tracking-tight my-1 font-tabular">
                 {metrics.camerasActiveCount}
               </span>
-              <span className="text-[10px] text-emerald-300/70">Tracking de gestos activo</span>
+              <span className="text-caption text-emerald-300/70 font-mono">Tracking de gestos activo</span>
             </div>
 
             {/* Average Intensity Score */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-pink-400/30 transition-all">
-              <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-pink-400/30 transition-all">
+              <div className="flex items-center justify-between text-white/50 text-caption uppercase tracking-widest font-bold">
                 <span className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-pink-400" />
                   SCORE PROMEDIO
                 </span>
                 <Flame className="w-3.5 h-3.5 text-yellow-400" />
               </div>
-              <span className="text-3xl font-bold text-pink-400 tracking-tight my-1">
+              <span className="text-3xl font-bold text-pink-400 tracking-tight my-1 font-tabular">
                 {metrics.averageScore}{' '}
-                <span className="text-xs text-white/30 font-normal">/100</span>
+                <span className="text-caption text-white/30 font-normal">/100</span>
               </span>
-              <span className="text-[10px] text-pink-300/70">Intensidad de movimiento</span>
+              <span className="text-caption text-pink-300/70 font-mono">Intensidad de movimiento</span>
             </div>
 
             {/* Total Sessions / Tracks */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-yellow-400/30 transition-all">
-              <div className="flex items-center justify-between text-white/50 text-[10px] uppercase tracking-widest font-bold">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col justify-between shadow-[0_10px_30px_rgba(0,0,0,0.6)] group hover:border-yellow-400/30 transition-all">
+              <div className="flex items-center justify-between text-white/50 text-caption uppercase tracking-widest font-bold">
                 <span className="flex items-center gap-1.5">
                   <Music className="w-3.5 h-3.5 text-yellow-400" />
                   REPRODUCCIONES
                 </span>
                 <TrendingUp className="w-3.5 h-3.5 text-yellow-400" />
               </div>
-              <span className="text-3xl font-bold text-yellow-300 tracking-tight my-1">
+              <span className="text-3xl font-bold text-yellow-300 tracking-tight my-1 font-tabular">
                 {metrics.totalSessionsCount}
               </span>
-              <span className="text-[10px] text-yellow-300/70">Sesiones registradas</span>
+              <span className="text-caption text-yellow-300/70 font-mono">Sesiones registradas</span>
             </div>
           </div>
 
           {/* ── Visual Analytics: 2 Charts Side-by-Side ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             {/* Top 5 Songs Bar Chart */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                <h3 className="text-xs font-bold text-cyan-300 tracking-widest uppercase flex items-center gap-1.5">
+                <h3 className="text-caption font-bold text-cyan-300 tracking-widest uppercase flex items-center gap-1.5 font-mono">
                   <TrendingUp className="w-3.5 h-3.5" />
                   TOP 5 CANCIONES MÁS REPRODUCIDAS
                 </h3>
-                <span className="text-[10px] text-white/30">Total plays</span>
+                <span className="text-caption text-white/30 font-mono font-tabular">Total plays</span>
               </div>
               <div className="h-48 w-full pt-1">
                 <Bar data={barChartData} options={barChartOptions} />
@@ -442,13 +443,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             </div>
 
             {/* Detected Genres Doughnut Chart */}
-            <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+            <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                <h3 className="text-xs font-bold text-pink-300 tracking-widest uppercase flex items-center gap-1.5">
+                <h3 className="text-caption font-bold text-pink-300 tracking-widest uppercase flex items-center gap-1.5 font-mono">
                   <Sparkles className="w-3.5 h-3.5" />
                   DISTRIBUCIÓN DE GÉNEROS (DSP SPECTRAL)
                 </h3>
-                <span className="text-[10px] text-white/30">Análisis espectral</span>
+                <span className="text-caption text-white/30 font-mono">Análisis espectral</span>
               </div>
               <div className="h-48 w-full flex items-center justify-center pt-1">
                 <Doughnut data={doughnutData} options={doughnutOptions} />
@@ -457,21 +458,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </div>
 
           {/* ── Live Connected Users Table ── */}
-          <div className="p-4 rounded-2xl bg-[#0b0f1e]/85 border border-white/10 backdrop-blur-2xl flex flex-col gap-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
+          <div className="p-4 rounded-card bg-[var(--surface-overlay)]/85 border border-white/10 material-thick flex flex-col gap-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white tracking-widest uppercase flex items-center gap-2">
+              <h3 className="text-caption font-bold text-white tracking-widest uppercase flex items-center gap-2 font-mono">
                 <Users className="w-3.5 h-3.5 text-emerald-400" />
                 TABLA DE USUARIOS Y SESIONES EN VIVO
               </h3>
-              <span className="text-[10px] text-white/40">
+              <span className="text-caption text-white/40 font-mono font-tabular">
                 {metrics.activeUsersList.length} conectados ahora
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-white/10">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto rounded-control border border-white/10">
+              <table className="w-full text-left text-caption border-collapse font-mono">
                 <thead>
-                  <tr className="bg-white/5 border-b border-white/10 text-white/50 text-[10px] uppercase tracking-widest font-bold">
+                  <tr className="bg-white/5 border-b border-white/10 text-white/50 text-caption uppercase tracking-widest font-bold">
                     <th className="p-3">Usuario</th>
                     <th className="p-3">Canción Actual</th>
                     <th className="p-3">Género Detectado</th>
@@ -488,7 +489,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </td>
                       <td className="p-3 text-white/70">{user.currentTrack}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-cyan-500/10 border border-cyan-400/20 text-cyan-300">
+                        <span className="px-2 py-0.5 rounded-full text-caption font-bold uppercase bg-cyan-500/10 border border-cyan-400/20 text-cyan-300">
                           {user.genre}
                         </span>
                       </td>
@@ -497,12 +498,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       </td>
                       <td className="p-3">
                         {user.hasCamera ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                             Activa
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] uppercase bg-white/5 text-white/40 border border-white/5">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption uppercase bg-white/5 text-white/40 border border-white/5">
                             Inactiva
                           </span>
                         )}

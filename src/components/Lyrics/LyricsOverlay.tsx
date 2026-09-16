@@ -150,7 +150,7 @@ export const LyricsOverlay: React.FC = () => {
   let containerStyle: React.CSSProperties = {};
 
   if (isFullscreenActive) {
-    containerClasses = 'fixed inset-0 z-50 p-4 sm:p-8 md:p-12 flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl pointer-events-auto';
+    containerClasses = 'fixed inset-0 z-50 p-4 sm:p-8 md:p-12 flex flex-col items-center justify-center bg-black/90 material-thick pointer-events-auto';
   } else if (position === 'custom' && coords) {
     containerStyle = {
       left: `${coords.x}px`,

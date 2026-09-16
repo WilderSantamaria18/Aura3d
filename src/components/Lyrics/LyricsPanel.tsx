@@ -146,25 +146,25 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
     return () => window.removeEventListener('blur', handleGlobalClick);
   }, []);
 
-  const activeColor = isLucid ? (lucidTheme?.primary || '#00e5ff') : '#00e5ff';
+  const activeColor = isLucid ? (lucidTheme?.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
 
   return (
     <div
       className={`w-full h-full flex flex-col justify-between select-none relative overflow-hidden transition-all duration-300 ${
         isFullscreen
-          ? 'max-w-4xl max-h-[92vh] rounded-3xl p-6 sm:p-10 bg-[#070a14]/95 border border-white/20 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.95)]'
-          : 'backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] bg-[#090d18]/95'
+          ? 'max-w-4xl max-h-[92vh] rounded-modal p-6 sm:p-10 bg-[var(--surface-overlay)]/95 border border-white/20 material-thick shadow-[0_0_100px_rgba(0,0,0,0.95)]'
+          : 'material-regular border border-white/[0.12] rounded-modal p-4 sm:p-5 shadow-[0_24px_64px_-8px_rgba(0,0,0,0.85)] bg-[var(--surface-overlay)]/95'
       }`}
       style={{ fontFamily: currentFontFamily }}
     >
       {/* Dynamic Background Ambient Glow */}
       <div
-        className="absolute -top-24 -left-24 w-72 h-72 rounded-full pointer-events-none opacity-25 blur-3xl transition-all duration-1000"
+        className="absolute -top-24 -left-24 w-72 h-72 rounded-pill pointer-events-none opacity-25 blur-3xl transition-all duration-1000"
         style={{ backgroundColor: activeColor }}
       />
       <div
-        className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full pointer-events-none opacity-25 blur-3xl transition-all duration-1000"
-        style={{ backgroundColor: isLucid ? lucidTheme.secondary : '#7928ca' }}
+        className="absolute -bottom-24 -right-24 w-72 h-72 rounded-pill pointer-events-none opacity-25 blur-3xl transition-all duration-1000"
+        style={{ backgroundColor: isLucid ? lucidTheme.secondary : 'var(--ios-purple)' }}
       />
 
       {/* Header Bar with Mouse Drag Handle & Multi-Position / Size Controls */}
@@ -177,16 +177,16 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       >
         <div className="flex items-center gap-2 sm:gap-3 max-w-[55%] sm:max-w-[65%] min-w-0">
           {!isFullscreen && (
-            <div className="p-1 rounded text-white/30 hover:text-white/70 transition-colors flex-shrink-0">
+            <div className="p-1 rounded-control text-white/30 hover:text-white/70 transition-colors flex-shrink-0">
               <GripHorizontal className="w-4 h-4" />
             </div>
           )}
 
           <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center border transition-all flex-shrink-0"
+            className="w-10 h-10 rounded-control flex items-center justify-center border transition-all flex-shrink-0"
             style={{
-              backgroundColor: `${activeColor}15`,
-              borderColor: `${activeColor}40`,
+              backgroundColor: 'rgba(43, 220, 210, 0.15)',
+              borderColor: 'rgba(43, 220, 210, 0.40)',
               color: activeColor,
             }}
           >
@@ -201,7 +201,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
             >
               {title}
             </h3>
-            <p className="text-white/50 text-[11px] truncate tracking-wider mt-0.5">
+            <p className="text-white/50 text-caption truncate tracking-wider mt-0.5">
               {artist}
             </p>
           </div>
@@ -220,7 +220,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   setIsLayoutMenuOpen(!isLayoutMenuOpen);
                   setIsFontMenuOpen(false);
                 }}
-                className={`p-1.5 sm:px-2 sm:py-1.5 rounded-lg border transition-all text-xs font-mono flex items-center gap-1 ${
+                className={`min-h-11 px-2 sm:px-3 py-1.5 rounded-control border transition-all text-caption font-mono flex items-center gap-1 cursor-pointer ${
                   isLayoutMenuOpen || position !== 'dock-right' || size !== 'standard'
                     ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300'
                     : 'border-white/10 bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/10'
@@ -228,14 +228,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 title="Ajustar posición en pantalla y tamaño predefinido"
               >
                 <LayoutTemplate className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden md:inline text-[11px]">Posición</span>
+                <span className="hidden md:inline text-caption">Posición</span>
                 <ChevronDown className="w-3 h-3 text-white/40" />
               </button>
 
               {isLayoutMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-[#080b16]/95 border border-white/15 shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-3xl">
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-modal bg-[var(--surface-overlay)]/95 border border-white/15 shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 material-thick">
                   {/* Position Presets */}
-                  <div className="px-2 py-1 text-[10px] font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1.5">
+                  <div className="px-2 py-1 text-caption font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1.5">
                     Posición en Pantalla
                   </div>
                   <div className="grid grid-cols-2 gap-1 mb-2.5">
@@ -244,7 +244,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onPositionChange('dock-right');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center gap-1.5 p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center gap-1.5 p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         position === 'dock-right'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -259,7 +259,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onPositionChange('dock-left');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center gap-1.5 p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center gap-1.5 p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         position === 'dock-left'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -274,7 +274,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onPositionChange('center');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center gap-1.5 p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center gap-1.5 p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         position === 'center'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -289,7 +289,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onPositionChange('bottom-right');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center gap-1.5 p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center gap-1.5 p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         position === 'bottom-right'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -301,7 +301,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   </div>
 
                   {/* Size Presets */}
-                  <div className="px-2 py-1 text-[10px] font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1.5">
+                  <div className="px-2 py-1 text-caption font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1.5">
                     Tamaño Predefinido
                   </div>
                   <div className="flex flex-col gap-1">
@@ -310,14 +310,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onSizeChange('compact');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         size === 'compact'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       <span>Compacto (Mínimo)</span>
-                      <span className="text-[10px] text-white/40">320×400</span>
+                      <span className="text-caption font-tabular text-white/40">320×400</span>
                     </button>
 
                     <button
@@ -325,14 +325,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onSizeChange('standard');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         size === 'standard'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       <span>Estándar</span>
-                      <span className="text-[10px] text-white/40">390×520</span>
+                      <span className="text-caption font-tabular text-white/40">390×520</span>
                     </button>
 
                     <button
@@ -340,14 +340,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         onSizeChange('lateral');
                         setIsLayoutMenuOpen(false);
                       }}
-                      className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                      className={`min-h-11 flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                         size === 'lateral'
                           ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       <span>Lateral Ampliado</span>
-                      <span className="text-[10px] text-white/40">440×85vh</span>
+                      <span className="text-caption font-tabular text-white/40">440×85vh</span>
                     </button>
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 setIsFontMenuOpen(!isFontMenuOpen);
                 setIsLayoutMenuOpen(false);
               }}
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/10 text-white/80 hover:text-white transition-all text-xs font-mono"
+              className="min-h-11 flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-control border border-white/10 bg-white/[0.04] hover:bg-white/10 text-white/80 hover:text-white transition-all text-caption font-mono cursor-pointer"
               title="Personalizar tipografía de letras"
             >
               <Type className="w-3.5 h-3.5 text-cyan-400" />
@@ -373,8 +373,8 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
             </button>
 
             {isFontMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-[#080b16]/95 border border-white/15 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-3xl">
-                <div className="px-2 py-1 text-[10px] font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1">
+              <div className="absolute right-0 top-full mt-2 w-52 rounded-modal bg-[var(--surface-overlay)]/95 border border-white/15 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 material-thick">
+                <div className="px-2 py-1 text-caption font-mono text-white/40 tracking-wider uppercase border-b border-white/5 mb-1">
                   Fuente de Letras
                 </div>
                 <div className="space-y-1">
@@ -382,7 +382,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     <button
                       key={f.id}
                       onClick={() => handleFontChange(f.id)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${
+                      className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-control text-caption transition-colors flex items-center justify-between cursor-pointer ${
                         selectedFont === f.id
                           ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
                           : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -390,24 +390,24 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                       style={{ fontFamily: f.fontFamily }}
                     >
                       <span>{f.label}</span>
-                      {selectedFont === f.id && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                      {selectedFont === f.id && <span className="w-1.5 h-1.5 rounded-pill bg-cyan-400" />}
                     </button>
                   ))}
                 </div>
 
                 <div className="px-2 pt-2 mt-2 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-white/40 uppercase">Tamaño</span>
+                  <span className="text-caption font-mono text-white/40 uppercase">Tamaño</span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleFontSizeChange(-1)}
-                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-xs text-white/80 font-mono"
+                      className="min-h-11 min-w-11 px-2.5 py-1 rounded-control bg-white/5 hover:bg-white/15 text-caption text-white/80 font-mono cursor-pointer flex items-center justify-center"
                       title="Reducir tamaño de letra"
                     >
                       A-
                     </button>
                     <button
                       onClick={() => handleFontSizeChange(1)}
-                      className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-xs text-white/80 font-mono"
+                      className="min-h-11 min-w-11 px-2.5 py-1 rounded-control bg-white/5 hover:bg-white/15 text-caption text-white/80 font-mono cursor-pointer flex items-center justify-center"
                       title="Aumentar tamaño de letra"
                     >
                       A+
@@ -422,7 +422,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           {onToggleFullscreen && (
             <button
               onClick={onToggleFullscreen}
-              className="p-1.5 sm:p-2 rounded-lg text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/10 transition-colors"
+              className="min-h-11 min-w-11 p-2.5 rounded-control text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/10 transition-colors flex items-center justify-center cursor-pointer"
               title={isFullscreen ? 'Salir de pantalla completa (Esc)' : 'Ver letras en pantalla completa'}
             >
               {isFullscreen ? (
@@ -437,7 +437,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1.5 sm:p-2 rounded-lg text-white/50 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/10 transition-colors"
+              className="min-h-11 min-w-11 p-2.5 rounded-control text-white/50 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/10 transition-colors flex items-center justify-center cursor-pointer"
               title="Cerrar letras"
             >
               <X className="w-4 h-4" />
@@ -446,7 +446,6 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         </div>
       </div>
 
-      {/* Main Synchronized Scrolling Lyrics Body */}
       {/* Main Synchronized Scrolling Lyrics Body */}
       <div
         ref={containerRef}
@@ -488,9 +487,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 ? 'text-4xl sm:text-5xl py-4 px-8'
                 : 'text-2xl sm:text-3xl py-3 px-5'
               : fontSizeOffset === -2
-              ? 'text-xs py-1.5 px-2.5'
+              ? 'text-caption py-1.5 px-2.5'
               : fontSizeOffset === -1
-              ? 'text-xs sm:text-sm py-1.5 px-3'
+              ? 'text-caption sm:text-sm py-1.5 px-3'
               : fontSizeOffset === 1
               ? 'text-base sm:text-lg py-2.5 px-3.5'
               : fontSizeOffset >= 2
@@ -511,22 +510,22 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     if (onSeek) onSeek(line.time);
                   }
                 }}
-                className={`rounded-2xl cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] text-center ${baseSizeClass} ${
+                className={`rounded-modal cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] text-center ${baseSizeClass} ${
                   isActive
-                    ? 'font-black scale-[1.06] shadow-[0_12px_40px_rgba(0,0,0,0.7)] border backdrop-blur-md'
+                    ? 'font-black scale-[1.06] shadow-[0_12px_40px_rgba(0,0,0,0.7)] border material-thin'
                     : 'text-white/70 hover:text-white hover:bg-white/[0.05] font-medium'
                 }`}
                 style={{
                   opacity,
                   filter: `blur(${blurAmount}px)`,
                   backgroundColor: isActive
-                    ? `${activeColor}18`
+                    ? 'rgba(43, 220, 210, 0.12)'
                     : undefined,
                   borderColor: isActive
-                    ? `${activeColor}45`
+                    ? 'rgba(43, 220, 210, 0.45)'
                     : 'transparent',
                   boxShadow: isActive
-                    ? `0 8px 32px -4px ${activeColor}33, inset 0 1px 0 rgba(255,255,255,0.2)`
+                    ? '0 8px 32px -4px rgba(43, 220, 210, 0.33), inset 0 1px 0 rgba(255,255,255,0.2)'
                     : 'none',
                 }}
               >
@@ -539,7 +538,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   style={
                     isActive
                       ? {
-                          textShadow: `0 0 20px ${activeColor}, 0 0 40px ${activeColor}80, 0 2px 10px rgba(0,0,0,0.9)`,
+                          textShadow: '0 0 20px var(--ios-teal), 0 0 40px rgba(43, 220, 210, 0.5), 0 2px 10px rgba(0,0,0,0.9)',
                         }
                       : undefined
                   }
@@ -553,13 +552,13 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       </div>
 
       {/* Bottom status readout */}
-      <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-white/65 font-mono flex-shrink-0 relative z-20">
+      <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between text-caption text-white/65 font-mono flex-shrink-0 relative z-20">
         <span className="flex items-center gap-2">
           <span
-            className={`w-2 h-2 rounded-full transition-colors ${
+            className={`w-2 h-2 rounded-pill transition-colors ${
               isPlaying ? 'animate-pulse' : 'opacity-40'
             }`}
-            style={{ backgroundColor: isPlaying ? activeColor : '#ffffff' }}
+            style={{ backgroundColor: isPlaying ? activeColor : 'var(--label-primary)' }}
           />
           {isPlaying ? 'SINCRONIZACIÓN FLUIDA EN TIEMPO REAL' : 'AUDIO PAUSADO'}
         </span>
@@ -567,7 +566,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           <span className="text-white/60 capitalize">
             {FONT_OPTIONS.find((f) => f.id === selectedFont)?.label.split(' ')[0]}
           </span>
-          <span>{lyrics.length > 0 ? `${lyrics.length} LÍNEAS` : '0 LÍNEAS'}</span>
+          <span className="font-tabular">{lyrics.length > 0 ? `${lyrics.length} LÍNEAS` : '0 LÍNEAS'}</span>
         </div>
       </div>
     </div>
