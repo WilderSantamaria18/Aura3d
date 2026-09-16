@@ -28,7 +28,6 @@ import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 
-import { DesktopLeftSidebar, DesktopRightSidebar } from './components/UI/DesktopSidebars';
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
@@ -263,9 +262,9 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Visualizer in Fullscreen Center on Mobile/Tablet & Constrained in 3-zone on Desktop (>=1024px) */}
+      {/* 2. Visualizer in Fullscreen */}
       <div
-        className={`absolute inset-0 lg:left-[300px] lg:right-[340px] w-full lg:w-auto h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
@@ -286,14 +285,6 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* Desktop 3-Zone Docked Sidebars (>=1024px) */}
-      {hasStarted && !shouldHideUI && (
-        <>
-          <DesktopLeftSidebar />
-          <DesktopRightSidebar />
-        </>
-      )}
-
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
       {hasStarted && <RgbGlitchOverlay />}
       {hasStarted && <RetroCrtOverlay />}
@@ -304,10 +295,10 @@ export const App: React.FC = () => {
       {/* 3D Cinematic Camera Presets Toolbar */}
       {hasStarted && !shouldHideUI && <CameraPresetBar />}
 
-      {/* 3. Floating Header UI — Centered with safe margins */}
+      {/* 3. Floating Header UI */}
       {hasStarted && (
         <div
-          className={`fixed top-0 left-0 right-0 lg:left-[300px] lg:right-[340px] z-50 pointer-events-none transition-all duration-700 ${
+          className={`fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-700 ${
             shouldHideUI ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
           }`}
         >
@@ -318,7 +309,7 @@ export const App: React.FC = () => {
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 sm:bottom-4 left-0 right-0 lg:left-[300px] lg:right-[340px] z-40 flex justify-center px-2 sm:px-4 pb-[env(safe-area-inset-bottom,0px)] transition-all duration-500 pointer-events-none ${
+          className={`fixed bottom-0 sm:bottom-4 left-0 right-0 z-40 flex justify-center px-2 sm:px-4 pb-[env(safe-area-inset-bottom,0px)] transition-all duration-500 pointer-events-none ${
             isZenGhostMode || isUiHidden
               ? 'opacity-0 translate-y-10 pointer-events-none'
               : 'opacity-100 translate-y-0'

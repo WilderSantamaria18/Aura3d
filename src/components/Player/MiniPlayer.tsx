@@ -491,7 +491,7 @@ export const MiniPlayer: React.FC = () => {
       {/* ── Collapsed Dock Pill (Docked on Left: bottom-6 left-4) ──────────── */}
       {!isExpanded && !isZenMode && (
         <div
-          className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform hidden sm:flex lg:hidden"
+          className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform"
         >
           <div
             className="group relative flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-dock border material-regular transition-all cursor-pointer max-w-[290px] sm:max-w-[340px]"
@@ -611,7 +611,7 @@ export const MiniPlayer: React.FC = () => {
 
       {/* ── Expanded Full Floating Mini-Player (Docked Left: bottom-6 left-4) ─── */}
       <div
-        className={`fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md transition-all duration-300 origin-bottom-left hidden sm:flex lg:hidden ${
+        className={`fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md transition-all duration-300 origin-bottom-left ${
           isExpanded ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
