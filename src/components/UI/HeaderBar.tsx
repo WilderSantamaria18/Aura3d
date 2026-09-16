@@ -99,7 +99,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
   type: SoundscapeType;
   title: string;
   subtitle: string;
-  emoji: string;
   icon: React.FC<{ className?: string }>;
   accentColor: string;
 }> = [
@@ -107,7 +106,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'rain',
     title: 'Lluvia en Ventana',
     subtitle: 'Ruido rosa 750Hz y gotas suaves',
-    emoji: '🌧️',
     icon: CloudRain,
     accentColor: 'text-sky-400',
   },
@@ -115,7 +113,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'fire',
     title: 'Crepitar de Fogata',
     subtitle: 'Retumbe 140Hz y chispas Poisson',
-    emoji: '🔥',
     icon: Flame,
     accentColor: 'text-orange-400',
   },
@@ -123,7 +120,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'cafe',
     title: 'Cafetería de Noche',
     subtitle: 'Formantes 520Hz/1350Hz acústicos',
-    emoji: '☕',
     icon: Coffee,
     accentColor: 'text-amber-400',
   },
@@ -131,7 +127,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'ocean',
     title: 'Olas del Mar',
     subtitle: 'Oleaje sinusoidal continuo de 8.5s',
-    emoji: '🌊',
     icon: Waves,
     accentColor: 'text-teal-400',
   },
@@ -319,11 +314,11 @@ export const HeaderBar: React.FC = () => {
   const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
 
   const { mood, dominantPitch, beatPulse, primaryColor: aiColor } = useAIAudioEngine();
-  const moodLabels: Record<string, { label: string; icon: string }> = {
-    energetic: { label: 'Energético', icon: '⚡' },
-    happy: { label: 'Alegre', icon: '✨' },
-    chill: { label: 'Relajado', icon: '🌙' },
-    melancholic: { label: 'Melancólico', icon: '🌊' },
+  const moodLabels: Record<string, { label: string }> = {
+    energetic: { label: 'Energético' },
+    happy: { label: 'Alegre' },
+    chill: { label: 'Relajado' },
+    melancholic: { label: 'Melancólico' },
   };
 
   const isAnyDspActive =
@@ -346,7 +341,7 @@ export const HeaderBar: React.FC = () => {
       {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
       <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-colors"
+          className="w-8 h-8 rounded-control flex items-center justify-center bg-surface-dock/90 material-thin border border-border-subtle shadow-subtle transition-colors"
           style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
         >
           <Disc3 className="w-4 h-4" style={{ color: activeAccent }} />
@@ -354,20 +349,20 @@ export const HeaderBar: React.FC = () => {
 
         <div className="hidden min-[380px]:flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold tracking-[0.15em] font-display text-[13px] uppercase text-white/90">
+            <span className="font-semibold tracking-[0.15em] font-display text-caption uppercase text-text-primary">
               Auralis
             </span>
-            <span className="text-[9px] tracking-wider uppercase font-display font-tabular px-1.5 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.02]">
+            <span className="text-caption tracking-wider uppercase font-display font-tabular px-1.5 py-0.5 rounded-badge border border-border-subtle text-text-tertiary bg-white/[0.02]">
               Studio
             </span>
             <MiniSpectrumBars />
           </div>
 
           {currentTrack && (
-            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-white/50 truncate max-w-[180px] lg:max-w-[240px]">
-              <span className="truncate text-white/80 font-medium">{currentTrack.title}</span>
-              <span className="text-white/30">•</span>
-              <span className="truncate text-white/50">{currentTrack.artist}</span>
+            <div className="hidden md:flex items-center gap-1.5 text-caption text-text-muted truncate max-w-[180px] lg:max-w-[240px]">
+              <span className="truncate text-text-secondary font-medium">{currentTrack.title}</span>
+              <span className="text-text-muted">•</span>
+              <span className="truncate text-text-tertiary">{currentTrack.artist}</span>
             </div>
           )}
         </div>
@@ -375,12 +370,13 @@ export const HeaderBar: React.FC = () => {
         {/* Global Command Palette Chip */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[10px] font-mono text-white/50 hover:text-white transition-all shadow-sm pointer-events-auto ml-1"
+          className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 min-h-11 rounded-control bg-surface-dock/60 hover:bg-surface-dock border border-border-subtle text-caption font-mono text-text-tertiary hover:text-text-primary transition-all shadow-subtle pointer-events-auto ml-1 btn-spring cursor-pointer"
           title="Abrir Paleta Universal de Comandos (Ctrl+K / ⌘K)"
+          aria-label="Abrir Paleta de Comandos"
         >
-          <Keyboard className="w-3 h-3 text-cyan-400" />
+          <Keyboard className="w-3.5 h-3.5 text-accent-cyan" />
           <span>Comandos</span>
-          <kbd className="px-1 py-0.2 rounded bg-white/10 text-[9px] text-white/70">⌘K</kbd>
+          <kbd className="px-1.5 py-0.5 rounded-badge bg-white/10 text-caption font-mono text-text-secondary">⌘K</kbd>
         </button>
       </div>
 
@@ -397,16 +393,16 @@ export const HeaderBar: React.FC = () => {
                 aria-haspopup="true"
                 aria-expanded={activeMenu === 'visualizers'}
                 aria-label="Seleccionar modo de visualización"
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl glass-panel text-xs font-display transition-all cursor-pointer ${
+                className={`flex items-center gap-2 px-3 py-2 min-h-11 rounded-control material-regular border shadow-subtle text-caption font-display transition-all cursor-pointer btn-spring ${
                   activeMenu === 'visualizers'
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                    : 'text-white/90 hover:text-white hover:bg-white/[0.06]'
+                    ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
+                    : 'bg-surface-dock border-border-subtle text-text-primary hover:bg-surface-hover'
                 }`}
-                title="Seleccionar Modo de Visualización (Rainbow Void, Synthwave 3D, Warp, Terreno)"
+                title="Seleccionar Modo de Visualización"
               >
-                <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
-                <span className="font-medium text-[11px] sm:text-xs">{currentViz.name}</span>
-                <ChevronDown className="w-3 h-3 text-white/50" />
+                <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-accent-cyan' : 'text-accent-cyan/90'}`} />
+                <span className="font-medium text-caption">{currentViz.name}</span>
+                <ChevronDown className="w-3 h-3 text-text-muted" />
               </button>
             );
           })()}
@@ -415,9 +411,9 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Modos de visualización interactivos"
-              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-2 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95"
+              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-3 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal z-50 flex flex-col gap-1 animate-aura-popover"
             >
-              <span className="text-[10px] font-mono text-white/65 px-2 pt-1 uppercase tracking-wider">
+              <span className="text-caption font-mono text-text-tertiary px-2 pt-1 uppercase tracking-wider">
                 Visualizadores Interactivos
               </span>
               {VISUALIZERS.map((viz) => {
@@ -432,20 +428,20 @@ export const HeaderBar: React.FC = () => {
                       setVisualizerMode(viz.id as any);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 min-h-[40px] rounded-xl text-xs font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer btn-spring ${
                       isActive
-                        ? 'bg-white/10 text-white border border-white/20 font-medium'
-                        : 'text-white/80 hover:text-white hover:bg-white/5 border border-transparent'
+                        ? 'bg-white/15 text-text-primary border border-border-medium font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/5 border border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-white/60'}`} />
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-accent-cyan' : 'text-text-muted'}`} />
                       <div className="flex flex-col text-left">
-                        <span className="font-medium text-xs text-white">{viz.name}</span>
-                        <span className="text-[9px] text-white/60 tracking-wider font-mono">{viz.desc}</span>
+                        <span className="font-medium text-caption text-text-primary">{viz.name}</span>
+                        <span className="text-caption text-text-tertiary tracking-wider font-mono">{viz.desc}</span>
                       </div>
                     </div>
-                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                    {isActive && <div className="w-1.5 h-1.5 rounded-pill bg-accent-cyan" />}
                   </button>
                 );
               })}
@@ -460,85 +456,88 @@ export const HeaderBar: React.FC = () => {
             aria-haspopup="true"
             aria-expanded={activeMenu === 'dsp'}
             aria-label="Efectos de Audio y DSP"
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] text-xs font-mono transition-all shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-2 min-h-11 rounded-control bg-surface-dock material-regular border text-caption font-mono transition-all shadow-subtle cursor-pointer btn-spring ${
               activeMenu === 'dsp' || isAnyDspActive
-                ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
+                : 'border-border-subtle text-text-secondary hover:text-text-primary hover:bg-surface-hover'
             }`}
-            title="Efectos de Audio y DSP de Estudio: Masterización, Audio 8D, Reverb, Pitch y Modulación"
+            title="Efectos de Audio y DSP de Estudio"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isAnyDspActive ? 'text-cyan-400' : 'text-white/70'}`} />
-            <span className="hidden sm:inline text-[11px]">Efectos & DSP</span>
-            <span className="sm:hidden text-[11px]">DSP</span>
-            {isAnyDspActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />}
-            <ChevronDown className="w-3 h-3 text-white/50" />
+            <Headphones className={`w-3.5 h-3.5 ${isAnyDspActive ? 'text-accent-cyan' : 'text-text-muted'}`} />
+            <span className="hidden sm:inline text-caption">Efectos & DSP</span>
+            <span className="sm:hidden text-caption">DSP</span>
+            {isAnyDspActive && <span className="w-1.5 h-1.5 rounded-pill bg-accent-cyan animate-pulse" />}
+            <ChevronDown className="w-3 h-3 text-text-muted" />
           </button>
 
           {activeMenu === 'dsp' && (
             <div
               role="region"
               aria-label="Panel de efectos y DSP de audio"
-              className="fixed inset-x-3 top-14 max-w-[390px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto scrollbar-thin p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-xs font-mono"
+              className="fixed inset-x-3 top-14 max-w-[390px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto scrollbar-thin p-3 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal z-50 flex flex-col gap-2.5 animate-aura-popover text-caption font-mono"
             >
               {/* Selector de 3 Pestañas Claras */}
-              <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[10px] font-mono">
+              <div className="flex items-center p-1 rounded-control bg-surface-base/60 border border-border-subtle text-caption font-mono">
                 <button
                   onClick={() => setDspTab('master')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-1.5 px-2 min-h-11 rounded-control transition-all flex items-center justify-center gap-1.5 btn-spring cursor-pointer ${
                     dspTab === 'master'
-                      ? 'bg-amber-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-status-warning text-black font-bold shadow-subtle'
+                      : 'text-text-tertiary hover:text-text-primary'
                   }`}
                   title="Mastering Limiter y Mezcla Armónica DJ"
+                  aria-label="Pestaña Master y DJ"
                 >
-                  <Gauge className="w-3 h-3" />
+                  <Gauge className="w-3.5 h-3.5" />
                   <span>Master & DJ</span>
                 </button>
                 <button
                   onClick={() => setDspTab('spatial')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-1.5 px-2 min-h-11 rounded-control transition-all flex items-center justify-center gap-1.5 btn-spring cursor-pointer ${
                     dspTab === 'spatial'
-                      ? 'bg-cyan-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-accent-cyan text-black font-bold shadow-subtle'
+                      : 'text-text-tertiary hover:text-text-primary'
                   }`}
                   title="Audio 8D Orbital, Reverb y Frecuencias Binaurales"
+                  aria-label="Pestaña Espacial 8D"
                 >
-                  <Headphones className="w-3 h-3" />
+                  <Headphones className="w-3.5 h-3.5" />
                   <span>Espacial (8D)</span>
                 </button>
                 <button
                   onClick={() => setDspTab('modulation')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 py-1.5 px-2 min-h-11 rounded-control transition-all flex items-center justify-center gap-1.5 btn-spring cursor-pointer ${
                     dspTab === 'modulation'
-                      ? 'bg-fuchsia-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-accent-violet text-white font-bold shadow-subtle'
+                      : 'text-text-tertiary hover:text-text-primary'
                   }`}
                   title="Velocidad, Pitch DJ, Grano CRT y Cintas de Luz"
+                  aria-label="Pestaña Modulación"
                 >
-                  <Tv className="w-3 h-3" />
+                  <Tv className="w-3.5 h-3.5" />
                   <span>Modulación</span>
                 </button>
               </div>
 
               {/* ── PESTAÑA 1: MASTER & DINÁMICA DE ESTUDIO ── */}
               {dspTab === 'master' && (
-                <div className="flex flex-col gap-2 animate-in fade-in duration-150">
+                <div className="flex flex-col gap-2.5 animate-in fade-in duration-fast">
                   {/* Mastering Limiter Studio */}
-                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-white/90">
-                        <Gauge className="w-4 h-4 text-amber-400" />
+                      <div className="flex items-center gap-2 text-text-primary">
+                        <Gauge className="w-4 h-4 text-status-warning" />
                         <div>
-                          <div className="font-semibold text-[11px]">Mastering Limiter Studio</div>
-                          <div className="text-[9px] text-white/40 font-sans">Compresor multibanda analógico</div>
+                          <div className="font-semibold text-caption">Mastering Limiter Studio</div>
+                          <div className="text-caption text-text-tertiary font-sans">Compresor multibanda analógico</div>
                         </div>
                       </div>
-                      <span className="text-[9px] font-mono text-amber-300 uppercase font-bold px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                      <span className="text-caption font-mono text-status-warning uppercase font-bold px-2 py-0.5 rounded-badge bg-status-warning/10 border border-status-warning/20">
                         {masteringPreset === 'off' ? 'Bypass' : masteringPreset.replace('_', ' ')}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <div className="grid grid-cols-2 gap-2 pt-1">
                       {[
                         { id: 'off', label: 'Bypass Directo', desc: 'Sonido sin procesar' },
                         { id: 'punchy_club', label: 'Club Punch', desc: 'Pegada profunda en kicks' },
@@ -548,35 +547,36 @@ export const HeaderBar: React.FC = () => {
                         <button
                           key={p.id}
                           onClick={() => setMasteringPreset(p.id as any)}
-                          className={`p-1.5 rounded-lg text-left transition-all border ${
+                          aria-label={`Preset de masterización ${p.label}`}
+                          className={`p-2.5 min-h-11 rounded-control text-left transition-all border cursor-pointer btn-spring ${
                             masteringPreset === p.id
-                              ? 'bg-amber-500/20 text-amber-200 border-amber-500/40 font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:text-white hover:bg-white/5'
+                              ? 'bg-status-warning/20 text-text-primary border-status-warning/40 font-bold shadow-subtle'
+                              : 'bg-white/[0.02] border-border-subtle text-text-secondary hover:text-text-primary hover:bg-white/5'
                           }`}
                         >
-                          <div className="text-[10px] font-semibold">{p.label}</div>
-                          <div className="text-[8px] text-white/40 font-sans leading-tight">{p.desc}</div>
+                          <div className="text-caption font-semibold">{p.label}</div>
+                          <div className="text-caption text-text-muted font-sans leading-tight">{p.desc}</div>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Vocal Remover & Karaoke / Instrumental DSP */}
-                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-white/90">
-                        <Mic className="w-4 h-4 text-rose-400" />
+                      <div className="flex items-center gap-2 text-text-primary">
+                        <Mic className="w-4 h-4 text-accent-rose" />
                         <div>
-                          <div className="font-semibold text-[11px]">Vocal Remover & Karaoke DSP</div>
-                          <div className="text-[9px] text-white/40 font-sans">Procesamiento Mid-Side estéreo</div>
+                          <div className="font-semibold text-caption">Vocal Remover & Karaoke DSP</div>
+                          <div className="text-caption text-text-tertiary font-sans">Procesamiento Mid-Side estéreo</div>
                         </div>
                       </div>
-                      <span className="text-[9px] font-mono text-rose-300 uppercase font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                      <span className="text-caption font-mono text-accent-rose uppercase font-bold px-2 py-0.5 rounded-badge bg-accent-rose/10 border border-accent-rose/20">
                         {vocalMode === 'off' ? 'Normal' : vocalMode === 'karaoke' ? 'Instrumental' : 'A Capela'}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1 pt-1">
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
                       {[
                         { id: 'off', label: 'Estéreo', desc: 'Mezcla original' },
                         { id: 'karaoke', label: 'Instrumental', desc: 'Atenúa voz central' },
@@ -585,52 +585,55 @@ export const HeaderBar: React.FC = () => {
                         <button
                           key={v.id}
                           onClick={() => setVocalMode(v.id as any)}
-                          className={`p-1.5 rounded-lg text-left transition-all border ${
+                          aria-label={`Modo vocal ${v.label}`}
+                          className={`p-2 min-h-11 rounded-control text-left transition-all border cursor-pointer btn-spring ${
                             vocalMode === v.id
-                              ? 'bg-rose-500/20 text-rose-200 border-rose-500/40 font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:text-white hover:bg-white/5'
+                              ? 'bg-accent-rose/20 text-text-primary border-accent-rose/40 font-bold shadow-subtle'
+                              : 'bg-white/[0.02] border-border-subtle text-text-secondary hover:text-text-primary hover:bg-white/5'
                           }`}
                         >
-                          <div className="text-[10px] font-semibold">{v.label}</div>
-                          <div className="text-[8px] text-white/40 font-sans leading-tight">{v.desc}</div>
+                          <div className="text-caption font-semibold">{v.label}</div>
+                          <div className="text-caption text-text-muted font-sans leading-tight">{v.desc}</div>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Harmonic DJ Sync & Smart Crossfade */}
-                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Disc3 className="w-4 h-4 text-purple-400" />
+                        <Disc3 className="w-4 h-4 text-accent-violet" />
                         <div>
-                          <div className="font-semibold text-[11px] text-white/90">Harmonic DJ Sync</div>
-                          <div className="text-[9px] text-white/40 font-sans">Crossfade sincronizado en Camelot</div>
+                          <div className="font-semibold text-caption text-text-primary">Harmonic DJ Sync</div>
+                          <div className="text-caption text-text-tertiary font-sans">Crossfade sincronizado en Camelot</div>
                         </div>
                       </div>
                       <button
                         onClick={toggleHarmonicSync}
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                        aria-label="Alternar Harmonic DJ Sync"
+                        className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                           isHarmonicSyncActive
-                            ? 'bg-purple-500 text-white shadow-sm'
-                            : 'bg-white/10 text-white/50 hover:text-white'
+                            ? 'bg-accent-violet text-white shadow-subtle'
+                            : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                         }`}
                       >
                         {isHarmonicSyncActive ? 'Activo' : 'Off'}
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-white/[0.04]">
+                    <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
                       <div>
-                        <div className="font-semibold text-[11px] text-white/90">Smart Crossfade (2s)</div>
-                        <div className="text-[9px] text-white/40 font-sans">Fundido suave entre pistas</div>
+                        <div className="font-semibold text-caption text-text-primary">Smart Crossfade (2s)</div>
+                        <div className="text-caption text-text-tertiary font-sans">Fundido suave entre pistas</div>
                       </div>
                       <button
                         onClick={toggleCrossfade}
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                        aria-label="Alternar Smart Crossfade"
+                        className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                           isCrossfadeActive
-                            ? 'bg-cyan-500 text-black shadow-sm'
-                            : 'bg-white/10 text-white/50 hover:text-white'
+                            ? 'bg-accent-cyan text-black shadow-subtle'
+                            : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                         }`}
                       >
                         {isCrossfadeActive ? 'Activo' : 'Off'}
@@ -642,41 +645,43 @@ export const HeaderBar: React.FC = () => {
 
               {/* ── PESTAÑA 2: ESPACIAL & ACÚSTICA (8D) ── */}
               {dspTab === 'spatial' && (
-                <div className="flex flex-col gap-2 animate-in fade-in duration-150">
+                <div className="flex flex-col gap-2.5 animate-in fade-in duration-fast">
                   {/* Audio 8D Orbital */}
-                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-white/90">
-                        <Radio className="w-4 h-4 text-cyan-400" />
+                      <div className="flex items-center gap-2 text-text-primary">
+                        <Radio className="w-4 h-4 text-accent-cyan" />
                         <div>
-                          <div className="font-semibold text-[11px]">Audio 8D Orbital 360°</div>
-                          <div className="text-[9px] text-white/40 font-sans">Efecto biaural envolvente dinámico</div>
+                          <div className="font-semibold text-caption">Audio 8D Orbital 360°</div>
+                          <div className="text-caption text-text-tertiary font-sans">Efecto biaural envolvente dinámico</div>
                         </div>
                       </div>
                       <button
                         onClick={toggle8DAudio}
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                        aria-label="Alternar Audio 8D"
+                        className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                           is8DAudioActive
-                            ? 'bg-cyan-500 text-black shadow-sm'
-                            : 'bg-white/10 text-white/50 hover:text-white'
+                            ? 'bg-accent-cyan text-black shadow-subtle'
+                            : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                         }`}
                       >
                         {is8DAudioActive ? 'Activo' : 'Off'}
                       </button>
                     </div>
                     {is8DAudioActive && (
-                      <div className="flex items-center gap-2 pt-1 border-t border-white/[0.04]">
-                        <span className="text-[9px] text-white/50">Giro:</span>
+                      <div className="flex items-center gap-2 pt-1 border-t border-border-subtle">
+                        <span className="text-caption text-text-tertiary">Giro:</span>
                         <input
                           type="range"
                           min={0.05}
                           max={0.5}
                           step={0.02}
                           value={eightDSpeed}
+                          aria-label="Velocidad de giro 8D"
                           onChange={(e) => set8DSpeed(parseFloat(e.target.value))}
-                          className="flex-1 h-1 bg-white/20 rounded appearance-none accent-cyan-400 cursor-pointer"
+                          className="flex-1 h-1 rounded-pill cursor-pointer"
                         />
-                        <span className="text-[9px] text-cyan-300 w-8 text-right font-mono">
+                        <span className="text-caption text-accent-cyan w-8 text-right font-mono font-tabular">
                           {(eightDSpeed * 10).toFixed(1)}x
                         </span>
                       </div>
@@ -684,20 +689,21 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Club Sumergido */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center justify-between p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center gap-2">
-                      <Waves className="w-4 h-4 text-sky-400 flex-shrink-0" />
+                      <Waves className="w-4 h-4 text-accent-cyan flex-shrink-0" />
                       <div>
-                        <div className="font-semibold text-[11px] text-white/90">Club Sumergido</div>
-                        <div className="text-[9px] text-white/40 font-sans">Low-Pass 450Hz (fiesta sala de al lado)</div>
+                        <div className="font-semibold text-caption text-text-primary">Club Sumergido</div>
+                        <div className="text-caption text-text-tertiary font-sans">Low-Pass 450Hz (sala contigua)</div>
                       </div>
                     </div>
                     <button
                       onClick={toggleUnderwater}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                      aria-label="Alternar Club Sumergido"
+                      className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                         isUnderwaterActive
-                          ? 'bg-sky-400 text-black shadow-sm'
-                          : 'bg-white/10 text-white/50 hover:text-white'
+                          ? 'bg-accent-cyan text-black shadow-subtle'
+                          : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                       }`}
                     >
                       {isUnderwaterActive ? 'Activo' : 'Off'}
@@ -705,15 +711,15 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Frecuencias Binaurales & 432Hz */}
-                  <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="flex items-center justify-between text-white/90">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
+                    <div className="flex items-center justify-between text-text-primary">
                       <div>
-                        <div className="font-semibold text-[11px]">Binaurales & 432Hz</div>
-                        <div className="text-[9px] text-white/40 font-sans">Afinación armónica y neuro-ondas</div>
+                        <div className="font-semibold text-caption">Binaurales & 432Hz</div>
+                        <div className="text-caption text-text-tertiary font-sans">Afinación armónica y neuro-ondas</div>
                       </div>
-                      <span className="text-[9px] text-emerald-400 uppercase font-bold">{binauralMode}</span>
+                      <span className="text-caption text-status-success uppercase font-bold">{binauralMode}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-1 pt-1">
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
                       {[
                         { id: 'off', label: 'Desactivado' },
                         { id: 'alpha', label: 'Alpha 10Hz (Foco)' },
@@ -723,10 +729,11 @@ export const HeaderBar: React.FC = () => {
                         <button
                           key={b.id}
                           onClick={() => setBinauralMode(b.id as any)}
-                          className={`py-1 px-1.5 rounded-lg text-[9px] font-mono text-center transition-all ${
+                          aria-label={`Modo binaural ${b.label}`}
+                          className={`py-1.5 px-2 min-h-11 rounded-control text-caption font-mono text-center transition-all btn-spring cursor-pointer ${
                             binauralMode === b.id
-                              ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 font-bold'
-                              : 'text-white/50 hover:text-white hover:bg-white/5'
+                              ? 'bg-status-success/25 text-text-primary border border-status-success/40 font-bold'
+                              : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
                           }`}
                         >
                           {b.label}
@@ -736,23 +743,24 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Reverb Acústico */}
-                  <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="flex items-center justify-between text-white/90">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
+                    <div className="flex items-center justify-between text-text-primary">
                       <div>
-                        <div className="font-semibold text-[11px]">Reverb Acústico</div>
-                        <div className="text-[9px] text-white/40 font-sans">Simulación de espacio acústico 3D</div>
+                        <div className="font-semibold text-caption">Reverb Acústico</div>
+                        <div className="text-caption text-text-tertiary font-sans">Simulación de espacio 3D</div>
                       </div>
-                      <span className="text-[9px] text-cyan-400 uppercase font-bold">{reverbPreset}</span>
+                      <span className="text-caption text-accent-cyan uppercase font-bold">{reverbPreset}</span>
                     </div>
-                    <div className="grid grid-cols-5 gap-0.5 pt-1">
+                    <div className="grid grid-cols-5 gap-1 pt-1">
                       {(['off', 'studio', 'club', 'concert', 'cathedral'] as const).map((preset) => (
                         <button
                           key={preset}
                           onClick={() => setReverbPreset(preset)}
-                          className={`py-1 px-1 rounded-md text-[9px] font-mono capitalize transition-all text-center ${
+                          aria-label={`Preset de reverb ${preset}`}
+                          className={`py-1.5 px-1 min-h-11 rounded-control text-caption font-mono capitalize transition-all text-center btn-spring cursor-pointer ${
                             reverbPreset === preset
-                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 font-bold'
-                              : 'text-white/50 hover:text-white hover:bg-white/5'
+                              ? 'bg-accent-cyan/25 text-accent-cyan border border-accent-cyan/40 font-bold'
+                              : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
                           }`}
                         >
                           {preset === 'off' ? 'Seco' : preset.slice(0, 4)}
@@ -765,17 +773,17 @@ export const HeaderBar: React.FC = () => {
 
               {/* ── PESTAÑA 3: TIEMPO & MODULACIÓN ── */}
               {dspTab === 'modulation' && (
-                <div className="flex flex-col gap-2 animate-in fade-in duration-150">
+                <div className="flex flex-col gap-2.5 animate-in fade-in duration-fast">
                   {/* Pitch & Velocidad en Vivo */}
-                  <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="flex items-center justify-between text-white/90">
+                  <div className="flex flex-col gap-2 p-3 rounded-card bg-surface-base/60 border border-border-subtle">
+                    <div className="flex items-center justify-between text-text-primary">
                       <div>
-                        <div className="font-semibold text-[11px]">Pitch & Velocidad DJ</div>
-                        <div className="text-[9px] text-white/40 font-sans">Modificación de tiempo analógica</div>
+                        <div className="font-semibold text-caption">Pitch & Velocidad DJ</div>
+                        <div className="text-caption text-text-tertiary font-sans">Modificación de tiempo analógica</div>
                       </div>
-                      <span className="text-[10px] text-cyan-400 uppercase font-bold">{dspSpeedMode}</span>
+                      <span className="text-caption text-accent-cyan uppercase font-bold">{dspSpeedMode}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 pt-1">
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
                       {[
                         { id: 'normal', label: '1.0x Normal' },
                         { id: 'slowed', label: '0.85x Slowed' },
@@ -784,10 +792,11 @@ export const HeaderBar: React.FC = () => {
                         <button
                           key={m.id}
                           onClick={() => setDspSpeedMode(m.id as any)}
-                          className={`py-1 px-1 rounded-lg text-[9px] font-mono text-center transition-all ${
+                          aria-label={`Velocidad ${m.label}`}
+                          className={`py-1.5 px-2 min-h-11 rounded-control text-caption font-mono text-center transition-all btn-spring cursor-pointer ${
                             dspSpeedMode === m.id
-                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 font-bold'
-                              : 'text-white/50 hover:text-white hover:bg-white/5'
+                              ? 'bg-accent-cyan/25 text-accent-cyan border border-accent-cyan/40 font-bold'
+                              : 'text-text-tertiary hover:text-text-primary hover:bg-white/5'
                           }`}
                         >
                           {m.label}
@@ -797,20 +806,21 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Filtro Retro CRT */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center justify-between p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5 text-white/90">
-                        <Tv className="w-3.5 h-3.5 text-amber-400" />
-                        <span className="font-semibold text-[11px]">Retro CRT & Cinta 35mm</span>
+                      <div className="flex items-center gap-1.5 text-text-primary">
+                        <Tv className="w-3.5 h-3.5 text-status-warning" />
+                        <span className="font-semibold text-caption">Retro CRT & Cinta 35mm</span>
                       </div>
-                      <span className="text-[9px] text-white/40 font-sans">Scanlines, viñeta y grano analógico</span>
+                      <span className="text-caption text-text-tertiary font-sans">Scanlines y grano analógico</span>
                     </div>
                     <button
                       onClick={toggleRetroCrt}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                      aria-label="Alternar Retro CRT"
+                      className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                         isRetroCrtActive
-                          ? 'bg-amber-400 text-black shadow-sm'
-                          : 'bg-white/10 text-white/50 hover:text-white'
+                          ? 'bg-status-warning text-black shadow-subtle'
+                          : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                       }`}
                     >
                       {isRetroCrtActive ? 'Activo' : 'Off'}
@@ -818,17 +828,18 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Cintas de Luz 3D */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center justify-between p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex flex-col">
-                      <span className="font-semibold text-white/90 text-[11px]">Cintas de Luz 3D</span>
-                      <span className="text-[9px] text-white/40 font-sans">Estelas de neón reactivas en el espacio</span>
+                      <span className="font-semibold text-text-primary text-caption">Cintas de Luz 3D</span>
+                      <span className="text-caption text-text-tertiary font-sans">Estelas de neón reactivas en el espacio</span>
                     </div>
                     <button
                       onClick={toggleAudioRibbons}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                      aria-label="Alternar Cintas de Luz"
+                      className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                         showAudioRibbons
-                          ? 'bg-fuchsia-400 text-black shadow-sm'
-                          : 'bg-white/10 text-white/50 hover:text-white'
+                          ? 'bg-accent-violet text-white shadow-subtle'
+                          : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                       }`}
                     >
                       {showAudioRibbons ? 'Visible' : 'Oculto'}
@@ -836,17 +847,18 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* RGB Glitch */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex items-center justify-between p-3 rounded-card bg-surface-base/60 border border-border-subtle">
                     <div className="flex flex-col">
-                      <span className="font-semibold text-white/90 text-[11px]">RGB Glitch en Kicks</span>
-                      <span className="text-[9px] text-white/40 font-sans">Desplazamiento cromático reactivo a bajos</span>
+                      <span className="font-semibold text-text-primary text-caption">RGB Glitch en Kicks</span>
+                      <span className="text-caption text-text-tertiary font-sans">Desplazamiento cromático reactivo</span>
                     </div>
                     <button
                       onClick={toggleRgbGlitch}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                      aria-label="Alternar RGB Glitch"
+                      className={`px-3 py-1.5 min-h-11 rounded-control text-caption font-bold uppercase transition-all btn-spring cursor-pointer ${
                         isRgbGlitchActive
-                          ? 'bg-fuchsia-500 text-black shadow-sm'
-                          : 'bg-white/10 text-white/50 hover:text-white'
+                          ? 'bg-accent-rose text-white shadow-subtle'
+                          : 'bg-white/10 text-text-tertiary hover:text-text-primary'
                       }`}
                     >
                       {isRgbGlitchActive ? 'Activo' : 'Off'}
@@ -862,125 +874,125 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setActiveMenu(activeMenu === 'intel_hub' ? null : 'intel_hub')}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-xl border shadow-sm text-xs font-mono transition-all hover:bg-white/[0.05] cursor-pointer ${
+            aria-expanded={activeMenu === 'intel_hub'}
+            aria-label="Hub de Inteligencia Musical"
+            className={`flex items-center gap-1.5 px-3 min-h-11 rounded-control material-regular border shadow-subtle text-caption font-mono transition-all hover:bg-white/10 cursor-pointer ${
               activeMenu === 'intel_hub' || soundscapeActiveCount > 0
-                ? 'border-purple-500/50 bg-purple-500/15 text-white'
-                : 'border-white/[0.08] hover:border-purple-500/40 text-white/90'
+                ? 'border-accent-purple/50 bg-accent-purple/15 text-white'
+                : 'border-border-subtle hover:border-accent-purple/40 text-text-primary'
             }`}
             title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
           >
             {/* Camelot Badge */}
-            <span className="text-[9px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[4px] border border-purple-500/30">
+            <span className="text-caption font-bold text-accent-purple bg-accent-purple/20 px-1.5 py-0.5 rounded-badge border border-accent-purple/30">
               {harmonicKey.camelot}
             </span>
-            <span className="hidden md:inline text-[11px] font-medium text-white/80">
+            <span className="hidden md:inline text-caption font-medium text-text-secondary">
               {harmonicKey.shortKey !== '--' ? harmonicKey.shortKey : 'Tonalidad'}
             </span>
 
-            <span className="text-white/20 hidden sm:inline">|</span>
+            <span className="text-border-subtle hidden sm:inline">|</span>
 
             {/* Soundscapes indicator */}
-            <span className="text-[11px] flex items-center gap-1 text-cyan-300">
-              <span>🌧️</span>
+            <span className="text-caption flex items-center gap-1 text-accent-teal">
+              <CloudRain className="w-3.5 h-3.5 text-accent-teal" />
               {soundscapeActiveCount > 0 && (
-                <span className="text-[9px] px-1 bg-cyan-400 text-black font-bold rounded-full">
+                <span className="text-caption px-1.5 py-0.5 bg-accent-teal text-black font-bold rounded-pill">
                   {soundscapeActiveCount}
                 </span>
               )}
             </span>
 
-            <span className="text-white/20 hidden lg:inline">|</span>
+            <span className="text-border-subtle hidden lg:inline">|</span>
 
             {/* Mood indicator */}
-            <span className="hidden lg:flex items-center gap-1 text-[11px] text-amber-300">
-              <span>{moodLabels[mood]?.icon}</span>
-              <span className="text-white/80">{moodLabels[mood]?.label}</span>
+            <span className="hidden lg:flex items-center gap-1 text-caption text-status-warning">
+              <Sparkles className="w-3.5 h-3.5 text-status-warning" />
+              <span className="text-text-secondary">{moodLabels[mood]?.label}</span>
             </span>
 
-            <ChevronDown className="w-2.5 h-2.5 text-white/40 ml-0.5" />
+            <ChevronDown className="w-3.5 h-3.5 text-text-tertiary ml-0.5" />
           </button>
 
           {/* Popover Unificado del Hub de Inteligencia */}
           {activeMenu === 'intel_hub' && (
-            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.08] shadow-[0_24px_60px_rgba(0,0,0,0.75)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-white font-mono">
+            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-text-primary font-mono">
               {/* Selector de Pestañas del Hub */}
-              <div className="flex items-center p-0.5 rounded-[12px] bg-white/[0.04] border border-white/[0.06] text-[10px] font-mono">
+              <div className="flex items-center p-1 rounded-card bg-surface-base/80 border border-border-subtle text-caption font-mono">
                 <button
                   onClick={() => setIntelTab('harmonic')}
-                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 min-h-11 py-1 px-2 rounded-control transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'harmonic'
-                      ? 'bg-purple-500 text-white font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-accent-purple text-white font-bold shadow-subtle'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  <Radio className="w-3 h-3" />
+                  <Radio className="w-4 h-4" />
                   <span>Tonalidad & DJ</span>
                 </button>
                 <button
                   onClick={() => setIntelTab('soundscapes')}
-                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 min-h-11 py-1 px-2 rounded-control transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'soundscapes'
-                      ? 'bg-cyan-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-accent-teal text-black font-bold shadow-subtle'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  <CloudRain className="w-3 h-3" />
+                  <CloudRain className="w-4 h-4" />
                   <span>Ambientes Lo-Fi</span>
                 </button>
                 <button
                   onClick={() => setIntelTab('auramind')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`flex-1 min-h-11 py-1 px-2 rounded-control transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'auramind'
-                      ? 'bg-amber-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-status-warning text-black font-bold shadow-subtle'
+                      : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-4 h-4" />
                   <span>AuraMind AI</span>
                 </button>
               </div>
 
               {/* ── SUB-TAB 1: TONALIDAD & CAMELOT DJ ── */}
               {intelTab === 'harmonic' && (
-                <div className="flex flex-col gap-2.5 animate-in fade-in duration-150">
-                  {/* Banner Tonalidad Detectada */}
-                  {/* Banner Tonalidad Detectada */}
+                <div className="flex flex-col gap-2.5 animate-in fade-in duration-fast">
                   {(() => {
                     const compatibleCamelots = getCompatibleCamelots(harmonicKey.camelot);
                     return (
                       <>
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/25">
+                        <div className="flex items-center justify-between p-3 rounded-card bg-accent-purple/10 border border-accent-purple/25">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-lg font-bold text-purple-300">
+                            <div className="w-10 h-10 rounded-control bg-accent-purple/20 border border-accent-purple/40 flex items-center justify-center text-h3 font-bold text-accent-purple">
                               {harmonicKey.camelot}
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-white">
+                              <div className="text-body font-bold text-text-primary">
                                 {harmonicKey.rootNote} {harmonicKey.mode === 'minor' ? 'Menor (Minor)' : 'Mayor (Major)'}
                               </div>
-                              <div className="text-[9px] text-purple-300/80 font-sans">
+                              <div className="text-caption text-accent-purple font-sans">
                                 {harmonicKey.key || 'Rueda de Quintas Armónica DJ'}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-bold">
+                            <span className="text-caption px-2 py-1 rounded-pill bg-white/10 text-text-secondary font-bold">
                               {Math.round(harmonicKey.confidence * 100)}% certeza
                             </span>
                           </div>
                         </div>
 
                         {/* Mezclas Armónicas Compatibles */}
-                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                          <div className="text-[10px] text-white/70 font-semibold mb-1 flex items-center gap-1">
-                            <Music2 className="w-3 h-3 text-purple-400" />
+                        <div className="p-2.5 rounded-card bg-surface-base/60 border border-border-subtle">
+                          <div className="text-caption text-text-secondary font-semibold mb-1 flex items-center gap-1.5">
+                            <Music2 className="w-4 h-4 text-accent-purple" />
                             <span>Transiciones Armónicas Compatibles:</span>
                           </div>
-                          <div className="flex flex-wrap gap-1 pt-0.5">
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
                             {compatibleCamelots.map((cam) => (
                               <span
                                 key={cam}
-                                className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[10px] font-bold"
+                                className="px-2.5 py-1 rounded-badge bg-accent-purple/20 border border-accent-purple/40 text-accent-purple text-caption font-bold"
                               >
                                 {cam}
                               </span>
@@ -989,11 +1001,11 @@ export const HeaderBar: React.FC = () => {
                         </div>
 
                         {/* Rueda de Quintas Interactiva */}
-                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                          <div className="text-[10px] text-white/50 mb-1.5 uppercase tracking-wider">
+                        <div className="p-2.5 rounded-card bg-surface-base/60 border border-border-subtle">
+                          <div className="text-caption text-text-tertiary mb-1.5 uppercase tracking-wider">
                             Círculo de Quintas
                           </div>
-                          <div className="grid grid-cols-4 gap-1 text-[10px]">
+                          <div className="grid grid-cols-4 gap-1.5 text-caption">
                             {CIRCLE_OF_FIFTHS.map((sector) => {
                               const isCurrent =
                                 harmonicKey.camelot === sector.camelotMin || harmonicKey.camelot === sector.camelotMaj;
@@ -1004,16 +1016,16 @@ export const HeaderBar: React.FC = () => {
                               return (
                                 <div
                                   key={sector.major}
-                                  className={`p-1.5 rounded-lg border text-center transition-all ${
+                                  className={`p-2 rounded-control border text-center transition-all ${
                                     isCurrent
-                                      ? 'bg-purple-500 text-white border-purple-400 font-bold shadow-sm'
+                                      ? 'bg-accent-purple text-white border-accent-purple font-bold shadow-subtle'
                                       : isCompatible
-                                      ? 'bg-purple-500/20 text-purple-200 border-purple-500/40'
-                                      : 'bg-white/[0.02] text-white/40 border-white/[0.04]'
+                                      ? 'bg-accent-purple/20 text-accent-purple border-accent-purple/40'
+                                      : 'bg-surface-base/40 text-text-tertiary border-border-subtle'
                                   }`}
                                 >
-                                  <div className="font-bold text-[10px]">{sector.major} / {sector.minor}</div>
-                                  <div className="text-[8px] opacity-70">{sector.camelotMaj} • {sector.camelotMin}</div>
+                                  <div className="font-bold text-caption">{sector.major} / {sector.minor}</div>
+                                  <div className="text-caption opacity-70 font-tabular">{sector.camelotMaj} • {sector.camelotMin}</div>
                                 </div>
                               );
                             })}
@@ -1027,25 +1039,25 @@ export const HeaderBar: React.FC = () => {
 
               {/* ── SUB-TAB 2: AMBIENTES RELAJANTES LO-FI ── */}
               {intelTab === 'soundscapes' && (
-                <div className="flex flex-col gap-2 animate-in fade-in duration-150">
+                <div className="flex flex-col gap-2 animate-in fade-in duration-fast">
                   <div className="flex items-center justify-between pb-1">
-                    <span className="text-[10px] text-white/50 uppercase tracking-wider">
+                    <span className="text-caption text-text-tertiary uppercase tracking-wider">
                       Mezclador de Fondos Relajantes
                     </span>
                     <button
                       onClick={() => soundscapeEngine.toggleMasterMute()}
-                      className={`p-1 px-2 rounded-lg text-[9px] border transition-all flex items-center gap-1 ${
+                      className={`min-h-11 px-3 rounded-control text-caption border transition-all flex items-center gap-1.5 cursor-pointer ${
                         soundscapeConfig.masterMuted
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                          : 'bg-white/[0.05] text-white/60 border-white/[0.08] hover:text-white'
+                          ? 'bg-status-error/20 text-status-error border-status-error/40'
+                          : 'bg-surface-base/60 text-text-secondary border-border-subtle hover:text-text-primary'
                       }`}
                     >
-                      {soundscapeConfig.masterMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                      {soundscapeConfig.masterMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       <span>{soundscapeConfig.masterMuted ? 'Muteado' : 'Mute Todo'}</span>
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-2">
                     {SOUNDSCAPE_CHANNELS.map((ch) => {
                       const state = soundscapeConfig[ch.type];
                       const Icon = ch.icon;
@@ -1053,27 +1065,29 @@ export const HeaderBar: React.FC = () => {
                       return (
                         <div
                           key={ch.type}
-                          className={`p-2 rounded-xl border transition-all ${
+                          className={`p-2.5 rounded-card border transition-all ${
                             state.enabled
-                              ? 'bg-white/[0.05] border-cyan-500/30 shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.05] opacity-70'
+                              ? 'bg-surface-base/80 border-accent-teal/30 shadow-subtle'
+                              : 'bg-surface-base/40 border-border-subtle opacity-70'
                           }`}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base">{ch.emoji}</span>
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-control bg-surface-elevated/60 border border-border-subtle flex items-center justify-center text-accent-teal">
+                                <Icon className="w-4 h-4" />
+                              </div>
                               <div>
-                                <div className="text-xs font-semibold text-white/90">{ch.title}</div>
-                                <div className="text-[8px] text-white/40 font-sans">{ch.subtitle}</div>
+                                <div className="text-body font-semibold text-text-primary">{ch.title}</div>
+                                <div className="text-caption text-text-tertiary font-sans">{ch.subtitle}</div>
                               </div>
                             </div>
 
                             <button
                               onClick={() => soundscapeEngine.toggleChannel(ch.type)}
-                              className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase transition-all ${
+                              className={`min-h-11 px-3 rounded-control text-caption font-bold uppercase transition-all cursor-pointer ${
                                 state.enabled
-                                  ? 'bg-cyan-500 text-black shadow-sm'
-                                  : 'bg-white/10 text-white/50 hover:text-white'
+                                  ? 'bg-accent-teal text-black shadow-subtle'
+                                  : 'bg-white/10 text-text-secondary hover:text-text-primary'
                               }`}
                             >
                               {state.enabled ? 'ON' : 'OFF'}
@@ -1081,18 +1095,19 @@ export const HeaderBar: React.FC = () => {
                           </div>
 
                           {state.enabled && (
-                            <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-white/[0.04]">
-                              <Volume2 className="w-3 h-3 text-cyan-400/80" />
+                            <div className="flex items-center gap-2 pt-2 mt-2 border-t border-border-subtle">
+                              <Volume2 className="w-4 h-4 text-accent-teal" />
                               <input
                                 type="range"
                                 min={0}
                                 max={1}
                                 step={0.02}
                                 value={state.volume}
+                                aria-label={`Volumen de ${ch.title}`}
                                 onChange={(e) => soundscapeEngine.setVolume(ch.type, parseFloat(e.target.value))}
-                                className="flex-1 h-1 bg-white/20 rounded appearance-none accent-cyan-400 cursor-pointer"
+                                className="flex-1 min-h-11 bg-transparent accent-accent-teal cursor-pointer"
                               />
-                              <span className="text-[9px] text-cyan-300 w-7 text-right font-mono">
+                              <span className="text-caption text-accent-teal w-10 text-right font-mono font-tabular">
                                 {Math.round(state.volume * 100)}%
                               </span>
                             </div>
@@ -1106,11 +1121,11 @@ export const HeaderBar: React.FC = () => {
 
               {/* ── SUB-TAB 3: AURAMIND & TELEMETRÍA AI ── */}
               {intelTab === 'auramind' && (
-                <div className="flex flex-col gap-2.5 animate-in fade-in duration-150">
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
+                <div className="flex flex-col gap-2.5 animate-in fade-in duration-fast">
+                  <div className="p-3 rounded-card bg-status-warning/10 border border-status-warning/25 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="w-3 h-3 rounded-full transition-transform"
+                        className="w-3 h-3 rounded-pill transition-transform"
                         style={{
                           backgroundColor: aiColor,
                           boxShadow: `0 0 12px ${aiColor}`,
@@ -1118,17 +1133,17 @@ export const HeaderBar: React.FC = () => {
                         }}
                       />
                       <div>
-                        <div className="text-xs font-bold text-white">
-                          {moodLabels[mood]?.icon} Estado: {moodLabels[mood]?.label}
+                        <div className="text-body font-bold text-text-primary flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-status-warning" /> Estado: {moodLabels[mood]?.label}
                         </div>
-                        <div className="text-[9px] text-amber-300/80 font-sans">
+                        <div className="text-caption text-status-warning font-sans">
                           Tono dominante: {dominantPitch} • Pulso: {Math.round(beatPulse * 100)}%
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-white/70 space-y-1.5 font-sans leading-relaxed">
+                  <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle text-caption text-text-secondary space-y-1.5 font-sans leading-relaxed">
                     <p>
                       El motor de Inteligencia Artificial analiza el espectro FFT en tiempo real para clasificar la valencia emocional, la tonalidad y sincronizar el campo de energía visual.
                     </p>
@@ -1139,11 +1154,11 @@ export const HeaderBar: React.FC = () => {
                       setIsAuraMindOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+                    className="w-full min-h-11 py-2 px-3 rounded-control bg-accent-teal/20 hover:bg-accent-teal/30 text-accent-teal border border-accent-teal/40 text-caption font-mono font-bold flex items-center justify-center gap-2 transition-all shadow-subtle cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles className="w-4 h-4" />
                     <span>Abrir Radar 3D AuraMind Completo</span>
-                    <ExternalLink className="w-3 h-3 opacity-70" />
+                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
                   </button>
                 </div>
               )}
@@ -1155,38 +1170,38 @@ export const HeaderBar: React.FC = () => {
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_12px_32px_-4px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <BpmMeter />
-          <div className="w-px h-3.5 bg-white/[0.08] mx-0.5 hidden sm:block" />
+          <div className="w-px h-4 bg-border-subtle mx-0.5 hidden sm:block" />
           <VideoRecorderButton />
 
           {/* 4K Snapshot Wallpaper */}
           <button
             onClick={handleCaptureSnapshot}
             disabled={isCapturingSnapshot}
-            className={`p-1.5 rounded-lg transition-all flex items-center gap-1 ${
+            className={`min-h-11 min-w-11 p-2 rounded-control transition-all flex items-center justify-center gap-1 cursor-pointer ${
               snapshotSuccess
-                ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 font-bold'
+                ? 'text-status-success bg-status-success/15 border border-status-success/30 font-bold'
                 : isCapturingSnapshot
-                ? 'text-cyan-400 animate-pulse bg-cyan-500/15'
-                : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
+                ? 'text-accent-teal animate-pulse bg-accent-teal/15'
+                : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
             }`}
             title="Captura Fondo 4K (Sin interfaz para wallpaper de escritorio)"
             aria-label="Captura Fondo 4K"
           >
-            {snapshotSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Camera className="w-3.5 h-3.5" />}
-            <span className="text-[9px] font-mono hidden xl:inline">4K</span>
+            {snapshotSuccess ? <Check className="w-4 h-4 text-status-success" /> : <Camera className="w-4 h-4" />}
+            <span className="text-caption font-mono hidden xl:inline font-tabular">4K</span>
           </button>
 
           {/* Auralis Story Card 9:16 Social Export */}
           <button
             onClick={() => setStoryCardOpen(true)}
-            className="p-1.5 rounded-lg transition-all flex items-center gap-1 text-purple-300 hover:text-purple-200 hover:bg-purple-500/15"
+            className="min-h-11 min-w-11 p-2 rounded-control transition-all flex items-center justify-center gap-1 text-accent-purple hover:text-white hover:bg-accent-purple/20 cursor-pointer"
             title="Crear Tarjeta Estética para Historias (9:16 para Instagram Stories y TikTok)"
             aria-label="Tarjeta 9:16 para Historias"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-[9px] font-mono hidden xl:inline">9:16</span>
+            <Sparkles className="w-4 h-4 text-accent-purple" />
+            <span className="text-caption font-mono hidden xl:inline font-tabular">9:16</span>
           </button>
         </div>
 
@@ -1194,46 +1209,48 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => setActiveMenu(activeMenu === 'studio' ? null : 'studio')}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border shadow-[0_12px_32px_rgba(0,0,0,0.5)] ${
+            aria-expanded={activeMenu === 'studio'}
+            aria-label="Menú de Estudio y Entradas"
+            className={`px-3 min-h-11 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
               activeMenu === 'studio' || isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive
-                ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(0,229,255,0.2)]'
-                : 'bg-[#070913]/70 backdrop-blur-3xl text-white/70 border-white/[0.06] hover:text-white hover:bg-white/[0.04]'
+                ? 'bg-accent-teal/15 text-accent-teal border-accent-teal/40'
+                : 'material-thick text-text-secondary border-border-subtle hover:text-text-primary hover:bg-white/10'
             }`}
             title="Estudio: Entradas de audio, Radios 24/7, Experiencias 3D y Picture-in-Picture"
           >
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden md:inline text-[11px]">Estudio</span>
+            <Layers className="w-4 h-4 text-accent-teal" />
+            <span className="hidden md:inline text-caption">Estudio</span>
             {(isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive) && (
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-pill bg-accent-teal animate-pulse" />
             )}
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
           </button>
 
           {activeMenu === 'studio' && (
-            <div className="absolute right-0 top-full mt-2 w-64 p-2.5 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono">
+            <div className="absolute right-0 top-full mt-2 w-72 p-3 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-caption font-mono">
               {/* Sección Fuentes */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Fuentes de Audio
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1 mt-1.5">
                   {/* Micrófono */}
                   <button
                     onClick={() => {
                       toggleMicrophone();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isMicActive
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-status-success/20 text-status-success border border-status-success/30 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <Mic className="w-4 h-4" />
                       <span>Micrófono en vivo</span>
                     </div>
-                    {isMicActive && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+                    {isMicActive && <span className="w-2 h-2 rounded-pill bg-status-success" />}
                   </button>
 
                   {/* Audio de Pantalla / Tab */}
@@ -1242,17 +1259,17 @@ export const HeaderBar: React.FC = () => {
                       startSystemCapture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isCapturing
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-accent-teal/20 text-accent-teal border border-accent-teal/30 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <Cast className="w-4 h-4" />
                       <span>Audio de Pantalla/Tab</span>
                     </div>
-                    {isCapturing && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
+                    {isCapturing && <span className="w-2 h-2 rounded-pill bg-accent-teal" />}
                   </button>
 
                   {/* Spotify */}
@@ -1262,19 +1279,17 @@ export const HeaderBar: React.FC = () => {
                       else connectSpotify();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isSpotifyConnected
-                        ? 'bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-status-success/20 text-status-success border border-status-success/30 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
-                      </svg>
+                      <Radio className="w-4 h-4 text-status-success" />
                       <span>{isSpotifyConnected ? 'Spotify Conectado' : 'Conectar Spotify'}</span>
                     </div>
-                    {isSpotifyConnected && <span className="w-2 h-2 rounded-full bg-[#1DB954]" />}
+                    {isSpotifyConnected && <span className="w-2 h-2 rounded-pill bg-status-success" />}
                   </button>
 
                   {/* Radio Web 24/7 */}
@@ -1284,25 +1299,25 @@ export const HeaderBar: React.FC = () => {
                       if (synthwaveStation) playRadioStation(synthwaveStation);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center justify-between p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-fuchsia-400" />
+                      <Radio className="w-4 h-4 text-accent-purple" />
                       <span>Radio Synthwave 24/7</span>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.2 bg-fuchsia-500/20 text-fuchsia-300 rounded font-bold uppercase">LIVE</span>
+                    <span className="text-caption px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-badge font-bold uppercase">LIVE</span>
                   </button>
                 </div>
               </div>
 
-              <div className="h-px bg-white/[0.06] my-0.5" />
+              <div className="h-px bg-border-subtle my-0.5" />
 
               {/* Sección Experiencias Inmersivas */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Experiencias Inmersivas
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1 mt-1.5">
                   {/* Air Synth */}
                   <button
                     onClick={() => {
@@ -1314,17 +1329,17 @@ export const HeaderBar: React.FC = () => {
                       }
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isAirInstrumentsActive
-                        ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-accent-teal/20 text-accent-teal border border-accent-teal/30 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Piano className="w-4 h-4 text-[#00e5ff]" />
+                      <Piano className="w-4 h-4 text-accent-teal" />
                       <span>3D Air Synth (Manos)</span>
                     </div>
-                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-full bg-[#00e5ff]" />}
+                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-pill bg-accent-teal" />}
                   </button>
 
                   {/* VR Pose & Dance */}
@@ -1333,17 +1348,17 @@ export const HeaderBar: React.FC = () => {
                       toggleVrMode();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       vrMode
-                        ? 'bg-white/15 text-white border border-white/25 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-white/20 text-white border border-white/30 font-medium'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <Camera className="w-4 h-4" />
                       <span>VR Dance & Tracker</span>
                     </div>
-                    {vrMode && <span className="text-[9px] px-1 bg-white/20 rounded font-bold uppercase">{vrTrackingMode}</span>}
+                    {vrMode && <span className="text-caption px-1.5 py-0.5 bg-white/20 rounded-badge font-bold uppercase">{vrTrackingMode}</span>}
                   </button>
 
                   {/* Picture-in-Picture (PiP) */}
@@ -1352,15 +1367,15 @@ export const HeaderBar: React.FC = () => {
                       await pictureInPictureService.togglePictureInPicture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
-                      isPipActive ? 'bg-cyan-500/15 text-cyan-300 font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                      isPipActive ? 'bg-accent-teal/15 text-accent-teal font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Tv className="w-4 h-4 text-cyan-400" />
+                      <Tv className="w-4 h-4 text-accent-teal" />
                       <span>Ventana Flotante (PiP)</span>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 font-bold">
+                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 font-bold">
                       {isPipActive ? 'ON' : 'POP'}
                     </span>
                   </button>
@@ -1377,50 +1392,50 @@ export const HeaderBar: React.FC = () => {
             aria-haspopup="true"
             aria-expanded={activeMenu === 'settings'}
             aria-label="Ajustes de Sistema y Herramientas"
-            className={`px-2.5 py-1.5 min-h-[36px] rounded-[12px] text-xs font-mono transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
+            className={`px-3 min-h-11 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
               activeMenu === 'settings' || isEqualizerOpen || isLyricsOpen || isSidebarOpen || sleepTimerMinutes > 0
-                ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
-                : 'bg-[#0c101a]/90 backdrop-blur-3xl text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
+                ? 'bg-accent-purple/15 text-accent-purple border-accent-purple/40'
+                : 'material-thick text-text-secondary border-border-subtle hover:text-text-primary hover:bg-white/10'
             }`}
             title="Ajustes de Sistema: Biblioteca, Letras, Ecualizador, Temporizador, Rendimiento y Atajos"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden md:inline text-[11px]">Ajustes</span>
+            <SlidersHorizontal className="w-4 h-4 text-accent-purple" />
+            <span className="hidden md:inline text-caption">Ajustes</span>
             {sleepTimerMinutes > 0 && (
-              <span className="text-[9px] font-mono font-bold text-amber-300">
+              <span className="text-caption font-mono font-bold text-status-warning font-tabular">
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-3 h-3 text-white/50" />
+            <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
           </button>
 
           {activeMenu === 'settings' && (
             <div
               role="menu"
               aria-label="Ajustes de Sistema"
-              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 p-2.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.1] shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono"
+              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 p-3 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-caption font-mono"
             >
               {/* Sección Vistas & Utilidades */}
               <div>
-                <span className="text-[10px] font-mono text-white/65 px-2 uppercase tracking-wider">
+                <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Vistas & Utilidades
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1 mt-1.5">
                   {/* Biblioteca */}
                   <button
                     onClick={() => {
                       setSidebarOpen(!isSidebarOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isSidebarOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                      isSidebarOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <ListMusic className="w-4 h-4 text-purple-400" />
+                      <ListMusic className="w-4 h-4 text-accent-purple" />
                       <span>Biblioteca de Pistas</span>
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">B</span>
+                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">B</span>
                   </button>
 
                   {/* Letras */}
@@ -1429,15 +1444,15 @@ export const HeaderBar: React.FC = () => {
                       setLyricsOpen(!isLyricsOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isLyricsOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                      isLyricsOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <AlignLeft className="w-4 h-4 text-emerald-400" />
+                      <AlignLeft className="w-4 h-4 text-status-success" />
                       <span>Letras Sincronizadas</span>
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">L</span>
+                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">L</span>
                   </button>
 
                   {/* Ecualizador Pro-Q */}
@@ -1446,15 +1461,15 @@ export const HeaderBar: React.FC = () => {
                       setEqualizerOpen(!isEqualizerOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isEqualizerOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                      isEqualizerOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-cyan-400" />
+                      <Sliders className="w-4 h-4 text-accent-teal" />
                       <span>Ecualizador 10 Bandas</span>
                     </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">E</span>
+                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">E</span>
                   </button>
 
                   {/* Estadísticas de Sesión */}
@@ -1463,34 +1478,34 @@ export const HeaderBar: React.FC = () => {
                       setSessionStatsOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center gap-2 p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <Clock className="w-4 h-4 text-amber-400" />
+                    <Clock className="w-4 h-4 text-status-warning" />
                     <span>Estadísticas de Sesión</span>
                   </button>
                 </div>
               </div>
 
-              <div className="h-px bg-white/[0.06] my-0.5" />
+              <div className="h-px bg-border-subtle my-0.5" />
 
               {/* Sección Tema & Acento Dinámico */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Tema Visual & Acento
                 </span>
-                <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-[12px] bg-white/[0.02] border border-white/[0.04]">
+                <div className="flex flex-col gap-2 mt-1.5 p-2.5 rounded-card bg-surface-base/60 border border-border-subtle">
                   {/* Selector de Modo: Auto / Dark / Light */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-white/70">Tema</span>
-                    <div className="flex gap-1 p-0.5 rounded-[8px] bg-black/40 border border-white/[0.08]">
+                    <span className="text-caption text-text-secondary">Tema</span>
+                    <div className="flex gap-1 p-1 rounded-control bg-surface-base/80 border border-border-subtle">
                       {(['auto', 'dark', 'light'] as const).map((m) => (
                         <button
                           key={m}
                           onClick={() => setThemeMode(m)}
-                          className={`px-2 py-0.5 rounded-[6px] text-[10px] font-mono font-medium transition-all ${
+                          className={`min-h-11 px-2.5 py-1 rounded-control text-caption font-mono font-medium transition-all cursor-pointer ${
                             themeMode === m
-                              ? 'bg-white/20 text-white font-bold shadow-sm'
-                              : 'text-white/50 hover:text-white'
+                              ? 'bg-white/20 text-white font-bold shadow-subtle'
+                              : 'text-text-tertiary hover:text-text-primary'
                           }`}
                         >
                           {m === 'auto' ? 'Auto' : m === 'dark' ? 'Oscuro' : 'Claro'}
@@ -1500,19 +1515,19 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Selector de Color de Acento */}
-                  <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
-                    <span className="text-[11px] text-white/70">Acento</span>
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                    <span className="text-caption text-text-secondary">Acento</span>
+                    <div className="flex items-center gap-2">
                       {availableAccents.map((acc) => (
                         <button
                           key={acc.id}
                           onClick={() => setAccentColor(acc.id)}
                           title={acc.label}
                           aria-label={`Seleccionar acento ${acc.label}`}
-                          className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                          className={`w-6 h-6 rounded-pill transition-transform cursor-pointer ${
                             currentAccent === acc.id
-                              ? 'scale-125 ring-2 ring-white ring-offset-1 ring-offset-black'
-                              : 'opacity-70 hover:opacity-100 hover:scale-110'
+                              ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-black'
+                              : 'opacity-70 hover:opacity-100 hover:scale-105'
                           }`}
                           style={{ backgroundColor: acc.hex }}
                         />
@@ -1522,24 +1537,24 @@ export const HeaderBar: React.FC = () => {
                 </div>
               </div>
 
-              <div className="h-px bg-white/[0.06] my-0.5" />
+              <div className="h-px bg-border-subtle my-0.5" />
 
               {/* Sección Rendimiento & Hardware */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Hardware & Temporizador
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1 mt-1.5">
                   {/* Rendimiento Gráfico */}
                   <button
                     onClick={cyclePerformanceTier}
-                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Gauge className="w-4 h-4 text-amber-400" />
+                      <Gauge className="w-4 h-4 text-status-warning" />
                       <span>Rendimiento Gráfico</span>
                     </div>
-                    <span className="text-[9px] uppercase font-bold text-amber-300 px-1.5 py-0.5 bg-amber-500/15 rounded-[4px] border border-amber-500/30">
+                    <span className="text-caption uppercase font-bold text-status-warning px-2 py-0.5 bg-status-warning/15 rounded-badge border border-status-warning/30">
                       {performanceTier}
                     </span>
                   </button>
@@ -1547,32 +1562,32 @@ export const HeaderBar: React.FC = () => {
                   {/* Efectos de Cursor */}
                   <button
                     onClick={toggleMouseEffects}
-                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <MousePointer className={`w-4 h-4 ${mouseEffectsEnabled ? 'text-cyan-400' : 'text-white/40'}`} />
+                      <MousePointer className={`w-4 h-4 ${mouseEffectsEnabled ? 'text-accent-teal' : 'text-text-tertiary'}`} />
                       <span>Efectos de Cursor</span>
                     </div>
-                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-[4px] border text-white/50 border-white/10">
+                    <span className="text-caption uppercase font-bold px-2 py-0.5 rounded-badge border text-text-tertiary border-border-subtle">
                       {mouseEffectsEnabled ? 'Activo' : 'Eco'}
                     </span>
                   </button>
 
                   {/* Sleep Timer Preset Rápido */}
-                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-white/[0.02] border border-white/[0.04]">
-                    <div className="flex items-center gap-2 text-white/70">
-                      <Clock className="w-4 h-4 text-amber-400" />
+                  <div className="flex items-center justify-between p-2.5 min-h-11 rounded-control bg-surface-base/60 border border-border-subtle">
+                    <div className="flex items-center gap-2 text-text-secondary">
+                      <Clock className="w-4 h-4 text-status-warning" />
                       <span>Sleep Timer</span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1.5">
                       {[0, 15, 30].map((mins) => (
                         <button
                           key={mins}
                           onClick={() => setSleepTimer(mins)}
-                          className={`px-1.5 py-0.5 rounded-[4px] text-[9px] font-mono font-bold transition-all ${
+                          className={`min-h-11 px-2.5 py-1 rounded-control text-caption font-mono font-bold transition-all cursor-pointer ${
                             sleepTimerMinutes === mins
-                              ? 'bg-amber-500 text-black'
-                              : 'bg-white/10 text-white/60 hover:text-white'
+                              ? 'bg-status-warning text-black'
+                              : 'bg-white/10 text-text-secondary hover:text-text-primary'
                           }`}
                         >
                           {mins === 0 ? 'Off' : `${mins}m`}
@@ -1587,9 +1602,9 @@ export const HeaderBar: React.FC = () => {
                       toggleShortcutsModal();
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center gap-2 p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <Keyboard className="w-4 h-4 text-blue-400" />
+                    <Keyboard className="w-4 h-4 text-accent-blue" />
                     <span>Atajos de Teclado (?)</span>
                   </button>
                 </div>
@@ -1599,14 +1614,14 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 4. Pod: Estilo Lúcido & Fondo & Idioma */}
-        <div className="flex items-center gap-1 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
+        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <button
             onClick={() => changeLanguage(currentLang === 'es' ? 'en' : 'es')}
-            className="px-2 py-1 rounded-[8px] text-[11px] font-mono font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+            className="min-h-11 px-3 py-1.5 rounded-control text-caption font-mono font-bold text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
             title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
             aria-label={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
           >
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <Globe className="w-4 h-4 text-accent-teal" />
             <span className="uppercase">{currentLang}</span>
           </button>
           <LucidToggle />
@@ -1614,32 +1629,32 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 5. Acciones Rápidas: Compartir, Modo Inmersivo & Pantalla Completa */}
-        <div className="flex items-center gap-0.5 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
+        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <button
             onClick={handleShare}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors hidden sm:flex"
+            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors hidden sm:flex items-center justify-center cursor-pointer"
             title="Compartir sesión de música"
             aria-label="Compartir"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+            {copied ? <Check className="w-4 h-4 text-status-success" /> : <Share2 className="w-4 h-4" />}
           </button>
 
           <button
             onClick={() => updateBlobSettings({ isUiHidden: true })}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-cyan-300 hover:bg-white/[0.04] transition-colors hidden min-[440px]:flex"
+            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-accent-teal hover:bg-white/10 transition-colors hidden min-[440px]:flex items-center justify-center cursor-pointer"
             title="Modo Galería / Inmersión Pura (Atajo: G)"
             aria-label="Modo Galería"
           >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <Sparkles className="w-4 h-4 text-accent-teal" />
           </button>
 
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
+            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             aria-label="Pantalla completa"
           >
-            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
         </div>
       </div>

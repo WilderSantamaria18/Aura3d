@@ -5,7 +5,7 @@ import { audioEngine } from '../../services/audioEngine';
 export const MiniSpectrumBars: React.FC = React.memo(() => {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLucid = usePlayerStore((s) => s.isLucid);
-  const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary || '#00e5ff');
+  const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary || 'var(--accent-cyan)');
 
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
   const heightsRef = useRef<number[]>([0.2, 0.2, 0.2, 0.2, 0.2]);
@@ -57,12 +57,12 @@ export const MiniSpectrumBars: React.FC = React.memo(() => {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
-  const barColor = isLucid ? lucidPrimary : '#ffffff';
+  const barColor = isLucid ? lucidPrimary : 'var(--text-primary)';
 
   return (
     <div
-      className="flex items-end justify-center gap-[2.5px] h-3.5 w-4.5 px-0.5 pointer-events-none select-none"
-      title={isPlaying ? 'Audio FFT en vivo' : 'En pausa'}
+      className="flex items-end justify-center gap-0.5 h-3.5 w-4.5 px-0.5 pointer-events-none select-none"
+      title={isPlaying ? 'Audio FFT' : 'En pausa'}
     >
       {[0, 1, 2, 3, 4].map((i) => (
         <div
@@ -70,12 +70,12 @@ export const MiniSpectrumBars: React.FC = React.memo(() => {
           ref={(el) => {
             barRefs.current[i] = el;
           }}
-          className="w-[2px] h-full rounded-full origin-bottom transition-transform duration-75"
+          className="w-0.5 h-full rounded-pill origin-bottom transition-transform duration-fast"
           style={{
             backgroundColor: barColor,
             opacity: 0.75 + (i % 2) * 0.25,
             transform: `scaleY(${heightsRef.current[i]})`,
-            boxShadow: `0 0 4px ${barColor}60`,
+            boxShadow: `0 0 4px ${barColor}`,
           }}
         />
       ))}

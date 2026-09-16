@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Video, Square, ChevronDown, Download, Sparkles } from 'lucide-react';
+import { Video, Square, ChevronDown, Download, Sparkles, Smartphone, Monitor, Film } from 'lucide-react';
 import { videoRecorder, type VideoAspectRatio } from '../../services/videoRecorderService';
 
 export const VideoRecorderButton: React.FC = () => {
@@ -74,19 +74,19 @@ export const VideoRecorderButton: React.FC = () => {
 
   if (isRecording) {
     return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/40 text-rose-400 animate-pulse select-none">
-        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-        <span className="text-[11px] font-mono font-medium tracking-wider">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-control bg-status-error/15 border border-status-error/40 text-status-error animate-pulse select-none min-h-11">
+        <span className="w-2.5 h-2.5 rounded-pill bg-status-error animate-ping" />
+        <span className="text-caption font-mono font-medium tracking-wider font-tabular">
           REC {formatTime(elapsedSec)}
           {targetDuration ? ` / ${formatTime(targetDuration)}` : ''}
         </span>
         <button
           onClick={handleStop}
-          className="ml-1 p-1 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 transition-colors"
+          className="min-h-11 min-w-11 ml-1 p-2 rounded-control bg-status-error/20 hover:bg-status-error/40 text-white transition-colors flex items-center justify-center cursor-pointer btn-spring"
           title="Detener y descargar video MP4"
           aria-label="Detener grabación"
         >
-          <Square className="w-3 h-3 fill-current" />
+          <Square className="w-3.5 h-3.5 fill-current" />
         </button>
       </div>
     );
@@ -98,151 +98,160 @@ export const VideoRecorderButton: React.FC = () => {
         {/* Main REC Button */}
         <button
           onClick={() => handleStart(15)}
-          className="p-1.5 rounded-l-lg transition-colors border-y border-l border-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.04] flex items-center gap-1"
+          className="min-h-11 px-3 py-2 rounded-l-control transition-colors border-y border-l border-border-subtle text-text-secondary hover:text-text-primary hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer btn-spring"
           title="Grabar pestaña en MP4 (15s por defecto)"
           aria-label="Grabar video MP4"
         >
-          <Video className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[10px] font-mono hidden md:inline uppercase text-white/50">Rec</span>
+          <Video className="w-4 h-4 text-accent-cyan" />
+          <span className="text-caption font-mono hidden md:inline uppercase text-text-tertiary">Rec</span>
         </button>
 
         {/* Dropdown Menu Arrow */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="p-1.5 rounded-r-lg transition-colors border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-white/[0.04]"
+          className="min-h-11 min-w-11 px-2.5 py-2 rounded-r-control transition-colors border border-border-subtle text-text-tertiary hover:text-text-primary hover:bg-white/[0.04] flex items-center justify-center cursor-pointer btn-spring"
           title="Opciones de proporción (16:9, 4:3, 1:1) y duración"
           aria-label="Opciones de grabación"
+          aria-expanded={isMenuOpen}
         >
-          <ChevronDown className="w-2.5 h-2.5" />
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-fast ${isMenuOpen ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
       {/* Preset Dropdown */}
       {isMenuOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl bg-[#090D18]/95 border border-white/12 shadow-[0_12px_30px_rgba(0,0,0,0.85)] p-2 z-50 text-white text-xs font-mono select-none backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-1 py-1 text-[10px] text-white/40 uppercase tracking-wider border-b border-white/[0.06] mb-1.5 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5 text-cyan-400" /> Grabar Pestaña (MP4)
+        <div className="absolute right-0 top-full mt-2 w-64 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal p-3 z-50 text-text-primary text-caption font-mono select-none animate-aura-popover">
+          <div className="px-1 py-1 text-caption text-text-tertiary uppercase tracking-wider border-b border-border-subtle mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-accent-cyan" /> Grabar Pestaña (MP4)
             </span>
-            <span className="text-cyan-300 font-bold">{aspectRatio}</span>
+            <span className="text-accent-cyan font-bold">{aspectRatio}</span>
           </div>
 
-          <div className="text-[9px] text-white/40 px-1 mb-1">
-            Proporción de video (sin alterar pestaña):
+          <div className="text-caption text-text-muted px-1 mb-1.5">
+            Proporción de video:
           </div>
 
           {/* Aspect Ratio Selector Pills */}
-          <div className="p-1 mb-2 rounded-lg bg-white/[0.04] border border-white/[0.06] grid grid-cols-4 gap-1">
+          <div className="p-1 mb-2.5 rounded-control bg-surface-base/60 border border-border-subtle grid grid-cols-4 gap-1">
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setAspectRatio('16:9'); }}
-              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+              className={`min-h-11 py-1.5 rounded-control text-caption font-mono text-center transition-colors flex items-center justify-center cursor-pointer ${
                 aspectRatio === '16:9'
-                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
-                  : 'text-white/40 hover:text-white/70'
+                  ? 'bg-accent-cyan/25 text-accent-cyan font-semibold border border-accent-cyan/40 shadow-subtle'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
               title="Panorámico 16:9 (YouTube / PC)"
+              aria-label="Proporción 16:9"
             >
               16:9
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setAspectRatio('4:3'); }}
-              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+              className={`min-h-11 py-1.5 rounded-control text-caption font-mono text-center transition-colors flex items-center justify-center cursor-pointer ${
                 aspectRatio === '4:3'
-                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
-                  : 'text-white/40 hover:text-white/70'
+                  ? 'bg-accent-cyan/25 text-accent-cyan font-semibold border border-accent-cyan/40 shadow-subtle'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
-              title="Clásico 4:3 (Retro / Post)"
+              title="Clásico 4:3"
+              aria-label="Proporción 4:3"
             >
               4:3
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setAspectRatio('1:1'); }}
-              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+              className={`min-h-11 py-1.5 rounded-control text-caption font-mono text-center transition-colors flex items-center justify-center cursor-pointer ${
                 aspectRatio === '1:1'
-                  ? 'bg-cyan-500/25 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
-                  : 'text-white/40 hover:text-white/70'
+                  ? 'bg-accent-cyan/25 text-accent-cyan font-semibold border border-accent-cyan/40 shadow-subtle'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
-              title="Cuadrado 1:1 (Instagram Feed)"
+              title="Cuadrado 1:1"
+              aria-label="Proporción 1:1"
             >
               1:1
             </button>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setAspectRatio('9:16'); }}
-              className={`py-1 rounded text-[10px] font-mono text-center transition-colors ${
+              className={`min-h-11 py-1.5 rounded-control text-caption font-mono text-center transition-colors flex items-center justify-center cursor-pointer ${
                 aspectRatio === '9:16'
-                  ? 'bg-purple-500/25 text-purple-300 font-semibold border border-purple-500/40 shadow-sm'
-                  : 'text-white/40 hover:text-white/70'
+                  ? 'bg-accent-violet/25 text-accent-violet font-semibold border border-accent-violet/40 shadow-subtle'
+                  : 'text-text-tertiary hover:text-text-primary'
               }`}
-              title="Vertical 9:16 (TikTok / Reels / Shorts)"
+              title="Vertical 9:16"
+              aria-label="Proporción 9:16"
             >
               9:16
             </button>
           </div>
 
           {/* Social Media Watermark Toggle */}
-          <div className="mb-2 p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-between">
-            <span className="text-[10px] text-white/70">Tarjeta de canción:</span>
+          <div className="mb-2.5 p-2 rounded-control bg-surface-base/60 border border-border-subtle flex items-center justify-between min-h-11">
+            <span className="text-caption text-text-secondary">Tarjeta de canción:</span>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIncludeTrackCard(!includeTrackCard);
               }}
-              className={`px-2 py-0.5 rounded text-[9px] font-mono transition-colors ${
+              className={`px-3 py-1.5 rounded-pill text-caption font-mono transition-colors cursor-pointer ${
                 includeTrackCard
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-white/5 text-white/40'
+                  ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40'
+                  : 'bg-white/5 text-text-muted border border-border-subtle'
               }`}
+              aria-label={includeTrackCard ? 'Desactivar tarjeta de canción' : 'Activar tarjeta de canción'}
             >
               {includeTrackCard ? 'ACTIVADA' : 'DESACTIVADA'}
             </button>
           </div>
 
-          {/* 1-Click Social Media & DAW Presets */}
+          {/* 1-Click Presets */}
           <div className="space-y-1">
             <button
               onClick={() => handleStart(15, '9:16')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
+              className="w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-control hover:bg-white/[0.06] text-text-secondary hover:text-text-primary transition-colors text-left group cursor-pointer btn-spring"
             >
-              <span className="flex items-center gap-1.5">
-                <span className="text-xs">📱</span>
-                <span className="text-[11px]">Reel / TikTok 9:16</span>
+              <span className="flex items-center gap-2">
+                <Smartphone className="w-3.5 h-3.5 text-accent-violet" />
+                <span className="text-caption">Reel / TikTok 9:16</span>
               </span>
-              <span className="text-[10px] text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded font-bold">15s</span>
+              <span className="text-caption text-accent-violet bg-accent-violet/15 px-2 py-0.5 rounded-pill font-bold">15s</span>
             </button>
 
             <button
               onClick={() => handleStart(30, '9:16')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
+              className="w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-control hover:bg-white/[0.06] text-text-secondary hover:text-text-primary transition-colors text-left group cursor-pointer btn-spring"
             >
-              <span className="flex items-center gap-1.5">
-                <span className="text-xs">📱</span>
-                <span className="text-[11px]">Story Vertical 9:16</span>
+              <span className="flex items-center gap-2">
+                <Smartphone className="w-3.5 h-3.5 text-accent-rose" />
+                <span className="text-caption">Story Vertical 9:16</span>
               </span>
-              <span className="text-[10px] text-pink-400 bg-pink-500/15 px-1.5 py-0.5 rounded font-bold">30s</span>
+              <span className="text-caption text-accent-rose bg-accent-rose/15 px-2 py-0.5 rounded-pill font-bold">30s</span>
             </button>
 
             <button
               onClick={() => handleStart(30, '16:9')}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/80 hover:text-white transition-colors text-left group"
+              className="w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-control hover:bg-white/[0.06] text-text-secondary hover:text-text-primary transition-colors text-left group cursor-pointer btn-spring"
             >
-              <span className="flex items-center gap-1.5">
-                <span className="text-xs">🖥️</span>
-                <span className="text-[11px]">Clip Panorámico 16:9</span>
+              <span className="flex items-center gap-2">
+                <Monitor className="w-3.5 h-3.5 text-accent-cyan" />
+                <span className="text-caption">Clip Panorámico 16:9</span>
               </span>
-              <span className="text-[10px] text-cyan-400 bg-cyan-500/15 px-1.5 py-0.5 rounded font-bold">30s</span>
+              <span className="text-caption text-accent-cyan bg-accent-cyan/15 px-2 py-0.5 rounded-pill font-bold">30s</span>
             </button>
 
             <button
               onClick={() => handleStart(undefined, aspectRatio)}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.06] text-white/70 hover:text-white transition-colors text-left"
+              className="w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-control hover:bg-white/[0.06] text-text-tertiary hover:text-text-primary transition-colors text-left cursor-pointer btn-spring"
             >
-              <span className="text-[11px]">Grabación Libre</span>
-              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Manual</span>
+              <span className="flex items-center gap-2">
+                <Film className="w-3.5 h-3.5 text-status-success" />
+                <span className="text-caption">Grabación Libre</span>
+              </span>
+              <span className="text-caption text-status-success bg-status-success/10 px-2 py-0.5 rounded-pill">Manual</span>
             </button>
           </div>
         </div>
@@ -250,8 +259,8 @@ export const VideoRecorderButton: React.FC = () => {
 
       {/* Download Feedback Toast */}
       {downloadSuccess && (
-        <div className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 text-xs font-mono shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-3.5 py-2.5 rounded-card bg-surface-dock/90 border border-status-success/40 text-status-success text-caption font-mono shadow-modal material-regular animate-aura-slide-up">
+          <Download className="w-4 h-4 text-status-success shrink-0" />
           <span className="truncate max-w-xs">{downloadSuccess}</span>
         </div>
       )}
