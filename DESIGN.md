@@ -61,13 +61,16 @@ La aplicación soporta modos **Oscuro (Dark)**, **Claro (Light)** y **Automátic
 
 ## 3. Materiales y Glassmorphism iOS
 
-El sistema define **exactamente tres materiales estándar** con saturación calibrada. Queda **estrictamente prohibido cualquier valor de blur fuera de estos tres**:
+El sistema define **exactamente tres materiales estándar** para chrome de UI con saturación calibrada, más un token dedicado para capas de arte visual:
 
 | Token CSS | Definición | Uso Permitido |
 | :--- | :--- | :--- |
 | `--material-thin` | `blur(8px) saturate(180%)` | Badges, tooltips, tags flotantes, popovers secundarios |
 | `--material-regular` | `blur(20px) saturate(180%)` | Tarjetas interactivas (`.ios-glass-card`), HeaderBar, Docks (`.ios-glass-dock`) |
 | `--material-thick` | `blur(40px) saturate(180%)` | Modales principales (`.ios-glass-modal`), paneles envolventes, menús desplegables |
+| `--material-visualizer` | `blur(20px) saturate(180%)` | Capas internas de arte visualizador / halo bloom / núcleo void |
+
+Queda estrictamente prohibido cualquier valor de blur hardcodeado o ad-hoc fuera de estos tokens declarados.
 
 ---
 
@@ -175,3 +178,27 @@ Todo control interactivo debe tener un área táctil de al menos **$44 \times 44
 - **`Skeleton`** ([`src/components/Common/Skeleton.tsx`](file:///c:/Users/WAXIS/Desktop/proy/Aura3d/src/components/Common/Skeleton.tsx)): Marcador de posición animado con pulso suave para listas de reproducción y cargas asíncronas.
 - **`Spinner`** ([`src/components/Common/Spinner.tsx`](file:///c:/Users/WAXIS/Desktop/proy/Aura3d/src/components/Common/Spinner.tsx)): Indicador de carga circular continuo con aceleración GPU.
 - **`ErrorState`** ([`src/components/Common/ErrorState.tsx`](file:///c:/Users/WAXIS/Desktop/proy/Aura3d/src/components/Common/ErrorState.tsx)): Tarjeta de fallo en tono semántico de error con botón de reintento.
+
+---
+
+## 8. Composición y Arquitectura Responsive por Zonas
+
+Aura3D implementa una composición adaptativa de 3 capas según el ancho del viewport:
+
+### Móvil (< 640px)
+- **Escena 3D**: Ocupa el 100% del viewport en pantalla completa sin barras laterales acopladas (`zonasAcopladas = 0`).
+- **HeaderBar**: Modo compacto (`h-14` / `h-16`) con hit targets $\ge 44$px y padding adaptado a `env(safe-area-inset-top)`.
+- **Dock de Control / MiniPlayer**: Dock inferior fijo y unificado con controles de transporte $\ge 44$px y `env(safe-area-inset-bottom)`.
+
+### Tablet (640px - 1023px)
+- **Escena 3D**: Lienzo centrado con márgenes simétricos.
+- **Paneles Laterales**: Paneles deslizantes o emergentes con ancho fijo de 320px - 360px.
+- **MiniPlayer**: Flotante en la esquina inferior izquierda con estado contraído/expandido (`hidden sm:flex lg:hidden`).
+
+### Desktop ($\ge 1024$px / 1440px+)
+- **Composición de 3 Zonas Acopladas (`zonasAcopladas = 2`)**:
+  1. **Zona Izquierda (`<DesktopLeftSidebar>`)**: `<aside>` fijo de 300px a la izquierda (`left: 0`) con navegación por pestañas (Biblioteca, Playlists, Descubrir, Favoritos), buscador rápido y selector de presets de audio.
+  2. **Zona Central (Escena WebGL 3D)**: Lienzo acotado geométricamente con `lg:left-[300px] lg:right-[340px]`, garantizando un ancho de escena de $\approx 800\text{px} < 1100\text{px}$ a 1440x900 para máxima concentración y nitidez óptica.
+  3. **Zona Derecha (`<DesktopRightSidebar>`)**: `<aside>` fijo de 340px a la derecha (`right: 0`) con visualización de pista en curso, carátula con efecto de resplandor ambiental, selector de 7 modos de renderizado 2D/3D, faders DSP de ganancia y analizador de frecuencias en vivo.
+- **Docks Superiores e Inferiores**: Centrados en el eje horizontal con `max-w-3xl` / `max-w-5xl` flotando con `material-regular` y `border-border-subtle`.
+
