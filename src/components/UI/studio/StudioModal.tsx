@@ -52,7 +52,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-surface-scrim material-regular pointer-events-auto select-none font-sans animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -62,30 +62,30 @@ export const StudioModal: React.FC<StudioModalProps> = ({
       aria-describedby={subtitle ? 'studio-modal-desc' : undefined}
     >
       <div
-        className={`w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} border border-white/[0.12] rounded-[20px] p-4 sm:p-6 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-in zoom-in-95 duration-150 ${className}`}
+        className={`w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} border border-border-subtle rounded-modal p-4 sm:p-6 shadow-[var(--shadow-modal)] relative flex flex-col max-h-[90vh] overflow-hidden bg-surface-overlay material-thick animate-in zoom-in-95 duration-150 ${className}`}
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border-subtle flex-shrink-0">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm flex-shrink-0">
+              <div className="w-8 h-8 rounded-control bg-surface-subtle border border-border-subtle flex items-center justify-center text-ios-teal shadow-sm flex-shrink-0">
                 {icon}
               </div>
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h2 id="studio-modal-title" className="text-white font-bold text-sm sm:text-base tracking-tight">
+                <h2 id="studio-modal-title" className="text-text-primary font-bold text-sm sm:text-base tracking-tight">
                   {title}
                 </h2>
                 {badge && (
-                  <span className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 text-cyan-300 font-bold uppercase">
+                  <span className="text-caption font-mono tracking-wider px-2 py-0.5 rounded-badge border border-ios-teal/30 bg-ios-teal/15 text-ios-teal font-bold uppercase">
                     {badge}
                   </span>
                 )}
               </div>
               {subtitle && (
-                <p id="studio-modal-desc" className="text-white/65 text-[11px] font-mono tracking-wider mt-0.5">
+                <p id="studio-modal-desc" className="text-text-tertiary text-caption font-mono tracking-wider mt-0.5">
                   {subtitle}
                 </p>
               )}
@@ -96,7 +96,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
             {headerRight}
             <button
               onClick={onClose}
-              className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.08] transition-colors cursor-pointer"
+              className="min-h-11 min-w-11 flex items-center justify-center text-text-tertiary hover:text-text-primary rounded-control hover:bg-surface-subtle transition-colors cursor-pointer"
               aria-label="Cerrar modal"
             >
               <X className="w-4 h-4" />

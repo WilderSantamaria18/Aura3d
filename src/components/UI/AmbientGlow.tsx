@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
-import { audioEngine } from '../../services/audioEngine';
 import { fftWorkerService } from '../../services/fftWorkerService';
 
 interface Particle {
@@ -27,7 +26,7 @@ interface TrailParticle {
 
 export const AmbientGlow: React.FC = React.memo(() => {
   const isLucid = usePlayerStore((s) => s.isLucid);
-  const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary || '#00f2fe');
+  const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
   const mouseEffectsEnabled = usePlayerStore((s) => s.mouseEffectsEnabled);
   const { beatPulse, primaryColor: aiColor } = useAIAudioEngine();
 
@@ -35,7 +34,12 @@ export const AmbientGlow: React.FC = React.memo(() => {
   const mouseRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, rawX: -100, rawY: -100, prevX: -100, prevY: -100 });
   const [cursorPos, setCursorPos] = useState({ x: -200, y: -200, visible: false });
 
-  const activeColor = isLucid ? lucidPrimary : aiColor || '#00e5ff';
+  // Get token color dynamically
+  const tokenColor = typeof document !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || '#2bdcd2'
+    : '#2bdcd2';
+
+  const activeColor = isLucid ? (lucidPrimary || tokenColor) : (aiColor || tokenColor);
 
   // Mouse tracking for parallax and specular follower (only active if user enables it)
   useEffect(() => {
@@ -207,13 +211,9 @@ export const AmbientGlow: React.FC = React.memo(() => {
     };
   }, [activeColor, beatPulse, mouseEffectsEnabled]);
 
-  const pulseScale = 1.0 + beatPulse * 0.12;
-
   return (
     <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden select-none">
       {/* ── 1. Cinematic Vignette & Deep Contrast Backdrop ── */}
-
-      {/* ── 2. Cinematic Vignette & Depth of Field ── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -221,7 +221,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
         }}
       />
 
-      {/* ── 3. Specular Follower Spotlight (Smooth radial beam that illuminates glass edges) ── */}
+      {/* ── 2. Specular Follower Spotlight (Smooth radial beam that illuminates glass edges) ── */}
       {mouseEffectsEnabled && cursorPos.visible && (
         <div
           className="absolute w-[440px] h-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none transition-opacity duration-500 mix-blend-screen"
@@ -233,8 +233,10 @@ export const AmbientGlow: React.FC = React.memo(() => {
         />
       )}
 
-      {/* ── 4. Ambient Space Dust & Cursor Stardust Trail Canvas ── */}
+      {/* ── 3. Ambient Space Dust & Cursor Stardust Trail Canvas ── */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
     </div>
   );
 });
+
+export default AmbientGlow;

@@ -19,8 +19,8 @@ export const CameraPresetBar: React.FC = React.memo(() => {
   ];
 
   return (
-    <div className="fixed top-14 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 rounded-[20px] bg-[#0c101a]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_12px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto select-none font-sans max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-none">
-      <span className="text-[9px] font-mono tracking-wider text-white/40 uppercase px-2.5 font-semibold hidden min-[480px]:inline">
+    <div className="fixed top-14 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 rounded-dock bg-surface-overlay material-regular border border-border-subtle shadow-[var(--shadow-dock)] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto select-none font-sans max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-none">
+      <span className="text-caption font-mono tracking-wider text-text-tertiary uppercase px-2.5 font-semibold hidden min-[480px]:inline">
         Cámara
       </span>
       <div className="flex items-center gap-0.5">
@@ -31,16 +31,16 @@ export const CameraPresetBar: React.FC = React.memo(() => {
             <button
               key={p.id}
               onClick={() => setCameraPreset(p.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[10px] text-xs font-mono transition-all ${
+              className={`min-h-11 flex items-center gap-1.5 px-3 py-1.5 rounded-control text-caption font-mono transition-all ${
                 isActive
-                  ? 'bg-white/[0.12] text-white font-semibold border border-white/[0.15] shadow-sm'
-                  : 'text-white/50 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                  ? 'bg-surface-active text-text-primary font-semibold border border-border-strong shadow-sm'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-subtle border border-transparent'
               }`}
               title={`Perspectiva: ${p.label}`}
               aria-label={`Perspectiva de cámara: ${p.label}`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-cyan-400' : 'text-white/50'}`} />
-              <span className="text-[10px] hidden sm:inline">{p.label}</span>
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-ios-teal' : 'text-text-tertiary'}`} />
+              <span className="text-caption hidden sm:inline">{p.label}</span>
             </button>
           );
         })}
@@ -48,3 +48,5 @@ export const CameraPresetBar: React.FC = React.memo(() => {
     </div>
   );
 });
+
+export default CameraPresetBar;

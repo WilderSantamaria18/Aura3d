@@ -25,7 +25,7 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
   defaultValue,
   onChange,
   showCenterDetent = false,
-  accentColor = '#00e5ff',
+  accentColor = 'var(--ios-teal)',
   disabled = false,
   className = '',
 }) => {
@@ -56,15 +56,15 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
       style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
       {(label || unit) && (
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between text-caption">
           {label && (
-            <span className="text-white/50 text-[10px] font-mono uppercase tracking-wider">
+            <span className="text-text-tertiary text-caption font-mono uppercase tracking-wider">
               {label}
             </span>
           )}
           <span
             onDoubleClick={handleDoubleClick}
-            className="font-mono tabular-nums text-white/90 text-xs font-medium cursor-pointer"
+            className="font-mono tabular-nums font-tabular text-text-primary text-caption font-medium cursor-pointer"
             title={defaultValue !== undefined ? `Doble clic para restablecer (${defaultValue})` : undefined}
           >
             {formattedValue()}
@@ -72,11 +72,11 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
         </div>
       )}
 
-      <div className="relative flex items-center h-4 group">
+      <div className="relative flex items-center h-11 group">
         {/* Track de audio */}
-        <div className="relative w-full h-1 bg-white/[0.08] rounded-full overflow-hidden transition-transform duration-150 group-hover:scale-y-150 origin-center">
+        <div className="relative w-full h-1 bg-surface-subtle border border-border-subtle rounded-pill overflow-hidden transition-transform duration-150 group-hover:scale-y-150 origin-center">
           <div
-            className="h-full rounded-full transition-[width] duration-75"
+            className="h-full rounded-pill transition-[width] duration-75"
             style={{
               width: `${percentage}%`,
               backgroundColor: accentColor,
@@ -86,10 +86,10 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
 
         {/* Muesca central opcional (detent 0dB / neutro) */}
         {showCenterDetent && (
-          <div className="absolute left-1/2 -translate-x-1/2 w-0.5 h-2 bg-white/20 pointer-events-none" />
+          <div className="absolute left-1/2 -translate-x-1/2 w-0.5 h-2 bg-border-subtle pointer-events-none" />
         )}
 
-        {/* Input invisible sobre el track */}
+        {/* Input con target accesible */}
         <input
           type="range"
           min={min}
@@ -99,12 +99,13 @@ export const StudioFader: React.FC<StudioFaderProps> = ({
           disabled={disabled}
           onChange={(e) => onChange(parseFloat(e.target.value))}
           onDoubleClick={handleDoubleClick}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
+          className="absolute inset-0 w-full opacity-0 cursor-pointer h-11"
+          aria-label={label || 'Control de nivel'}
         />
 
         {/* Pulgar táctil visual */}
         <div
-          className="absolute w-3 h-3 rounded-full -translate-x-1/2 bg-white shadow-[0_2px_6px_rgba(0,0,0,0.7)] border border-white/30 pointer-events-none transition-transform group-hover:scale-110"
+          className="absolute w-3.5 h-3.5 rounded-full -translate-x-1/2 bg-white shadow-sm border border-border-subtle pointer-events-none transition-transform group-hover:scale-110"
           style={{ left: `${percentage}%` }}
         />
       </div>

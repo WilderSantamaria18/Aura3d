@@ -11,8 +11,6 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
   const [draggedCount, setDraggedCount] = useState<number>(1);
   const dragCounterRef = useRef(0);
 
-  const isLucid = usePlayerStore((s) => s.isLucid);
-  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
   const setAutoNotification = usePlayerStore((s) => s.setAutoNotification);
 
   useEffect(() => {
@@ -70,14 +68,14 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
           type: 'success',
           message:
             validAudioFiles.length === 1
-              ? `🎵 Pista cargada: ${validAudioFiles[0].name.replace(/\.[^/.]+$/, '')}`
-              : `🎶 ${validAudioFiles.length} canciones añadidas a la sesión de mezcla`,
+              ? `Pista cargada: ${validAudioFiles[0].name.replace(/\.[^/.]+$/, '')}`
+              : `${validAudioFiles.length} canciones añadidas a la sesión de mezcla`,
         });
       } else {
         setAutoNotification({
           id: Date.now(),
           type: 'warning',
-          message: '⚠️ Formato no reconocido. Usa archivos MP3, WAV, FLAC, OGG o M4A.',
+          message: 'Formato no reconocido. Usa archivos MP3, WAV, FLAC, OGG o M4A.',
         });
       }
     };
@@ -97,48 +95,32 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
 
   if (!isDragging) return null;
 
-  const accentColor = isLucid ? lucidTheme.primary : '#00f5ff';
-  const glowColor = isLucid ? lucidTheme.glow : 'rgba(0, 245, 255, 0.4)';
-
   return (
     <div
-      className="fixed inset-0 z-[999] pointer-events-none flex items-center justify-center p-6 md:p-12 transition-all duration-300"
-      style={{
-        backgroundColor: 'rgba(3, 5, 12, 0.88)',
-        backdropFilter: 'blur(16px)',
-      }}
+      className="fixed inset-0 z-[999] pointer-events-none flex items-center justify-center p-6 md:p-12 transition-all duration-300 bg-surface-scrim material-regular"
     >
       {/* Outer Studio Boundary Box */}
       <div
-        className="relative w-full max-w-2xl aspect-[16/10] sm:aspect-[16/9] rounded-3xl border-2 border-dashed flex flex-col items-center justify-center p-8 text-center transition-transform scale-100 animate-in fade-in zoom-in-95 duration-200 shadow-2xl"
-        style={{
-          borderColor: accentColor,
-          boxShadow: `0 0 60px ${glowColor}, inset 0 0 40px ${glowColor}`,
-          background: `radial-gradient(circle at 50% 50%, ${glowColor} 0%, rgba(5,8,18,0.92) 75%)`,
-        }}
+        className="relative w-full max-w-2xl aspect-[16/10] sm:aspect-[16/9] rounded-modal border-2 border-dashed border-ios-teal flex flex-col items-center justify-center p-8 text-center transition-transform scale-100 animate-in fade-in zoom-in-95 duration-200 shadow-[var(--shadow-modal)] bg-surface-overlay material-thick"
       >
         {/* Visual Studio Corner Markers */}
         <span
-          className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 rounded-tl-lg"
-          style={{ borderColor: accentColor }}
+          className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 rounded-tl-lg border-ios-teal"
         />
         <span
-          className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 rounded-tr-lg"
-          style={{ borderColor: accentColor }}
+          className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 rounded-tr-lg border-ios-teal"
         />
         <span
-          className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 rounded-bl-lg"
-          style={{ borderColor: accentColor }}
+          className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 rounded-bl-lg border-ios-teal"
         />
         <span
-          className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 rounded-br-lg"
-          style={{ borderColor: accentColor }}
+          className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 rounded-br-lg border-ios-teal"
         />
 
         {/* Studio Ingestion Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.08] border border-white/[0.12] mb-6 backdrop-blur-md">
-          <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ color: accentColor }} />
-          <span className="text-[11px] font-mono tracking-widest uppercase text-white/90 font-medium">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-pill bg-surface-subtle border border-border-subtle mb-6">
+          <Sparkles className="w-3.5 h-3.5 animate-spin text-ios-teal" />
+          <span className="text-caption font-mono tracking-widest uppercase text-text-primary font-medium">
             HI-FI AUDIO INGESTION TARGET
           </span>
         </div>
@@ -146,36 +128,31 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
         {/* Animated Central Icon with Soundwaves */}
         <div className="relative mb-5 flex items-center justify-center">
           <div
-            className="absolute w-28 h-28 rounded-full animate-ping opacity-30"
-            style={{ backgroundColor: accentColor }}
+            className="absolute w-28 h-28 rounded-full animate-ping opacity-30 bg-ios-teal"
           />
           <div
-            className="relative w-20 h-20 rounded-2xl flex items-center justify-center border border-white/20 shadow-xl backdrop-blur-xl"
-            style={{
-              backgroundColor: 'rgba(12, 16, 28, 0.9)',
-              boxShadow: `0 0 30px ${glowColor}`,
-            }}
+            className="relative w-20 h-20 rounded-card flex items-center justify-center border border-border-subtle shadow-xl bg-surface-overlay"
           >
             {draggedCount > 1 ? (
-              <Disc3 className="w-10 h-10 animate-spin text-white" style={{ animationDuration: '3s' }} />
+              <Disc3 className="w-10 h-10 animate-spin text-text-primary" style={{ animationDuration: '3s' }} />
             ) : (
-              <UploadCloud className="w-10 h-10 animate-bounce" style={{ color: accentColor }} />
+              <UploadCloud className="w-10 h-10 animate-bounce text-ios-teal" />
             )}
           </div>
         </div>
 
         {/* Dynamic Title */}
-        <h2 className="text-2xl sm:text-3xl font-light text-white tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-light text-text-primary tracking-tight">
           {draggedCount > 1 ? (
             <>
-              Suelta <span className="font-semibold text-white">{draggedCount} canciones</span> para mezclar
+              Suelta <span className="font-semibold text-text-primary">{draggedCount} canciones</span> para mezclar
             </>
           ) : (
             'Suelta tu audio aquí para visualizar'
           )}
         </h2>
 
-        <p className="text-white/60 text-xs sm:text-sm mt-2 max-w-md font-mono">
+        <p className="text-text-secondary text-caption mt-2 max-w-md font-mono">
           Procesamiento directo a 60 FPS con Web Audio Analyser y shaders 3D reactivos.
         </p>
 
@@ -184,7 +161,7 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
           {['MP3', 'WAV', 'FLAC', 'OGG', 'M4A', 'AAC'].map((fmt) => (
             <span
               key={fmt}
-              className="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-medium tracking-wider bg-white/[0.06] border border-white/10 text-white/80"
+              className="px-2.5 py-0.5 rounded-badge text-caption font-mono font-medium tracking-wider bg-surface-subtle border border-border-subtle text-text-secondary"
             >
               {fmt}
             </span>

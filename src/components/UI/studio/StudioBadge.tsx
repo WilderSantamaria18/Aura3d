@@ -14,24 +14,24 @@ export const StudioBadge: React.FC<StudioBadgeProps> = ({
   className = '',
 }) => {
   const variantStyles = {
-    default: 'border-white/[0.08] text-white/50 bg-white/[0.02]',
-    cyan: 'border-[#00e5ff]/30 text-[#00e5ff] bg-[#00e5ff]/10',
-    emerald: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
-    amber: 'border-amber-500/30 text-amber-300 bg-amber-500/10',
-    rose: 'border-rose-500/30 text-rose-400 bg-rose-500/10',
+    default: 'border-border-subtle text-text-tertiary bg-surface-subtle',
+    cyan: 'border-ios-teal/30 text-ios-teal bg-ios-teal/10',
+    emerald: 'border-status-success/30 text-status-success bg-status-success/10',
+    amber: 'border-status-warning/30 text-status-warning bg-status-warning/10',
+    rose: 'border-status-error/30 text-status-error bg-status-error/10',
   };
 
   const dotStyles = {
-    default: 'bg-white/50',
-    cyan: 'bg-[#00e5ff]',
-    emerald: 'bg-emerald-400',
-    amber: 'bg-amber-400',
-    rose: 'bg-rose-400',
+    default: 'bg-text-tertiary',
+    cyan: 'bg-ios-teal',
+    emerald: 'bg-status-success',
+    amber: 'bg-status-warning',
+    rose: 'bg-status-error',
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[9px] font-mono tracking-wider uppercase px-1.5 py-0.5 rounded border select-none ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center gap-1 text-caption font-mono tracking-wider uppercase px-2 py-0.5 rounded-badge border select-none ${variantStyles[variant]} ${className}`}
     >
       {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[variant]}`} />}
       <span>{label}</span>
