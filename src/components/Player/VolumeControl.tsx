@@ -36,17 +36,17 @@ export const VolumeControl: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center gap-2 group select-none min-h-11">
+    <div className="flex items-center gap-1.5 group select-none">
       <button
         onClick={toggleMute}
-        className="min-h-11 min-w-11 p-2 transition-colors rounded-control text-white/50 hover:text-white hover:bg-white/[0.06] active:scale-95 flex items-center justify-center cursor-pointer"
+        className="w-8 h-8 p-1.5 transition-colors rounded-control text-white/50 hover:text-white hover:bg-white/[0.06] active:scale-95 flex items-center justify-center cursor-pointer btn-spring"
         title={isMuted ? 'Desmutear' : 'Mutear'}
         aria-label={isMuted ? 'Desmutear' : 'Silenciar'}
       >
         {getIcon()}
       </button>
 
-      <div className="w-16 sm:w-20 min-h-11 h-11 flex items-center">
+      <div className="w-14 sm:w-16 h-6 flex items-center">
         <input
           type="range"
           min="0"
@@ -54,7 +54,7 @@ export const VolumeControl: React.FC = () => {
           step="0.01"
           value={currentVol}
           onChange={handleVolumeChange}
-          className="w-full min-h-11 h-11 bg-white/[0.12] rounded-pill appearance-none cursor-pointer transition-all hover:bg-white/[0.25] accent-white"
+          className="w-full h-1.5 bg-white/[0.12] rounded-pill appearance-none cursor-pointer transition-all hover:bg-white/[0.25] accent-white"
           style={
             isLucid
               ? { accentColor: lucidTheme.primary }
@@ -65,7 +65,7 @@ export const VolumeControl: React.FC = () => {
         />
       </div>
 
-      <span className="w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors font-tabular">
+      <span className="w-10 text-right font-mono text-caption tabular-nums text-white/40 group-hover:text-white/70 transition-colors font-tabular">
         {dbText}
       </span>
     </div>

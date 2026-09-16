@@ -370,13 +370,13 @@ export const HeaderBar: React.FC = () => {
         {/* Global Command Palette Chip */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 min-h-11 rounded-control bg-surface-dock/60 hover:bg-surface-dock border border-border-subtle text-caption font-mono text-text-tertiary hover:text-text-primary transition-all shadow-subtle pointer-events-auto ml-1 btn-spring cursor-pointer"
+          className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-7.5 rounded-control bg-surface-dock/60 hover:bg-surface-dock border border-border-subtle text-caption font-mono text-text-tertiary hover:text-text-primary transition-all shadow-subtle pointer-events-auto ml-1 btn-spring cursor-pointer"
           title="Abrir Paleta Universal de Comandos (Ctrl+K / ⌘K)"
           aria-label="Abrir Paleta de Comandos"
         >
           <Keyboard className="w-3.5 h-3.5 text-accent-cyan" />
           <span>Comandos</span>
-          <kbd className="px-1.5 py-0.5 rounded-badge bg-white/10 text-caption font-mono text-text-secondary">⌘K</kbd>
+          <kbd className="px-1.5 py-0.2 rounded-badge bg-white/10 text-caption font-mono text-text-secondary">⌘K</kbd>
         </button>
       </div>
 
@@ -393,7 +393,7 @@ export const HeaderBar: React.FC = () => {
                 aria-haspopup="true"
                 aria-expanded={activeMenu === 'visualizers'}
                 aria-label="Seleccionar modo de visualización"
-                className={`flex items-center gap-2 px-3 py-2 min-h-11 rounded-control material-regular border shadow-subtle text-caption font-display transition-all cursor-pointer btn-spring ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 h-7.5 rounded-control material-regular border shadow-subtle text-caption font-display transition-all cursor-pointer btn-spring ${
                   activeMenu === 'visualizers'
                     ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
                     : 'bg-surface-dock border-border-subtle text-text-primary hover:bg-surface-hover'
@@ -411,7 +411,7 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Modos de visualización interactivos"
-              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-3 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal z-50 flex flex-col gap-1 animate-aura-popover"
+              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-2 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal z-50 flex flex-col gap-1 animate-aura-popover"
             >
               <span className="text-caption font-mono text-text-tertiary px-2 pt-1 uppercase tracking-wider">
                 Visualizadores Interactivos
@@ -428,13 +428,13 @@ export const HeaderBar: React.FC = () => {
                       setVisualizerMode(viz.id as any);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer btn-spring ${
+                    className={`flex items-center justify-between p-1.5 rounded-control text-caption font-mono transition-all cursor-pointer btn-spring ${
                       isActive
                         ? 'bg-white/15 text-text-primary border border-border-medium font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/5 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                       <Icon className={`w-4 h-4 ${isActive ? 'text-accent-cyan' : 'text-text-muted'}`} />
                       <div className="flex flex-col text-left">
                         <span className="font-medium text-caption text-text-primary">{viz.name}</span>
@@ -456,7 +456,7 @@ export const HeaderBar: React.FC = () => {
             aria-haspopup="true"
             aria-expanded={activeMenu === 'dsp'}
             aria-label="Efectos de Audio y DSP"
-            className={`flex items-center gap-1.5 px-3 py-2 min-h-11 rounded-control bg-surface-dock material-regular border text-caption font-mono transition-all shadow-subtle cursor-pointer btn-spring ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 h-7.5 rounded-control bg-surface-dock material-regular border text-caption font-mono transition-all shadow-subtle cursor-pointer btn-spring ${
               activeMenu === 'dsp' || isAnyDspActive
                 ? 'border-accent-cyan/40 bg-accent-cyan/15 text-accent-cyan'
                 : 'border-border-subtle text-text-secondary hover:text-text-primary hover:bg-surface-hover'
@@ -477,7 +477,7 @@ export const HeaderBar: React.FC = () => {
               className="fixed inset-x-3 top-14 max-w-[390px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto scrollbar-thin p-3 rounded-modal bg-surface-overlay material-thick border border-border-medium shadow-modal z-50 flex flex-col gap-2.5 animate-aura-popover text-caption font-mono"
             >
               {/* Selector de 3 Pestañas Claras */}
-              <div className="flex items-center p-1 rounded-control bg-surface-base/60 border border-border-subtle text-caption font-mono">
+              <div className="flex items-center p-0.5 rounded-control bg-surface-base/60 border border-border-subtle text-caption font-mono">
                 <button
                   onClick={() => setDspTab('master')}
                   className={`flex-1 py-1.5 px-2 min-h-11 rounded-control transition-all flex items-center justify-center gap-1.5 btn-spring cursor-pointer ${
@@ -876,7 +876,7 @@ export const HeaderBar: React.FC = () => {
             onClick={() => setActiveMenu(activeMenu === 'intel_hub' ? null : 'intel_hub')}
             aria-expanded={activeMenu === 'intel_hub'}
             aria-label="Hub de Inteligencia Musical"
-            className={`flex items-center gap-1.5 px-3 min-h-11 rounded-control material-regular border shadow-subtle text-caption font-mono transition-all hover:bg-white/10 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 h-7.5 rounded-control material-regular border shadow-subtle text-caption font-mono transition-all hover:bg-white/10 cursor-pointer ${
               activeMenu === 'intel_hub' || soundscapeActiveCount > 0
                 ? 'border-accent-purple/50 bg-accent-purple/15 text-white'
                 : 'border-border-subtle hover:border-accent-purple/40 text-text-primary'
@@ -884,7 +884,7 @@ export const HeaderBar: React.FC = () => {
             title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
           >
             {/* Camelot Badge */}
-            <span className="text-caption font-bold text-accent-purple bg-accent-purple/20 px-1.5 py-0.5 rounded-badge border border-accent-purple/30">
+            <span className="text-caption font-bold text-accent-purple bg-accent-purple/20 px-1 py-0.2 rounded-badge border border-accent-purple/30">
               {harmonicKey.camelot}
             </span>
             <span className="hidden md:inline text-caption font-medium text-text-secondary">
@@ -897,7 +897,7 @@ export const HeaderBar: React.FC = () => {
             <span className="text-caption flex items-center gap-1 text-accent-teal">
               <CloudRain className="w-3.5 h-3.5 text-accent-teal" />
               {soundscapeActiveCount > 0 && (
-                <span className="text-caption px-1.5 py-0.5 bg-accent-teal text-black font-bold rounded-pill">
+                <span className="text-caption px-1.5 py-0.2 bg-accent-teal text-black font-bold rounded-pill">
                   {soundscapeActiveCount}
                 </span>
               )}
@@ -1170,16 +1170,16 @@ export const HeaderBar: React.FC = () => {
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
-        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <BpmMeter />
-          <div className="w-px h-4 bg-border-subtle mx-0.5 hidden sm:block" />
+          <div className="w-px h-3.5 bg-border-subtle mx-0.5 hidden sm:block" />
           <VideoRecorderButton />
 
           {/* 4K Snapshot Wallpaper */}
           <button
             onClick={handleCaptureSnapshot}
             disabled={isCapturingSnapshot}
-            className={`min-h-11 min-w-11 p-2 rounded-control transition-all flex items-center justify-center gap-1 cursor-pointer ${
+            className={`w-7 h-7 sm:w-7.5 sm:h-7.5 p-1 rounded-control transition-all flex items-center justify-center gap-1 cursor-pointer ${
               snapshotSuccess
                 ? 'text-status-success bg-status-success/15 border border-status-success/30 font-bold'
                 : isCapturingSnapshot
@@ -1189,18 +1189,18 @@ export const HeaderBar: React.FC = () => {
             title="Captura Fondo 4K (Sin interfaz para wallpaper de escritorio)"
             aria-label="Captura Fondo 4K"
           >
-            {snapshotSuccess ? <Check className="w-4 h-4 text-status-success" /> : <Camera className="w-4 h-4" />}
+            {snapshotSuccess ? <Check className="w-3.5 h-3.5 text-status-success" /> : <Camera className="w-3.5 h-3.5" />}
             <span className="text-caption font-mono hidden xl:inline font-tabular">4K</span>
           </button>
 
           {/* Auralis Story Card 9:16 Social Export */}
           <button
             onClick={() => setStoryCardOpen(true)}
-            className="min-h-11 min-w-11 p-2 rounded-control transition-all flex items-center justify-center gap-1 text-accent-purple hover:text-white hover:bg-accent-purple/20 cursor-pointer"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 p-1 rounded-control transition-all flex items-center justify-center gap-1 text-accent-purple hover:text-white hover:bg-accent-purple/20 cursor-pointer"
             title="Crear Tarjeta Estética para Historias (9:16 para Instagram Stories y TikTok)"
             aria-label="Tarjeta 9:16 para Historias"
           >
-            <Sparkles className="w-4 h-4 text-accent-purple" />
+            <Sparkles className="w-3.5 h-3.5 text-accent-purple" />
             <span className="text-caption font-mono hidden xl:inline font-tabular">9:16</span>
           </button>
         </div>
@@ -1211,46 +1211,46 @@ export const HeaderBar: React.FC = () => {
             onClick={() => setActiveMenu(activeMenu === 'studio' ? null : 'studio')}
             aria-expanded={activeMenu === 'studio'}
             aria-label="Menú de Estudio y Entradas"
-            className={`px-3 min-h-11 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
+            className={`px-2.5 py-1 h-7.5 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
               activeMenu === 'studio' || isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive
                 ? 'bg-accent-teal/15 text-accent-teal border-accent-teal/40'
                 : 'material-thick text-text-secondary border-border-subtle hover:text-text-primary hover:bg-white/10'
             }`}
             title="Estudio: Entradas de audio, Radios 24/7, Experiencias 3D y Picture-in-Picture"
           >
-            <Layers className="w-4 h-4 text-accent-teal" />
+            <Layers className="w-3.5 h-3.5 text-accent-teal" />
             <span className="hidden md:inline text-caption">Estudio</span>
             {(isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive) && (
-              <span className="w-2 h-2 rounded-pill bg-accent-teal animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-pill bg-accent-teal animate-pulse" />
             )}
-            <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+            <ChevronDown className="w-3 h-3 text-text-tertiary" />
           </button>
 
           {activeMenu === 'studio' && (
-            <div className="absolute right-0 top-full mt-2 w-72 p-3 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-caption font-mono">
+            <div className="absolute right-0 top-full mt-2 w-72 p-2.5 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-caption font-mono">
               {/* Sección Fuentes */}
               <div>
                 <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Fuentes de Audio
                 </span>
-                <div className="flex flex-col gap-1 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1">
                   {/* Micrófono */}
                   <button
                     onClick={() => {
                       toggleMicrophone();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isMicActive
                         ? 'bg-status-success/20 text-status-success border border-status-success/30 font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-3.5 h-3.5" />
                       <span>Micrófono en vivo</span>
                     </div>
-                    {isMicActive && <span className="w-2 h-2 rounded-pill bg-status-success" />}
+                    {isMicActive && <span className="w-1.5 h-1.5 rounded-pill bg-status-success" />}
                   </button>
 
                   {/* Audio de Pantalla / Tab */}
@@ -1259,17 +1259,17 @@ export const HeaderBar: React.FC = () => {
                       startSystemCapture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isCapturing
                         ? 'bg-accent-teal/20 text-accent-teal border border-accent-teal/30 font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Cast className="w-4 h-4" />
+                      <Cast className="w-3.5 h-3.5" />
                       <span>Audio de Pantalla/Tab</span>
                     </div>
-                    {isCapturing && <span className="w-2 h-2 rounded-pill bg-accent-teal" />}
+                    {isCapturing && <span className="w-1.5 h-1.5 rounded-pill bg-accent-teal" />}
                   </button>
 
                   {/* Spotify */}
@@ -1279,17 +1279,17 @@ export const HeaderBar: React.FC = () => {
                       else connectSpotify();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isSpotifyConnected
                         ? 'bg-status-success/20 text-status-success border border-status-success/30 font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-status-success" />
+                      <Radio className="w-3.5 h-3.5 text-status-success" />
                       <span>{isSpotifyConnected ? 'Spotify Conectado' : 'Conectar Spotify'}</span>
                     </div>
-                    {isSpotifyConnected && <span className="w-2 h-2 rounded-pill bg-status-success" />}
+                    {isSpotifyConnected && <span className="w-1.5 h-1.5 rounded-pill bg-status-success" />}
                   </button>
 
                   {/* Radio Web 24/7 */}
@@ -1299,13 +1299,13 @@ export const HeaderBar: React.FC = () => {
                       if (synthwaveStation) playRadioStation(synthwaveStation);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
+                    className="flex items-center justify-between p-2 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-accent-purple" />
+                      <Radio className="w-3.5 h-3.5 text-accent-purple" />
                       <span>Radio Synthwave 24/7</span>
                     </div>
-                    <span className="text-caption px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-badge font-bold uppercase">LIVE</span>
+                    <span className="text-caption px-1.5 py-0.2 bg-accent-purple/20 text-accent-purple rounded-badge font-bold uppercase">LIVE</span>
                   </button>
                 </div>
               </div>
@@ -1317,7 +1317,7 @@ export const HeaderBar: React.FC = () => {
                 <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Experiencias Inmersivas
                 </span>
-                <div className="flex flex-col gap-1 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1">
                   {/* Air Synth */}
                   <button
                     onClick={() => {
@@ -1329,17 +1329,17 @@ export const HeaderBar: React.FC = () => {
                       }
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isAirInstrumentsActive
                         ? 'bg-accent-teal/20 text-accent-teal border border-accent-teal/30 font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Piano className="w-4 h-4 text-accent-teal" />
+                      <Piano className="w-3.5 h-3.5 text-accent-teal" />
                       <span>3D Air Synth (Manos)</span>
                     </div>
-                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-pill bg-accent-teal" />}
+                    {isAirInstrumentsActive && <span className="w-1.5 h-1.5 rounded-pill bg-accent-teal" />}
                   </button>
 
                   {/* VR Pose & Dance */}
@@ -1348,17 +1348,17 @@ export const HeaderBar: React.FC = () => {
                       toggleVrMode();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       vrMode
                         ? 'bg-white/20 text-white border border-white/30 font-medium'
                         : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Camera className="w-4 h-4" />
+                      <Camera className="w-3.5 h-3.5" />
                       <span>VR Dance & Tracker</span>
                     </div>
-                    {vrMode && <span className="text-caption px-1.5 py-0.5 bg-white/20 rounded-badge font-bold uppercase">{vrTrackingMode}</span>}
+                    {vrMode && <span className="text-caption px-1.5 py-0.2 bg-white/20 rounded-badge font-bold uppercase">{vrTrackingMode}</span>}
                   </button>
 
                   {/* Picture-in-Picture (PiP) */}
@@ -1367,15 +1367,15 @@ export const HeaderBar: React.FC = () => {
                       await pictureInPictureService.togglePictureInPicture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isPipActive ? 'bg-accent-teal/15 text-accent-teal font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Tv className="w-4 h-4 text-accent-teal" />
+                      <Tv className="w-3.5 h-3.5 text-accent-teal" />
                       <span>Ventana Flotante (PiP)</span>
                     </div>
-                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 font-bold">
+                    <span className="text-caption px-1.5 py-0.2 rounded-badge bg-white/10 font-bold">
                       {isPipActive ? 'ON' : 'POP'}
                     </span>
                   </button>
@@ -1392,50 +1392,50 @@ export const HeaderBar: React.FC = () => {
             aria-haspopup="true"
             aria-expanded={activeMenu === 'settings'}
             aria-label="Ajustes de Sistema y Herramientas"
-            className={`px-3 min-h-11 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
+            className={`px-2.5 py-1 h-7.5 rounded-control text-caption font-mono transition-all flex items-center gap-1.5 border shadow-subtle cursor-pointer ${
               activeMenu === 'settings' || isEqualizerOpen || isLyricsOpen || isSidebarOpen || sleepTimerMinutes > 0
                 ? 'bg-accent-purple/15 text-accent-purple border-accent-purple/40'
                 : 'material-thick text-text-secondary border-border-subtle hover:text-text-primary hover:bg-white/10'
             }`}
             title="Ajustes de Sistema: Biblioteca, Letras, Ecualizador, Temporizador, Rendimiento y Atajos"
           >
-            <SlidersHorizontal className="w-4 h-4 text-accent-purple" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-accent-purple" />
             <span className="hidden md:inline text-caption">Ajustes</span>
             {sleepTimerMinutes > 0 && (
               <span className="text-caption font-mono font-bold text-status-warning font-tabular">
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+            <ChevronDown className="w-3 h-3 text-text-tertiary" />
           </button>
 
           {activeMenu === 'settings' && (
             <div
               role="menu"
               aria-label="Ajustes de Sistema"
-              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 p-3 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-caption font-mono"
+              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-72 p-2.5 rounded-modal material-thick border border-border-subtle shadow-popover z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-caption font-mono"
             >
               {/* Sección Vistas & Utilidades */}
               <div>
                 <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Vistas & Utilidades
                 </span>
-                <div className="flex flex-col gap-1 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1">
                   {/* Biblioteca */}
                   <button
                     onClick={() => {
                       setSidebarOpen(!isSidebarOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isSidebarOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <ListMusic className="w-4 h-4 text-accent-purple" />
+                      <ListMusic className="w-3.5 h-3.5 text-accent-purple" />
                       <span>Biblioteca de Pistas</span>
                     </div>
-                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">B</span>
+                    <span className="text-caption px-1.5 py-0.2 rounded-badge bg-white/10 text-text-secondary font-bold">B</span>
                   </button>
 
                   {/* Letras */}
@@ -1444,15 +1444,15 @@ export const HeaderBar: React.FC = () => {
                       setLyricsOpen(!isLyricsOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isLyricsOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <AlignLeft className="w-4 h-4 text-status-success" />
+                      <AlignLeft className="w-3.5 h-3.5 text-status-success" />
                       <span>Letras Sincronizadas</span>
                     </div>
-                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">L</span>
+                    <span className="text-caption px-1.5 py-0.2 rounded-badge bg-white/10 text-text-secondary font-bold">L</span>
                   </button>
 
                   {/* Ecualizador Pro-Q */}
@@ -1461,15 +1461,15 @@ export const HeaderBar: React.FC = () => {
                       setEqualizerOpen(!isEqualizerOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-2 rounded-control text-caption font-mono transition-all cursor-pointer ${
                       isEqualizerOpen ? 'bg-white/15 text-white font-medium' : 'text-text-secondary hover:text-text-primary hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-accent-teal" />
+                      <Sliders className="w-3.5 h-3.5 text-accent-teal" />
                       <span>Ecualizador 10 Bandas</span>
                     </div>
-                    <span className="text-caption px-2 py-0.5 rounded-badge bg-white/10 text-text-secondary font-bold">E</span>
+                    <span className="text-caption px-1.5 py-0.2 rounded-badge bg-white/10 text-text-secondary font-bold">E</span>
                   </button>
 
                   {/* Estadísticas de Sesión */}
@@ -1478,9 +1478,9 @@ export const HeaderBar: React.FC = () => {
                       setSessionStatsOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
+                    className="flex items-center gap-2 p-2 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <Clock className="w-4 h-4 text-status-warning" />
+                    <Clock className="w-3.5 h-3.5 text-status-warning" />
                     <span>Estadísticas de Sesión</span>
                   </button>
                 </div>
@@ -1493,16 +1493,16 @@ export const HeaderBar: React.FC = () => {
                 <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Tema Visual & Acento
                 </span>
-                <div className="flex flex-col gap-2 mt-1.5 p-2.5 rounded-card bg-surface-base/60 border border-border-subtle">
+                <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-card bg-surface-base/60 border border-border-subtle">
                   {/* Selector de Modo: Auto / Dark / Light */}
                   <div className="flex items-center justify-between">
                     <span className="text-caption text-text-secondary">Tema</span>
-                    <div className="flex gap-1 p-1 rounded-control bg-surface-base/80 border border-border-subtle">
+                    <div className="flex gap-0.5 p-0.5 rounded-control bg-surface-base/80 border border-border-subtle">
                       {(['auto', 'dark', 'light'] as const).map((m) => (
                         <button
                           key={m}
                           onClick={() => setThemeMode(m)}
-                          className={`min-h-11 px-2.5 py-1 rounded-control text-caption font-mono font-medium transition-all cursor-pointer ${
+                          className={`px-2 py-0.5 rounded-control text-caption font-mono font-medium transition-all cursor-pointer ${
                             themeMode === m
                               ? 'bg-white/20 text-white font-bold shadow-subtle'
                               : 'text-text-tertiary hover:text-text-primary'
@@ -1515,16 +1515,16 @@ export const HeaderBar: React.FC = () => {
                   </div>
 
                   {/* Selector de Color de Acento */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-border-subtle">
                     <span className="text-caption text-text-secondary">Acento</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {availableAccents.map((acc) => (
                         <button
                           key={acc.id}
                           onClick={() => setAccentColor(acc.id)}
                           title={acc.label}
                           aria-label={`Seleccionar acento ${acc.label}`}
-                          className={`w-6 h-6 rounded-pill transition-transform cursor-pointer ${
+                          className={`w-5 h-5 rounded-pill transition-transform cursor-pointer ${
                             currentAccent === acc.id
                               ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-black'
                               : 'opacity-70 hover:opacity-100 hover:scale-105'
@@ -1544,17 +1544,17 @@ export const HeaderBar: React.FC = () => {
                 <span className="text-caption font-mono text-text-tertiary px-2 uppercase tracking-wider">
                   Hardware & Temporizador
                 </span>
-                <div className="flex flex-col gap-1 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1">
                   {/* Rendimiento Gráfico */}
                   <button
                     onClick={cyclePerformanceTier}
-                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
+                    className="flex items-center justify-between p-2 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Gauge className="w-4 h-4 text-status-warning" />
+                      <Gauge className="w-3.5 h-3.5 text-status-warning" />
                       <span>Rendimiento Gráfico</span>
                     </div>
-                    <span className="text-caption uppercase font-bold text-status-warning px-2 py-0.5 bg-status-warning/15 rounded-badge border border-status-warning/30">
+                    <span className="text-caption uppercase font-bold text-status-warning px-1.5 py-0.2 bg-status-warning/15 rounded-badge border border-status-warning/30">
                       {performanceTier}
                     </span>
                   </button>
@@ -1562,29 +1562,29 @@ export const HeaderBar: React.FC = () => {
                   {/* Efectos de Cursor */}
                   <button
                     onClick={toggleMouseEffects}
-                    className="flex items-center justify-between p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
+                    className="flex items-center justify-between p-2 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <MousePointer className={`w-4 h-4 ${mouseEffectsEnabled ? 'text-accent-teal' : 'text-text-tertiary'}`} />
+                      <MousePointer className={`w-3.5 h-3.5 ${mouseEffectsEnabled ? 'text-accent-teal' : 'text-text-tertiary'}`} />
                       <span>Efectos de Cursor</span>
                     </div>
-                    <span className="text-caption uppercase font-bold px-2 py-0.5 rounded-badge border text-text-tertiary border-border-subtle">
+                    <span className="text-caption uppercase font-bold px-1.5 py-0.2 rounded-badge border text-text-tertiary border-border-subtle">
                       {mouseEffectsEnabled ? 'Activo' : 'Eco'}
                     </span>
                   </button>
 
                   {/* Sleep Timer Preset Rápido */}
-                  <div className="flex items-center justify-between p-2.5 min-h-11 rounded-control bg-surface-base/60 border border-border-subtle">
+                  <div className="flex items-center justify-between p-2 rounded-control bg-surface-base/60 border border-border-subtle">
                     <div className="flex items-center gap-2 text-text-secondary">
-                      <Clock className="w-4 h-4 text-status-warning" />
+                      <Clock className="w-3.5 h-3.5 text-status-warning" />
                       <span>Sleep Timer</span>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1">
                       {[0, 15, 30].map((mins) => (
                         <button
                           key={mins}
                           onClick={() => setSleepTimer(mins)}
-                          className={`min-h-11 px-2.5 py-1 rounded-control text-caption font-mono font-bold transition-all cursor-pointer ${
+                          className={`px-2 py-0.5 rounded-control text-caption font-mono font-bold transition-all cursor-pointer ${
                             sleepTimerMinutes === mins
                               ? 'bg-status-warning text-black'
                               : 'bg-white/10 text-text-secondary hover:text-text-primary'
@@ -1602,9 +1602,9 @@ export const HeaderBar: React.FC = () => {
                       toggleShortcutsModal();
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2.5 min-h-11 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
+                    className="flex items-center gap-2 p-2 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <Keyboard className="w-4 h-4 text-accent-blue" />
+                    <Keyboard className="w-3.5 h-3.5 text-accent-blue" />
                     <span>Atajos de Teclado (?)</span>
                   </button>
                 </div>
@@ -1614,14 +1614,14 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 4. Pod: Estilo Lúcido & Fondo & Idioma */}
-        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <button
             onClick={() => changeLanguage(currentLang === 'es' ? 'en' : 'es')}
-            className="min-h-11 px-3 py-1.5 rounded-control text-caption font-mono font-bold text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="h-7 sm:h-7.5 px-2.5 rounded-control text-caption font-mono font-bold text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
             title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
             aria-label={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
           >
-            <Globe className="w-4 h-4 text-accent-teal" />
+            <Globe className="w-3.5 h-3.5 text-accent-teal" />
             <span className="uppercase">{currentLang}</span>
           </button>
           <LucidToggle />
@@ -1629,32 +1629,32 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 5. Acciones Rápidas: Compartir, Modo Inmersivo & Pantalla Completa */}
-        <div className="flex items-center gap-1 p-1 rounded-dock material-thick border border-border-subtle shadow-subtle">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-dock material-thick border border-border-subtle shadow-subtle">
           <button
             onClick={handleShare}
-            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors hidden sm:flex items-center justify-center cursor-pointer"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors hidden sm:flex items-center justify-center cursor-pointer"
             title="Compartir sesión de música"
             aria-label="Compartir"
           >
-            {copied ? <Check className="w-4 h-4 text-status-success" /> : <Share2 className="w-4 h-4" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-status-success" /> : <Share2 className="w-3.5 h-3.5" />}
           </button>
 
           <button
             onClick={() => updateBlobSettings({ isUiHidden: true })}
-            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-accent-teal hover:bg-white/10 transition-colors hidden min-[440px]:flex items-center justify-center cursor-pointer"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-control text-text-secondary hover:text-accent-teal hover:bg-white/10 transition-colors hidden min-[440px]:flex items-center justify-center cursor-pointer"
             title="Modo Galería / Inmersión Pura (Atajo: G)"
             aria-label="Modo Galería"
           >
-            <Sparkles className="w-4 h-4 text-accent-teal" />
+            <Sparkles className="w-3.5 h-3.5 text-accent-teal" />
           </button>
 
           <button
             onClick={toggleFullscreen}
-            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
+            className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             aria-label="Pantalla completa"
           >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

@@ -74,19 +74,19 @@ export const VideoRecorderButton: React.FC = () => {
 
   if (isRecording) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-control bg-status-error/15 border border-status-error/40 text-status-error animate-pulse select-none min-h-11">
-        <span className="w-2.5 h-2.5 rounded-pill bg-status-error animate-ping" />
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-status-error/15 border border-status-error/40 text-status-error animate-pulse select-none h-7 sm:h-7.5">
+        <span className="w-2 h-2 rounded-pill bg-status-error animate-ping" />
         <span className="text-caption font-mono font-medium tracking-wider font-tabular">
           REC {formatTime(elapsedSec)}
           {targetDuration ? ` / ${formatTime(targetDuration)}` : ''}
         </span>
         <button
           onClick={handleStop}
-          className="min-h-11 min-w-11 ml-1 p-2 rounded-control bg-status-error/20 hover:bg-status-error/40 text-white transition-colors flex items-center justify-center cursor-pointer btn-spring"
+          className="ml-1 p-1 rounded-control bg-status-error/20 hover:bg-status-error/40 text-white transition-colors flex items-center justify-center cursor-pointer btn-spring"
           title="Detener y descargar video MP4"
           aria-label="Detener grabación"
         >
-          <Square className="w-3.5 h-3.5 fill-current" />
+          <Square className="w-3 h-3 fill-current" />
         </button>
       </div>
     );
@@ -98,23 +98,23 @@ export const VideoRecorderButton: React.FC = () => {
         {/* Main REC Button */}
         <button
           onClick={() => handleStart(15)}
-          className="min-h-11 px-3 py-2 rounded-l-control transition-colors border-y border-l border-border-subtle text-text-secondary hover:text-text-primary hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer btn-spring"
+          className="h-7 sm:h-7.5 px-2.5 py-1 rounded-l-control transition-colors border-y border-l border-border-subtle text-text-secondary hover:text-text-primary hover:bg-white/[0.04] flex items-center gap-1.5 cursor-pointer btn-spring"
           title="Grabar pestaña en MP4 (15s por defecto)"
           aria-label="Grabar video MP4"
         >
-          <Video className="w-4 h-4 text-accent-cyan" />
+          <Video className="w-3.5 h-3.5 text-accent-cyan" />
           <span className="text-caption font-mono hidden md:inline uppercase text-text-tertiary">Rec</span>
         </button>
 
         {/* Dropdown Menu Arrow */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="min-h-11 min-w-11 px-2.5 py-2 rounded-r-control transition-colors border border-border-subtle text-text-tertiary hover:text-text-primary hover:bg-white/[0.04] flex items-center justify-center cursor-pointer btn-spring"
+          className="h-7 sm:h-7.5 px-2 py-1 rounded-r-control transition-colors border border-border-subtle text-text-tertiary hover:text-text-primary hover:bg-white/[0.04] flex items-center justify-center cursor-pointer btn-spring"
           title="Opciones de proporción (16:9, 4:3, 1:1) y duración"
           aria-label="Opciones de grabación"
           aria-expanded={isMenuOpen}
         >
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-fast ${isMenuOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3 h-3 transition-transform duration-fast ${isMenuOpen ? 'rotate-180' : ''}`} />
         </button>
       </div>
 

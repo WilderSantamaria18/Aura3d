@@ -131,7 +131,7 @@ export const ProgressBar: React.FC = React.memo(() => {
         aria-label="Barra de progreso y búsqueda"
       >
         {/* Waveform Bars Canvas/DOM */}
-        <div className="relative w-full h-7 flex items-center gap-[1px] sm:gap-[2px] overflow-hidden px-0.5">
+        <div className="relative w-full h-4 sm:h-5 flex items-center gap-[1px] sm:gap-[2px] overflow-hidden px-0.5">
           {waveformData.peaks.map((peak, index) => {
             const barPct = (index / waveformData.peaks.length) * 100;
             const isPlayed = barPct <= progressPct;

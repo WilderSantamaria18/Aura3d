@@ -318,7 +318,7 @@ export const App: React.FC = () => {
           onMouseLeave={() => setIsDockHovered(false)}
         >
           <div
-            className={`w-full max-w-[440px] sm:max-w-2xl lg:max-w-3xl rounded-dock p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
+            className={`w-full max-w-[380px] sm:max-w-lg lg:max-w-xl rounded-modal p-2 sm:p-2.5 flex flex-col gap-1 sm:gap-1.5 pointer-events-auto transition-all duration-300 group/capsule ${
               isLucid
                 ? 'lucid-panel opacity-95 hover:opacity-100'
                 : 'bg-surface-dock/90 material-thick border border-border-subtle shadow-dock opacity-95 hover:opacity-100'
@@ -328,7 +328,7 @@ export const App: React.FC = () => {
                 ? {
                     backgroundColor: lucidTheme.glassColor,
                     borderColor: lucidTheme.borderColor,
-                    boxShadow: '0 24px 60px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.12) inset',
+                    boxShadow: '0 20px 48px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.12) inset',
                   }
                 : undefined
             }

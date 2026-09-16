@@ -105,35 +105,35 @@ export const Controls: React.FC = React.memo(() => {
   );
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 w-full px-1 sm:px-2 select-none">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-2 w-full px-1 sm:px-1.5 select-none">
       {/* Track Info */}
-      <div className="flex items-center gap-3 w-full sm:w-1/3 min-w-0 justify-between sm:justify-start">
-        <div className="w-11 h-11 rounded-control bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <div className="flex items-center gap-2.5 w-full sm:w-1/3 min-w-0 justify-between sm:justify-start">
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-control bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-sm">
           {currentTrack?.coverUrl ? (
             <img src={currentTrack.coverUrl} alt={currentTrack.title} className="w-full h-full object-cover" />
           ) : (
-            <Music className="w-4 h-4 text-white/40" />
+            <Music className="w-3.5 h-3.5 text-white/40" />
           )}
         </div>
 
         <div className="flex-1 min-w-0 pr-1">
-          <div className="flex items-center gap-2">
-            <h4 className="text-white font-medium text-xs sm:text-sm truncate tracking-tight">
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-white font-medium text-caption truncate tracking-tight">
               {currentTrack ? currentTrack.title : 'Sin pista seleccionada'}
             </h4>
             {currentTrack?.sourceType === 'system' && (
-              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
+              <span className="text-caption font-mono uppercase tracking-wider px-1 py-0.2 rounded-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
                 LIVE
               </span>
             )}
             {isSpotifyConnected && (
-              <span className="text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded-badge bg-status-success/15 text-status-success border border-status-success/30 flex items-center gap-1 flex-shrink-0 shadow-subtle">
-                <span className="w-1.5 h-1.5 rounded-pill bg-status-success" />
-                SPOTIFY SYNC
+              <span className="text-caption font-mono tracking-wider px-1.5 py-0.5 rounded-badge bg-status-success/15 text-status-success border border-status-success/30 flex items-center gap-1 flex-shrink-0 shadow-subtle">
+                <span className="w-1 h-1 rounded-pill bg-status-success" />
+                SPOTIFY
               </span>
             )}
           </div>
-          <p className="text-white/40 text-[11px] sm:text-xs truncate font-mono mt-0.5">
+          <p className="text-white/40 text-caption truncate font-mono mt-0.5">
             {currentTrack ? currentTrack.artist : 'Aura3D Engine'}
           </p>
         </div>
@@ -141,29 +141,29 @@ export const Controls: React.FC = React.memo(() => {
         {currentTrack && (
           <button
             onClick={() => toggleFavorite(currentTrack)}
-            className={`min-h-11 min-w-11 p-2 flex items-center justify-center rounded-control transition-colors flex-shrink-0 cursor-pointer ${
+            className={`w-8 h-8 flex items-center justify-center rounded-control transition-colors flex-shrink-0 cursor-pointer btn-spring ${
               isFav
                 ? 'text-rose-500 hover:text-rose-400'
-                : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
+                : 'text-white/40 hover:text-white hover:bg-white/[0.06]'
             }`}
             title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
           >
-            <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500' : ''}`} />
+            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`} />
           </button>
         )}
 
         {/* Mobile Volume */}
-        <div className="flex sm:hidden items-center gap-1.5">
+        <div className="flex sm:hidden items-center gap-1">
           <VolumeControl />
         </div>
       </div>
 
       {/* Main Playback Buttons */}
-      <div className="flex items-center justify-center gap-1.5 sm:gap-4 w-full sm:w-auto">
+      <div className="flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto">
         <button
           onClick={toggleShuffle}
-          className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control transition-colors cursor-pointer ${
+          className={`w-8 h-8 flex items-center justify-center rounded-control transition-colors cursor-pointer btn-spring ${
             isShuffled
               ? isLucid
                 ? 'text-white bg-white/20 shadow-sm'
@@ -173,21 +173,21 @@ export const Controls: React.FC = React.memo(() => {
           title={isShuffled ? 'Desactivar Aleatorio (S)' : 'Activar Aleatorio (S)'}
           aria-label={isShuffled ? 'Desactivar modo aleatorio' : 'Activar modo aleatorio'}
         >
-          <Shuffle className="w-4 h-4" />
+          <Shuffle className="w-3.5 h-3.5" />
         </button>
 
         <button
           onClick={handlePrevious}
-          className="p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          className="w-8 h-8 flex items-center justify-center rounded-control text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
           title="Canción Anterior (Shift+←)"
           aria-label="Canción anterior"
         >
-          <SkipBack className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
+          <SkipBack className="w-3.5 h-3.5 fill-current" />
         </button>
 
         <button
           onClick={handlePlayPause}
-          className="min-h-11 min-w-11 w-11 h-11 sm:w-12 sm:h-12 rounded-pill flex items-center justify-center btn-spring shadow-[0_4px_16px_rgba(0,0,0,0.4)] border border-white/20 flex-shrink-0 group cursor-pointer"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-pill flex items-center justify-center btn-spring shadow-[0_4px_14px_rgba(0,0,0,0.4)] border border-white/20 flex-shrink-0 group cursor-pointer"
           style={
             autoMode
               ? {
@@ -208,24 +208,24 @@ export const Controls: React.FC = React.memo(() => {
           aria-label={isPlaying ? 'Pausar reproducción' : 'Iniciar reproducción'}
         >
           {isPlaying ? (
-            <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+            <Pause className="w-4 h-4 fill-current" />
           ) : (
-            <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current translate-x-0.5" />
+            <Play className="w-4 h-4 fill-current translate-x-0.5" />
           )}
         </button>
 
         <button
           onClick={handleNext}
-          className="p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          className="w-8 h-8 flex items-center justify-center rounded-control text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
           title="Siguiente Canción (Shift+→)"
           aria-label="Siguiente canción"
         >
-          <SkipForward className="w-4 h-4 sm:w-4.5 sm:h-4.5 fill-current" />
+          <SkipForward className="w-3.5 h-3.5 fill-current" />
         </button>
 
         <button
           onClick={cycleRepeat}
-          className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control transition-colors cursor-pointer ${
+          className={`w-8 h-8 flex items-center justify-center rounded-control transition-colors cursor-pointer btn-spring ${
             repeatMode !== 'off'
               ? isLucid
                 ? 'text-white bg-white/20 shadow-sm'
@@ -236,9 +236,9 @@ export const Controls: React.FC = React.memo(() => {
           aria-label={`Modo de repetición actual: ${repeatMode}. Clic para cambiar.`}
         >
           {repeatMode === 'one' ? (
-            <Repeat1 className="w-4 h-4" />
+            <Repeat1 className="w-3.5 h-3.5" />
           ) : (
-            <Repeat className="w-4 h-4" />
+            <Repeat className="w-3.5 h-3.5" />
           )}
         </button>
 
@@ -249,7 +249,7 @@ export const Controls: React.FC = React.memo(() => {
             e.stopPropagation();
             AudioEngine.getInstance().triggerDjScratch();
           }}
-          className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control transition-all cursor-pointer ${
+          className={`w-8 h-8 flex items-center justify-center rounded-control transition-all cursor-pointer btn-spring ${
             isPlaying
               ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 active:scale-90'
               : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
@@ -257,14 +257,14 @@ export const Controls: React.FC = React.memo(() => {
           title="Freno de Vinilo Analógico (Tape Stop) • Doble clic / Shift+Clic: Scratch DJ"
           aria-label="Freno de vinilo analógico"
         >
-          <Disc3 className={`w-4 h-4 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
+          <Disc3 className={`w-3.5 h-3.5 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
         </button>
 
         {/* DJ Looper A-B & Cues Popover Button */}
         <div className="relative">
           <button
             onClick={() => setIsLooperOpen(!isLooperOpen)}
-            className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded-control transition-all gap-1 cursor-pointer ${
+            className={`w-8 h-8 flex items-center justify-center rounded-control transition-all gap-1 cursor-pointer btn-spring ${
               isLoopActive
                 ? 'text-amber-400 bg-amber-400/15 border border-amber-400/30 shadow-[0_0_8px_rgba(251,191,36,0.2)]'
                 : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
@@ -274,11 +274,11 @@ export const Controls: React.FC = React.memo(() => {
             aria-expanded={isLooperOpen}
           >
             {isLoopActive ? (
-              <BookmarkCheck className="w-4 h-4 text-amber-400" />
+              <BookmarkCheck className="w-3.5 h-3.5 text-amber-400" />
             ) : (
-              <Bookmark className="w-4 h-4" />
+              <Bookmark className="w-3.5 h-3.5" />
             )}
-            {isLoopActive && <span className="text-[9px] font-mono font-bold text-amber-400">A-B</span>}
+            {isLoopActive && <span className="text-caption font-mono font-bold text-amber-400">A-B</span>}
           </button>
 
           {isLooperOpen && (

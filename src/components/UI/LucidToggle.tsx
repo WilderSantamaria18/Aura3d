@@ -53,13 +53,13 @@ export const LucidToggle: React.FC = () => {
         <button
           type="button"
           onClick={toggleLucidMode}
-          className="min-h-11 flex items-center gap-1.5 px-3 py-1 rounded-pill transition-transform active:scale-[0.97] text-caption btn-spring cursor-pointer"
+          className="h-7 sm:h-7.5 flex items-center gap-1.5 px-2.5 rounded-pill transition-transform active:scale-[0.97] text-caption btn-spring cursor-pointer"
           title={isLucid ? 'Desactivar Modo Lúcido' : 'Activar Modo Lúcido'}
           aria-label={isLucid ? 'Desactivar Modo Lúcido' : 'Activar Modo Lúcido'}
         >
           {isLucid ? (
             <span
-              className="w-2.5 h-2.5 rounded-pill animate-ping"
+              className="w-2 h-2 rounded-pill animate-ping"
               style={{ backgroundColor: lucidPrimaryColor }}
             />
           ) : (
@@ -75,17 +75,17 @@ export const LucidToggle: React.FC = () => {
             e.stopPropagation();
             setIsPaletteOpen((prev) => !prev);
           }}
-          className="min-h-11 min-w-11 p-1 rounded-pill hover:bg-white/20 transition-all text-text-secondary hover:text-text-primary mr-0.5 flex items-center justify-center cursor-pointer btn-spring"
+          className="w-6 h-6 p-0.5 rounded-pill hover:bg-white/20 transition-all text-text-secondary hover:text-text-primary mr-0.5 flex items-center justify-center cursor-pointer btn-spring"
           title="Elegir entre 10 Paletas Bicolor o Personalizar HEX"
           aria-label="Desplegar paleta de colores lúcidos"
           aria-expanded={isPaletteOpen}
         >
           <div
-            className="w-4 h-4 rounded-pill border border-border-highlight shadow-subtle flex items-center justify-center transition-transform"
+            className="w-3.5 h-3.5 rounded-pill border border-border-highlight shadow-subtle flex items-center justify-center transition-transform"
             style={{ backgroundColor: isLucid ? lucidPrimaryColor : 'var(--accent-cyan)' }}
           >
             <ChevronDown
-              className={`w-2.5 h-2.5 text-black stroke-[3] transition-transform duration-fast ${
+              className={`w-2 h-2 text-black stroke-[3] transition-transform duration-fast ${
                 isPaletteOpen ? 'rotate-180' : ''
               }`}
             />
@@ -95,14 +95,14 @@ export const LucidToggle: React.FC = () => {
 
       {/* Inline Quick Color Pickers for Lucid Mode (Desktop quick access) */}
       {isLucid && (
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-surface-dock/80 border border-border-subtle material-regular shadow-card min-h-11">
+        <div className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-pill bg-surface-dock/80 border border-border-subtle material-regular shadow-card h-7 sm:h-7.5">
           <div className="flex items-center gap-1" title="Color Primario Lúcido">
             <input
               type="color"
               value={lucidPrimaryColor}
               aria-label="Color Primario Lúcido"
               onChange={(e) => setLucidPrimaryColor(e.target.value)}
-              className="w-5 h-5 rounded-pill cursor-pointer border-0 p-0 bg-transparent overflow-hidden"
+              className="w-4 h-4 rounded-pill cursor-pointer border-0 p-0 bg-transparent overflow-hidden"
             />
           </div>
           <div className="flex items-center gap-1" title="Color Secundario Lúcido">
@@ -111,7 +111,7 @@ export const LucidToggle: React.FC = () => {
               value={lucidSecondaryColor}
               aria-label="Color Secundario Lúcido"
               onChange={(e) => setLucidSecondaryColor(e.target.value)}
-              className="w-5 h-5 rounded-pill cursor-pointer border-0 p-0 bg-transparent overflow-hidden"
+              className="w-4 h-4 rounded-pill cursor-pointer border-0 p-0 bg-transparent overflow-hidden"
             />
           </div>
         </div>
