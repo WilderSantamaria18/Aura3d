@@ -28,6 +28,8 @@ import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 
+import { DesktopLeftSidebar, DesktopRightSidebar } from './components/UI/DesktopSidebars';
+
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
@@ -197,9 +199,9 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  const activePrimary = isLucid ? (lucidPrimaryColor || lucidTheme?.primary || '#00e5ff') : '#00e5ff';
-  const activeSecondary = isLucid ? (lucidSecondaryColor || lucidTheme?.secondary || '#ff007f') : '#ff007f';
-  const activeGlow = isLucid ? hexToRgba(activePrimary, 0.40) : 'rgba(0, 229, 255, 0.35)';
+  const activePrimary = isLucid ? (lucidPrimaryColor || lucidTheme?.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
+  const activeSecondary = isLucid ? (lucidSecondaryColor || lucidTheme?.secondary || 'var(--ios-pink)') : 'var(--ios-pink)';
+  const activeGlow = isLucid ? hexToRgba(activePrimary, 0.40) : 'rgba(43, 220, 210, 0.35)';
   const activeGlass = isLucid ? hexToRgba(activePrimary, 0.08) : 'rgba(8, 12, 22, 0.90)';
   const activeBorder = isLucid ? hexToRgba(activePrimary, 0.35) : 'rgba(255, 255, 255, 0.08)';
   const activeBg = isLucid
@@ -238,12 +240,13 @@ export const App: React.FC = () => {
         <button
           type="button"
           onClick={() => updateBlobSettings({ isUiHidden: false })}
-          className="fixed top-4 right-4 z-50 px-3.5 py-2 rounded-[var(--radius-card)] bg-[var(--surface-dock)] hover:bg-[var(--surface-overlay)] text-white/80 hover:text-white border border-[var(--border-subtle)] backdrop-blur-3xl shadow-[var(--shadow-card)] transition-all hover:scale-105 active:scale-[0.97] flex items-center gap-2 text-xs font-sans select-none pointer-events-auto group btn-spring"
+          className="fixed top-4 right-4 z-50 px-3.5 py-2 min-h-11 rounded-card bg-surface-dock hover:bg-surface-overlay text-white/80 hover:text-white border border-border-subtle material-thick shadow-card transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-caption font-sans select-none pointer-events-auto group btn-spring cursor-pointer"
           title="Restaurar interfaz y controles (o presiona 'G' o Esc)"
+          aria-label="Restaurar interfaz y controles"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-          <Sliders className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-45 transition-transform" />
-          <span className="text-[11px] font-medium">Modo Galería (G / Esc)</span>
+          <span className="w-1.5 h-1.5 rounded-pill bg-accent-teal" />
+          <Sliders className="w-3.5 h-3.5 text-accent-teal group-hover:rotate-45 transition-transform" />
+          <span className="text-caption font-medium">Modo Galería (G / Esc)</span>
         </button>
       )}
 
@@ -260,9 +263,9 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Visualizer in Fullscreen Center (Mounts only when user enters to preserve 100% GPU for landing) */}
+      {/* 2. Visualizer in Fullscreen Center on Mobile/Tablet & Constrained in 3-zone on Desktop (>=1024px) */}
       <div
-        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`absolute inset-0 lg:left-[300px] lg:right-[340px] w-full lg:w-auto h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
@@ -283,6 +286,14 @@ export const App: React.FC = () => {
         )}
       </div>
 
+      {/* Desktop 3-Zone Docked Sidebars (>=1024px) */}
+      {hasStarted && !shouldHideUI && (
+        <>
+          <DesktopLeftSidebar />
+          <DesktopRightSidebar />
+        </>
+      )}
+
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
       {hasStarted && <RgbGlitchOverlay />}
       {hasStarted && <RetroCrtOverlay />}
@@ -293,10 +304,10 @@ export const App: React.FC = () => {
       {/* 3D Cinematic Camera Presets Toolbar */}
       {hasStarted && !shouldHideUI && <CameraPresetBar />}
 
-      {/* 3. Floating Header UI */}
+      {/* 3. Floating Header UI — Centered with safe margins */}
       {hasStarted && (
         <div
-          className={`fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-700 ${
+          className={`fixed top-0 left-0 right-0 lg:left-[300px] lg:right-[340px] z-50 pointer-events-none transition-all duration-700 ${
             shouldHideUI ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
           }`}
         >
@@ -304,12 +315,10 @@ export const App: React.FC = () => {
         </div>
       )}
 
-
-
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 sm:bottom-4 left-0 right-0 z-40 flex justify-center px-2 sm:px-4 pb-[env(safe-area-inset-bottom,0px)] transition-all duration-500 pointer-events-none ${
+          className={`fixed bottom-0 sm:bottom-4 left-0 right-0 lg:left-[300px] lg:right-[340px] z-40 flex justify-center px-2 sm:px-4 pb-[env(safe-area-inset-bottom,0px)] transition-all duration-500 pointer-events-none ${
             isZenGhostMode || isUiHidden
               ? 'opacity-0 translate-y-10 pointer-events-none'
               : 'opacity-100 translate-y-0'

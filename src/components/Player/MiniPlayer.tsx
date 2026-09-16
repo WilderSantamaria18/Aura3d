@@ -371,35 +371,35 @@ export const MiniPlayer: React.FC = () => {
     switch (sourceType) {
       case 'youtube':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium tracking-tight bg-red-500/15 text-red-400 border border-red-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-caption font-sans font-medium tracking-tight bg-red-500/15 text-red-400 border border-red-500/20">
             <YouTubeIcon className="w-3 h-3 text-red-500" />
             YouTube
           </span>
         );
       case 'spotify':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium tracking-tight bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-caption font-sans font-medium tracking-tight bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
             <Music className="w-3 h-3 text-emerald-400" />
             Spotify
           </span>
         );
       case 'local':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium tracking-tight bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-caption font-sans font-medium tracking-tight bg-cyan-500/15 text-cyan-300 border border-cyan-500/20">
             <Disc3 className="w-3 h-3 text-cyan-400 animate-spin-slow" />
             Local
           </span>
         );
       case 'mic':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium tracking-tight bg-purple-500/15 text-purple-300 border border-purple-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-caption font-sans font-medium tracking-tight bg-purple-500/15 text-purple-300 border border-purple-500/20">
             <Radio className="w-3 h-3 text-purple-400" />
             Mic
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium tracking-tight bg-white/10 text-white/70 border border-white/[0.08]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-badge text-caption font-sans font-medium tracking-tight bg-white/10 text-white/70 border border-white/[0.08]">
             <Music className="w-3 h-3" />
             Audio
           </span>
@@ -431,7 +431,7 @@ export const MiniPlayer: React.FC = () => {
 
       {/* ── Zen Mode Ultra-Compact Floating Micro-Pill ─────────────────────── */}
       {isZenMode && !isExpanded && (
-        <div className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300">
+        <div className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 hidden sm:flex lg:hidden">
           <div
             className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-pill select-none material-regular border"
             style={themeGlowStyle}
@@ -456,14 +456,14 @@ export const MiniPlayer: React.FC = () => {
             </div>
 
             {/* Truncated track title */}
-            <span className="text-[13px] font-bold font-display text-white truncate max-w-[120px] sm:max-w-[160px] text-scrim-3d">
+            <span className="text-subheadline font-bold font-display text-white truncate max-w-[120px] sm:max-w-[160px] text-scrim-3d">
               {title}
             </span>
 
             {/* Play / Pause Mini */}
             <button
               onClick={togglePlay}
-              className="min-w-11 min-h-11 w-11 h-11 flex items-center justify-center rounded-pill bg-white text-black hover:bg-white/90 btn-spring transition-all shadow text-xs cursor-pointer"
+              className="min-w-11 min-h-11 w-11 h-11 flex items-center justify-center rounded-pill bg-white text-black hover:bg-white/90 btn-spring transition-all shadow text-caption cursor-pointer"
               style={
                 isLucid
                   ? { backgroundColor: lucidTheme.primary, color: 'black' }
@@ -491,7 +491,7 @@ export const MiniPlayer: React.FC = () => {
       {/* ── Collapsed Dock Pill (Docked on Left: bottom-6 left-4) ──────────── */}
       {!isExpanded && !isZenMode && (
         <div
-          className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform"
+          className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform hidden sm:flex lg:hidden"
         >
           <div
             className="group relative flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-dock border material-regular transition-all cursor-pointer max-w-[290px] sm:max-w-[340px]"
@@ -531,12 +531,12 @@ export const MiniPlayer: React.FC = () => {
 
               <div className="flex flex-col min-w-0 pr-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[13px] font-bold font-display text-white truncate max-w-[140px] sm:max-w-[190px] tracking-studio-tight text-scrim-3d">
+                  <span className="text-subheadline font-bold font-display text-white truncate max-w-[140px] sm:max-w-[190px] tracking-studio-tight text-scrim-3d">
                     {title}
                   </span>
                   {sourceBadge}
                 </div>
-                <span className="text-[11px] text-slate-300 font-medium truncate font-display font-tabular tracking-wide mt-0.5">
+                <span className="text-caption text-slate-300 font-medium truncate font-display font-tabular tracking-wide mt-0.5">
                   {artist} • {formatTime(displayCurrentTime)} / {formatTime(duration)}
                 </span>
               </div>
@@ -598,7 +598,7 @@ export const MiniPlayer: React.FC = () => {
 
               <button
                 onClick={() => setIsExpanded(true)}
-                className="min-w-11 min-h-11 p-2 text-white/40 hover:text-white rounded-control hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
+                className="min-h-11 min-w-11 p-2 text-white/40 hover:text-white rounded-control hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
                 title="Expandir Mini-Player"
                 aria-label="Expandir Mini-Player"
               >
@@ -611,7 +611,7 @@ export const MiniPlayer: React.FC = () => {
 
       {/* ── Expanded Full Floating Mini-Player (Docked Left: bottom-6 left-4) ─── */}
       <div
-        className={`fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md transition-all duration-300 origin-bottom-left ${
+        className={`fixed bottom-6 left-4 z-50 w-[92vw] max-w-sm sm:max-w-md transition-all duration-300 origin-bottom-left hidden sm:flex lg:hidden ${
           isExpanded ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
@@ -651,7 +651,7 @@ export const MiniPlayer: React.FC = () => {
             <div className="flex p-1 gap-1 border-b border-white/[0.08] bg-white/[0.02]">
               <button
                 onClick={() => setActiveTab('player')}
-                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-caption font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'player'
                     ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
@@ -671,7 +671,7 @@ export const MiniPlayer: React.FC = () => {
                   setActiveTab('search');
                   setTimeout(() => searchInputRef.current?.focus(), 100);
                 }}
-                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-caption font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'search'
                     ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
@@ -688,7 +688,7 @@ export const MiniPlayer: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('queue')}
-                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-caption font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'queue'
                     ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
                     : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
@@ -705,7 +705,7 @@ export const MiniPlayer: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('favorites')}
-                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-caption font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'favorites'
                     ? 'text-rose-400 font-semibold bg-rose-500/[0.15] shadow-sm'
                     : 'text-white/50 hover:text-rose-300 hover:bg-white/[0.04]'
@@ -876,9 +876,9 @@ export const MiniPlayer: React.FC = () => {
                 )}
                   {/* Real-time Spectrum MiniWaveform Scrubber */}
                   <div className="flex flex-col gap-1.5 pt-3 border-t border-white/[0.08]">
-                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-300 px-0.5">
+                    <div className="flex items-center justify-between text-caption font-mono text-slate-300 px-0.5">
                       <span className="text-white font-semibold">{formatTime(displayCurrentTime)}</span>
-                      <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <span className="text-caption text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-1">
                         <Radio className="w-2.5 h-2.5 animate-pulse" /> Onda en Vivo
                       </span>
                       <span className="text-slate-200 font-medium">{formatTime(duration)}</span>
@@ -1003,14 +1003,14 @@ export const MiniPlayer: React.FC = () => {
                       title={`Volumen: ${Math.round(volume * 100)}%`}
                       aria-label={`Volumen: ${Math.round(volume * 100)}%`}
                     />
-                    <span className="text-[10px] font-mono text-white/40 w-8 text-right font-tabular">
+                    <span className="text-caption font-mono text-white/40 w-8 text-right font-tabular">
                       {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
                     </span>
                   </div>
 
                   {/* ── Utilities Bar: EQ 3-Band, Sleep Timer, Backup JSON ── */}
                   <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between gap-1 text-[11px] font-mono flex-wrap">
+                    <div className="flex items-center justify-between gap-1 text-caption font-mono flex-wrap">
                       {/* EQ Toggle */}
                       <button
                         onClick={() => setShowQuickEQ(!showQuickEQ)}
@@ -1087,8 +1087,8 @@ export const MiniPlayer: React.FC = () => {
                     {/* Collapsible Quick 3-Band Equalizer */}
                     {showQuickEQ && (
                       <div className="p-3 rounded-card bg-[var(--surface-overlay)] material-thick border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between text-[10px] font-mono text-white/60">
-                          <span className="tracking-[0.14em] uppercase text-[9px] font-bold">AJUSTES TONALES DSP</span>
+                        <div className="flex items-center justify-between text-caption font-mono text-white/60">
+                          <span className="tracking-[0.14em] uppercase text-caption font-bold">AJUSTES TONALES DSP</span>
                           <button
                             onClick={() => {
                               setThreeBandGain('bass', 0);
@@ -1105,7 +1105,7 @@ export const MiniPlayer: React.FC = () => {
                         <div className="grid grid-cols-3 gap-2">
                           {/* Bass */}
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] text-white/70 font-mono">Bajos</span>
+                            <span className="text-caption text-white/70 font-mono">Bajos</span>
                             <input
                               type="range"
                               min={-12}
@@ -1117,14 +1117,14 @@ export const MiniPlayer: React.FC = () => {
                               title={`Bajos: ${threeBandEQ.bass} dB`}
                               aria-label={`Bajos: ${threeBandEQ.bass} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80 font-tabular">
+                            <span className="text-caption font-mono text-white/80 font-tabular">
                               {threeBandEQ.bass > 0 ? `+${threeBandEQ.bass}` : threeBandEQ.bass} dB
                             </span>
                           </div>
 
                           {/* Mids */}
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] text-white/70 font-mono">Medios</span>
+                            <span className="text-caption text-white/70 font-mono">Medios</span>
                             <input
                               type="range"
                               min={-12}
@@ -1136,14 +1136,14 @@ export const MiniPlayer: React.FC = () => {
                               title={`Medios: ${threeBandEQ.mids} dB`}
                               aria-label={`Medios: ${threeBandEQ.mids} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80 font-tabular">
+                            <span className="text-caption font-mono text-white/80 font-tabular">
                               {threeBandEQ.mids > 0 ? `+${threeBandEQ.mids}` : threeBandEQ.mids} dB
                             </span>
                           </div>
 
                           {/* Treble */}
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] text-white/70 font-mono">Agudos</span>
+                            <span className="text-caption text-white/70 font-mono">Agudos</span>
                             <input
                               type="range"
                               min={-12}
@@ -1155,7 +1155,7 @@ export const MiniPlayer: React.FC = () => {
                               title={`Agudos: ${threeBandEQ.treble} dB`}
                               aria-label={`Agudos: ${threeBandEQ.treble} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80 font-tabular">
+                            <span className="text-caption font-mono text-white/80 font-tabular">
                               {threeBandEQ.treble > 0 ? `+${threeBandEQ.treble}` : threeBandEQ.treble} dB
                             </span>
                           </div>
@@ -1291,22 +1291,22 @@ export const MiniPlayer: React.FC = () => {
 
                             <div className="flex flex-col min-w-0 pr-2">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-white font-semibold truncate group-hover:text-cyan-300 transition-colors text-scrim-3d">
+                                <span className="text-caption font-semibold text-white truncate group-hover:text-cyan-300 transition-colors text-scrim-3d">
                                   {item.title}
                                 </span>
                                 {isPlaylist && (
-                                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-badge bg-cyan-500/20 text-cyan-300 shrink-0 font-bold">
+                                  <span className="text-caption font-mono px-1 py-0.5 rounded-badge bg-cyan-500/20 text-cyan-300 shrink-0 font-bold">
                                     PLAYLIST
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-slate-300 font-mono truncate font-medium">
+                              <span className="text-caption text-slate-300 font-mono truncate font-medium">
                                 {item.artist}
                               </span>
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-mono text-slate-400 font-medium group-hover:text-white/70 flex-shrink-0 ml-2 font-tabular">
+                          <span className="text-caption font-mono text-slate-400 font-medium group-hover:text-white/70 flex-shrink-0 ml-2 font-tabular">
                             {isPlaylist ? (item.videoCount || 'Playlist') : formatTime(item.duration)}
                           </span>
                         </div>
@@ -1319,7 +1319,7 @@ export const MiniPlayer: React.FC = () => {
               {/* ── 4. FAVORITES TAB (Lista de temas favoritos usable) ─────── */}
               <div className={activeTab === 'favorites' ? 'flex flex-col gap-2' : 'hidden'}>
                 <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06] min-h-11">
-                  <span className="text-xs font-mono text-rose-300 font-bold flex items-center gap-1.5">
+                  <span className="text-caption font-mono text-rose-300 font-bold flex items-center gap-1.5">
                     <Heart className="w-4 h-4 fill-rose-500 text-rose-500" /> Canciones Favoritas ({favorites.length})
                   </span>
                   {favorites.length > 0 && (
@@ -1335,10 +1335,10 @@ export const MiniPlayer: React.FC = () => {
                 </div>
 
                 {favorites.length === 0 ? (
-                  <div className="py-8 text-center text-xs font-mono text-white/40 flex flex-col items-center gap-2">
+                  <div className="py-8 text-center text-caption font-mono text-white/40 flex flex-col items-center gap-2">
                     <Heart className="w-8 h-8 text-white/15" />
                     <span>No tienes canciones guardadas aún</span>
-                    <span className="text-[10px] text-white/30">Toca el corazón en cualquier tema para guardarlo</span>
+                    <span className="text-caption text-white/30">Toca el corazón en cualquier tema para guardarlo</span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1">
@@ -1374,16 +1374,16 @@ export const MiniPlayer: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex flex-col min-w-0 pr-2">
-                            <span className="text-xs text-white font-semibold truncate group-hover:text-rose-300 transition-colors text-scrim-3d">
+                            <span className="text-caption text-white font-semibold truncate group-hover:text-rose-300 transition-colors text-scrim-3d">
                               {fav.title}
                             </span>
-                            <span className="text-[10px] text-slate-300 font-mono truncate font-medium">
+                            <span className="text-caption text-slate-300 font-mono truncate font-medium">
                               {fav.artist}
                             </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-white/40 font-tabular">
+                          <span className="text-caption font-mono text-white/40 font-tabular">
                             {formatTime(fav.duration)}
                           </span>
                           <button
@@ -1408,10 +1408,10 @@ export const MiniPlayer: React.FC = () => {
               <div className={activeTab === 'queue' ? 'flex flex-col gap-2' : 'hidden'}>
                   <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06] min-h-11">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono text-white/80 font-bold">
+                      <span className="text-caption font-mono text-white/80 font-bold">
                         Cola de reproducción ({queue.length})
                       </span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                      <span className="text-caption font-mono px-1.5 py-0.5 rounded-badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
                         <Sparkles className="w-2.5 h-2.5" /> 50+ Auto
                       </span>
                     </div>
@@ -1427,12 +1427,12 @@ export const MiniPlayer: React.FC = () => {
                   </div>
 
                   {queue.length === 0 ? (
-                    <div className="py-10 text-center text-xs font-mono text-white/30 flex flex-col items-center gap-2">
+                    <div className="py-10 text-center text-caption font-mono text-white/30 flex flex-col items-center gap-2">
                       <Music className="w-6 h-6 text-white/20" />
                       <span>No hay pistas en la cola actual</span>
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="min-h-11 mt-1 px-4 py-2 rounded-control bg-white/10 hover:bg-white/15 text-white text-xs font-mono transition-colors flex items-center justify-center cursor-pointer"
+                        className="min-h-11 mt-1 px-4 py-2 rounded-control bg-white/10 hover:bg-white/15 text-white text-caption font-mono transition-colors flex items-center justify-center cursor-pointer"
                         title="Cargar archivo local"
                         aria-label="Cargar archivo local"
                       >
@@ -1443,9 +1443,9 @@ export const MiniPlayer: React.FC = () => {
                     <div className="flex flex-col gap-1 max-h-60 overflow-y-auto pr-1">
                       {/* Recientes antes de la actual */}
                       {queueIndex > 0 && (
-                        <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider px-1 pt-1 pb-0.5 flex items-center justify-between">
+                        <div className="text-caption font-mono text-white/40 uppercase tracking-wider px-1 pt-1 pb-0.5 flex items-center justify-between">
                           <span>Historial Reciente ({queueIndex})</span>
-                          <span className="text-[9px] text-white/30">Escuchadas</span>
+                          <span className="text-caption text-white/30">Escuchadas</span>
                         </div>
                       )}
 
@@ -1455,7 +1455,7 @@ export const MiniPlayer: React.FC = () => {
                         return (
                           <React.Fragment key={track.id || `${idx}_${track.title}`}>
                             {isCurrent && (
-                              <div className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider px-1 pt-1.5 pb-0.5 flex items-center justify-between">
+                              <div className="text-caption font-mono text-cyan-400 uppercase tracking-wider px-1 pt-1.5 pb-0.5 flex items-center justify-between">
                                 <span className="flex items-center gap-1">
                                   <Radio className="w-2.5 h-2.5 animate-pulse" /> Sonando Ahora
                                 </span>
@@ -1463,9 +1463,9 @@ export const MiniPlayer: React.FC = () => {
                             )}
 
                             {idx === queueIndex + 1 && (
-                              <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider px-1 pt-2 pb-0.5 flex items-center justify-between">
+                              <div className="text-caption font-mono text-white/40 uppercase tracking-wider px-1 pt-2 pb-0.5 flex items-center justify-between">
                                 <span>A Continuación ({queue.length - queueIndex - 1})</span>
-                                <span className="text-[9px] text-cyan-400/70 flex items-center gap-1">
+                                <span className="text-caption text-cyan-400/70 flex items-center gap-1">
                                   <Radio className="w-2.5 h-2.5" /> Radio Infinita
                                 </span>
                               </div>
@@ -1502,16 +1502,16 @@ export const MiniPlayer: React.FC = () => {
                                 </div>
 
                                 <div className="flex flex-col min-w-0 pr-1">
-                                  <span className={`text-xs truncate text-scrim-3d ${isCurrent ? 'text-cyan-300 font-bold' : 'text-white font-semibold'}`}>
+                                  <span className={`text-caption truncate text-scrim-3d ${isCurrent ? 'text-cyan-300 font-bold' : 'text-white font-semibold'}`}>
                                     {track.title}
                                   </span>
-                                  <span className="text-[10px] text-slate-300 font-mono truncate font-medium">
+                                  <span className="text-caption text-slate-300 font-mono truncate font-medium">
                                     {track.artist}
                                   </span>
                                 </div>
                               </div>
 
-                              <span className="text-[10px] font-mono text-slate-300 font-medium ml-2 flex-shrink-0 font-tabular">
+                              <span className="text-caption font-mono text-slate-300 font-medium ml-2 flex-shrink-0 font-tabular">
                                 {formatTime(track.duration)}
                               </span>
                             </div>

@@ -74,6 +74,14 @@
   --color-tint-gold: #ffd700;
   --color-tint-violet: #9d00ff;
 
+  --color-story-bg-1: #0a0d1e;
+  --color-story-bg-2: #04060d;
+  --color-story-bg-3: #010204;
+  --color-story-art-bg: #0f1424;
+  --color-story-disc-1: #1a2238;
+  --color-story-disc-2: #0a0d18;
+  --color-story-disc-3: #05070e;
+
   --text-display: 2.25rem;
   --text-h1: 1.5rem;
   --text-h2: 1.125rem;
@@ -135,6 +143,18 @@
   --tint-emerald: #39ff14;
   --tint-gold: #ffd700;
   --tint-violet: #9d00ff;
+
+  /* Story Canvas tokens */
+  --story-bg-1: #0a0d1e;
+  --story-bg-2: #04060d;
+  --story-bg-3: #010204;
+  --story-art-bg: #0f1424;
+  --story-disc-1: #1a2238;
+  --story-disc-2: #0a0d18;
+  --story-disc-3: #05070e;
+
+  /* Material tokens */
+  --material-visualizer: blur(20px) saturate(180%);
 
   /* ── 5. Escala de Espaciado Estricta (8pt Grid System) ── */
   --space-1: 4px;
