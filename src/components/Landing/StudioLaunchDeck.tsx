@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, UploadCloud, Mic, ArrowRight, ShieldCheck, Cpu, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface StudioLaunchDeckProps {
   onStartExperience: () => void;
@@ -16,6 +17,7 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
   onMicStart,
   onFileLoaded,
 }) => {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -33,18 +35,18 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto rounded-3xl bg-[#060814]/96 border border-white/15 shadow-[0_35px_80px_rgba(0,0,0,0.95)] p-6 sm:p-8 backdrop-blur-3xl text-white font-mono select-none text-center">
+    <div className="w-full max-w-xl mx-auto rounded-container bg-surface-dock border border-border-subtle shadow-dock p-6 sm:p-8 material-regular text-text-primary font-mono select-none text-center">
       {/* ── Eyebrow Header ── */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] uppercase tracking-[0.2em] mb-4">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-pill bg-accent-cyan/15 border border-border-subtle text-accent-cyan text-caption uppercase tracking-wider mb-4">
         <Sparkles className="w-3.5 h-3.5" />
-        <span>SISTEMA LISTO PARA INMERSIÓN</span>
+        <span>{t('landing.systemReady')}</span>
       </div>
 
-      <h2 className="text-2xl sm:text-3xl font-bold tracking-studio-tight text-white mb-2 font-heading text-scrim-3d">
-        Inicializar Espacio Acústico 3D
+      <h2 className="text-2xl sm:text-3xl font-bold tracking-studio-tight text-text-primary mb-2 font-heading text-scrim-3d">
+        {t('landing.launchDeckTitle')}
       </h2>
-      <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-md mx-auto mb-6 leading-relaxed font-display text-scrim-3d">
-        Elige tu método de entrada para sincronizar el motor de audio y sumergirte en el visualizador.
+      <p className="text-xs sm:text-sm text-text-secondary font-medium max-w-md mx-auto mb-6 leading-relaxed font-display text-scrim-3d">
+        {t('landing.launchDeckSubtitle')}
       </p>
 
       {/* ── Input Action Cards ── */}
@@ -57,25 +59,26 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+          className={`min-h-[44px] p-4 rounded-card border transition-all cursor-pointer ${
             isDragging
-              ? 'border-cyan-400 bg-cyan-950/40 scale-[1.02] shadow-[0_0_20px_rgba(0,229,255,0.3)]'
-              : 'border-white/10 bg-black/40 hover:border-white/25 hover:bg-white/[0.04]'
+              ? 'border-accent-cyan bg-accent-cyan/20 scale-[1.02] shadow-card'
+              : 'border-border-subtle bg-surface-base/60 hover:border-border-medium hover:bg-white/[0.04]'
           }`}
         >
-          <label className="flex flex-col gap-2 cursor-pointer">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <label className="flex flex-col gap-2 cursor-pointer min-h-[44px]">
+            <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-cyan">
               <UploadCloud className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white text-scrim-3d">Archivos Locales</div>
-              <div className="text-[10px] text-slate-300 font-mono mt-0.5 font-medium">
-                MP3, WAV, FLAC o examinar
+              <div className="text-xs font-bold text-text-primary text-scrim-3d">{t('landing.localFiles')}</div>
+              <div className="text-caption text-text-secondary font-mono mt-0.5 font-medium">
+                {t('landing.localFilesSub')}
               </div>
             </div>
             <input
               type="file"
               accept="audio/*,.mp3,.wav,.flac,.ogg"
+              aria-label={t('landing.localFiles')}
               onChange={handleFileInput}
               className="hidden"
             />
@@ -84,17 +87,26 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
 
         {/* Live Microphone Input */}
         <div
+          role="button"
+          tabIndex={0}
           onClick={onMicStart}
-          className="p-4 rounded-2xl border border-white/10 bg-black/40 hover:border-pink-500/40 hover:bg-pink-950/20 transition-all cursor-pointer flex flex-col justify-between"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onMicStart();
+            }
+          }}
+          aria-label={t('landing.micCapture')}
+          className="min-h-[44px] p-4 rounded-card border border-border-subtle bg-surface-base/60 hover:border-border-medium hover:bg-white/[0.04] transition-all cursor-pointer flex flex-col justify-between btn-spring active:scale-[0.97]"
         >
           <div className="flex flex-col gap-2">
-            <div className="w-8 h-8 rounded-lg bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-400">
+            <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-rose">
               <Mic className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white text-scrim-3d">Micrófono Directo</div>
-              <div className="text-[10px] text-slate-300 font-mono mt-0.5 font-medium">
-                Captura de voz o instrumentos
+              <div className="text-xs font-bold text-text-primary text-scrim-3d">{t('landing.micCapture')}</div>
+              <div className="text-caption text-text-secondary font-mono mt-0.5 font-medium">
+                {t('landing.micCaptureSub')}
               </div>
             </div>
           </div>
@@ -103,22 +115,24 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
 
       {/* ── Big Primary Launch CTA ── */}
       <button
+        type="button"
         onClick={onStartExperience}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-400 to-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(0,229,255,0.4),0_12px_35px_rgba(0,0,0,0.8)] group cursor-pointer"
+        aria-label={t('landing.enterVisualizer')}
+        className="w-full min-h-[44px] py-3.5 px-6 rounded-control bg-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-card group cursor-pointer active:scale-[0.97]"
       >
         <Play className="w-4 h-4 fill-current text-black group-hover:scale-110 transition-transform" />
-        <span>Entrar al Visualizador Aura3D</span>
+        <span>{t('landing.enterVisualizer')}</span>
         <ArrowRight className="w-4 h-4 text-black/70 group-hover:translate-x-1 transition-transform" />
       </button>
 
       {/* System Specs Footer Badges */}
-      <div className="mt-6 pt-4 border-t border-white/[0.08] flex items-center justify-center gap-4 text-[10px] text-slate-300 font-medium font-mono">
+      <div className="mt-6 pt-4 border-t border-border-subtle flex items-center justify-center gap-4 text-caption text-text-secondary font-medium font-mono">
         <span className="flex items-center gap-1">
-          <Cpu className="w-3 h-3 text-cyan-400" /> GPU Shaders
+          <Cpu className="w-3.5 h-3.5 text-accent-cyan" /> GPU Shaders
         </span>
         <span>•</span>
         <span className="flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3 text-emerald-400" /> 24-Bit / 48kHz
+          <ShieldCheck className="w-3.5 h-3.5 text-status-success" /> 24-Bit / 48kHz
         </span>
         <span>•</span>
         <span>0 Latencia</span>

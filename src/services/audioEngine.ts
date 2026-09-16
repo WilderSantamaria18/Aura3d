@@ -183,7 +183,11 @@ export class AudioEngine {
   public async init(): Promise<void> {
     if (this.isInitialized && this.audioContext) {
       if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
+        try {
+          await this.audioContext.resume();
+        } catch {
+          // Autoplay policy might block resume without user gesture
+        }
       }
       return;
     }
@@ -323,17 +327,26 @@ export class AudioEngine {
         this.vocalOutGain.connect(this.eqFilters[0]);
 
         // Single MediaElementAudioSourceNode routing the lone <audio> element through Web Audio API into vocalInGain
-        this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
-        this.sourceNode.connect(this.vocalInGain);
-
-        if (this.audioContext.state === 'suspended') {
-          await this.audioContext.resume();
+        if (!this.sourceNode) {
+          this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+          this.sourceNode.connect(this.vocalInGain);
         }
 
         this.isInitialized = true;
         usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
-      } finally {
+
+        if (this.audioContext.state === 'suspended') {
+          try {
+            await this.audioContext.resume();
+          } catch (e) {
+            console.warn('[AudioEngine] audioContext.resume() failed (autoplay policy):', e);
+          }
+        }
+      } catch (err) {
+        this.sourceNode = null;
+        this.isInitialized = false;
         this.initPromise = null;
+        throw err;
       }
     })();
 

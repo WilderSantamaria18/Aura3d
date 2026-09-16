@@ -29,7 +29,7 @@ export const StudioMixerDeck: React.FC = () => {
   // Direct 60 FPS loop without triggering React component re-renders
   useEffect(() => {
     let animId: number;
-    let start = performance.now();
+    const start = performance.now();
     let vuL = 0.65;
     let vuR = 0.72;
 
@@ -74,14 +74,14 @@ export const StudioMixerDeck: React.FC = () => {
 
             if (isLit) {
               if (seg === 8) {
-                ctx.fillStyle = '#ef4444'; // Red peak
+                ctx.fillStyle = 'rgb(255, 59, 48)'; // Status error / Red peak
               } else if (seg >= 6) {
-                ctx.fillStyle = '#f59e0b'; // Amber
+                ctx.fillStyle = 'rgb(255, 149, 0)'; // Status warning / Amber
               } else {
-                ctx.fillStyle = '#10b981'; // Green
+                ctx.fillStyle = 'rgb(52, 199, 89)'; // Status success / Green
               }
             } else {
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
             }
 
             ctx.fillRect(startX, y, 8, 3.5);
@@ -105,58 +105,58 @@ export const StudioMixerDeck: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto rounded-2xl bg-[#070b16]/95 border border-white/[0.10] shadow-[0_25px_60px_rgba(0,0,0,0.85)] p-5 backdrop-blur-xl text-white font-mono select-none">
+    <div className="w-full max-w-2xl mx-auto rounded-container bg-surface-dock border border-border-subtle shadow-dock p-5 material-regular text-text-primary font-mono select-none">
       {/* ── Top Mixer Header: VU Meters & Master Telemetry ── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-border-subtle">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/[0.10] flex items-center justify-center text-cyan-400">
+          <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-cyan">
             <Sliders className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
+            <div className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-1.5">
               <span>DSP-800 MASTER CONSOLE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-status-success animate-pulse" />
             </div>
-            <div className="text-[10px] text-white/40">10-BAND STEREO GRAPHIC EQUALIZER</div>
+            <div className="text-caption text-text-tertiary">10-BAND STEREO GRAPHIC EQUALIZER</div>
           </div>
         </div>
 
         {/* Dual Analog VU Meters */}
-        <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-xl border border-white/[0.06]">
+        <div className="flex items-center gap-3 bg-surface-base/60 px-3 py-1.5 rounded-control border border-border-subtle">
           {/* VU Left */}
           <div className="flex flex-col items-center gap-0.5">
-            <div className="flex items-center justify-between w-20 text-[8px] text-white/40">
+            <div className="flex items-center justify-between w-20 text-caption font-tabular text-text-tertiary">
               <span>-20dB</span>
               <span>0dB</span>
-              <span className="text-red-400">+3</span>
+              <span className="text-status-error">+3</span>
             </div>
-            <div className="relative w-20 h-6 bg-[#04060d] rounded border border-white/10 overflow-hidden flex items-end justify-center">
+            <div className="relative w-20 h-6 bg-surface-base rounded-badge border border-border-subtle overflow-hidden flex items-end justify-center">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/20 via-yellow-950/20 to-red-950/30" />
               {/* Pivot Needle via DOM ref */}
               <div
                 ref={vuLeftRef}
-                className="absolute bottom-0 w-0.5 h-6 bg-red-400 origin-bottom will-change-transform"
+                className="absolute bottom-0 w-0.5 h-6 bg-status-error origin-bottom will-change-transform"
                 style={{ transform: 'rotate(10deg)' }}
               />
-              <span className="relative z-10 text-[8px] font-bold text-white/50 mb-0.5">L</span>
+              <span className="relative z-10 text-caption font-bold text-text-muted mb-0.5">L</span>
             </div>
           </div>
 
           {/* VU Right */}
           <div className="flex flex-col items-center gap-0.5">
-            <div className="flex items-center justify-between w-20 text-[8px] text-white/40">
+            <div className="flex items-center justify-between w-20 text-caption font-tabular text-text-tertiary">
               <span>-20dB</span>
               <span>0dB</span>
-              <span className="text-red-400">+3</span>
+              <span className="text-status-error">+3</span>
             </div>
-            <div className="relative w-20 h-6 bg-[#04060d] rounded border border-white/10 overflow-hidden flex items-end justify-center">
+            <div className="relative w-20 h-6 bg-surface-base rounded-badge border border-border-subtle overflow-hidden flex items-end justify-center">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/20 via-yellow-950/20 to-red-950/30" />
               <div
                 ref={vuRightRef}
-                className="absolute bottom-0 w-0.5 h-6 bg-red-400 origin-bottom will-change-transform"
+                className="absolute bottom-0 w-0.5 h-6 bg-status-error origin-bottom will-change-transform"
                 style={{ transform: 'rotate(15deg)' }}
               />
-              <span className="relative z-10 text-[8px] font-bold text-white/50 mb-0.5">R</span>
+              <span className="relative z-10 text-caption font-bold text-text-muted mb-0.5">R</span>
             </div>
           </div>
         </div>
@@ -169,6 +169,7 @@ export const StudioMixerDeck: React.FC = () => {
           width={480}
           height={48}
           className="w-full h-12 block"
+          aria-hidden="true"
         />
       </div>
 
@@ -180,22 +181,22 @@ export const StudioMixerDeck: React.FC = () => {
           return (
             <div
               key={freq.label}
-              className="flex flex-col items-center gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors group"
+              className="flex flex-col items-center gap-2 p-1.5 rounded-control bg-white/[0.02] border border-border-subtle hover:bg-white/[0.05] transition-colors group"
             >
               {/* Frequency Label */}
-              <span className="text-[10px] font-semibold text-white/80 group-hover:text-cyan-300 transition-colors">
+              <span className="text-caption font-semibold text-text-secondary group-hover:text-accent-cyan transition-colors">
                 {freq.label}
               </span>
 
-              {/* Vertical Fader Track & Thumb */}
-              <div className="relative w-6 h-28 flex items-center justify-center">
-                <div className="w-1 h-full bg-[#03060f] rounded-full border border-white/10" />
-                <div className="absolute inset-y-2 left-0 w-1 flex flex-col justify-between pointer-events-none opacity-25">
-                  <div className="w-1 h-px bg-white" />
-                  <div className="w-1 h-px bg-white" />
-                  <div className="w-1.5 h-px bg-cyan-400" />
-                  <div className="w-1 h-px bg-white" />
-                  <div className="w-1 h-px bg-white" />
+              {/* Vertical Fader Track & Thumb (with 44px min touch target) */}
+              <div className="relative w-11 h-28 flex items-center justify-center">
+                <div className="w-1 h-full bg-surface-base rounded-pill border border-border-subtle" />
+                <div className="absolute inset-y-2 left-1/2 -translate-x-1/2 w-3 flex flex-col justify-between pointer-events-none opacity-30">
+                  <div className="w-full h-px bg-white" />
+                  <div className="w-full h-px bg-white" />
+                  <div className="w-full h-px bg-accent-cyan" />
+                  <div className="w-full h-px bg-white" />
+                  <div className="w-full h-px bg-white" />
                 </div>
 
                 <input
@@ -203,22 +204,23 @@ export const StudioMixerDeck: React.FC = () => {
                   min="0"
                   max="100"
                   value={val}
+                  aria-label={`Filtro de frecuencia ${freq.label} tipo ${freq.type}`}
                   onChange={(e) => handleFaderChange(idx, parseInt(e.target.value))}
-                  className="absolute w-24 h-6 -rotate-90 cursor-pointer opacity-0 z-10"
+                  className="absolute w-28 h-11 -rotate-90 cursor-pointer opacity-0 z-10"
                 />
 
                 <div
-                  className="absolute w-5 h-6 rounded bg-gradient-to-b from-white via-[#cdd4e0] to-[#8d98aa] border border-black/40 shadow-[0_4px_8px_rgba(0,0,0,0.8)] pointer-events-none transition-all flex items-center justify-center"
+                  className="absolute w-5 h-6 rounded-badge bg-white text-black border border-border-medium shadow-card pointer-events-none transition-all flex items-center justify-center"
                   style={{
                     bottom: `${(val / 100) * 75}%`,
                   }}
                 >
-                  <div className="w-3 h-0.5 bg-black/60 rounded-full" />
+                  <div className="w-3 h-0.5 bg-black/60 rounded-pill" />
                 </div>
               </div>
 
               {/* Value display */}
-              <span className="text-[9px] text-white/40 tabular-nums font-mono">
+              <span className="text-caption text-text-tertiary font-tabular font-mono">
                 {val > 50 ? `+${((val - 50) * 0.24).toFixed(0)}` : `${((val - 50) * 0.24).toFixed(0)}`}dB
               </span>
             </div>
@@ -227,14 +229,14 @@ export const StudioMixerDeck: React.FC = () => {
       </div>
 
       {/* ── Bottom Controls Bar ── */}
-      <div className="mt-4 pt-3 border-t border-white/[0.08] flex items-center justify-between text-[10px] text-white/50">
+      <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between text-caption text-text-secondary">
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-cyan-400">
-            <Activity className="w-3 h-3" /> THD: &lt;0.001%
+          <span className="flex items-center gap-1.5 text-accent-cyan">
+            <Activity className="w-3.5 h-3.5" /> THD: &lt;0.001%
           </span>
-          <span className="hidden sm:inline">SNR: 118dB</span>
+          <span className="hidden sm:inline font-tabular">SNR: 118dB</span>
         </div>
-        <div className="text-white/40 font-mono">60 FPS DIRECT HARDWARE DSP</div>
+        <div className="text-text-tertiary font-mono">60 FPS DIRECT HARDWARE DSP</div>
       </div>
     </div>
   );

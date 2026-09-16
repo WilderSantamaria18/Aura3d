@@ -9,10 +9,10 @@ type WaveformMode = 'harmonic' | 'sine' | 'pulse';
 /**
  * StudioOscilloscope
  * Osciloscopio de fósforo CRT de alta precisión con trazado de ondas armónicas en tiempo real
- * y selector interactivo de forma de onda.
+ * y selector interactivo de forma de onda con área táctil accesible de 44px.
  */
 export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
-  color = '#00e5ff',
+  color = 'var(--accent-cyan)',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [waveMode, setWaveMode] = useState<WaveformMode>('harmonic');
@@ -24,7 +24,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
     if (!ctx) return;
 
     let animId: number;
-    let start = performance.now();
+    const start = performance.now();
 
     const render = (now: number) => {
       const elapsed = (now - start) * 0.001;
@@ -127,7 +127,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
       // Sharp center point
       ctx.beginPath();
       ctx.arc(sweepX, sweepY, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = 'rgb(255, 255, 255)';
       ctx.globalAlpha = 1.0;
       ctx.fill();
 
@@ -139,41 +139,43 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
   }, [color, waveMode]);
 
   return (
-    <div className="relative w-full h-24 rounded-xl overflow-hidden bg-[#05070d] border border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(0,0,0,0.5)] group">
+    <div className="relative w-full h-28 rounded-card overflow-hidden bg-surface-base border border-border-subtle shadow-subtle group">
       {/* Corner rack screw markers */}
-      <span className="absolute top-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute top-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute bottom-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute bottom-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
+      <span className="absolute top-1 left-2 text-caption font-mono text-text-disabled select-none" aria-hidden="true">+</span>
+      <span className="absolute top-1 right-2 text-caption font-mono text-text-disabled select-none" aria-hidden="true">+</span>
+      <span className="absolute bottom-1 left-2 text-caption font-mono text-text-disabled select-none" aria-hidden="true">+</span>
+      <span className="absolute bottom-1 right-2 text-caption font-mono text-text-disabled select-none" aria-hidden="true">+</span>
 
       <canvas
         ref={canvasRef}
         width={320}
-        height={96}
+        height={112}
         className="w-full h-full object-cover"
+        aria-hidden="true"
       />
 
-      <div className="absolute top-2 left-4 flex items-center gap-2 font-mono text-[9px] text-[#8b95a5]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] animate-pulse" />
+      <div className="absolute top-2 left-4 flex items-center gap-2 font-mono text-caption text-text-tertiary">
+        <span className="w-1.5 h-1.5 rounded-full bg-accent-cyan animate-pulse" />
         <span className="tracking-wider">OSC-1 // REALTIME FFT</span>
       </div>
 
-      {/* Waveform Selector Badge */}
+      {/* Waveform Selector Badge (Min 44x44px touch target) */}
       <button
         type="button"
         onClick={() =>
           setWaveMode((prev) => (prev === 'harmonic' ? 'sine' : prev === 'sine' ? 'pulse' : 'harmonic'))
         }
-        className="absolute top-2 right-4 px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 font-mono text-[9px] uppercase tracking-wider text-[#00e5ff] transition-colors cursor-pointer"
+        aria-label={`Cambiar modo de forma de onda. Modo actual: ${waveMode}`}
+        className="absolute top-1.5 right-2 min-h-[44px] min-w-[44px] px-3 py-2 rounded-control bg-white/10 hover:bg-white/20 border border-border-medium font-mono text-caption uppercase tracking-wider text-accent-cyan transition-all cursor-pointer flex items-center justify-center btn-spring"
         title="Clic para alternar forma de onda del osciloscopio"
       >
         MODE: {waveMode}
       </button>
 
       {/* Telemetry bottom bar */}
-      <div className="absolute bottom-1.5 left-4 right-4 flex items-center justify-between font-mono text-[8px] text-[#556075]">
+      <div className="absolute bottom-1.5 left-4 right-4 flex items-center justify-between font-mono text-caption text-text-muted">
         <span>48.0 kHz SAMPLING</span>
-        <span className="tabular-nums">RMS: -14.2 dB</span>
+        <span className="font-tabular">RMS: -14.2 dB</span>
       </div>
     </div>
   );

@@ -59,17 +59,47 @@ La aplicación soporta modos **Oscuro (Dark)**, **Claro (Light)** y **Automátic
 
 ---
 
-## 3. Escala Geométrica y Espaciado Estricto
+## 3. Materiales y Glassmorphism iOS
+
+El sistema define **exactamente tres materiales estándar** con saturación calibrada. Queda **estrictamente prohibido cualquier valor de blur fuera de estos tres**:
+
+| Token CSS | Definición | Uso Permitido |
+| :--- | :--- | :--- |
+| `--material-thin` | `blur(8px) saturate(180%)` | Badges, tooltips, tags flotantes, popovers secundarios |
+| `--material-regular` | `blur(20px) saturate(180%)` | Tarjetas interactivas (`.ios-glass-card`), HeaderBar, Docks (`.ios-glass-dock`) |
+| `--material-thick` | `blur(40px) saturate(180%)` | Modales principales (`.ios-glass-modal`), paneles envolventes, menús desplegables |
+
+---
+
+## 4. Escala Geométrica, Radios y Espaciado Estricto
 
 ### Escala de Radios (Border-Radius)
 
 ```css
 --radius-container: 20px;  /* Modales, ventanas flotantes principales, docks */
+--radius-dock:      20px;  /* Docks flotantes de navegación */
+--radius-modal:     20px;  /* Modales y hojas de diálogo */
 --radius-card:      12px;  /* Tarjetas de pista, popovers, paneles secundarios */
 --radius-control:   10px;  /* Botones interactivos, inputs de búsqueda */
 --radius-badge:      6px;  /* Badges de atajos <kbd>, tags de estado */
 --radius-pill:    9999px;  /* Píldoras de filtro, switches, badges redondeados */
 ```
+
+### Radios Concéntricos
+Para mantener la armonía óptica de iOS, cualquier elemento anidado dentro de un contenedor debe calcular su radio de curvatura restando el padding del contenedor al radio del padre:
+$$\text{Radio Hijo} = \text{Radio Padre} - \text{Padding}$$
+
+**Ejemplos obligatorios:**
+1. **Tarjeta:** Contenedor con `--radius-card` (12px) y padding de 8px $\rightarrow$ elemento interno con radio de **4px** ($12 - 8 = 4$).
+2. **Dock:** Contenedor con `--radius-dock` (20px) y padding de 8px $\rightarrow$ botón interno con radio de **12px** ($20 - 8 = 12$).
+3. **Modal:** Contenedor con `--radius-modal` (20px) y padding de 10px $\rightarrow$ sección interna con radio de **10px** ($20 - 10 = 10$).
+
+### Decisiones Responsive de Radio
+- **Pantallas Ultracompactas / Plegables ($\le 380\text{px}$):**
+  - `--radius-container: 16px;`
+  - `--radius-card: 8px;`
+  - `--radius-control: 8px;`
+  - `--radius-panel: 10px;`
 
 ### Escala de Espaciado (8pt System)
 - `--space-1`: `4px`
@@ -85,7 +115,13 @@ La aplicación soporta modos **Oscuro (Dark)**, **Claro (Light)** y **Automátic
 
 ---
 
-## 4. Escala Tipográfica y Cifras Tabulares
+## 5. Escala Tipográfica y Cifras Tabulares
+
+### Familia Tipográfica
+Una sola familia base para toda la interfaz: `-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif` y `'Space Grotesk'` como display secundaria para títulos de gran tamaño.
+
+### Mínimo de Legibilidad iOS
+El tamaño mínimo permitido en la interfaz es **11px** (`0.6875rem`), reservado **exclusivamente para `.type-caption`**. Por debajo de 11px no existe ningún tamaño de texto en la escala tipográfica de iOS.
 
 | Clase de Utilidad | Tamaño | Line Height | Letter Spacing | Font Weight | Uso |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -94,13 +130,15 @@ La aplicación soporta modos **Oscuro (Dark)**, **Claro (Light)** y **Automátic
 | `.type-h2` | `1.125rem` (18px) | `1.35` | `-0.02em` | `600` | Encabezados de sección y tarjetas |
 | `.type-h3` | `0.875rem` (14px) | `1.4` | `-0.015em` | `600` | Nombres de pista y títulos de comandos |
 | `.type-body` | `0.8125rem` (13px) | `1.5` | `-0.01em` | `400` | Textos explicativos, descripciones |
-| `.type-caption` | `0.6875rem` (11px) | `1.4` | `0.01em` | `500` | Metadatos y badges |
-| `.type-mono` | `0.75rem` (12px) | `1.4` | `-0.01em` | `500` | Frecuencias DSP, timestaps |
-| `.font-tabular` | Inherited | Inherited | Inherited | Inherited | Cifras tabulares fijas (`tabular-nums`) |
+| `.type-caption` | `0.6875rem` (11px) | `1.4` | `0.01em` | `500` | Metadatos y badges (mínimo absoluto) |
+| `.type-mono` | `0.75rem` (12px) | `1.4` | `-0.01em` | `500` | Frecuencias DSP, timestamps |
+| `.font-tabular` | Heredado | Heredado | Heredado | Heredado | Cifras tabulares fijas (`tabular-nums`) |
+
+*Todas las cifras de tiempo, BPM, Hz y telemetría deben llevar `.font-tabular` para evitar saltos de layout.*
 
 ---
 
-## 5. Motion Design y Accesibilidad Motriz
+## 6. Motion Design, Accesibilidad y Foco
 
 ### Duraciones y Curvas Estándar
 ```css
@@ -112,17 +150,26 @@ La aplicación soporta modos **Oscuro (Dark)**, **Claro (Light)** y **Automátic
 --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 ```
 
-### Clases de Microinteracción Táctil
-- `.btn-spring`: Escala de compresión al `0.96` al pulsar con recuperación suave.
-- `.btn-press`: Escala rápida de tecla al `0.94`.
-- `.card-interactive`: Realce de elevación y contraste de borde en hover.
+### Anillo de Foco Global Accesible
+```css
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 4px var(--accent-active);
+  border-radius: inherit;
+}
+```
+
+### Área Táctil Mínima (Apple HIG / WCAG 2.5.5)
+Todo control interactivo debe tener un área táctil de al menos **$44 \times 44\text{px}$**. Cuando el elemento visual sea menor (ej. iconos de 28-32px), se debe extender el área de interacción con padding o hit-slop.
 
 ### Reducción de Movimiento (`prefers-reduced-motion`)
-El Design System respeta automáticamente las preferencias del sistema operativo, desactivando giros continuos, vibraciones o desplazamientos bruscos si el usuario lo requiere.
+- Con `prefers-reduced-motion: reduce`, la duración máxima de animación es de **150ms**.
+- Se desactivan rotaciones continuas, efectos de parallax y rebotes.
+- Los visualizadores 3D activan el flag `--reduced-motion: 1` para pasar a modo estático por defecto.
 
 ---
 
-## 6. Componentes Reutilizables de Estado de UI
+## 7. Componentes Reutilizables de Estado de UI
 
 - **`EmptyState`** ([`src/components/Common/EmptyState.tsx`](file:///c:/Users/WAXIS/Desktop/proy/Aura3d/src/components/Common/EmptyState.tsx)): Contenedor semántico con icono centrado, título legible, descripción y botón de acción opcional.
 - **`Skeleton`** ([`src/components/Common/Skeleton.tsx`](file:///c:/Users/WAXIS/Desktop/proy/Aura3d/src/components/Common/Skeleton.tsx)): Marcador de posición animado con pulso suave para listas de reproducción y cargas asíncronas.

@@ -206,21 +206,19 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
 
     const animate = (time: number = performance.now()) => {
       animId = requestAnimationFrame(animate);
-      const delta = Math.min((time - lastTime) / 1000, 0.1);
+      const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const delta = isReducedMotion ? 0 : Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
       const elapsed = (time - startTime) / 1000;
 
       // Smooth mouse lerp
-      mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.05;
-      mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.05;
+      if (!isReducedMotion) {
+        mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.05;
+        mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.05;
+      }
 
       const rawProgress = scrollProgressRef?.current ?? internalScrollRef.current;
       const p = Math.min(1.0, Math.max(0.0, rawProgress / 100));
-
-      // ── 3D Camera Choreography along the Scroll Journey ──
-      // Stage 0 (Hero): camera [0.3, -0.1, 4.2] looking at center
-      // Stage 1 (Architecture): camera [-1.6, 0.5, 3.4] orbiting oblique angle
-      // Stage 2 (Launchpad): camera [0, 0, 2.7] centered plunge view
 
       let targetCamX = 0;
       let targetCamY = 0;
@@ -255,14 +253,14 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
         targetObjY = THREE.MathUtils.lerp(-0.5, 0.0, t);
       }
 
+      if (!isReducedMotion) {
+        targetCamX += mouseRef.current.x * 0.35;
+        targetCamY += -mouseRef.current.y * 0.25;
+      }
 
-      // Add interactive mouse tilt
-      targetCamX += mouseRef.current.x * 0.35;
-      targetCamY += -mouseRef.current.y * 0.25;
-
-      // Handle Warp Exit Transition (when user clicks enter)
+      // Handle Warp Exit Transition
       if (transitionRef.current) {
-        warpZ += delta * 12;
+        warpZ += (isReducedMotion ? 0.05 : delta) * 12;
         camera.position.z -= warpZ;
         centralGroup.scale.multiplyScalar(1.02);
       } else {
@@ -278,30 +276,27 @@ export const Landing3DScene: React.FC<Landing3DSceneProps> = ({
 
       camera.lookAt(centralGroup.position);
 
-      // Continuous organic 3D rotations
-      const rotSpeed = 0.4 + p * 0.6;
-      centralGroup.rotation.y += delta * rotSpeed * 0.5;
-      centralGroup.rotation.x += delta * 0.15;
+      if (!isReducedMotion) {
+        const rotSpeed = 0.4 + p * 0.6;
+        centralGroup.rotation.y += delta * rotSpeed * 0.5;
+        centralGroup.rotation.x += delta * 0.15;
 
-      ringsGroup.rotation.z += delta * 0.25;
-      ringsGroup.rotation.y -= delta * 0.3;
+        ringsGroup.rotation.z += delta * 0.25;
+        ringsGroup.rotation.y -= delta * 0.3;
 
-      // Pulse breathing
-      const breathe = 1 + Math.sin(elapsed * 1.6) * 0.04;
-      wireMesh.scale.set(breathe, breathe, breathe);
-      corePoints.scale.set(breathe, breathe, breathe);
+        const breathe = 1 + Math.sin(elapsed * 1.6) * 0.04;
+        wireMesh.scale.set(breathe, breathe, breathe);
+        corePoints.scale.set(breathe, breathe, breathe);
 
-      // Ring orbital wave expansion on scroll
-      const ringExpand = 1 + p * 0.35;
-      ringsGroup.scale.set(ringExpand, ringExpand, ringExpand);
+        const ringExpand = 1 + p * 0.35;
+        ringsGroup.scale.set(ringExpand, ringExpand, ringExpand);
 
-      // Star field slow drift
-      starField.rotation.y = elapsed * 0.02;
-      starField.rotation.x = elapsed * 0.01;
+        starField.rotation.y = elapsed * 0.02;
+        starField.rotation.x = elapsed * 0.01;
 
-      // Point light orbit
-      pointLight.position.x = Math.sin(elapsed * 1.2) * 2.5;
-      pointLight.position.z = Math.cos(elapsed * 1.2) * 2.5;
+        pointLight.position.x = Math.sin(elapsed * 1.2) * 2.5;
+        pointLight.position.z = Math.cos(elapsed * 1.2) * 2.5;
+      }
 
       renderer.render(scene, camera);
     };

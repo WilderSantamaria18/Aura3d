@@ -1,7 +1,82 @@
 @import "tailwindcss";
 
+@theme {
+  --radius-container: 20px;
+  --radius-dock: 20px;
+  --radius-modal: 20px;
+  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-badge: 6px;
+  --radius-pill: 9999px;
+
+  --spacing-space-1: 4px;
+  --spacing-space-2: 8px;
+  --spacing-space-3: 12px;
+  --spacing-space-4: 16px;
+  --spacing-space-5: 20px;
+  --spacing-space-6: 24px;
+  --spacing-space-8: 32px;
+  --spacing-space-10: 40px;
+  --spacing-space-12: 48px;
+  --spacing-space-16: 64px;
+
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 400ms;
+
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  --color-surface-base: var(--surface-base);
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-dock: var(--surface-dock);
+  --color-surface-card: var(--surface-card);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-medium: var(--border-medium);
+  --color-border-highlight: var(--border-highlight);
+  --color-border-focus: var(--border-focus);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+
+  --color-status-success: #34c759;
+  --color-status-warning: #ff9500;
+  --color-status-error: #ff3b30;
+  --color-status-info: #007aff;
+
+  --color-ios-blue: #007aff;
+  --color-ios-cyan: #00e5ff;
+  --color-ios-green: #34c759;
+  --color-ios-orange: #ff9500;
+  --color-ios-pink: #ff2d55;
+  --color-ios-purple: #af52de;
+
+  --color-accent-cyan: #00e5ff;
+  --color-accent-violet: #a855f7;
+  --color-accent-amber: #ff9500;
+  --color-accent-rose: #ff2d55;
+  --color-accent-emerald: #34c759;
+  --color-accent-active: var(--accent-active);
+
+  --text-display: 2.25rem;
+  --text-h1: 1.5rem;
+  --text-h2: 1.125rem;
+  --text-h3: 0.875rem;
+  --text-body: 0.8125rem;
+  --text-caption: 0.6875rem;
+  --text-mono: 0.75rem;
+}
+
 :root {
   color-scheme: dark;
+  --reduced-motion: 0;
   
   /* ── 1. Superficies & Capas de Elevación (iOS Minimalist Surfaces) ── */
   --surface-base: #06080e;
@@ -63,22 +138,24 @@
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
-  /* ── 7. Variables Dinámicas Globales ── */
+  /* ── 7. Materiales Calibrados iOS (Exactamente 3) ── */
+  --material-thin: blur(8px) saturate(180%);
+  --material-regular: blur(20px) saturate(180%);
+  --material-thick: blur(40px) saturate(180%);
+
+  /* ── 8. Variables Dinámicas Globales & Auto Mode ── */
   --color-primary: var(--accent-active, #00f2fe);
-  --color-secondary: #ff007f;
+  --color-secondary: #ff088a;
   --color-accent: var(--accent-active, #a855f7);
-  --color-glow: rgba(0, 242, 254, 0.20);
-  --color-bg-atmosphere: #060814;
-  --ai-beat-pulse: 0;
-  --ai-bloom-intensity: 1.0;
-  --color-secondary: #ff007f;
-  --color-accent: #a855f7;
+  --color-bg: #060812;
+  --color-border: rgba(0, 242, 254, 0.3);
+  --color-shadow: rgba(0, 242, 254, 0.2);
   --color-glow: rgba(0, 242, 254, 0.20);
   --color-bg-atmosphere: #060814;
   --ai-beat-pulse: 0;
   --ai-bloom-intensity: 1.0;
 
-  /* ── 8. Geometría & Escala de Radios Estricta (Regla: 20px Contenedores / 12px Cards / 10px Controls) ── */
+  /* ── 9. Geometría & Escala de Radios Estricta ── */
   --radius-container: 20px;
   --radius-dock: 20px;
   --radius-modal: 20px;
@@ -86,8 +163,9 @@
   --radius-control: 10px;
   --radius-pill: 9999px;
   --radius-badge: 6px;
+  --radius-panel: 14px;
 
-  /* ── 9. Sombras de Elevación iOS (Neutras y Claras) ── */
+  /* ── 10. Sombras de Elevación iOS (Neutras y Claras) ── */
   --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
   --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.40);
   --shadow-dock: 0 16px 40px -8px rgba(0, 0, 0, 0.60), 0 0 1px rgba(255, 255, 255, 0.10);
@@ -138,7 +216,7 @@ html, body, #root {
   padding: 0;
   overflow: hidden;
   background-color: var(--surface-base);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", 'Outfit', 'Inter', "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: -0.015em;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -149,16 +227,16 @@ html, body, #root {
 }
 
 .font-display {
-  font-family: 'Space Grotesk', 'Outfit', sans-serif;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
   font-feature-settings: 'tnum' on, 'lnum' on;
 }
 
 .font-heading {
-  font-family: 'Syne', 'Outfit', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
   letter-spacing: -0.02em;
 }
 
-/* ── Typographic Scale Hierarchy (Display, H1, H2, H3, Body, Caption, Mono) ── */
+/* ── Typographic Scale Hierarchy (Mínimo estricto 11px en .type-caption) ── */
 .type-display {
   font-size: 2.25rem;
   line-height: 1.15;
@@ -195,7 +273,7 @@ html, body, #root {
 }
 
 .type-caption {
-  font-size: 0.6875rem;
+  font-size: 0.6875rem; /* 11px - Mínimo absoluto de escala iOS */
   line-height: 1.4;
   letter-spacing: 0.01em;
   font-weight: 500;
@@ -208,22 +286,38 @@ html, body, #root {
   letter-spacing: -0.01em;
 }
 
+/* ── Clases de Utilidad de Materiales iOS (Exactamente 3) ── */
+.material-thin {
+  backdrop-filter: var(--material-thin);
+  -webkit-backdrop-filter: var(--material-thin);
+}
+
+.material-regular {
+  backdrop-filter: var(--material-regular);
+  -webkit-backdrop-filter: var(--material-regular);
+}
+
+.material-thick {
+  backdrop-filter: var(--material-thick);
+  -webkit-backdrop-filter: var(--material-thick);
+}
+
 /* ── Tactile Microinteraction Utilities ── */
 .btn-spring {
-  transition: transform var(--duration-fast, 150ms) var(--ease-smooth, cubic-bezier(0.16, 1, 0.3, 1)),
+  transition: transform var(--duration-fast, 150ms) var(--ease-spring, cubic-bezier(0.175, 0.885, 0.32, 1.275)),
               opacity var(--duration-fast, 150ms) ease,
               background-color var(--duration-fast, 150ms) ease,
               border-color var(--duration-fast, 150ms) ease;
 }
 .btn-spring:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .btn-press {
-  transition: transform var(--duration-fast, 150ms) var(--ease-smooth, cubic-bezier(0.16, 1, 0.3, 1));
+  transition: transform var(--duration-fast, 150ms) var(--ease-spring, cubic-bezier(0.175, 0.885, 0.32, 1.275));
 }
 .btn-press:active {
-  transform: scale(0.94);
+  transform: scale(0.97);
 }
 
 .card-interactive {
@@ -233,23 +327,20 @@ html, body, #root {
               box-shadow var(--duration-base, 250ms) ease;
 }
 .card-interactive:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-medium);
+  background-color: var(--surface-hover);
 }
 
 /* ── Typographic Polish Utilities ── */
-/* 1. Tabular Figures: Prevents bouncing numbers in timestamps, BPM, and audio telemetry */
 .font-tabular {
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' on, 'lnum' on;
 }
 
-/* 2. 3D Scrim: High-contrast legible text shadow for labels over bright 3D visualizers */
 .text-scrim-3d {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
-/* 3. Studio Headline Tracking */
 .tracking-studio-tight {
   letter-spacing: -0.025em;
 }
@@ -258,7 +349,6 @@ html, body, #root {
   letter-spacing: 0.08em;
 }
 
-/* Text selection with restrained studio tint */
 ::selection {
   background: rgba(0, 229, 255, 0.25);
   color: #ffffff;
@@ -276,26 +366,21 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 229, 255, 0.5);
 }
 
-/* Scrollbar None Utility */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
-  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Scrollbar Thin Utility */
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
 }
@@ -304,19 +389,10 @@ html, body, #root {
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.10);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
 }
 
-/* Slow Spin for Source Badge Disc Icon */
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin-slow {
-  animation: spin-slow 4s linear infinite;
-}
-
-/* ── Ultra-Smooth GPU-Accelerated Animation Engine (Lag-Free & Natural) ── */
+/* ── Modal and Popover Animations ── */
 @keyframes auraModalIn {
   from {
     opacity: 0;
@@ -336,8 +412,8 @@ html, body, #root {
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: var(--material-thin);
+    -webkit-backdrop-filter: var(--material-thin);
   }
 }
 
@@ -368,28 +444,26 @@ html, body, #root {
   }
 }
 
-/* Modal and Popover Spring Classes */
 .animate-aura-modal {
-  animation: auraModalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: auraModalIn 0.32s var(--ease-spring) forwards;
   will-change: transform, opacity;
   transform-origin: center center;
 }
 
 .animate-aura-backdrop {
-  animation: auraBackdropIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: auraBackdropIn 0.28s var(--ease-smooth) forwards;
   will-change: opacity, backdrop-filter;
 }
 
 .animate-aura-popover {
-  animation: auraPopoverIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: auraPopoverIn 0.25s var(--ease-spring) forwards;
   will-change: transform, opacity;
   transform-origin: top right;
 }
 
-/* Universal Smooth Animate-In Fallback (Zero-Lag 60fps GPU acceleration for all existing modals/popovers) */
 .animate-in {
   animation-duration: 0.26s;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-timing-function: var(--ease-smooth);
   animation-fill-mode: both;
   will-change: transform, opacity;
 }
@@ -401,31 +475,6 @@ html, body, #root {
   animation-name: auraZoomIn95;
 }
 
-/* Micro-interaction Spring Button: zero layout thrash, pure GPU transform */
-.btn-spring {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  will-change: transform;
-}
-.btn-spring:hover {
-  transform: translateY(-1px) scale(1.025);
-}
-.btn-spring:active {
-  transform: translateY(0.5px) scale(0.965);
-}
-
-/* ── Preset Flash Overlay (PresetsModal.tsx) ── */
-@keyframes pm-flash {
-  from {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.08);
-  }
-}
-
-/* ── Exit Animation Keyframes (Smooth Dismissal) ── */
 @keyframes auraModalOut {
   from {
     opacity: 1;
@@ -453,9 +502,8 @@ html, body, #root {
   }
 }
 
-/* Exit Animation Utility Classes */
 .animate-aura-modal-out {
-  animation: auraModalOut 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: auraModalOut 0.22s var(--ease-smooth) forwards;
   will-change: transform, opacity;
   pointer-events: none;
 }
@@ -467,15 +515,15 @@ html, body, #root {
 }
 
 .animate-aura-slide-up {
-  animation: auraSlideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: auraSlideUpIn 0.3s var(--ease-spring) forwards;
   will-change: transform, opacity;
 }
 
 /* ── iOS-Inspired Glassmorphic Elevation & Surface Utilities ── */
 .ios-glass-dock {
   background: var(--surface-dock);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: var(--material-regular);
+  -webkit-backdrop-filter: var(--material-regular);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-dock);
   border-radius: var(--radius-dock);
@@ -483,12 +531,12 @@ html, body, #root {
 
 .ios-glass-card {
   background: var(--surface-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: var(--material-regular);
+  -webkit-backdrop-filter: var(--material-regular);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-card);
   border-radius: var(--radius-card);
-  transition: all 0.2s ease;
+  transition: all var(--duration-fast) ease;
 }
 .ios-glass-card:hover {
   border-color: var(--border-medium);
@@ -497,30 +545,24 @@ html, body, #root {
 
 .ios-glass-modal {
   background: var(--surface-overlay);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: var(--material-thick);
+  -webkit-backdrop-filter: var(--material-thick);
   border: 1px solid var(--border-medium);
   box-shadow: var(--shadow-modal);
   border-radius: var(--radius-modal);
 }
 
 .ios-btn {
+  min-height: 44px;
+  min-width: 44px;
   border-radius: var(--radius-control);
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--duration-fast) var(--ease-spring), opacity var(--duration-fast) ease, background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .ios-btn:active {
   transform: scale(0.97);
-}
-
-.ios-focus-ring {
-  outline: none;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
-}
-.ios-focus-ring:focus-visible {
-  box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 4px var(--accent-cyan);
 }
 
 .ios-pill-badge {
@@ -531,19 +573,10 @@ html, body, #root {
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--border-subtle);
-  font-size: 0.6875rem;
+  font-size: 0.6875rem; /* 11px */
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-secondary);
-}
-
-/* Luxury Realistic Contrast Scrim: high contrast without distracting starkness */
-.contrast-scrim-realistic {
-  background: radial-gradient(circle at top left, rgba(16, 22, 40, 0.85) 0%, rgba(5, 8, 18, 0.95) 100%);
-  box-shadow: 
-    0 24px 64px -12px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.6);
 }
 
 /* Studio Precision Range Input (Slim track, solid circular thumb) */
@@ -551,33 +584,34 @@ input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   background: rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   height: 2px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ffffff;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--duration-fast) var(--ease-spring);
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.18);
 }
 
-/* High-Visibility Accessible Focus Indicator */
+/* ── Global Accessible Focus Indicator (iOS Standard) ── */
 :focus-visible {
-  outline: 2px solid #00e5ff !important;
-  outline-offset: 2px !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--surface-base), 0 0 0 4px var(--accent-active) !important;
+  border-radius: inherit;
 }
 
-/* Touch Target Minimum (44x44px for WCAG 2.5.5 / mobile ergonomics) */
+/* Touch Target Minimum (44x44px for Apple HIG / WCAG 2.5.5) */
 .touch-target-44 {
   min-width: 44px;
   min-height: 44px;
@@ -586,7 +620,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
   justify-content: center;
 }
 
-/* Screen Reader Only Utility */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -599,214 +632,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-width: 0;
 }
 
-/* ── Accessibility: Reduced Motion (Vestibular Safety) ── */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Background animated movement */
-@keyframes moverFondo {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(5%, 3%) scale(1.1);
-  }
-  100% {
-    transform: translate(8%, 8%) scale(1.2);
-  }
-}
-
-/* Lucid Mode animations */
-@keyframes gradientMove {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes lucidPulse {
-  0%, 100% {
-    box-shadow: 0 0 20px var(--lucid-glow);
-  }
-  50% {
-    box-shadow: 0 0 35px var(--lucid-glow), 0 0 10px var(--lucid-primary);
-  }
-}
-
-/* Studio Scroll Cue Animations */
-@keyframes scrollWheel {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(8px);
-    opacity: 0.3;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes floatGentle {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-
-/* ── Global Lucid Mode Overrides & Utility Classes ── */
-.lucid-mode {
-  --accent-color: var(--lucid-primary, #00e5ff);
-  --accent-secondary: var(--lucid-secondary, #ff088a);
-  --border-focus: var(--lucid-primary, #00e5ff);
-}
-
-.lucid-mode ::-webkit-scrollbar-thumb {
-  background: var(--lucid-primary, #00e5ff) !important;
-  box-shadow: 0 0 10px var(--lucid-glow, rgba(0, 229, 255, 0.4));
-}
-
-.lucid-mode ::-webkit-scrollbar-thumb:hover {
-  background: var(--lucid-secondary, #ff088a) !important;
-}
-
-.lucid-mode input[type="range"]::-webkit-slider-thumb {
-  background: var(--lucid-primary, #00e5ff) !important;
-  box-shadow: 0 0 14px var(--lucid-glow, rgba(0, 229, 255, 0.4)) !important;
-}
-
-.lucid-mode input[type="range"]::-webkit-slider-thumb:hover {
-  background: var(--lucid-secondary, #ff088a) !important;
-  box-shadow: 0 0 18px var(--lucid-glow, rgba(0, 229, 255, 0.6)) !important;
-}
-
-/* Glassmorphism panels and containers in Lucid Mode */
-.lucid-panel,
-.lucid-mode .lucid-panel {
-  background: var(--lucid-glass, rgba(8, 14, 28, 0.75)) !important;
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid var(--lucid-border, rgba(255, 255, 255, 0.08)) !important;
-  border-top-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.8), 0 0 40px var(--lucid-glow, rgba(0, 229, 255, 0.15)) !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glass-panel {
-  background: linear-gradient(145deg, rgba(14, 18, 34, 0.8), rgba(6, 8, 16, 0.9));
-  backdrop-filter: blur(40px) saturate(250%);
-  -webkit-backdrop-filter: blur(40px) saturate(250%);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.8);
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.15),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
-    0 16px 40px -8px rgba(0, 0, 0, 0.95),
-    0 0 40px -10px var(--color-glow, rgba(0, 229, 255, 0.15));
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.glass-panel:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: linear-gradient(145deg, rgba(18, 22, 42, 0.85), rgba(8, 12, 22, 0.95));
-  box-shadow: 
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
-    0 24px 48px -12px rgba(0, 0, 0, 1),
-    0 0 50px -5px var(--color-glow, rgba(0, 229, 255, 0.3));
-  transform: translateY(-1px) scale(1.005);
-}
-
-/* Primary buttons in Lucid Mode */
-.lucid-btn-primary {
-  background: linear-gradient(135deg, var(--lucid-primary, #00e5ff), var(--lucid-secondary, #ff088a)) !important;
-  color: #000000 !important;
-  font-weight: 700 !important;
-  box-shadow: 0 0 22px var(--lucid-glow, rgba(0, 229, 255, 0.4)) !important;
-}
-
-/* Glowing text, badges and borders */
-.lucid-text-glow {
-  color: var(--lucid-text, var(--lucid-primary, #00e5ff)) !important;
-  text-shadow: 0 0 14px var(--lucid-glow, rgba(0, 229, 255, 0.45));
-}
-
-.lucid-border-glow {
-  border-color: var(--lucid-border, rgba(0, 229, 255, 0.4)) !important;
-  box-shadow: 0 0 22px var(--lucid-glow, rgba(0, 229, 255, 0.3)) !important;
-}
-
-/* Make headers, dock pill, toolbars and dropdowns adapt cleanly in Lucid Mode */
-.lucid-mode .lucid-adaptive-border {
-  border-color: var(--lucid-border, rgba(0, 229, 255, 0.3)) !important;
-}
-
-.lucid-mode .lucid-adaptive-text {
-  color: var(--lucid-primary, #00e5ff) !important;
-}
-
-.lucid-mode .lucid-adaptive-glow {
-  box-shadow: 0 0 20px var(--lucid-glow, rgba(0, 229, 255, 0.3)) !important;
-}
-
-/* ── Dynamic Auto Mode (Modo Inteligente) CSS Variables & Utilities ── */
-:root {
-  --color-primary: #00f2fe;
-  --color-secondary: #ff088a;
-  --color-accent: #39FF14;
-  --color-bg: #060812;
-  --color-border: rgba(0, 242, 254, 0.3);
-  --color-shadow: rgba(0, 242, 254, 0.2);
-  --color-glow: rgba(0, 242, 254, 0.35);
-}
-
-.auto-mode-panel {
-  background-color: var(--color-bg) !important;
-  border-color: var(--color-border) !important;
-  box-shadow: 0 0 30px var(--color-shadow) !important;
-}
-
-.auto-text-primary {
-  color: var(--color-primary) !important;
-}
-
-.auto-text-secondary {
-  color: var(--color-secondary) !important;
-}
-
-.auto-text-accent {
-  color: var(--color-accent) !important;
-}
-
-.auto-border-glow {
-  border-color: var(--color-border) !important;
-  box-shadow: 0 0 25px var(--color-glow) !important;
-}
-
-/* ── Foldable & Dual-Screen Responsive Engine (Galaxy Z Fold, Pixel Fold, Surface Duo) ── */
-/* 1. Folded Screen (Cover screen, ultra-narrow: width <= 380px) */
+/* ── Foldable & Narrow Screen Responsive Engine ── */
 @media screen and (max-width: 380px) {
   :root {
+    --radius-container: 16px;
     --radius-panel: 10px;
     --radius-card: 8px;
+    --radius-control: 8px;
   }
 
   .fold-compact-hide {
@@ -824,43 +656,24 @@ input[type="range"]::-webkit-slider-thumb:hover {
   }
 }
 
-/* 2. Unfolded Screen (Squarish inner tablet screen: 500px - 900px, aspect ratio 4:5 to 5:4) */
-@media screen and (min-width: 500px) and (max-width: 960px) and (min-aspect-ratio: 4/5) and (max-aspect-ratio: 5/4) {
-  .unfolded-screen-adjust {
-    padding-top: max(0.75rem, env(safe-area-inset-top));
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-}
-
-/* 3. W3C Standard Dual-Screen / Spanning Foldables */
-@media (horizontal-viewport-segments: 2) {
-  .foldable-left-pane {
-    width: env(viewport-segment-width 0 0);
-  }
-  .foldable-right-pane {
-    margin-left: calc(env(viewport-segment-left 1 0));
-  }
-}
-
-@media (vertical-viewport-segments: 2) {
-  .foldable-top-pane {
-    height: env(viewport-segment-height 0 0);
-  }
-  .foldable-bottom-pane {
-    margin-top: calc(env(viewport-segment-top 0 1));
-  }
-}
-
-/* ── Prefers-Reduced-Motion Accessibility Support ── */
+/* ── Accessibility: Reduced Motion (Vestibular Safety) ── */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --reduced-motion: 1;
+    --duration-fast: 100ms;
+    --duration-base: 120ms;
+    --duration-slow: 150ms;
+  }
+
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 150ms !important;
     scroll-behavior: auto !important;
   }
+
   .animate-spin-slow,
   .animate-spin,
   .animate-pulse,
@@ -868,10 +681,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .animate-in {
     animation: none !important;
   }
+
   .btn-spring:active,
-  .btn-press:active {
+  .btn-press:active,
+  .ios-btn:active {
     transform: none !important;
   }
 }
-
-
