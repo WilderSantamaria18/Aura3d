@@ -441,7 +441,7 @@ export const useAudioPlayer = () => {
             sourceType: 'youtube',
             youtubeId: ytId || track.youtubeId,
             isIframePlayback: useIframe,
-            url: useIframe ? undefined : track.url,
+            url: useIframe ? undefined : (track.url || (ytId ? `/api/youtube/stream?v=${ytId}` : undefined)),
             duration: track.duration || 210,
           };
 

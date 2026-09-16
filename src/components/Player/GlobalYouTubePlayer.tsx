@@ -129,7 +129,9 @@ export const GlobalYouTubeController: React.FC = () => {
       videoId
   );
 
-  /* ── Handle track ended → advance queue ────────────────────── */
+  const isIframePlayback = Boolean(currentTrack?.isIframePlayback);
+
+  /* ── Handle track ended → advance queue (only in iframe fallback mode) ── */
   const handleEnded = useCallback(() => {
     const store = usePlayerStore.getState();
     const next = store.nextTrack();
@@ -198,12 +200,26 @@ export const GlobalYouTubeController: React.FC = () => {
               ytPlayerReady = true;
               ytCurrentVideoId = videoId!;
               const store = usePlayerStore.getState();
-              e.target.setVolume(store.isMuted ? 0 : Math.round(store.volume * 100));
+              const isIframe = Boolean(store.currentTrack?.isIframePlayback);
+              if (isIframe) {
+                if (store.isMuted) {
+                  e.target.mute();
+                } else {
+                  e.target.unMute();
+                  e.target.setVolume(Math.round(store.volume * 100));
+                }
+              } else {
+                // Native audio stream active via Web Audio API: MUTE the iframe to prevent double audio!
+                e.target.mute();
+              }
               if (store.isPlaying) e.target.playVideo();
             },
             onStateChange: (e: { data: number; target: any }) => {
               const YTS = window.YT?.PlayerState;
               if (!YTS) return;
+              const isIframe = Boolean(usePlayerStore.getState().currentTrack?.isIframePlayback);
+              if (!isIframe) return; // In native streaming, audioEngine handles lifecycle
+
               if (e.data === YTS.PLAYING) {
                 setIsPlaying(true);
                 const dur = e.target.getDuration?.();
@@ -217,7 +233,8 @@ export const GlobalYouTubeController: React.FC = () => {
               }
             },
             onError: (e: { data: number }) => {
-              if (e.data === 101 || e.data === 150) {
+              const isIframe = Boolean(usePlayerStore.getState().currentTrack?.isIframePlayback);
+              if (isIframe && (e.data === 101 || e.data === 150)) {
                 setTimeout(handleEnded, 1500);
               }
             },
@@ -233,6 +250,14 @@ export const GlobalYouTubeController: React.FC = () => {
         if (ytCurrentVideoId !== videoId) {
           ytCurrentVideoId = videoId;
           ytPlayer.loadVideoById(videoId);
+          if (!isIframePlayback) {
+            ytPlayer.mute();
+          } else if (isMuted) {
+            ytPlayer.mute();
+          } else {
+            ytPlayer.unMute();
+            ytPlayer.setVolume(Math.round(volume * 100));
+          }
           const store = usePlayerStore.getState();
           if (store.isPlaying) setTimeout(() => ytPlayer?.playVideo?.(), 200);
         }
@@ -251,7 +276,7 @@ export const GlobalYouTubeController: React.FC = () => {
       return;
     }
     initOrUpdatePlayer();
-  }, [isYT, videoId]);
+  }, [isYT, videoId, isIframePlayback]);
 
   /* ── 3. Play / Pause sync ───────────────────────────────────── */
   useEffect(() => {
@@ -262,13 +287,23 @@ export const GlobalYouTubeController: React.FC = () => {
     } catch {}
   }, [isPlaying, isYT]);
 
-  /* ── 4. Volume sync ─────────────────────────────────────────── */
+  /* ── 4. Volume sync (Mute if native stream, otherwise sync) ──── */
   useEffect(() => {
     if (!ytPlayer || !ytPlayerReady || !isYT) return;
     try {
-      ytPlayer.setVolume(isMuted ? 0 : Math.round(volume * 100));
+      if (isIframePlayback) {
+        if (isMuted) {
+          ytPlayer.mute();
+        } else {
+          ytPlayer.unMute();
+          ytPlayer.setVolume(Math.round(volume * 100));
+        }
+      } else {
+        // Zero double audio: always muted during native stream
+        ytPlayer.mute();
+      }
     } catch {}
-  }, [volume, isMuted, isYT]);
+  }, [volume, isMuted, isYT, isIframePlayback]);
 
   /* ── 5. Seek listener ───────────────────────────────────────── */
   useEffect(() => {
@@ -282,9 +317,9 @@ export const GlobalYouTubeController: React.FC = () => {
     return () => window.removeEventListener("aura:youtube-seek", handler);
   }, []);
 
-  /* ── 6. Time polling ────────────────────────────────────────── */
+  /* ── 6. Time polling (only in iframe fallback mode) ─────────── */
   useEffect(() => {
-    if (!isYT || !isPlaying) {
+    if (!isYT || !isPlaying || !isIframePlayback) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
       return;
@@ -302,13 +337,13 @@ export const GlobalYouTubeController: React.FC = () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
     };
-  }, [isYT, isPlaying, setCurrentTime, setDuration]);
+  }, [isYT, isPlaying, isIframePlayback, setCurrentTime, setDuration]);
 
   /* ── 7. iframeMode for visualizer ──────────────────────────── */
   useEffect(() => {
-    audioEngine.setIframeMode(Boolean(isYT && isPlaying));
+    audioEngine.setIframeMode(Boolean(isYT && isPlaying && isIframePlayback));
     return () => audioEngine.setIframeMode(false);
-  }, [isYT, isPlaying]);
+  }, [isYT, isPlaying, isIframePlayback]);
 
   return null; // No DOM output — portal is managed imperatively
 };
