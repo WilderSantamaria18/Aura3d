@@ -20,7 +20,7 @@ export const LyricsOverlay: React.FC = () => {
     isSpotifyConnected,
   } = usePlayerStore();
 
-  const { lyricsData } = useLyrics();
+  const { lyricsData, isLoading, loadLrcFile } = useLyrics();
   const { seek } = useAudioEngine();
   const { seek: spotifySeek } = useSpotifyPlayer();
 
@@ -211,12 +211,17 @@ export const LyricsOverlay: React.FC = () => {
         isPlaying={isPlaying}
         title={currentTrack?.title || 'Sin título'}
         artist={currentTrack?.artist || 'Artista desconocido'}
+        coverUrl={currentTrack?.coverUrl}
+        source={lyricsData.source}
+        isSynced={lyricsData.synced}
+        isLoading={isLoading}
         position={position}
         size={size}
         isFullscreen={isFullscreenActive}
         onPositionChange={handlePositionChange}
         onSizeChange={handleSizeChange}
         onDragStart={handleDragStart}
+        onUploadLrc={loadLrcFile}
         onToggleFullscreen={() => {
           if (isFullscreenActive) {
             handleSizeChange('standard');
