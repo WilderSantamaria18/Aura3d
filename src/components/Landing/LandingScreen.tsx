@@ -198,7 +198,7 @@ export const LandingScreen: React.FC = () => {
               type="button"
               onClick={() => scrollToStage(idx)}
               aria-label={t('landing.navChannel', { num: `0${idx + 1}`, name: stage.label })}
-              className="min-h-[44px] min-w-[44px] flex items-center justify-end gap-2 group transition-all cursor-pointer px-2 py-2 btn-spring active:scale-[0.97]"
+              className="min-h-11 min-w-11 flex items-center justify-end gap-2 group transition-all cursor-pointer px-2 py-2 btn-spring active:scale-[0.97]"
             >
               <span
                 className={`transition-all duration-fast tracking-wider ${
@@ -238,7 +238,7 @@ export const LandingScreen: React.FC = () => {
             <Disc3 className="w-4 h-4 text-accent-cyan animate-spin-slow" />
           </div>
           <span className="font-mono text-xs uppercase tracking-[0.25em] text-text-primary">
-            Aura3D <span className="text-accent-cyan font-semibold">Studio</span>
+            {t('landing.title')} <span className="text-accent-cyan font-semibold">Studio</span>
           </span>
         </div>
 
@@ -260,7 +260,7 @@ export const LandingScreen: React.FC = () => {
             onClick={handleStartExperience}
             disabled={isStarting}
             aria-label={t('landing.enter')}
-            className="min-h-[44px] px-4 py-2 rounded-control bg-white/10 hover:bg-white/20 border border-border-medium text-caption font-mono tracking-wider uppercase text-text-primary transition-all shadow-subtle active:scale-[0.97] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center btn-spring"
+            className="min-h-11 px-4 py-2 rounded-control bg-white/10 hover:bg-white/20 border border-border-medium text-caption font-mono tracking-wider uppercase text-text-primary transition-all shadow-subtle active:scale-[0.97] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center btn-spring"
           >
             {isStarting ? t('landing.starting') : t('landing.enter')}
           </button>
@@ -318,7 +318,7 @@ export const LandingScreen: React.FC = () => {
                 : 'border-border-subtle bg-surface-dock material-regular hover:border-border-medium hover:bg-surface-dock/90 shadow-card'
             }`}
           >
-            <label className="flex items-center gap-3 cursor-pointer w-full min-h-[44px]">
+            <label className="flex items-center gap-3 cursor-pointer w-full min-h-11">
               <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-cyan flex-shrink-0 shadow-subtle">
                 <UploadCloud className="w-4 h-4" />
               </div>
@@ -330,7 +330,7 @@ export const LandingScreen: React.FC = () => {
                   {t('landing.dropzoneFormats')}
                 </div>
               </div>
-              <span className="min-h-[44px] text-caption font-mono font-semibold uppercase px-3 py-2.5 rounded-control bg-white/10 border border-border-medium text-text-primary flex-shrink-0 btn-spring flex items-center justify-center">
+              <span className="min-h-11 text-caption font-mono font-semibold uppercase px-3 py-2.5 rounded-control bg-white/10 border border-border-medium text-text-primary flex-shrink-0 btn-spring flex items-center justify-center">
                 {t('landing.upload')}
               </span>
               <input
@@ -354,7 +354,7 @@ export const LandingScreen: React.FC = () => {
               onClick={handleStartExperience}
               disabled={isStarting}
               aria-label={t('landing.launch3d')}
-              className="w-full sm:w-auto min-h-[44px] px-7 py-3 rounded-control bg-white text-black font-semibold text-xs sm:text-sm tracking-wide uppercase btn-spring flex items-center justify-center gap-2 shadow-card cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
+              className="w-full sm:w-auto min-h-11 px-7 py-3 rounded-control bg-white text-black font-semibold text-xs sm:text-sm tracking-wide uppercase btn-spring flex items-center justify-center gap-2 shadow-card cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
             >
               <Headphones className="w-4 h-4 text-black" />
               <span>{isStarting ? t('landing.starting') : t('landing.launch3d')}</span>
@@ -366,7 +366,7 @@ export const LandingScreen: React.FC = () => {
               onClick={handleMicStart}
               disabled={isStarting}
               aria-label={t('landing.directMic')}
-              className="w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-control bg-white/10 hover:bg-white/15 border border-border-medium text-xs sm:text-sm font-mono font-medium tracking-wide uppercase text-text-primary btn-spring flex items-center justify-center gap-2 cursor-pointer shadow-subtle disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
+              className="w-full sm:w-auto min-h-11 px-5 py-3 rounded-control bg-white/10 hover:bg-white/15 border border-border-medium text-xs sm:text-sm font-mono font-medium tracking-wide uppercase text-text-primary btn-spring flex items-center justify-center gap-2 cursor-pointer shadow-subtle disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
             >
               <span className="w-2 h-2 rounded-full bg-status-success animate-pulse" />
               <Mic className="w-4 h-4 text-status-success" />
@@ -381,7 +381,7 @@ export const LandingScreen: React.FC = () => {
             type="button"
             onClick={() => scrollToStage(1)}
             aria-label={t('landing.exploreDsp')}
-            className="min-h-[44px] min-w-[44px] px-3 py-2 flex flex-col items-center justify-center gap-1.5 text-text-tertiary hover:text-accent-cyan transition-colors group cursor-pointer btn-spring active:scale-[0.97]"
+            className="min-h-11 min-w-11 px-3 py-2 flex flex-col items-center justify-center gap-1.5 text-text-tertiary hover:text-accent-cyan transition-colors group cursor-pointer btn-spring active:scale-[0.97]"
           >
             <span className="text-caption font-mono tracking-[0.2em] uppercase">
               {t('landing.exploreDsp')} ↓
@@ -427,7 +427,7 @@ export const LandingScreen: React.FC = () => {
             type="button"
             onClick={() => scrollToStage(2)}
             aria-label={t('landing.exploreTurntable')}
-            className="min-h-[44px] min-w-[44px] px-3 py-2 flex items-center justify-center gap-1.5 text-caption font-mono text-text-tertiary hover:text-accent-cyan transition-colors cursor-pointer btn-spring active:scale-[0.97]"
+            className="min-h-11 min-w-11 px-3 py-2 flex items-center justify-center gap-1.5 text-caption font-mono text-text-tertiary hover:text-accent-cyan transition-colors cursor-pointer btn-spring active:scale-[0.97]"
           >
             <span>{t('landing.exploreTurntable')}</span>
             <ChevronDown className="w-3.5 h-3.5" />
@@ -471,7 +471,7 @@ export const LandingScreen: React.FC = () => {
             type="button"
             onClick={() => scrollToStage(3)}
             aria-label={t('landing.goToAccess')}
-            className="min-h-[44px] min-w-[44px] px-3 py-2 flex items-center justify-center gap-1.5 text-caption font-mono text-text-tertiary hover:text-accent-rose transition-colors cursor-pointer btn-spring active:scale-[0.97]"
+            className="min-h-11 min-w-11 px-3 py-2 flex items-center justify-center gap-1.5 text-caption font-mono text-text-tertiary hover:text-accent-rose transition-colors cursor-pointer btn-spring active:scale-[0.97]"
           >
             <span>{t('landing.goToAccess')}</span>
             <ChevronDown className="w-3.5 h-3.5" />

@@ -59,13 +59,13 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`min-h-[44px] p-4 rounded-card border transition-all cursor-pointer ${
+          className={`min-h-11 p-4 rounded-card border transition-all cursor-pointer ${
             isDragging
               ? 'border-accent-cyan bg-accent-cyan/20 scale-[1.02] shadow-card'
               : 'border-border-subtle bg-surface-base/60 hover:border-border-medium hover:bg-white/[0.04]'
           }`}
         >
-          <label className="flex flex-col gap-2 cursor-pointer min-h-[44px]">
+          <label className="flex flex-col gap-2 cursor-pointer min-h-11">
             <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-cyan">
               <UploadCloud className="w-4 h-4" />
             </div>
@@ -97,7 +97,7 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
             }
           }}
           aria-label={t('landing.micCapture')}
-          className="min-h-[44px] p-4 rounded-card border border-border-subtle bg-surface-base/60 hover:border-border-medium hover:bg-white/[0.04] transition-all cursor-pointer flex flex-col justify-between btn-spring active:scale-[0.97]"
+          className="min-h-11 p-4 rounded-card border border-border-subtle bg-surface-base/60 hover:border-border-medium hover:bg-white/[0.04] transition-all cursor-pointer flex flex-col justify-between btn-spring active:scale-[0.97]"
         >
           <div className="flex flex-col gap-2">
             <div className="w-8 h-8 rounded-control bg-white/10 border border-border-subtle flex items-center justify-center text-accent-rose">
@@ -118,7 +118,7 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
         type="button"
         onClick={onStartExperience}
         aria-label={t('landing.enterVisualizer')}
-        className="w-full min-h-[44px] py-3.5 px-6 rounded-control bg-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-card group cursor-pointer active:scale-[0.97]"
+        className="w-full min-h-11 py-3.5 px-6 rounded-control bg-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-card group cursor-pointer active:scale-[0.97]"
       >
         <Play className="w-4 h-4 fill-current text-black group-hover:scale-110 transition-transform" />
         <span>{t('landing.enterVisualizer')}</span>

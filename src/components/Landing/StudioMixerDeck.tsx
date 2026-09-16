@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sliders, Activity } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const FREQUENCIES = [
   { label: '32Hz', type: 'SUB' },
@@ -18,6 +19,7 @@ const FREQUENCIES = [
  * Los medidores VU y las barras LED se actualizan directamente mediante Canvas 2D y DOM refs.
  */
 export const StudioMixerDeck: React.FC = () => {
+  const { t } = useTranslation();
   const [faderValues, setFaderValues] = useState<number[]>([75, 65, 80, 50, 60, 85, 70, 78]);
   const faderValuesRef = useRef(faderValues);
   faderValuesRef.current = faderValues;
@@ -204,7 +206,7 @@ export const StudioMixerDeck: React.FC = () => {
                   min="0"
                   max="100"
                   value={val}
-                  aria-label={`Filtro de frecuencia ${freq.label} tipo ${freq.type}`}
+                  aria-label={t('landing.filterAriaLabel', { label: freq.label, type: freq.type })}
                   onChange={(e) => handleFaderChange(idx, parseInt(e.target.value))}
                   className="absolute w-28 h-11 -rotate-90 cursor-pointer opacity-0 z-10"
                 />

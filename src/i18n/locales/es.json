@@ -97,6 +97,8 @@
     "scrollKey": "SCROLL",
     "scrollLabel": "Canales",
     "gKey": "G",
-    "gLabel": "Modo Galería"
+    "gLabel": "Modo Galería",
+    "filterAriaLabel": "Filtro de frecuencia {{label}} tipo {{type}}",
+    "pitchAriaLabel": "Ajuste de velocidad de pitch en porcentaje"
   }
 }

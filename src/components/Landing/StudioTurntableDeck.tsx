@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Disc3, Sparkles, Radio, Waves, Activity } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { VisualizerShape } from '../../types/audio';
 
@@ -15,6 +16,7 @@ const TURNTABLE_PRESETS: { id: VisualizerShape; label: string; icon: React.Compo
  * Tornamesa virtual de vinilo de alta gama con halo arcoíris y selector de modos reactivos.
  */
 export const StudioTurntableDeck: React.FC = () => {
+  const { t } = useTranslation();
   const { setBlobShape, blobShape } = usePlayerStore();
   const [pitch, setPitch] = useState(0);
   const [isPlaying] = useState(true);
@@ -114,7 +116,7 @@ export const StudioTurntableDeck: React.FC = () => {
               max="8"
               step="0.5"
               value={pitch}
-              aria-label="Ajuste de velocidad de pitch en porcentaje"
+              aria-label={t('landing.pitchAriaLabel')}
               onChange={(e) => setPitch(parseFloat(e.target.value))}
               className="absolute w-28 h-11 -rotate-90 opacity-0 cursor-pointer z-10"
             />
@@ -145,7 +147,7 @@ export const StudioTurntableDeck: React.FC = () => {
               type="button"
               onClick={() => setBlobShape(preset.id)}
               aria-label={`Seleccionar preset de visualización ${preset.label}`}
-              className={`min-h-[44px] p-2.5 rounded-control border flex flex-col items-center justify-center gap-1.5 transition-all text-xs btn-spring cursor-pointer active:scale-[0.97] ${
+              className={`min-h-11 p-2.5 rounded-control border flex flex-col items-center justify-center gap-1.5 transition-all text-xs btn-spring cursor-pointer active:scale-[0.97] ${
                 isSelected
                   ? 'border-accent-cyan bg-accent-cyan/15 text-text-primary shadow-subtle'
                   : 'border-border-subtle bg-white/[0.03] text-text-secondary hover:text-text-primary hover:bg-white/[0.06]'

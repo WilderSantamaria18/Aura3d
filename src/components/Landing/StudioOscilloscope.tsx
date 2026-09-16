@@ -166,7 +166,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
           setWaveMode((prev) => (prev === 'harmonic' ? 'sine' : prev === 'sine' ? 'pulse' : 'harmonic'))
         }
         aria-label={`Cambiar modo de forma de onda. Modo actual: ${waveMode}`}
-        className="absolute top-1.5 right-2 min-h-[44px] min-w-[44px] px-3 py-2 rounded-control bg-white/10 hover:bg-white/20 border border-border-medium font-mono text-caption uppercase tracking-wider text-accent-cyan transition-all cursor-pointer flex items-center justify-center btn-spring"
+        className="absolute top-1.5 right-2 min-h-11 min-w-11 px-3 py-2 rounded-control bg-white/10 hover:bg-white/20 border border-border-medium font-mono text-caption uppercase tracking-wider text-accent-cyan transition-all cursor-pointer flex items-center justify-center btn-spring"
         title="Clic para alternar forma de onda del osciloscopio"
       >
         MODE: {waveMode}
