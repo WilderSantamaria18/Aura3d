@@ -309,19 +309,19 @@ export const App: React.FC = () => {
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-4 md:p-5 transition-all duration-500 pointer-events-none flex flex-col items-center ${
-            shouldHideUI || isZenGhostMode
-              ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
-              : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
+          className={`fixed bottom-0 sm:bottom-4 left-0 right-0 z-40 flex justify-center px-2 sm:px-4 pb-[env(safe-area-inset-bottom,0px)] transition-all duration-500 pointer-events-none ${
+            isZenGhostMode || isUiHidden
+              ? 'opacity-0 translate-y-10 pointer-events-none'
+              : 'opacity-100 translate-y-0'
           }`}
           onMouseEnter={() => setIsDockHovered(true)}
           onMouseLeave={() => setIsDockHovered(false)}
         >
           <div
-            className={`w-[clamp(320px,94vw,840px)] rounded-[var(--radius-dock)] p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
+            className={`w-full max-w-[440px] sm:max-w-2xl lg:max-w-3xl rounded-dock p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
               isLucid
-                ? 'lucid-panel opacity-90 hover:opacity-100'
-                : 'ios-glass-dock opacity-90 hover:opacity-100'
+                ? 'lucid-panel opacity-95 hover:opacity-100'
+                : 'bg-surface-dock/90 material-thick border border-border-subtle shadow-dock opacity-95 hover:opacity-100'
             }`}
             style={
               isLucid
@@ -358,10 +358,10 @@ export const App: React.FC = () => {
           }}
         >
           <div
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-[var(--radius-pill)] border shadow-[var(--shadow-dock)] cursor-pointer backdrop-blur-2xl transition-all hover:scale-105 ${
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-pill border shadow-dock cursor-pointer material-thick transition-all hover:scale-105 ${
               isLucid
                 ? 'lucid-panel'
-                : 'bg-[var(--surface-dock)] border-[var(--border-subtle)] text-white'
+                : 'bg-surface-dock/90 border-border-subtle text-text-primary'
             }`}
             style={
               isLucid
@@ -398,13 +398,14 @@ export const App: React.FC = () => {
                   engineTogglePlayPause();
                 }
               }}
-              className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95"
+              className="min-w-11 min-h-11 w-11 h-11 rounded-pill bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95 cursor-pointer btn-spring"
               title={isPlaying ? 'Pausar' : 'Reproducir'}
+              aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
               {isPlaying ? (
-                <Pause className="w-2.5 h-2.5 fill-current" />
+                <Pause className="w-3.5 h-3.5 fill-current" />
               ) : (
-                <Play className="w-2.5 h-2.5 fill-current translate-x-0.5" />
+                <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />
               )}
             </button>
           </div>
@@ -420,7 +421,7 @@ export const App: React.FC = () => {
 
       {/* Error Notification */}
       {error && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-[var(--radius-card)] bg-[var(--surface-card)] border border-rose-500/20 text-rose-200 text-xs flex items-center gap-2 shadow-[var(--shadow-card)] backdrop-blur-xl animate-aura-popover">
+        <div className="fixed top-20 right-6 z-50 p-4 rounded-card bg-surface-card border border-status-error/30 text-status-error text-caption flex items-center gap-2 shadow-card material-regular animate-aura-popover">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
