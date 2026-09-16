@@ -168,8 +168,9 @@ export const QuickstartStudioModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 rounded-card bg-status-success/15 border border-status-success/30 text-caption text-status-success">
-              ✓ Todo listo. Arrastra una canción o selecciona una pista para comenzar la experiencia.
+            <div className="p-3 rounded-card bg-status-success/15 border border-status-success/30 text-caption text-status-success flex items-center gap-1.5">
+              <Check className="w-4 h-4 flex-shrink-0" />
+              <span>Todo listo. Arrastra una canción o selecciona una pista para comenzar la experiencia.</span>
             </div>
           </div>
         )}

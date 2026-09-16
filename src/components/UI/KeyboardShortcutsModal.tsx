@@ -33,7 +33,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
   if (!isShortcutsModalOpen) return null;
 
-  const accentColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--color-accent-teal, #30b0c7)') : 'var(--color-accent-teal, #30b0c7)';
+  const accentColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
 
   return (
     <div

@@ -44,14 +44,14 @@ export const AuralisStoryCardModal: React.FC = () => {
     if (!ctx) throw new Error('Could not get 2d context');
 
     // Get color from token
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || '#2bdcd2';
-    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-pink').trim() || '#ff375f';
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'rgb(43, 220, 210)';
+    const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--ios-pink').trim() || 'rgb(255, 55, 95)';
 
     // 1. Background Gradient
     const bgGrad = ctx.createRadialGradient(540, 500, 100, 540, 960, 1100);
-    bgGrad.addColorStop(0, '#0a0d1e');
-    bgGrad.addColorStop(0.5, '#04060d');
-    bgGrad.addColorStop(1, '#010204');
+    bgGrad.addColorStop(0, 'rgba(10, 13, 30, 1)');
+    bgGrad.addColorStop(0.5, 'rgba(4, 6, 13, 1)');
+    bgGrad.addColorStop(1, 'rgba(1, 2, 4, 1)');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, 1080, 1920);
 
@@ -64,7 +64,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fillRect(0, 200, 1080, 1000);
 
     // 3. Header Branding
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = 'white';
     ctx.font = 'bold 36px monospace';
     ctx.textAlign = 'center';
     ctx.letterSpacing = '6px';
@@ -83,7 +83,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     // Artwork drop shadow & border
     ctx.shadowColor = `${primaryColor}60`;
     ctx.shadowBlur = 50;
-    ctx.fillStyle = '#0f1424';
+    ctx.fillStyle = 'rgba(15, 20, 36, 1)';
     ctx.beginPath();
     ctx.roundRect(artX, artY, artSize, artSize, 36);
     ctx.fill();
@@ -100,9 +100,9 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.clip();
 
     const discGrad = ctx.createRadialGradient(540, 660, 50, 540, 660, 300);
-    discGrad.addColorStop(0, '#1a2238');
-    discGrad.addColorStop(0.8, '#0a0d18');
-    discGrad.addColorStop(1, '#05070e');
+    discGrad.addColorStop(0, 'rgba(26, 34, 56, 1)');
+    discGrad.addColorStop(0.8, 'rgba(10, 13, 24, 1)');
+    discGrad.addColorStop(1, 'rgba(5, 7, 14, 1)');
     ctx.fillStyle = discGrad;
     ctx.fillRect(artX, artY, artSize, artSize);
 
@@ -120,14 +120,14 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.beginPath();
     ctx.arc(540, 660, 55, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#05070e';
+    ctx.fillStyle = 'rgba(5, 7, 14, 1)';
     ctx.beginPath();
     ctx.arc(540, 660, 16, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
     // 5. Track Title & Artist
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = 'white';
     ctx.font = 'bold 54px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(trackTitle.length > 24 ? trackTitle.slice(0, 24) + '...' : trackTitle, 540, 1070);
@@ -147,7 +147,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#d8b4fe';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ios-purple').trim() || 'rgb(175, 82, 222)';
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`${harmonicKey.camelot} · ${harmonicKey.shortKey}`, 350, badgeY + 10);
@@ -160,7 +160,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#fde68a';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--status-warning').trim() || 'rgb(255, 159, 10)';
     ctx.font = 'bold 28px sans-serif';
     ctx.fillText(`${currentMood.label}`, 730, badgeY + 10);
 
@@ -199,7 +199,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fillText('TIEMPO ESCUCHADO', 200, cardY + 60);
     ctx.fillText('TEMPO ESTIMADO', 620, cardY + 60);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = 'white';
     ctx.font = 'bold 36px monospace';
     ctx.fillText(`${Math.floor(stats.totalSeconds / 60)} MINUTOS`, 200, cardY + 115);
     ctx.fillText(`${bpm > 0 ? bpm : 124} BPM`, 620, cardY + 115);

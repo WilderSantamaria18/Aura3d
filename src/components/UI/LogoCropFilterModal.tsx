@@ -23,12 +23,12 @@ interface LogoCropFilterModalProps {
 }
 
 const NEON_TINTS = [
-  { id: 'none', name: 'Original', color: 'transparent' },
-  { id: 'cyan', name: 'Cian', color: '#00f2fe' },
-  { id: 'magenta', name: 'Magenta', color: '#ff088a' },
-  { id: 'emerald', name: 'Neón Verde', color: '#39ff14' },
-  { id: 'gold', name: 'Oro Neón', color: '#ffd700' },
-  { id: 'violet', name: 'Violeta', color: '#9d00ff' },
+  { id: 'none', name: 'Original', token: 'transparent' },
+  { id: 'cyan', name: 'Cian', token: '--tint-cyan' },
+  { id: 'magenta', name: 'Magenta', token: '--tint-magenta' },
+  { id: 'emerald', name: 'Neón Verde', token: '--tint-emerald' },
+  { id: 'gold', name: 'Oro Neón', token: '--tint-gold' },
+  { id: 'violet', name: 'Violeta', token: '--tint-violet' },
 ];
 
 export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
@@ -156,15 +156,20 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
       ctx.restore();
 
       // 4. Apply Color Tint if selected
-      if (activeTint !== 'none') {
-        const tint = NEON_TINTS.find((t) => t.id === activeTint);
-        if (tint && tint.color !== 'transparent') {
-          ctx.save();
-          ctx.globalCompositeOperation = 'color';
-          ctx.fillStyle = tint.color;
-          ctx.fillRect(0, 0, outputSize, outputSize);
-          ctx.restore();
-        }
+      const getTintHex = (id: string) => {
+        if (id === 'none') return 'transparent';
+        const found = NEON_TINTS.find((t) => t.id === id);
+        if (!found || found.token === 'transparent') return 'transparent';
+        return getComputedStyle(document.documentElement).getPropertyValue(found.token).trim();
+      };
+
+      const activeTintColor = getTintHex(activeTint);
+      if (activeTint !== 'none' && activeTintColor !== 'transparent') {
+        ctx.save();
+        ctx.globalCompositeOperation = 'color';
+        ctx.fillStyle = activeTintColor;
+        ctx.fillRect(0, 0, outputSize, outputSize);
+        ctx.restore();
       }
 
       // 5. Optional Neon Ring Border on the edge
@@ -172,7 +177,10 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
         ctx.save();
         ctx.beginPath();
         ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2 - 6, 0, Math.PI * 2);
-        ctx.strokeStyle = activeTint !== 'none' ? NEON_TINTS.find((t) => t.id === activeTint)?.color || '#00f2fe' : '#00f2fe';
+        const borderColor = activeTintColor !== 'transparent'
+          ? activeTintColor
+          : getComputedStyle(document.documentElement).getPropertyValue('--tint-cyan').trim();
+        ctx.strokeStyle = borderColor;
         ctx.lineWidth = 8;
         ctx.shadowColor = ctx.strokeStyle;
         ctx.shadowBlur = 18;
@@ -272,7 +280,7 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 <div
                   className="absolute inset-0 z-10 pointer-events-none mix-blend-color opacity-80"
                   style={{
-                    backgroundColor: NEON_TINTS.find((t) => t.id === activeTint)?.color,
+                    backgroundColor: `var(${NEON_TINTS.find((t) => t.id === activeTint)?.token})`,
                   }}
                 />
               )}
@@ -446,7 +454,7 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                     >
                       <span
                         className="w-4 h-4 rounded-pill border border-border-subtle shrink-0"
-                        style={{ backgroundColor: tint.color === 'transparent' ? '#fff' : tint.color }}
+                        style={{ backgroundColor: tint.token === 'transparent' ? 'white' : `var(${tint.token})` }}
                       />
                       <span className="truncate">{tint.name}</span>
                     </button>

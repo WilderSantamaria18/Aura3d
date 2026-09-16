@@ -36,8 +36,8 @@ export const AmbientGlow: React.FC = React.memo(() => {
 
   // Get token color dynamically
   const tokenColor = typeof document !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || '#2bdcd2'
-    : '#2bdcd2';
+    ? getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'rgb(43, 220, 210)'
+    : 'rgb(43, 220, 210)';
 
   const activeColor = isLucid ? (lucidPrimary || tokenColor) : (aiColor || tokenColor);
 
@@ -98,7 +98,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
       vy: -0.2 - Math.random() * 0.4,
       size: 1.0 + Math.random() * 2.2,
       alpha: 0.15 + Math.random() * 0.45,
-      color: Math.random() > 0.5 ? activeColor : '#ffffff',
+      color: Math.random() > 0.5 ? activeColor : 'rgba(255, 255, 255, 0.9)',
     }));
 
     const trailParticles: TrailParticle[] = [];
@@ -116,6 +116,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
         const curY = mouseRef.current.rawY;
         const prevX = mouseRef.current.prevX;
         const prevY = mouseRef.current.prevY;
+        const activeColorVal = activeColor || 'rgb(43, 220, 210)';
 
         if (curX > 0 && curY > 0 && prevX > 0 && prevY > 0) {
           const dx = curX - prevX;
@@ -136,7 +137,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
                 vy: (Math.random() - 0.5) * (0.8 + trebleBoost * 1.5) + dy * 0.08,
                 size: 1.2 + Math.random() * (2.2 + trebleBoost * 2),
                 alpha: 0.65 + Math.random() * 0.35,
-                color: Math.random() > 0.3 ? activeColor : '#ffffff',
+                color: Math.random() > 0.3 ? activeColorVal : 'rgba(255, 255, 255, 0.9)',
                 life: 1.0,
               });
             }

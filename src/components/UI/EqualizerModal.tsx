@@ -124,7 +124,7 @@ export const EqualizerModal: React.FC = () => {
   const previousGainsRef = useRef<number[]>(eqBands.map((b) => b.gain));
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--color-accent-teal, #30b0c7)') : 'var(--color-accent-teal, #30b0c7)';
+  const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
 
   const handleApplyPreset = (preset: EQPreset) => {
     if (isBypassed) setIsBypassed(false);
@@ -299,7 +299,7 @@ export const EqualizerModal: React.FC = () => {
           const cp2y = p2.y - (p3.y - p1.y) / 6;
           ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
-        ctx.strokeStyle = isLucid ? activeColor : 'var(--color-accent-teal, #30b0c7)';
+        ctx.strokeStyle = isLucid ? activeColor : (getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'currentColor');
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -310,15 +310,15 @@ export const EqualizerModal: React.FC = () => {
           if (isTargeted) {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-            ctx.fillStyle = isLucid ? `${activeColor}40` : 'rgba(48, 176, 199, 0.3)';
+            ctx.fillStyle = isLucid ? `${activeColor}40` : 'rgba(43, 220, 210, 0.3)';
             ctx.fill();
           }
 
           ctx.beginPath();
           ctx.arc(p.x, p.y, isTargeted ? 4.5 : 3, 0, Math.PI * 2);
-          ctx.fillStyle = isTargeted ? '#ffffff' : isLucid ? activeColor : 'var(--color-accent-teal, #30b0c7)';
+          ctx.fillStyle = isTargeted ? 'white' : isLucid ? activeColor : (getComputedStyle(document.documentElement).getPropertyValue('--ios-teal').trim() || 'currentColor');
           ctx.fill();
-          ctx.strokeStyle = '#000000';
+          ctx.strokeStyle = 'black';
           ctx.lineWidth = 1;
           ctx.stroke();
         });

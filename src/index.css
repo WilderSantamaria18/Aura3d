@@ -54,17 +54,25 @@
 
   --color-ios-blue: #007aff;
   --color-ios-cyan: #00e5ff;
+  --color-ios-teal: #2bdcd2;
   --color-ios-green: #34c759;
   --color-ios-orange: #ff9500;
   --color-ios-pink: #ff2d55;
   --color-ios-purple: #af52de;
 
   --color-accent-cyan: #00e5ff;
+  --color-accent-teal: #2bdcd2;
   --color-accent-violet: #a855f7;
   --color-accent-amber: #ff9500;
   --color-accent-rose: #ff2d55;
   --color-accent-emerald: #34c759;
   --color-accent-active: var(--accent-active);
+
+  --color-tint-cyan: #00f2fe;
+  --color-tint-magenta: #ff088a;
+  --color-tint-emerald: #39ff14;
+  --color-tint-gold: #ffd700;
+  --color-tint-violet: #9d00ff;
 
   --text-display: 2.25rem;
   --text-h1: 1.5rem;
@@ -108,16 +116,25 @@
   --status-info: #007aff;
   --ios-blue: #007aff;
   --ios-cyan: #00e5ff;
+  --ios-teal: #2bdcd2;
   --ios-green: #34c759;
   --ios-orange: #ff9500;
   --ios-pink: #ff2d55;
   --ios-purple: #af52de;
   --accent-cyan: #00e5ff;
+  --accent-teal: #2bdcd2;
   --accent-violet: #a855f7;
   --accent-amber: #ff9500;
   --accent-rose: #ff2d55;
   --accent-emerald: #34c759;
   --accent-active: var(--accent-cyan);
+
+  /* Tint tokens */
+  --tint-cyan: #00f2fe;
+  --tint-magenta: #ff088a;
+  --tint-emerald: #39ff14;
+  --tint-gold: #ffd700;
+  --tint-violet: #9d00ff;
 
   /* ── 5. Escala de Espaciado Estricta (8pt Grid System) ── */
   --space-1: 4px;
@@ -145,9 +162,9 @@
   --material-thick: blur(40px) saturate(180%);
 
   /* ── 8. Variables Dinámicas Globales & Auto Mode ── */
-  --color-primary: var(--accent-active, #00f2fe);
+  --color-primary: var(--accent-active);
   --color-secondary: #ff088a;
-  --color-accent: var(--accent-active, #a855f7);
+  --color-accent: var(--accent-active);
   --color-bg: #060812;
   --color-border: rgba(0, 242, 254, 0.3);
   --color-shadow: rgba(0, 242, 254, 0.2);
@@ -156,15 +173,14 @@
   --ai-beat-pulse: 0;
   --ai-bloom-intensity: 1.0;
 
-  /* ── 9. Geometría & Escala de Radios Estricta ── */
+  /* ── 9. Geometría & Escala de Radios Estricta (Cerrada) ── */
   --radius-container: 20px;
   --radius-dock: 20px;
   --radius-modal: 20px;
   --radius-card: 12px;
   --radius-control: 10px;
-  --radius-pill: 9999px;
   --radius-badge: 6px;
-  --radius-panel: 14px;
+  --radius-pill: 9999px;
 
   /* ── 10. Sombras de Elevación iOS (Neutras y Claras) ── */
   --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -674,13 +690,6 @@
 
 /* ── Foldable & Narrow Screen Responsive Engine ── */
 @media screen and (max-width: 380px) {
-  :root {
-    --radius-container: 16px;
-    --radius-panel: 10px;
-    --radius-card: 8px;
-    --radius-control: 8px;
-  }
-
   .fold-compact-hide {
     display: none !important;
   }

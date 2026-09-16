@@ -104,7 +104,7 @@ export const ProgressBar: React.FC = React.memo(() => {
     return waveformService.generateDeterministic(trackKey, duration || 210, 80);
   }, [currentTrack, duration]);
 
-  const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00e5ff';
+  const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--ios-teal)') : 'var(--ios-teal)';
 
   return (
     <div
@@ -126,11 +126,12 @@ export const ProgressBar: React.FC = React.memo(() => {
         }}
         onPointerLeave={handlePointerLeave}
         onPointerUp={handlePointerUp}
-        className="relative flex-1 h-7 group flex items-center cursor-pointer py-1"
-        title="Arrastra para buscar en la onda sonora o salta a los marcadores de Drop ⚡"
+        className="relative flex-1 min-h-11 h-11 group flex items-center cursor-pointer py-1"
+        title="Arrastra para buscar en la onda sonora o salta a los marcadores de Drop"
+        aria-label="Barra de progreso y búsqueda"
       >
         {/* Waveform Bars Canvas/DOM */}
-        <div className="relative w-full h-full flex items-center gap-[1px] sm:gap-[2px] overflow-hidden px-0.5">
+        <div className="relative w-full h-7 flex items-center gap-[1px] sm:gap-[2px] overflow-hidden px-0.5">
           {waveformData.peaks.map((peak, index) => {
             const barPct = (index / waveformData.peaks.length) * 100;
             const isPlayed = barPct <= progressPct;
@@ -144,7 +145,7 @@ export const ProgressBar: React.FC = React.memo(() => {
                 style={{ height: '100%' }}
               >
                 <div
-                  className={`w-full rounded-full transition-all duration-75 ${
+                  className={`w-full rounded-pill transition-all duration-75 ${
                     isPlayed
                       ? 'shadow-[0_0_8px_rgba(0,229,255,0.4)]'
                       : isHovered
@@ -156,7 +157,7 @@ export const ProgressBar: React.FC = React.memo(() => {
                     backgroundColor: isPlayed
                       ? activeColor
                       : isHovered
-                      ? '#ffffff'
+                      ? 'rgba(255, 255, 255, 1)'
                       : 'rgba(255, 255, 255, 0.65)',
                   }}
                 />
@@ -168,7 +169,7 @@ export const ProgressBar: React.FC = React.memo(() => {
         {/* DJ Loop Range Highlight Overlay */}
         {loopA !== null && loopB !== null && duration > 0 && (
           <div
-            className={`absolute inset-y-1 rounded-md pointer-events-none transition-all ${
+            className={`absolute inset-y-1 rounded-badge pointer-events-none transition-all ${
               isLoopActive
                 ? 'bg-amber-400/20 border-x-2 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]'
                 : 'bg-white/10 border-x border-white/30'
@@ -188,11 +189,11 @@ export const ProgressBar: React.FC = React.memo(() => {
             style={{ left: `${drop.timePct}%` }}
           >
             <div
-              className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b] animate-pulse"
+              className="w-1.5 h-1.5 rounded-pill bg-status-warning shadow-[0_0_8px_var(--status-warning)] animate-pulse"
               title={`${drop.label} a los ${formatTime(drop.timestampSec)}`}
             />
             <div className="w-px h-full bg-amber-400/30" />
-            <span className="hidden group-hover:flex items-center gap-0.5 text-[7px] font-mono font-bold text-amber-300 bg-black/80 px-1 rounded absolute -top-3.5 -translate-x-1/2 whitespace-nowrap border border-amber-400/30">
+            <span className="hidden group-hover:flex items-center gap-0.5 text-[7px] font-mono font-bold text-amber-300 bg-black/80 px-1 rounded-badge absolute -top-3.5 -translate-x-1/2 whitespace-nowrap border border-amber-400/30">
               <Zap className="w-2 h-2 text-amber-400" />
               {drop.label}
             </span>
@@ -205,7 +206,7 @@ export const ProgressBar: React.FC = React.memo(() => {
             className="absolute -top-3.5 -translate-x-1/2 flex flex-col items-center pointer-events-none z-20 animate-in fade-in"
             style={{ left: `${Math.min(100, Math.max(0, (loopA / duration) * 100))}%` }}
           >
-            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500 text-black shadow-md leading-none">
+            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded-badge bg-amber-500 text-black shadow-md leading-none">
               A
             </span>
             <div className="w-0.5 h-1.5 bg-amber-400" />
@@ -218,7 +219,7 @@ export const ProgressBar: React.FC = React.memo(() => {
             className="absolute -top-3.5 -translate-x-1/2 flex flex-col items-center pointer-events-none z-20 animate-in fade-in"
             style={{ left: `${Math.min(100, Math.max(0, (loopB / duration) * 100))}%` }}
           >
-            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500 text-black shadow-md leading-none">
+            <span className="text-[8px] font-mono font-bold px-1 py-0.2 rounded-badge bg-amber-500 text-black shadow-md leading-none">
               B
             </span>
             <div className="w-0.5 h-1.5 bg-amber-400" />
@@ -228,7 +229,7 @@ export const ProgressBar: React.FC = React.memo(() => {
         {/* Hover preview line & tooltip */}
         {hoverTime !== null && !isDragging && (
           <div
-            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded-md glass-panel text-[10px] font-display font-tabular text-white/90 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.8)] z-30"
+            className="absolute -top-7 -translate-x-1/2 px-2 py-0.5 rounded-badge glass-panel text-[10px] font-display font-tabular text-white/90 pointer-events-none shadow-[0_4px_12px_rgba(0,0,0,0.8)] z-30"
             style={{ left: `${hoverPos}%` }}
           >
             {formatTime(hoverTime)}

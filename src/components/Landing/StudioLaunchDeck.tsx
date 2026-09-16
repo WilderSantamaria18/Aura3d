@@ -118,7 +118,7 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
         type="button"
         onClick={onStartExperience}
         aria-label={t('landing.enterVisualizer')}
-        className="w-full min-h-11 py-3.5 px-6 rounded-control bg-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-card group cursor-pointer active:scale-[0.97]"
+        className="w-full min-h-12 h-12 px-6 rounded-control bg-white text-black font-bold text-xs sm:text-sm tracking-wider uppercase btn-spring flex items-center justify-center gap-3 shadow-card group cursor-pointer active:scale-[0.97]"
       >
         <Play className="w-4 h-4 fill-current text-black group-hover:scale-110 transition-transform" />
         <span>{t('landing.enterVisualizer')}</span>

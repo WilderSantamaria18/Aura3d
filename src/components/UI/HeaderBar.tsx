@@ -291,8 +291,8 @@ export const HeaderBar: React.FC = () => {
 
   const handleShare = async () => {
     const shareText = currentTrack
-      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis 🎧`
-      : 'Disfrutando de Auralis - Reproductor Inmersivo Web 🎧';
+      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis`
+      : 'Disfrutando de Auralis - Reproductor Inmersivo Web';
 
     if (navigator.share) {
       try {
@@ -311,7 +311,7 @@ export const HeaderBar: React.FC = () => {
     }
   };
 
-  const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
+  const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--ios-teal)') : 'var(--color-text-primary)';
 
   const { mood, dominantPitch, beatPulse, primaryColor: aiColor } = useAIAudioEngine();
   const moodLabels: Record<string, { label: string }> = {

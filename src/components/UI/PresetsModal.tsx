@@ -89,7 +89,7 @@ export const PresetsModal: React.FC = () => {
     });
     setPresets(PresetService.getAllPresets());
     setSaving(false); setSaveName("");
-    notify({ id: Date.now(), type: "success", message: `💾 "${saved.name}" guardado` });
+    notify({ id: Date.now(), type: "success", message: `"${saved.name}" guardado` });
   };
 
   const remove = (id: string, name: string) => {
@@ -100,7 +100,7 @@ export const PresetsModal: React.FC = () => {
 
   const exportAll = () => {
     PresetService.exportPresetsAsJson(presets);
-    notify({ id: Date.now(), type: "info", message: "📦 Presets exportados" });
+    notify({ id: Date.now(), type: "info", message: "Presets exportados" });
   };
 
   const importFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,9 +110,9 @@ export const PresetsModal: React.FC = () => {
       const r = PresetService.importPresetsFromJson(ev.target?.result as string);
       if (r.success) {
         setPresets(PresetService.getAllPresets());
-        notify({ id: Date.now(), type: "success", message: `✨ ${r.count} presets importados` });
+        notify({ id: Date.now(), type: "success", message: `${r.count} presets importados` });
       } else {
-        notify({ id: Date.now(), type: "warning", message: `⚠️ ${r.error}` });
+        notify({ id: Date.now(), type: "warning", message: `${r.error}` });
       }
     };
     reader.readAsText(file); e.target.value = "";
@@ -210,9 +210,9 @@ export const PresetsModal: React.FC = () => {
               className="min-h-11 px-3 py-2 rounded-control bg-accent-teal text-black text-caption font-semibold hover:bg-accent-teal/90 transition-colors flex-shrink-0 cursor-pointer">
               OK
             </button>
-            <button type="button" onClick={() => setSaving(false)}
-              className="min-h-11 px-2.5 py-2 text-text-secondary hover:text-text-primary text-caption flex-shrink-0 cursor-pointer">
-              ✕
+            <button type="button" onClick={() => setSaving(false)} aria-label="Cancelar guardado"
+              className="min-h-11 min-w-11 p-2 text-text-secondary hover:text-text-primary text-caption flex-shrink-0 cursor-pointer flex items-center justify-center rounded-control hover:bg-white/10">
+              <X className="w-4 h-4" />
             </button>
           </form>
         )}
