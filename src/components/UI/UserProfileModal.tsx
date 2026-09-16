@@ -247,13 +247,13 @@ export const UserProfileModal: React.FC = () => {
     >
       <div className="space-y-4 select-none">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-[12px] bg-white/[0.02] border border-white/[0.06]">
+        <div className="flex items-center gap-1 p-1 rounded-control bg-surface-subtle border border-border-subtle">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
+            className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
               activeTab === 'profile'
-                ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <User className="w-3.5 h-3.5" />
@@ -262,10 +262,10 @@ export const UserProfileModal: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('performance')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
+            className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
               activeTab === 'performance'
-                ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <Gauge className="w-3.5 h-3.5" />
@@ -275,10 +275,10 @@ export const UserProfileModal: React.FC = () => {
           {userProfile?.isGuest && (
             <button
               onClick={() => setActiveTab('auth')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[10px] text-xs font-medium transition-colors ${
+              className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
                 activeTab === 'auth'
-                  ? 'bg-cyan-400/15 text-cyan-300 border border-cyan-400/30'
-                  : 'text-cyan-400/70 hover:text-cyan-300'
+                  ? 'bg-ios-teal/20 text-ios-teal border border-ios-teal/40'
+                  : 'text-ios-teal/70 hover:text-ios-teal'
               }`}
             >
               <Lock className="w-3.5 h-3.5" />
@@ -290,10 +290,10 @@ export const UserProfileModal: React.FC = () => {
         {/* Feedback Alert Message */}
         {feedbackMessage && (
           <div
-            className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 border ${
+            className={`p-3 rounded-control text-caption font-mono flex items-center gap-2 border ${
               feedbackMessage.type === 'success'
-                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                ? 'bg-status-success/10 text-status-success border-status-success/20'
+                : 'bg-status-error/10 text-status-error border-status-error/20'
             }`}
           >
             <CheckCircle className="w-4 h-4 shrink-0" />
@@ -305,27 +305,27 @@ export const UserProfileModal: React.FC = () => {
         {activeTab === 'profile' && (
           <div className="space-y-4">
             {/* Header User Card */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-card bg-surface-subtle border border-border-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 text-lg font-mono font-bold">
+                <div className="w-12 h-12 rounded-card bg-ios-teal/15 border border-ios-teal/30 flex items-center justify-center text-ios-teal text-lg font-mono font-bold">
                   {userProfile?.username?.charAt(0).toUpperCase() || 'I'}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-white">
+                    <h3 className="text-body font-semibold text-text-primary">
                       {userProfile?.username || 'Invitado'}
                     </h3>
                     <span
-                      className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase tracking-wider ${
+                      className={`text-caption font-mono px-2 py-0.5 rounded-badge border uppercase tracking-wider ${
                         userProfile?.isGuest
-                          ? 'bg-white/5 text-white/50 border-white/10'
-                          : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                          ? 'bg-surface-subtle text-text-tertiary border-border-subtle'
+                          : 'bg-status-success/15 text-status-success border-status-success/30'
                       }`}
                     >
                       {userProfile?.role === 'superadmin' ? 'SUPERADMIN' : userProfile?.isGuest ? 'INVITADO' : 'USUARIO PRO'}
                     </span>
                   </div>
-                  <p className="text-xs text-white/40 font-mono mt-0.5">
+                  <p className="text-caption text-text-tertiary font-mono mt-0.5">
                     {userProfile?.email || 'Sesión local sin registro (acceso total a funciones)'}
                   </p>
                 </div>
@@ -343,8 +343,9 @@ export const UserProfileModal: React.FC = () => {
                     </StudioButton>
                     <button
                       onClick={handleLogout}
-                      className="p-2 rounded-lg text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      className="min-h-11 min-w-11 rounded-control flex items-center justify-center text-text-tertiary hover:text-status-error hover:bg-status-error/10 transition-colors"
                       title="Cerrar sesión"
+                      aria-label="Cerrar sesión"
                     >
                       <LogOut className="w-4 h-4" />
                     </button>
@@ -363,17 +364,17 @@ export const UserProfileModal: React.FC = () => {
 
             {/* Profile Edit Form */}
             {isEditingProfile && !userProfile?.isGuest && (
-              <div className="p-4 rounded-xl bg-cyan-400/[0.02] border border-cyan-400/20 space-y-3">
-                <div className="text-xs font-mono text-cyan-300 font-medium uppercase tracking-wider">
+              <div className="p-4 rounded-card bg-ios-teal/5 border border-ios-teal/20 space-y-3">
+                <div className="text-caption font-mono text-ios-teal font-medium uppercase tracking-wider">
                   Editar Datos de Cuenta
                 </div>
                 <div>
-                  <label className="text-[11px] font-mono text-white/50 block mb-1">Nombre de Usuario</label>
+                  <label className="text-caption font-mono text-text-tertiary block mb-1">Nombre de Usuario</label>
                   <input
                     type="text"
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                    className="w-full min-h-11 px-3 py-2 rounded-control bg-surface-subtle border border-border-subtle text-text-primary text-caption font-mono focus:outline-none focus:border-ios-teal"
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
@@ -390,10 +391,10 @@ export const UserProfileModal: React.FC = () => {
             )}
 
             {/* Preferred Musical Genres */}
-            <div className="space-y-2 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-white/70 font-medium">Géneros Musicales de Interés</span>
-                <span className="text-[10px] text-white/40">Guía para el detector de ritmos DSP</span>
+            <div className="space-y-2 p-3.5 rounded-card bg-surface-subtle border border-border-subtle">
+              <div className="flex items-center justify-between text-caption font-mono">
+                <span className="text-text-secondary font-medium">Géneros Musicales de Interés</span>
+                <span className="text-caption text-text-tertiary">Guía para el detector de ritmos DSP</span>
               </div>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {AVAILABLE_GENRES.map((genre) => {
@@ -402,10 +403,10 @@ export const UserProfileModal: React.FC = () => {
                     <button
                       key={genre}
                       onClick={() => toggleGenre(genre)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all border ${
+                      className={`min-h-11 px-3 py-1 rounded-control text-caption font-mono transition-all border ${
                         isSelected
-                          ? 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40'
-                          : 'bg-white/[0.02] text-white/50 border-white/[0.06] hover:text-white/80'
+                          ? 'bg-ios-teal/20 text-ios-teal border-ios-teal/40'
+                          : 'bg-surface-subtle text-text-secondary border-border-subtle hover:text-text-primary'
                       }`}
                     >
                       {genre}
@@ -416,10 +417,10 @@ export const UserProfileModal: React.FC = () => {
             </div>
 
             {/* Quick Settings Shortcut */}
-            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                <span className="text-white/80">Configuración Rápida de Shaders & Ecualizador</span>
+            <div className="p-3.5 rounded-card bg-surface-subtle border border-border-subtle flex items-center justify-between">
+              <div className="flex items-center gap-2 text-caption">
+                <Sliders className="w-4 h-4 text-ios-teal" />
+                <span className="text-text-secondary">Configuración Rápida de Shaders & Ecualizador</span>
               </div>
               <div className="flex items-center gap-2">
                 <StudioButton
@@ -447,11 +448,11 @@ export const UserProfileModal: React.FC = () => {
 
             {/* Account Deletion (Registered users only) */}
             {!userProfile?.isGuest && userProfile?.role !== 'superadmin' && (
-              <div className="pt-2 border-t border-white/[0.06] flex justify-between items-center">
-                <span className="text-[11px] font-mono text-white/40">Zona de peligro</span>
+              <div className="pt-2 border-t border-border-subtle flex justify-between items-center">
+                <span className="text-caption font-mono text-text-tertiary">Zona de peligro</span>
                 <button
                   onClick={handleDeleteAccount}
-                  className="text-xs font-mono text-rose-400/80 hover:text-rose-400 flex items-center gap-1.5 hover:underline"
+                  className="min-h-11 px-3 text-caption font-mono text-status-error/80 hover:text-status-error flex items-center gap-1.5 hover:underline"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Eliminar mi cuenta
@@ -464,7 +465,7 @@ export const UserProfileModal: React.FC = () => {
         {/* ── TAB 2: RENDIMIENTO & CALIDAD GRÁFICA ── */}
         {activeTab === 'performance' && (
           <div className="space-y-4">
-            <div className="text-xs text-white/70 leading-relaxed">
+            <div className="text-caption text-text-secondary leading-relaxed">
               Selecciona el perfil de renderizado WebGL2 adaptado a la potencia de tu equipo para garantizar 60 FPS estables sin sobrecalentamiento.
             </div>
 
@@ -474,26 +475,26 @@ export const UserProfileModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPerformanceTier('eco')}
-                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                className={`min-h-11 p-3.5 rounded-card border text-left flex flex-col justify-between transition-all ${
                   performanceTier === 'eco'
-                    ? 'bg-cyan-400/[0.08] border-cyan-400 shadow-sm'
-                    : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+                    ? 'bg-ios-teal/15 border-ios-teal shadow-sm'
+                    : 'bg-surface-subtle border-border-subtle hover:bg-surface-active'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <Zap className={`w-4 h-4 ${performanceTier === 'eco' ? 'text-cyan-400' : 'text-white/40'}`} />
-                      <span className="text-xs font-mono font-bold text-white">RENDIMIENTO ALTO</span>
+                      <Zap className={`w-4 h-4 ${performanceTier === 'eco' ? 'text-ios-teal' : 'text-text-tertiary'}`} />
+                      <span className="text-caption font-mono font-bold text-text-primary">RENDIMIENTO ALTO</span>
                     </div>
                     {performanceTier === 'eco' && (
-                      <span className="text-[9px] font-mono bg-cyan-400/20 text-cyan-300 px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-caption font-mono bg-ios-teal/20 text-ios-teal px-1.5 py-0.5 rounded-badge font-semibold">
                         ACTIVO
                       </span>
                     )}
                   </div>
-                  <div className="space-y-1 text-[11px] font-mono text-white/60">
-                    <p className="text-white/85 font-medium">Batería & Fluidez Total</p>
+                  <div className="space-y-1 text-caption font-mono text-text-secondary">
+                    <p className="text-text-primary font-medium">Batería & Fluidez Total</p>
                     <p>• 900 partículas reactivas (DPR 0.85)</p>
                     <p>• Mínimo consumo térmico y de CPU</p>
                     <p>• Para laptops en batería y móviles</p>
@@ -505,26 +506,26 @@ export const UserProfileModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPerformanceTier('medium')}
-                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                className={`min-h-11 p-3.5 rounded-card border text-left flex flex-col justify-between transition-all ${
                   performanceTier === 'medium'
-                    ? 'bg-amber-400/[0.08] border-amber-400 shadow-sm'
-                    : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+                    ? 'bg-status-warning/15 border-status-warning shadow-sm'
+                    : 'bg-surface-subtle border-border-subtle hover:bg-surface-active'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <Gauge className={`w-4 h-4 ${performanceTier === 'medium' ? 'text-amber-400' : 'text-white/40'}`} />
-                      <span className="text-xs font-mono font-bold text-white">GRÁFICOS MEDIOS</span>
+                      <Gauge className={`w-4 h-4 ${performanceTier === 'medium' ? 'text-status-warning' : 'text-text-tertiary'}`} />
+                      <span className="text-caption font-mono font-bold text-text-primary">GRÁFICOS MEDIOS</span>
                     </div>
                     {performanceTier === 'medium' && (
-                      <span className="text-[9px] font-mono bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-caption font-mono bg-status-warning/20 text-status-warning px-1.5 py-0.5 rounded-badge font-semibold">
                         ACTIVO
                       </span>
                     )}
                   </div>
-                  <div className="space-y-1 text-[11px] font-mono text-white/60">
-                    <p className="text-white/85 font-medium">Equilibrio Óptimo</p>
+                  <div className="space-y-1 text-caption font-mono text-text-secondary">
+                    <p className="text-text-primary font-medium">Equilibrio Óptimo</p>
                     <p>• 1,600 partículas en WebGL2 (DPR 1.0)</p>
                     <p>• Shaders dinámicos balanceados</p>
                     <p>• Para GPUs integradas modernas</p>
@@ -536,26 +537,26 @@ export const UserProfileModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPerformanceTier('high')}
-                className={`p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                className={`min-h-11 p-3.5 rounded-card border text-left flex flex-col justify-between transition-all ${
                   performanceTier === 'high'
-                    ? 'bg-purple-500/[0.08] border-purple-400 shadow-sm'
-                    : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+                    ? 'bg-ios-purple/15 border-ios-purple shadow-sm'
+                    : 'bg-surface-subtle border-border-subtle hover:bg-surface-active'
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
-                      <Sparkles className={`w-4 h-4 ${performanceTier === 'high' ? 'text-purple-400' : 'text-white/40'}`} />
-                      <span className="text-xs font-mono font-bold text-white">GRÁFICOS ALTOS</span>
+                      <Sparkles className={`w-4 h-4 ${performanceTier === 'high' ? 'text-ios-purple' : 'text-text-tertiary'}`} />
+                      <span className="text-caption font-mono font-bold text-text-primary">GRÁFICOS ALTOS</span>
                     </div>
                     {performanceTier === 'high' && (
-                      <span className="text-[9px] font-mono bg-purple-400/20 text-purple-300 px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-caption font-mono bg-ios-purple/20 text-ios-purple px-1.5 py-0.5 rounded-badge font-semibold">
                         ACTIVO
                       </span>
                     )}
                   </div>
-                  <div className="space-y-1 text-[11px] font-mono text-white/60">
-                    <p className="text-white/85 font-medium">Ultra Fidelidad 3D</p>
+                  <div className="space-y-1 text-caption font-mono text-text-secondary">
+                    <p className="text-text-primary font-medium">Ultra Fidelidad 3D</p>
                     <p>• 2,400 partículas Fibonacci (DPR 1.5)</p>
                     <p>• Bloom, sombras y ondas multicapa</p>
                     <p>• Para GPUs dedicadas NVIDIA / AMD</p>
@@ -565,12 +566,12 @@ export const UserProfileModal: React.FC = () => {
             </div>
 
             {/* System Requirements Recommendation Button */}
-            <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+            <div className="p-3.5 rounded-card bg-surface-subtle border border-border-subtle flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Info className="w-4 h-4 text-cyan-400" />
+                <Info className="w-4 h-4 text-ios-teal" />
                 <div>
-                  <div className="text-xs font-medium text-white">¿Tu equipo cumple los requisitos?</div>
-                  <div className="text-[11px] font-mono text-white/50">
+                  <div className="text-caption font-medium text-text-primary">¿Tu equipo cumple los requisitos?</div>
+                  <div className="text-caption font-mono text-text-tertiary">
                     Verifica si cuentas con el hardware recomendado para una experiencia 3D óptima.
                   </div>
                 </div>
@@ -590,54 +591,54 @@ export const UserProfileModal: React.FC = () => {
         {/* ── TAB 3: AUTH (REGISTRO & LOGIN) ── */}
         {activeTab === 'auth' && (
           <form onSubmit={handleAuthSubmit} className="space-y-3.5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
-              <div className="flex items-center gap-2 text-xs font-mono">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+              <div className="flex items-center gap-2 text-caption font-mono">
                 <button
                   type="button"
                   onClick={() => setAuthMode('login')}
-                  className={`pb-1 transition-colors ${
+                  className={`min-h-11 px-3 pb-1 transition-colors flex items-center ${
                     authMode === 'login'
-                      ? 'text-cyan-400 border-b-2 border-cyan-400 font-semibold'
-                      : 'text-white/40 hover:text-white/70'
+                      ? 'text-ios-teal border-b-2 border-ios-teal font-semibold'
+                      : 'text-text-tertiary hover:text-text-secondary'
                   }`}
                 >
                   Iniciar Sesión
                 </button>
-                <span className="text-white/20">•</span>
+                <span className="text-text-tertiary">•</span>
                 <button
                   type="button"
                   onClick={() => setAuthMode('register')}
-                  className={`pb-1 transition-colors ${
+                  className={`min-h-11 px-3 pb-1 transition-colors flex items-center ${
                     authMode === 'register'
-                      ? 'text-cyan-400 border-b-2 border-cyan-400 font-semibold'
-                      : 'text-white/40 hover:text-white/70'
+                      ? 'text-ios-teal border-b-2 border-ios-teal font-semibold'
+                      : 'text-text-tertiary hover:text-text-secondary'
                   }`}
                 >
                   Crear Cuenta Nueva
                 </button>
               </div>
 
-              <span className="text-[10px] font-mono text-white/40">
+              <span className="text-caption font-mono text-text-tertiary">
                 Opcional para invitados
               </span>
             </div>
 
             {authMode === 'register' && (
               <div>
-                <label className="text-[11px] font-mono text-white/60 block mb-1">Nombre de Usuario</label>
+                <label className="text-caption font-mono text-text-secondary block mb-1">Nombre de Usuario</label>
                 <input
                   type="text"
                   required
                   placeholder="ej. WilderSantamaria26"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                  className="w-full min-h-11 px-3 py-2 rounded-control bg-surface-subtle border border-border-subtle text-text-primary text-caption font-mono focus:outline-none focus:border-ios-teal"
                 />
               </div>
             )}
 
             <div>
-              <label className="text-[11px] font-mono text-white/60 block mb-1">
+              <label className="text-caption font-mono text-text-secondary block mb-1">
                 {authMode === 'register' ? 'Correo Electrónico' : 'Correo o Usuario'}
               </label>
               <input
@@ -646,19 +647,19 @@ export const UserProfileModal: React.FC = () => {
                 placeholder={authMode === 'register' ? 'tu@email.com' : 'usuario o email'}
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                className="w-full min-h-11 px-3 py-2 rounded-control bg-surface-subtle border border-border-subtle text-text-primary text-caption font-mono focus:outline-none focus:border-ios-teal"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-mono text-white/60 block mb-1">Contraseña (Mín. 8 caracteres)</label>
+              <label className="text-caption font-mono text-text-secondary block mb-1">Contraseña (Mín. 8 caracteres)</label>
               <input
                 type="password"
                 required
                 placeholder="••••••••"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-white text-xs font-mono focus:outline-none focus:border-cyan-400"
+                className="w-full min-h-11 px-3 py-2 rounded-control bg-surface-subtle border border-border-subtle text-text-primary text-caption font-mono focus:outline-none focus:border-ios-teal"
               />
             </div>
 
@@ -666,7 +667,7 @@ export const UserProfileModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveTab('profile')}
-                className="text-xs font-mono text-white/40 hover:text-white/70"
+                className="min-h-11 px-3 text-caption font-mono text-text-tertiary hover:text-text-secondary flex items-center"
               >
                 Continuar como Invitado
               </button>

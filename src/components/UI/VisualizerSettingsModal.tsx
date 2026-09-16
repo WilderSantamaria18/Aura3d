@@ -57,22 +57,27 @@ export const VisualizerSettingsModal: React.FC = () => {
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-aura-backdrop">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-surface-scrim material-regular pointer-events-auto select-none font-sans animate-aura-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Calibración del Visualizador"
+    >
       <div
-        className="w-full max-w-2xl border border-white/[0.08] rounded-[20px] p-4 sm:p-5 shadow-[var(--shadow-modal)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-aura-modal"
+        className="w-full max-w-2xl border border-border-subtle rounded-modal p-4 sm:p-5 shadow-[var(--shadow-modal)] relative flex flex-col max-h-[90vh] overflow-hidden bg-surface-overlay material-thick animate-aura-modal"
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border-subtle flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm">
+            <div className="w-8 h-8 rounded-control bg-surface-subtle border border-border-subtle flex items-center justify-center text-ios-teal shadow-sm">
               <Sliders className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-white font-bold text-sm sm:text-base tracking-tight">
+              <h2 className="text-text-primary font-bold text-sm sm:text-base tracking-tight">
                 Calibración del Visualizador
               </h2>
-              <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
+              <p className="text-text-tertiary text-caption font-mono tracking-wider mt-0.5">
                 {isBlob ? 'Modo Activo: Rainbow Void (Canvas 2D)' : 'Modo Activo: Esfera 3D (WebGL / Three.js)'}
               </p>
             </div>
@@ -80,7 +85,7 @@ export const VisualizerSettingsModal: React.FC = () => {
 
           <button
             onClick={() => setVisualizerSettingsOpen(false)}
-            className="p-1.5 text-white/40 hover:text-white rounded-[8px] hover:bg-white/[0.06] transition-colors"
+            className="min-h-11 min-w-11 text-text-tertiary hover:text-text-primary rounded-control hover:bg-surface-subtle transition-colors flex items-center justify-center"
             aria-label="Cerrar ventana"
           >
             <X className="w-4 h-4" />
@@ -88,13 +93,13 @@ export const VisualizerSettingsModal: React.FC = () => {
         </div>
 
         {/* ── Segmented Tab Switcher ── */}
-        <div className="flex items-center p-0.5 my-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center p-1 my-3 rounded-control bg-surface-subtle border border-border-subtle flex-shrink-0 gap-1">
           <button
             onClick={() => setActiveTab('shapes')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
               activeTab === 'shapes'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <Shapes className="w-3.5 h-3.5" />
@@ -102,10 +107,10 @@ export const VisualizerSettingsModal: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('params')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
               activeTab === 'params'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -113,10 +118,10 @@ export const VisualizerSettingsModal: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('colors')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-medium transition-colors ${
               activeTab === 'colors'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
-                : 'text-white/50 hover:text-white/80'
+                ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
@@ -130,30 +135,30 @@ export const VisualizerSettingsModal: React.FC = () => {
           {activeTab === 'shapes' && (
             <div className="space-y-3">
               {/* Sub-selector para alternar entre Esfera 3D y Rainbow Void */}
-              <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <div className="flex items-center p-1 rounded-control bg-surface-subtle border border-border-subtle gap-1">
                 <button
                   onClick={() => setShapeModeView('sphere')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
+                  className={`flex-1 min-h-11 py-1.5 px-3 rounded-control text-caption font-medium flex items-center justify-center gap-2 transition-colors ${
                     shapeModeView === 'sphere'
-                      ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                      : 'text-white/50 hover:text-white/80 border border-transparent'
+                      ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary border border-transparent'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-ios-teal" />
                   <span>Geometrías Esfera 3D</span>
-                  <span className="text-[10px] font-mono text-white/40 ml-1">({SPHERE_3D_GEOMETRIES.length})</span>
+                  <span className="text-caption font-mono text-text-tertiary ml-1">({SPHERE_3D_GEOMETRIES.length})</span>
                 </button>
                 <button
                   onClick={() => setShapeModeView('blob')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
+                  className={`flex-1 min-h-11 py-1.5 px-3 rounded-control text-caption font-medium flex items-center justify-center gap-2 transition-colors ${
                     shapeModeView === 'blob'
-                      ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                      : 'text-white/50 hover:text-white/80 border border-transparent'
+                      ? 'bg-surface-active text-text-primary border border-border-strong shadow-sm'
+                      : 'text-text-secondary hover:text-text-primary border border-transparent'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-ios-teal" />
                   <span>Efectos Rainbow Void</span>
-                  <span className="text-[10px] font-mono text-white/40 ml-1">({RAINBOW_VOID_EFFECTS.length})</span>
+                  <span className="text-caption font-mono text-text-tertiary ml-1">({RAINBOW_VOID_EFFECTS.length})</span>
                 </button>
               </div>
 
@@ -166,25 +171,25 @@ export const VisualizerSettingsModal: React.FC = () => {
                       <button
                         key={geom.id}
                         onClick={() => setSphereShape(geom.id)}
-                        className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                        className={`min-h-11 p-3 rounded-card border text-left flex flex-col justify-between transition-all ${
                           isSelected
-                            ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
-                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
+                            ? 'bg-surface-active border-ios-teal text-text-primary shadow-sm ring-1 ring-ios-teal/30'
+                            : 'bg-surface-subtle border-border-subtle hover:bg-surface-active text-text-secondary'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                            <span className="text-xs font-medium text-white/90">{geom.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-ios-teal flex-shrink-0" />}
+                            <span className="text-caption font-medium text-text-primary">{geom.name}</span>
                           </div>
-                          <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
+                          <span className="text-caption font-mono tracking-widest uppercase px-1.5 py-0.5 rounded-badge border border-border-subtle text-text-tertiary bg-surface-subtle">
                             {geom.tag}
                           </span>
                         </div>
-                        <p className="text-[11px] text-white/40 leading-relaxed">{geom.desc}</p>
-                        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
+                        <p className="text-caption text-text-tertiary leading-relaxed">{geom.desc}</p>
+                        <div className="mt-2 flex items-center justify-between text-caption font-mono text-text-tertiary pt-1.5 border-t border-border-subtle">
                           <span>{geom.category}</span>
-                          <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
+                          <span className={isSelected ? 'text-ios-teal font-semibold' : ''}>
                             {isSelected ? 'ACTIVO 3D' : 'SELECCIONAR'}
                           </span>
                         </div>
@@ -203,25 +208,25 @@ export const VisualizerSettingsModal: React.FC = () => {
                       <button
                         key={fx.id}
                         onClick={() => setBlobShape(fx.id)}
-                        className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                        className={`min-h-11 p-3 rounded-card border text-left flex flex-col justify-between transition-all ${
                           isSelected
-                            ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
-                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
+                            ? 'bg-surface-active border-ios-teal text-text-primary shadow-sm ring-1 ring-ios-teal/30'
+                            : 'bg-surface-subtle border-border-subtle hover:bg-surface-active text-text-secondary'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                            <span className="text-xs font-medium text-white/90">{fx.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-ios-teal flex-shrink-0" />}
+                            <span className="text-caption font-medium text-text-primary">{fx.name}</span>
                           </div>
-                          <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
+                          <span className="text-caption font-mono tracking-widest uppercase px-1.5 py-0.5 rounded-badge border border-border-subtle text-text-tertiary bg-surface-subtle">
                             {fx.tag}
                           </span>
                         </div>
-                        <p className="text-[11px] text-white/40 leading-relaxed">{fx.desc}</p>
-                        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
+                        <p className="text-caption text-text-tertiary leading-relaxed">{fx.desc}</p>
+                        <div className="mt-2 flex items-center justify-between text-caption font-mono text-text-tertiary pt-1.5 border-t border-border-subtle">
                           <span>{fx.category}</span>
-                          <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
+                          <span className={isSelected ? 'text-ios-teal font-semibold' : ''}>
                             {isSelected ? 'ACTIVO VOID' : 'SELECCIONAR'}
                           </span>
                         </div>
@@ -239,13 +244,13 @@ export const VisualizerSettingsModal: React.FC = () => {
               {/* Grid 2 Columnas de Sliders de Precisión */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Escala 3D */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-white/60 flex items-center gap-1.5">
-                      <CircleDot className="w-3.5 h-3.5 text-white/40" />
+                <div className="space-y-1.5 p-3 rounded-card bg-surface-subtle border border-border-subtle">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="text-text-secondary flex items-center gap-1.5">
+                      <CircleDot className="w-3.5 h-3.5 text-text-tertiary" />
                       Escala 3D
                     </span>
-                    <span className="font-mono tabular-nums text-white/90 text-xs font-medium">
+                    <span className="font-mono font-tabular text-text-primary text-caption font-medium">
                       {(sphereScale || 1.0).toFixed(2)}x
                     </span>
                   </div>
@@ -256,20 +261,21 @@ export const VisualizerSettingsModal: React.FC = () => {
                     step="0.05"
                     value={sphereScale || 1.0}
                     onChange={(e) => setSphereScale(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Escala 3D"
                   />
                 </div>
 
                 {/* Escala Blob (Bloqueada a 0.50x) */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-cyan-400/20">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-white/60 flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-cyan-400" />
+                <div className="space-y-1.5 p-3 rounded-card bg-surface-subtle border border-ios-teal/20">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="text-text-secondary flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-ios-teal" />
                       Escala Rainbow Blob
                     </span>
-                    <span className="font-mono tabular-nums text-cyan-300 text-xs font-medium flex items-center gap-1">
+                    <span className="font-mono font-tabular text-ios-teal text-caption font-medium flex items-center gap-1">
                       0.50x
-                      <span className="text-[8px] bg-cyan-400/10 text-cyan-300 px-1 py-0.2 rounded font-mono uppercase tracking-widest">FIJO</span>
+                      <span className="text-caption bg-ios-teal/15 text-ios-teal px-1 py-0.2 rounded-badge font-mono uppercase tracking-widest">FIJO</span>
                     </span>
                   </div>
                   <input
@@ -279,19 +285,20 @@ export const VisualizerSettingsModal: React.FC = () => {
                     step="0.05"
                     value={0.5}
                     disabled
-                    className="w-full h-1 bg-white/10 rounded cursor-not-allowed accent-cyan-400 opacity-60"
+                    className="w-full h-11 bg-transparent cursor-not-allowed accent-ios-teal opacity-60"
+                    aria-label="Escala Rainbow Blob"
                   />
-                  <p className="text-[10px] text-white/40 font-mono">Calibrado en 0.50x de referencia para renderizado puro</p>
+                  <p className="text-caption text-text-tertiary font-mono">Calibrado en 0.50x de referencia para renderizado puro</p>
                 </div>
 
                 {/* Opacidad */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-white/60 flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5 text-white/40" />
+                <div className="space-y-1.5 p-3 rounded-card bg-surface-subtle border border-border-subtle">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="text-text-secondary flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5 text-text-tertiary" />
                       Opacidad de Partículas
                     </span>
-                    <span className="font-mono tabular-nums text-white/90 text-xs font-medium">
+                    <span className="font-mono font-tabular text-text-primary text-caption font-medium">
                       {Math.round(sphereOpacity * 100)}%
                     </span>
                   </div>
@@ -302,18 +309,19 @@ export const VisualizerSettingsModal: React.FC = () => {
                     step="0.05"
                     value={sphereOpacity}
                     onChange={(e) => setSphereOpacity(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Opacidad de partículas"
                   />
                 </div>
 
                 {/* Velocidad / Sensibilidad de Audio */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-white/60 flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-white/40" />
+                <div className="space-y-1.5 p-3 rounded-card bg-surface-subtle border border-border-subtle">
+                  <div className="flex items-center justify-between text-caption">
+                    <span className="text-text-secondary flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-text-tertiary" />
                       Sensibilidad de Audio
                     </span>
-                    <span className="font-mono tabular-nums text-cyan-300 text-xs font-medium">
+                    <span className="font-mono font-tabular text-ios-teal text-caption font-medium">
                       {Math.min(0.85, Math.max(0.60, currentSpeed)).toFixed(2)}x
                     </span>
                   </div>
@@ -328,54 +336,55 @@ export const VisualizerSettingsModal: React.FC = () => {
                       setAudioSpeed(val);
                       setMusicSensitivity(val);
                     }}
-                    className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Sensibilidad de audio"
                   />
-                  <div className="flex justify-between text-[9px] font-mono text-white/30">
+                  <div className="flex justify-between text-caption font-mono text-text-tertiary">
                     <span>0.60x (Suave)</span>
-                    <span className="text-cyan-400">0.75x (Nominal)</span>
+                    <span className="text-ios-teal">0.75x (Nominal)</span>
                     <span>0.85x (Punch)</span>
                   </div>
                 </div>
               </div>
 
               {/* Toggles de Sincronización y Barras */}
-              <div className="pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="pt-2 border-t border-border-subtle grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   onClick={() => setLinkScales(!linkScales)}
-                  className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
+                  className={`min-h-11 p-3 rounded-card border flex items-center justify-between transition-colors ${
                     linkScales
-                      ? 'bg-white/10 border-white/20 text-white'
-                      : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:bg-white/[0.05]'
+                      ? 'bg-surface-active border-border-strong text-text-primary'
+                      : 'bg-surface-subtle border-border-subtle text-text-secondary hover:bg-surface-active'
                   }`}
                 >
                   <div className="flex items-center gap-2 text-left">
-                    {linkScales ? <Link2 className="w-4 h-4 text-white" /> : <Unlink className="w-4 h-4 text-white/40" />}
+                    {linkScales ? <Link2 className="w-4 h-4 text-text-primary" /> : <Unlink className="w-4 h-4 text-text-tertiary" />}
                     <div>
-                      <h4 className="text-xs font-medium text-white/90">Sincronizar Escalas</h4>
-                      <p className="text-[10px] text-white/40">3D y 2D en tándem</p>
+                      <h4 className="text-caption font-medium text-text-primary">Sincronizar Escalas</h4>
+                      <p className="text-caption text-text-tertiary">3D y 2D en tándem</p>
                     </div>
                   </div>
-                  <span className="text-[9px] font-mono uppercase tracking-wider text-white/50">
+                  <span className="text-caption font-mono uppercase tracking-wider text-text-secondary">
                     {linkScales ? 'ON' : 'OFF'}
                   </span>
                 </button>
 
                 <button
                   onClick={() => setShowFrequencyBars(!showFrequencyBars)}
-                  className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
+                  className={`min-h-11 p-3 rounded-card border flex items-center justify-between transition-colors ${
                     showFrequencyBars
-                      ? 'bg-white/10 border-white/20 text-white'
-                      : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:bg-white/[0.05]'
+                      ? 'bg-surface-active border-border-strong text-text-primary'
+                      : 'bg-surface-subtle border-border-subtle text-text-secondary hover:bg-surface-active'
                   }`}
                 >
                   <div className="flex items-center gap-2 text-left">
-                    <Activity className={`w-4 h-4 ${showFrequencyBars ? 'text-white' : 'text-white/40'}`} />
+                    <Activity className={`w-4 h-4 ${showFrequencyBars ? 'text-text-primary' : 'text-text-tertiary'}`} />
                     <div>
-                      <h4 className="text-xs font-medium text-white/90">Anillo de Barras FFT</h4>
-                      <p className="text-[10px] text-white/40">Barras de espectro 3D</p>
+                      <h4 className="text-caption font-medium text-text-primary">Anillo de Barras FFT</h4>
+                      <p className="text-caption text-text-tertiary">Espectro reactivo</p>
                     </div>
                   </div>
-                  <span className="text-[9px] font-mono uppercase tracking-wider text-white/50">
+                  <span className="text-caption font-mono uppercase tracking-wider text-text-secondary">
                     {showFrequencyBars ? 'ON' : 'OFF'}
                   </span>
                 </button>
@@ -387,17 +396,17 @@ export const VisualizerSettingsModal: React.FC = () => {
           {activeTab === 'colors' && (
             <div className="space-y-4">
               {/* Modo Lúcido Toggle */}
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
+              <div className="p-3 rounded-card bg-surface-subtle border border-border-subtle flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-medium text-white/90">Modo Lúcido</h4>
-                  <p className="text-[11px] text-white/40">Temas cromáticos y acentos reactivos</p>
+                  <h4 className="text-caption font-medium text-text-primary">Modo Lúcido</h4>
+                  <p className="text-caption text-text-tertiary">Temas cromáticos y acentos reactivos</p>
                 </div>
                 <button
                   onClick={toggleLucidMode}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium border transition-colors ${
+                  className={`min-h-11 px-3 py-1 rounded-control text-caption font-mono font-medium border transition-colors ${
                     isLucid
-                      ? 'bg-white/10 border-white/25 text-white'
-                      : 'bg-white/[0.04] border-white/[0.08] text-white/50'
+                      ? 'bg-ios-teal/20 border-ios-teal/40 text-ios-teal'
+                      : 'bg-surface-subtle border-border-subtle text-text-secondary'
                   }`}
                 >
                   {isLucid ? 'ACTIVO' : 'INACTIVO'}
@@ -407,7 +416,7 @@ export const VisualizerSettingsModal: React.FC = () => {
               {/* Temas Lúcidos Disponibles */}
               {isLucid && (
                 <div className="space-y-2">
-                  <span className="text-[11px] uppercase tracking-wider font-mono text-white/40 block">
+                  <span className="text-caption uppercase tracking-wider font-mono text-text-tertiary block">
                     Temas Lúcidos:
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -417,10 +426,10 @@ export const VisualizerSettingsModal: React.FC = () => {
                         <button
                           key={theme.id}
                           onClick={() => setLucidTheme(theme)}
-                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-colors ${
+                          className={`min-h-11 p-2.5 rounded-card border text-left flex items-center justify-between transition-colors ${
                             isSelected
-                              ? 'bg-white/10 border-white/25 text-white'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/70 hover:bg-white/[0.05]'
+                              ? 'bg-surface-active border-ios-teal text-text-primary shadow-sm'
+                              : 'bg-surface-subtle border-border-subtle text-text-secondary hover:bg-surface-active'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -437,9 +446,9 @@ export const VisualizerSettingsModal: React.FC = () => {
                                 style={{ backgroundColor: theme.secondary }}
                               />
                             </div>
-                            <span className="text-xs font-medium truncate">{theme.name}</span>
+                            <span className="text-caption font-medium truncate">{theme.name}</span>
                           </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white flex-shrink-0" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-text-primary flex-shrink-0" />}
                         </button>
                       );
                     })}
@@ -450,7 +459,7 @@ export const VisualizerSettingsModal: React.FC = () => {
               {/* Paletas Profesionales Estándar con Swatches Cromáticos */}
               {!isLucid && (
                 <div className="space-y-2">
-                  <span className="text-[11px] uppercase tracking-wider font-mono text-white/40 block">
+                  <span className="text-caption uppercase tracking-wider font-mono text-text-tertiary block">
                     Paletas de Estudio Estándar:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -460,10 +469,10 @@ export const VisualizerSettingsModal: React.FC = () => {
                         <button
                           key={palette.name}
                           onClick={() => setCurrentPaletteIndex(idx)}
-                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-colors ${
+                          className={`min-h-11 p-2.5 rounded-card border text-left flex items-center justify-between transition-colors ${
                             isSelected
-                              ? 'bg-white/10 border-white/25 text-white'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/70 hover:bg-white/[0.05]'
+                              ? 'bg-surface-active border-ios-teal text-text-primary shadow-sm'
+                              : 'bg-surface-subtle border-border-subtle text-text-secondary hover:bg-surface-active'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -477,9 +486,9 @@ export const VisualizerSettingsModal: React.FC = () => {
                                 />
                               ))}
                             </div>
-                            <span className="text-xs font-medium truncate text-white/90">{palette.name}</span>
+                            <span className="text-caption font-medium truncate text-text-primary">{palette.name}</span>
                           </div>
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                          {isSelected && <Check className="w-3.5 h-3.5 text-ios-teal flex-shrink-0" />}
                         </button>
                       );
                     })}

@@ -11,19 +11,10 @@ import {
   Grid,
   Mountain,
   Music,
-  Maximize,
-  Minimize,
   Waves,
-  X,
-  Keyboard,
-  Compass,
-  Gauge,
-  Disc3,
   Bookmark,
-  Shuffle,
-  Repeat,
-  Volume2,
-  VolumeX,
+  Disc3,
+  Gauge,
   Mic,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
@@ -52,8 +43,6 @@ export const UniversalCommandPalette: React.FC = () => {
     toggleUnderwater,
     dspSpeedMode,
     setDspSpeedMode,
-    binauralMode,
-    setBinauralMode,
     masteringPreset,
     setMasteringPreset,
     isRetroCrtActive,
@@ -64,13 +53,6 @@ export const UniversalCommandPalette: React.FC = () => {
     setVisualizerMode,
     setEqualizerOpen,
     setSidebarOpen,
-    toggleShuffle,
-    isShuffled,
-    repeatMode,
-    setRepeatMode,
-    isMuted,
-    volume,
-    setVolume,
     setSessionStatsOpen,
     setLoopPointA,
     setLoopPointB,
@@ -344,6 +326,7 @@ export const UniversalCommandPalette: React.FC = () => {
     visualizerMode,
     isRetroCrtActive,
     showAudioRibbons,
+    vocalMode,
     toggleUnderwater,
     toggle8DAudio,
     setDspSpeedMode,
@@ -359,6 +342,8 @@ export const UniversalCommandPalette: React.FC = () => {
     setVisualizerMode,
     toggleRetroCrt,
     toggleAudioRibbons,
+    setVocalMode,
+    setStoryCardOpen,
   ]);
 
   const filtered = useMemo(() => {
@@ -406,20 +391,20 @@ export const UniversalCommandPalette: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[8vh] sm:pt-[12vh] px-3 sm:px-4 bg-black/75 backdrop-blur-xl animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[8vh] sm:pt-[12vh] px-3 sm:px-4 bg-surface-scrim material-regular animate-in fade-in duration-200"
       onClick={() => setCommandPaletteOpen(false)}
       role="dialog"
       aria-modal="true"
       aria-label="Paleta universal de comandos Aura3D"
     >
       <div
-        className="w-full max-w-xl rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.12] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] overflow-hidden flex flex-col font-mono text-xs z-10 animate-in zoom-in-95 duration-150"
+        className="w-full max-w-xl rounded-modal bg-surface-overlay material-thick border border-border-subtle shadow-[var(--shadow-modal)] overflow-hidden flex flex-col font-mono text-caption z-10 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.08] bg-white/[0.02]">
-          <Search className="w-4 h-4 text-cyan-400 flex-shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle bg-surface-subtle">
+          <Search className="w-4 h-4 text-ios-teal flex-shrink-0" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -432,10 +417,10 @@ export const UniversalCommandPalette: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar herramienta, efecto DSP, visualizador o comando... (Esc para salir)"
-            className="flex-1 bg-transparent text-white placeholder-white/60 focus:outline-none text-xs font-mono"
+            className="flex-1 min-h-11 bg-transparent text-text-primary placeholder-text-tertiary focus:outline-none text-caption font-mono"
             aria-label="Buscar comando o herramienta"
           />
-          <kbd className="px-2 py-0.5 rounded-[6px] bg-white/[0.08] text-[10px] text-white/70 border border-white/15 font-bold">
+          <kbd className="px-2 py-0.5 rounded-badge bg-surface-subtle text-caption text-text-secondary border border-border-subtle font-bold">
             ESC
           </kbd>
         </div>
@@ -471,30 +456,30 @@ export const UniversalCommandPalette: React.FC = () => {
                     setCommandPaletteOpen(false);
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`w-full min-h-[44px] flex items-center justify-between p-2.5 rounded-[12px] text-left transition-all cursor-pointer ${
+                  className={`w-full min-h-11 flex items-center justify-between p-2.5 rounded-control text-left transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-white/[0.1] text-white border border-cyan-400/40 shadow-sm'
-                      : 'text-white/80 hover:bg-white/[0.05] border border-transparent'
+                      ? 'bg-surface-active text-text-primary border border-ios-teal/40 shadow-sm'
+                      : 'text-text-secondary hover:bg-surface-subtle border border-transparent'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`p-1.5 rounded-[8px] transition-colors flex-shrink-0 ${
-                        isSelected ? 'bg-cyan-500/25 text-cyan-300' : 'bg-white/10 text-white/70'
+                      className={`p-1.5 rounded-control transition-colors flex-shrink-0 ${
+                        isSelected ? 'bg-ios-teal/20 text-ios-teal' : 'bg-surface-subtle text-text-tertiary'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="truncate text-xs font-medium text-white">{item.title}</span>
-                      <span className="text-[10px] text-white/65 uppercase tracking-wider font-mono">
+                      <span className="truncate text-caption font-medium text-text-primary">{item.title}</span>
+                      <span className="text-caption text-text-tertiary uppercase tracking-wider font-mono">
                         {item.category}
                       </span>
                     </div>
                   </div>
 
                   {item.badge && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex-shrink-0 ml-2">
+                    <span className="text-caption font-bold px-2 py-0.5 rounded-pill bg-ios-teal/20 text-ios-teal border border-ios-teal/30 flex-shrink-0 ml-2 font-mono">
                       {item.badge}
                     </span>
                   )}
@@ -505,17 +490,17 @@ export const UniversalCommandPalette: React.FC = () => {
         </div>
 
         {/* Footer Hint */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-white/[0.08] bg-white/[0.02] text-[10px] text-white/65 font-mono">
+        <div className="flex items-center justify-between px-4 py-2.5 border-t border-border-subtle bg-surface-subtle text-caption text-text-tertiary font-mono">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white/10 text-white/90 rounded-[4px] border border-white/15">↑</kbd>
-              <kbd className="px-1.5 py-0.5 bg-white/10 text-white/90 rounded-[4px] border border-white/15">↓</kbd> navegar
+              <kbd className="px-1.5 py-0.5 bg-surface-subtle text-text-secondary rounded-badge border border-border-subtle">↑</kbd>
+              <kbd className="px-1.5 py-0.5 bg-surface-subtle text-text-secondary rounded-badge border border-border-subtle">↓</kbd> navegar
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white/10 text-white/90 rounded-[4px] border border-white/15">↵</kbd> ejecutar
+              <kbd className="px-1.5 py-0.5 bg-surface-subtle text-text-secondary rounded-badge border border-border-subtle">↵</kbd> ejecutar
             </span>
           </div>
-          <span className="tracking-wider uppercase text-[9px] text-white/50 font-medium">
+          <span className="tracking-wider uppercase text-caption text-text-tertiary font-medium">
             Aura3D Spotlight
           </span>
         </div>

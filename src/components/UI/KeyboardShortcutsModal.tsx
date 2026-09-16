@@ -9,16 +9,16 @@ interface ShortcutRowProps {
 }
 
 const ShortcutRow: React.FC<ShortcutRowProps> = ({ keys, description, icon }) => (
-  <div className="flex items-center justify-between py-2 px-2.5 rounded-[10px] hover:bg-white/[0.04] transition-colors group">
-    <div className="flex items-center gap-2.5 text-xs text-white/80">
-      {icon && <span className="text-white/40 group-hover:text-white/70 transition-colors">{icon}</span>}
+  <div className="flex items-center justify-between py-2 px-2.5 rounded-control hover:bg-surface-base/60 transition-colors group">
+    <div className="flex items-center gap-2.5 text-caption text-text-secondary">
+      {icon && <span className="text-text-tertiary group-hover:text-text-primary transition-colors">{icon}</span>}
       <span>{description}</span>
     </div>
     <div className="flex items-center gap-1">
       {keys.map((k, i) => (
         <kbd
           key={i}
-          className="min-w-[24px] h-6 px-1.5 flex items-center justify-center text-[11px] font-mono font-medium rounded-[6px] border border-white/15 bg-white/[0.06] text-white/90 shadow-sm"
+          className="min-w-[24px] h-6 px-1.5 flex items-center justify-center text-caption font-mono font-medium rounded-badge border border-border-subtle bg-surface-base text-text-primary shadow-subtle"
         >
           {k}
         </kbd>
@@ -33,52 +33,47 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
   if (!isShortcutsModalOpen) return null;
 
-  const accentColor = isLucid ? lucidPrimaryColor || lucidTheme.primary || '#00e5ff' : '#00f2fe';
+  const accentColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || 'var(--color-accent-teal, #30b0c7)') : 'var(--color-accent-teal, #30b0c7)';
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-xl p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-surface-backdrop material-thick p-4 animate-in fade-in duration-fast"
       onClick={() => setShortcutsModalOpen(false)}
     >
       <div
-        className="w-full max-w-lg rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.08] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.1)] p-5 text-white flex flex-col gap-4 max-h-[85vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-modal bg-surface-overlay material-thick border border-border-subtle shadow-modal p-5 text-text-primary flex flex-col gap-4 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08]">
+        <div className="flex items-center justify-between pb-3.5 border-b border-border-subtle">
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-[10px] flex items-center justify-center border shadow-sm"
-              style={{
-                backgroundColor: `${accentColor}15`,
-                borderColor: `${accentColor}40`,
-                color: accentColor,
-              }}
+              className="w-10 h-10 rounded-control flex items-center justify-center border border-accent-teal/30 bg-accent-teal/15 text-accent-teal shadow-subtle"
             >
-              <Keyboard className="w-4 h-4" />
+              <Keyboard className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight flex items-center gap-2">
+              <h2 className="text-body font-bold tracking-tight flex items-center gap-2">
                 Atajos de Teclado
-                <span className="text-[9px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">
+                <span className="text-caption uppercase font-mono px-2 py-0.5 rounded-pill bg-accent-teal/15 text-accent-teal border border-accent-teal/30 font-bold">
                   STUDIO
                 </span>
               </h2>
-              <p className="text-[11px] text-white/40 font-mono">Control táctil de alta precisión</p>
+              <p className="text-caption text-text-tertiary font-mono">Control táctil de alta precisión</p>
             </div>
           </div>
           <button
             onClick={() => setShortcutsModalOpen(false)}
-            className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="min-h-11 min-w-11 p-2 rounded-control text-text-secondary hover:text-text-primary hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
             aria-label="Cerrar modal"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Section 1: Transporte y Audio */}
         <div className="space-y-1">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 px-2.5">
+          <span className="text-caption font-mono uppercase tracking-widest text-text-tertiary px-2.5">
             Transporte & Control
           </span>
           <div className="space-y-0.5 mt-1">
@@ -91,7 +86,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
         {/* Section 2: Visualización y 3D */}
         <div className="space-y-1">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 px-2.5">
+          <span className="text-caption font-mono uppercase tracking-widest text-text-tertiary px-2.5">
             Visualización & Escena 3D
           </span>
           <div className="space-y-0.5 mt-1">
@@ -104,7 +99,7 @@ export const KeyboardShortcutsModal: React.FC = () => {
 
         {/* Section 3: Paneles de Estudio */}
         <div className="space-y-1">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/35 px-2.5">
+          <span className="text-caption font-mono uppercase tracking-widest text-text-tertiary px-2.5">
             Paneles de Estudio & Telemetría
           </span>
           <div className="space-y-0.5 mt-1">
@@ -116,9 +111,9 @@ export const KeyboardShortcutsModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-white/40 font-mono">
-          <span>Pulsa <kbd className="px-1 py-0.5 rounded bg-white/10 text-white/80 text-[10px]">Esc</kbd> para salir</span>
-          <span className="text-white/25">Aura3D Studio DSP</span>
+        <div className="pt-2 border-t border-border-subtle flex items-center justify-between text-caption text-text-tertiary font-mono">
+          <span>Pulsa <kbd className="px-1.5 py-0.5 rounded-badge bg-white/10 text-text-primary text-caption font-mono">Esc</kbd> para salir</span>
+          <span className="text-text-tertiary">Aura3D Studio DSP</span>
         </div>
       </div>
     </div>

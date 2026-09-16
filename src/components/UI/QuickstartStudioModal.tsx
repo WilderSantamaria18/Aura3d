@@ -39,7 +39,7 @@ export const QuickstartStudioModal: React.FC = () => {
     >
       <div className="space-y-5">
         {/* Progress Tracker Steps */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+        <div className="flex items-center justify-between border-b border-border-subtle pb-3">
           {[
             { num: 1, label: 'Arquitectura' },
             { num: 2, label: 'Visualizador' },
@@ -47,19 +47,19 @@ export const QuickstartStudioModal: React.FC = () => {
           ].map((item) => (
             <div key={item.num} className="flex items-center gap-2">
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono transition-colors ${
+                className={`w-8 h-8 rounded-pill flex items-center justify-center text-caption font-mono font-tabular transition-colors ${
                   step === item.num
-                    ? 'bg-cyan-400 text-black font-semibold ring-4 ring-cyan-400/20'
+                    ? 'bg-accent-teal text-black font-semibold ring-4 ring-accent-teal/20'
                     : step > item.num
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                    : 'bg-white/5 text-white/60 border border-white/10'
+                    ? 'bg-status-success/20 text-status-success border border-status-success/40'
+                    : 'bg-white/10 text-text-tertiary border border-border-subtle'
                 }`}
               >
-                {step > item.num ? <Check className="w-3 h-3" /> : item.num}
+                {step > item.num ? <Check className="w-4 h-4" /> : item.num}
               </div>
               <span
-                className={`text-xs font-mono tracking-wider uppercase ${
-                  step === item.num ? 'text-white font-medium' : 'text-white/60'
+                className={`text-caption font-mono tracking-wider uppercase ${
+                  step === item.num ? 'text-text-primary font-medium' : 'text-text-tertiary'
                 }`}
               >
                 {item.label}
@@ -71,30 +71,30 @@ export const QuickstartStudioModal: React.FC = () => {
         {/* Step 1: Core Architecture */}
         {step === 1 && (
           <div className="space-y-4 animate-fade-in">
-            <div className="p-4 rounded-[12px] bg-cyan-400/[0.03] border border-cyan-400/20 flex gap-3">
-              <Sparkles className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-              <div className="text-xs text-white/90 leading-relaxed">
+            <div className="p-4 rounded-card bg-accent-teal/10 border border-accent-teal/20 flex gap-3">
+              <Sparkles className="w-5 h-5 text-accent-teal shrink-0 mt-0.5" />
+              <div className="text-caption text-text-primary leading-relaxed">
                 Aura3D transforma tu música en esculturas 3D en tiempo real mediante análisis de transformada rápida de Fourier (FFT) y shaders WebGL de precisión milimétrica.
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-              <div className="p-3 rounded-[12px] bg-white/[0.02] border border-white/[0.06] space-y-1">
-                <div className="text-cyan-400 flex items-center gap-1.5 font-medium">
-                  <Volume2 className="w-3.5 h-3.5" />
+            <div className="grid grid-cols-2 gap-3 text-caption font-mono">
+              <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle space-y-1">
+                <div className="text-accent-teal flex items-center gap-1.5 font-medium">
+                  <Volume2 className="w-4 h-4" />
                   <span>Audio Local / Spotify</span>
                 </div>
-                <p className="text-[11px] text-white/70">
+                <p className="text-caption text-text-secondary">
                   Arrastra archivos MP3, WAV, FLAC o conecta tu cuenta de Spotify Premium.
                 </p>
               </div>
 
-              <div className="p-3 rounded-[12px] bg-white/[0.02] border border-white/[0.06] space-y-1">
-                <div className="text-purple-400 flex items-center gap-1.5 font-medium">
-                  <Sliders className="w-3.5 h-3.5" />
+              <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle space-y-1">
+                <div className="text-accent-purple flex items-center gap-1.5 font-medium">
+                  <Sliders className="w-4 h-4" />
                   <span>DSP & Ecualizador</span>
                 </div>
-                <p className="text-[11px] text-white/70">
+                <p className="text-caption text-text-secondary">
                   Cadena de ecualización analógica de 5 bandas, limitador y spatial audio 3D.
                 </p>
               </div>
@@ -105,8 +105,8 @@ export const QuickstartStudioModal: React.FC = () => {
         {/* Step 2: Visualizer Selection */}
         {step === 2 && (
           <div className="space-y-3 animate-fade-in">
-            <div className="text-xs text-white/80">
-              Elige tu motor visual de inicio (puedes alternar en cualquier momento con la tecla <kbd className="px-1.5 py-0.5 rounded-[4px] bg-white/10 font-mono text-cyan-400">V</kbd>):
+            <div className="text-caption text-text-secondary">
+              Elige tu motor visual de inicio (puedes alternar en cualquier momento con la tecla <kbd className="px-1.5 py-0.5 rounded-badge bg-white/10 font-mono text-accent-teal">V</kbd>):
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
@@ -120,21 +120,21 @@ export const QuickstartStudioModal: React.FC = () => {
                   onClick={() => setVisualizerMode(v.id as any)}
                   aria-pressed={currentVisualizer === v.id}
                   aria-label={`Seleccionar visualizador ${v.name}`}
-                  className={`p-3 rounded-[12px] text-left border transition-all flex flex-col justify-between h-28 cursor-pointer ${
+                  className={`p-3 rounded-card text-left border transition-all flex flex-col justify-between min-h-28 cursor-pointer ${
                     currentVisualizer === v.id
-                      ? 'bg-cyan-400/[0.08] border-cyan-400 shadow-sm'
-                      : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04]'
+                      ? 'bg-accent-teal/15 border-accent-teal shadow-subtle'
+                      : 'bg-surface-base/60 border-border-subtle hover:bg-white/10'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <Box className={`w-4 h-4 ${currentVisualizer === v.id ? 'text-cyan-400' : 'text-white/60'}`} />
+                    <Box className={`w-4 h-4 ${currentVisualizer === v.id ? 'text-accent-teal' : 'text-text-tertiary'}`} />
                     {currentVisualizer === v.id && (
-                      <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                      <span className="w-2 h-2 rounded-pill bg-accent-teal" />
                     )}
                   </div>
                   <div>
-                    <div className="text-xs font-mono font-medium text-white">{v.name}</div>
-                    <div className="text-[10px] text-white/65 leading-tight mt-0.5">{v.desc}</div>
+                    <div className="text-caption font-mono font-medium text-text-primary">{v.name}</div>
+                    <div className="text-caption text-text-secondary leading-tight mt-0.5">{v.desc}</div>
                   </div>
                 </button>
               ))}
@@ -145,40 +145,40 @@ export const QuickstartStudioModal: React.FC = () => {
         {/* Step 3: Key Commands & Ready */}
         {step === 3 && (
           <div className="space-y-3 animate-fade-in">
-            <div className="text-xs text-white/80">
+            <div className="text-caption text-text-secondary">
               Comandos de acceso rápido para control de nivel de estudio:
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-              <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-white/[0.02] border border-white/[0.06]">
-                <span className="text-white/75">Play / Pausa</span>
-                <kbd className="px-2 py-0.5 rounded-[4px] bg-white/10 text-cyan-400 text-[11px]">Espacio</kbd>
+            <div className="grid grid-cols-2 gap-2 text-caption font-mono">
+              <div className="flex items-center justify-between p-2.5 rounded-control bg-surface-base/60 border border-border-subtle">
+                <span className="text-text-secondary">Play / Pausa</span>
+                <kbd className="px-2 py-0.5 rounded-badge bg-white/10 text-accent-teal text-caption">Espacio</kbd>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-white/[0.02] border border-white/[0.06]">
-                <span className="text-white/75">Ecualizador Rack</span>
-                <kbd className="px-2 py-0.5 rounded-[4px] bg-white/10 text-cyan-400 text-[11px]">E</kbd>
+              <div className="flex items-center justify-between p-2.5 rounded-control bg-surface-base/60 border border-border-subtle">
+                <span className="text-text-secondary">Ecualizador Rack</span>
+                <kbd className="px-2 py-0.5 rounded-badge bg-white/10 text-accent-teal text-caption">E</kbd>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-white/[0.02] border border-white/[0.06]">
-                <span className="text-white/75">Cambiar Visualizador</span>
-                <kbd className="px-2 py-0.5 rounded-[4px] bg-white/10 text-cyan-400 text-[11px]">V</kbd>
+              <div className="flex items-center justify-between p-2.5 rounded-control bg-surface-base/60 border border-border-subtle">
+                <span className="text-text-secondary">Cambiar Visualizador</span>
+                <kbd className="px-2 py-0.5 rounded-badge bg-white/10 text-accent-teal text-caption">V</kbd>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-white/[0.02] border border-white/[0.06]">
-                <span className="text-white/75">Letras Sincronizadas</span>
-                <kbd className="px-2 py-0.5 rounded-[4px] bg-white/10 text-cyan-400 text-[11px]">L</kbd>
+              <div className="flex items-center justify-between p-2.5 rounded-control bg-surface-base/60 border border-border-subtle">
+                <span className="text-text-secondary">Letras Sincronizadas</span>
+                <kbd className="px-2 py-0.5 rounded-badge bg-white/10 text-accent-teal text-caption">L</kbd>
               </div>
             </div>
 
-            <div className="p-3 rounded-[10px] bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300">
+            <div className="p-3 rounded-card bg-status-success/15 border border-status-success/30 text-caption text-status-success">
               ✓ Todo listo. Arrastra una canción o selecciona una pista para comenzar la experiencia.
             </div>
           </div>
         )}
 
         {/* Action Controls */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between pt-3 border-t border-border-subtle">
           <button
             onClick={handleComplete}
-            className="text-xs font-mono text-white/60 hover:text-white transition-colors cursor-pointer"
+            className="min-h-11 px-3 text-caption font-mono text-text-secondary hover:text-text-primary transition-colors cursor-pointer rounded-control hover:bg-white/10"
           >
             Omitir introducción
           </button>
@@ -198,7 +198,7 @@ export const QuickstartStudioModal: React.FC = () => {
               <StudioButton
                 variant="primary"
                 size="sm"
-                icon={<ArrowRight className="w-3.5 h-3.5" />}
+                icon={<ArrowRight className="w-4 h-4" />}
                 onClick={() => setStep((s) => (s + 1) as any)}
               >
                 Siguiente
@@ -207,7 +207,7 @@ export const QuickstartStudioModal: React.FC = () => {
               <StudioButton
                 variant="primary"
                 size="sm"
-                icon={<Check className="w-3.5 h-3.5" />}
+                icon={<Check className="w-4 h-4" />}
                 onClick={handleComplete}
               >
                 Iniciar Aura3D

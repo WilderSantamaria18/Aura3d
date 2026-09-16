@@ -22,7 +22,6 @@ export const BackgroundAtmospherePopover: React.FC = () => {
     updateBlobSettings,
     isLucid,
     lucidTheme,
-    lucidPrimaryColor,
     mouseEffectsEnabled,
     toggleMouseEffects,
   } = usePlayerStore();
@@ -55,8 +54,6 @@ export const BackgroundAtmospherePopover: React.FC = () => {
     Boolean(blobSettings.customBackgroundImage) ||
     (Boolean(blobSettings.backgroundAtmosphere) && blobSettings.backgroundAtmosphere !== 'none');
 
-  const accentColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00f2fe';
-
   const handleResetDefaults = () => {
     updateBlobSettings({
       backgroundOpacity: 0.85,
@@ -76,30 +73,19 @@ export const BackgroundAtmospherePopover: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-xs font-sans transition-all duration-200 border active:scale-[0.97] ${
+        className={`min-h-11 flex items-center gap-1.5 px-3 py-1.5 rounded-control text-caption font-sans transition-all duration-200 border active:scale-[0.97] ${
           isOpen || hasActiveBg
-            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20'
-            : 'bg-white/[0.03] text-white/70 hover:text-white border-white/[0.08] hover:bg-white/[0.06]'
+            ? 'bg-ios-teal/20 text-ios-teal border-ios-teal/30'
+            : 'bg-surface-subtle text-text-secondary hover:text-text-primary border-border-subtle hover:bg-surface-active'
         }`}
-        style={
-          isLucid && (isOpen || hasActiveBg)
-            ? {
-                backgroundColor: `${accentColor}18`,
-                borderColor: `${accentColor}50`,
-                color: accentColor,
-                boxShadow: `0 0 16px ${lucidTheme.glow}`,
-              }
-            : undefined
-        }
         title="Personalizar Fondo, Imagen, Opacidad, Difuminado y Efectos Atmosféricos"
         aria-label="Fondo y Atmósfera"
       >
         <Image className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="hidden min-[480px]:inline text-[11px] font-medium">Fondo</span>
+        <span className="hidden min-[480px]:inline text-caption font-medium">Fondo</span>
         {hasActiveBg && (
           <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ backgroundColor: accentColor }}
+            className="w-1.5 h-1.5 rounded-full bg-ios-teal animate-pulse"
           />
         )}
       </button>
@@ -109,7 +95,7 @@ export const BackgroundAtmospherePopover: React.FC = () => {
         <>
           {/* Mobile backdrop for safe click-away */}
           <div
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] sm:hidden"
+            className="fixed inset-0 z-40 bg-surface-scrim material-regular sm:hidden"
             onClick={() => {
               setIsOpen(false);
               setIsPreviewing(false);
@@ -118,23 +104,15 @@ export const BackgroundAtmospherePopover: React.FC = () => {
           />
 
           <div
-            className={`fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] sm:max-w-[calc(100vw-24px)] max-h-[min(520px,calc(100vh-4.5rem))] overflow-y-auto p-3.5 sm:p-4 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 custom-scrollbar transition-opacity duration-200 ${
+            className={`fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] sm:max-w-[calc(100vw-24px)] max-h-[min(520px,calc(100vh-4.5rem))] overflow-y-auto p-3.5 sm:p-4 rounded-card bg-surface-overlay material-thick border border-border-subtle shadow-[var(--shadow-modal)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 custom-scrollbar transition-opacity duration-200 ${
               isPreviewing ? 'opacity-25 hover:opacity-100' : 'opacity-100'
             }`}
-            style={
-              isLucid
-                ? {
-                    borderColor: `${accentColor}40`,
-                    boxShadow: `0 24px 60px rgba(0,0,0,0.95), 0 0 30px ${lucidTheme.glow}`,
-                  }
-                : undefined
-            }
           >
             {/* Header with Title & Quick Controls */}
-            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+            <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" style={{ color: accentColor }} />
-                <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-ios-teal" />
+                <span className="text-caption font-mono font-bold text-text-primary uppercase tracking-wider">
                   Fondo & Atmósfera
                 </span>
               </div>
@@ -144,10 +122,10 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsPreviewing(!isPreviewing)}
-                  className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  className={`min-h-11 min-w-11 rounded-control flex items-center justify-center text-caption transition-colors ${
                     isPreviewing
-                      ? 'bg-cyan-500/20 text-cyan-300'
-                      : 'text-white/50 hover:text-white hover:bg-white/10'
+                      ? 'bg-ios-teal/20 text-ios-teal'
+                      : 'text-text-tertiary hover:text-text-primary hover:bg-surface-subtle'
                   }`}
                   title={isPreviewing ? 'Restaurar opacidad del panel' : 'Ver fondo completo (panel translúcido)'}
                   aria-label="Ver fondo completo"
@@ -162,7 +140,7 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     setIsOpen(false);
                     setIsPreviewing(false);
                   }}
-                  className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                  className="min-h-11 min-w-11 text-text-tertiary hover:text-text-primary rounded-control hover:bg-surface-subtle transition-colors flex items-center justify-center"
                   aria-label="Cerrar panel de fondo"
                 >
                   <X className="w-4 h-4" />
@@ -171,46 +149,46 @@ export const BackgroundAtmospherePopover: React.FC = () => {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <div className="flex items-center gap-1 p-1 rounded-control bg-surface-subtle border border-border-subtle">
               <button
                 type="button"
                 onClick={() => setActiveTab('image')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-mono transition-all ${
+                className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-mono transition-all ${
                   activeTab === 'image'
-                    ? 'bg-cyan-500/20 text-cyan-300 font-semibold shadow-sm border border-cyan-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                    ? 'bg-ios-teal/20 text-ios-teal font-semibold shadow-sm border border-ios-teal/30'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-subtle border border-transparent'
                 }`}
               >
                 <Image className="w-3 h-3" />
                 <span>Imagen</span>
                 {blobSettings.customBackgroundImage && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-ios-teal" />
                 )}
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('atmosphere')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-mono transition-all ${
+                className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-mono transition-all ${
                   activeTab === 'atmosphere'
-                    ? 'bg-cyan-500/20 text-cyan-300 font-semibold shadow-sm border border-cyan-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                    ? 'bg-ios-teal/20 text-ios-teal font-semibold shadow-sm border border-ios-teal/30'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-subtle border border-transparent'
                 }`}
               >
                 <Sparkles className="w-3 h-3" />
                 <span>Efectos</span>
                 {blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-ios-purple" />
                 )}
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('dynamics')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-mono transition-all ${
+                className={`flex-1 min-h-11 flex items-center justify-center gap-1.5 py-1.5 rounded-control text-caption font-mono transition-all ${
                   activeTab === 'dynamics'
-                    ? 'bg-cyan-500/20 text-cyan-300 font-semibold shadow-sm border border-cyan-500/30'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                    ? 'bg-ios-teal/20 text-ios-teal font-semibold shadow-sm border border-ios-teal/30'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-subtle border border-transparent'
                 }`}
               >
                 <SlidersHorizontal className="w-3 h-3" />
@@ -246,9 +224,9 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => bgFileInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-mono text-white/90 transition-all hover:border-cyan-400/40 active:scale-[0.98]"
+                    className="flex-1 min-h-11 flex items-center justify-center gap-2 py-2 px-3 rounded-control bg-surface-subtle hover:bg-surface-active border border-border-subtle text-caption font-mono text-text-primary transition-all hover:border-ios-teal/40 active:scale-[0.98]"
                   >
-                    <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                    <Upload className="w-3.5 h-3.5 text-ios-teal" />
                     <span className="truncate">
                       {blobSettings.customBackgroundImage ? 'Cambiar Imagen' : 'Subir Imagen de Fondo'}
                     </span>
@@ -258,7 +236,7 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => updateBlobSettings({ customBackgroundImage: null })}
-                      className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-all active:scale-95 flex-shrink-0"
+                      className="min-h-11 min-w-11 p-2 rounded-control bg-status-error/10 hover:bg-status-error/20 text-status-error border border-status-error/20 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
                       title="Quitar imagen de fondo"
                       aria-label="Quitar imagen de fondo"
                     >
@@ -269,17 +247,17 @@ export const BackgroundAtmospherePopover: React.FC = () => {
 
                 {/* Custom Image Adjustments (Fit & Zoom) */}
                 {blobSettings.customBackgroundImage && (
-                  <div className="flex flex-col gap-2.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="flex flex-col gap-2.5 p-2.5 rounded-card bg-surface-subtle border border-border-subtle">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono text-white/70">Ajuste de Imagen</span>
-                      <div className="flex rounded-lg bg-black/40 p-0.5 border border-white/10">
+                      <span className="text-caption font-mono text-text-secondary">Ajuste de Imagen</span>
+                      <div className="flex rounded-control bg-surface-subtle p-0.5 border border-border-subtle">
                         <button
                           type="button"
                           onClick={() => updateBlobSettings({ backgroundFit: 'cover' })}
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono transition-all ${
+                          className={`min-h-11 px-3 py-0.5 rounded-control text-caption font-mono transition-all flex items-center ${
                             (blobSettings.backgroundFit || 'cover') === 'cover'
-                              ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                              : 'text-white/40 hover:text-white'
+                              ? 'bg-ios-teal/20 text-ios-teal font-semibold'
+                              : 'text-text-tertiary hover:text-text-primary'
                           }`}
                           title="Cubrir fondo completo proporcionalmente"
                         >
@@ -288,10 +266,10 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => updateBlobSettings({ backgroundFit: 'contain' })}
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-mono transition-all ${
+                          className={`min-h-11 px-3 py-0.5 rounded-control text-caption font-mono transition-all flex items-center ${
                             blobSettings.backgroundFit === 'contain'
-                              ? 'bg-cyan-500/20 text-cyan-300 font-semibold'
-                              : 'text-white/40 hover:text-white'
+                              ? 'bg-ios-teal/20 text-ios-teal font-semibold'
+                              : 'text-text-tertiary hover:text-text-primary'
                           }`}
                           title="Ajustar imagen completa sin recortar bordes"
                         >
@@ -301,9 +279,9 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <div className="flex justify-between text-[10px] font-mono text-white/60">
+                      <div className="flex justify-between text-caption font-mono text-text-secondary">
                         <span>Escala / Zoom</span>
-                        <span className="text-white font-mono">
+                        <span className="text-text-primary font-mono font-tabular">
                           {((blobSettings.backgroundScale || 1.0) * 100).toFixed(0)}%
                         </span>
                       </div>
@@ -314,7 +292,8 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                         step="0.05"
                         value={blobSettings.backgroundScale || 1.0}
                         onChange={(e) => updateBlobSettings({ backgroundScale: parseFloat(e.target.value) })}
-                        className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                        className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                        aria-label="Escala de imagen"
                       />
                     </div>
                   </div>
@@ -322,9 +301,9 @@ export const BackgroundAtmospherePopover: React.FC = () => {
 
                 {/* Transparency (Opacity) Slider */}
                 <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] font-mono text-white/70">
+                  <div className="flex justify-between text-caption font-mono text-text-secondary">
                     <span>Opacidad del Fondo</span>
-                    <span className="text-white font-mono">
+                    <span className="text-text-primary font-mono font-tabular">
                       {Math.round((blobSettings.backgroundOpacity ?? 0.85) * 100)}%
                     </span>
                   </div>
@@ -335,15 +314,16 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     step="0.05"
                     value={blobSettings.backgroundOpacity ?? 0.85}
                     onChange={(e) => updateBlobSettings({ backgroundOpacity: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Opacidad del fondo"
                   />
                 </div>
 
                 {/* Blur (Difuminar) Slider */}
                 <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] font-mono text-white/70">
+                  <div className="flex justify-between text-caption font-mono text-text-secondary">
                     <span>Difuminado (Desenfoque)</span>
-                    <span className="text-white font-mono">{blobSettings.backgroundBlur ?? 0}px</span>
+                    <span className="text-text-primary font-mono font-tabular">{blobSettings.backgroundBlur ?? 0}px</span>
                   </div>
                   <input
                     type="range"
@@ -352,17 +332,18 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     step="1"
                     value={blobSettings.backgroundBlur ?? 0}
                     onChange={(e) => updateBlobSettings({ backgroundBlur: parseInt(e.target.value, 10) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Desenfoque de fondo"
                   />
                 </div>
 
                 {/* ── Control de Contraste, Legibilidad de Letras y Fusión Cromática ── */}
-                <div className="flex flex-col gap-2 p-2.5 rounded-xl bg-cyan-500/[0.04] border border-cyan-400/20">
+                <div className="flex flex-col gap-2 p-2.5 rounded-card bg-surface-subtle border border-ios-teal/20">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono font-semibold text-cyan-300">
+                    <span className="text-caption font-mono font-semibold text-ios-teal">
                       Contraste & Fusión de Color
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono uppercase font-bold">
+                    <span className="text-caption px-1.5 py-0.5 rounded-badge bg-ios-teal/20 text-ios-teal font-mono uppercase font-bold">
                       {blobSettings.backgroundContrastMode === 'lucid_tint'
                         ? 'Fusión Lúcida'
                         : blobSettings.backgroundContrastMode === 'deep_cinema'
@@ -387,14 +368,14 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                           key={m.id}
                           type="button"
                           onClick={() => updateBlobSettings({ backgroundContrastMode: m.id as any })}
-                          className={`p-1.5 rounded-lg text-left transition-all border ${
+                          className={`min-h-11 p-2 rounded-control text-left transition-all border ${
                             isActive
-                              ? 'bg-cyan-500/20 text-white border-cyan-400/50 shadow-sm'
-                              : 'bg-black/30 text-white/60 border-white/[0.06] hover:text-white hover:bg-white/[0.04]'
+                              ? 'bg-ios-teal/20 text-text-primary border-ios-teal/50 shadow-sm'
+                              : 'bg-surface-subtle text-text-secondary border-border-subtle hover:text-text-primary hover:bg-surface-active'
                           }`}
                         >
-                          <div className="text-[10px] font-mono font-semibold">{m.label}</div>
-                          <div className="text-[8px] text-white/40 leading-tight truncate">{m.desc}</div>
+                          <div className="text-caption font-mono font-semibold">{m.label}</div>
+                          <div className="text-caption text-text-tertiary leading-tight truncate">{m.desc}</div>
                         </button>
                       );
                     })}
@@ -404,9 +385,9 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                   {(blobSettings.backgroundContrastMode || 'text_clarity') !== 'none' && (
                     <>
                       <div className="flex flex-col gap-1 mt-1">
-                        <div className="flex justify-between text-[10px] font-mono text-white/70">
+                        <div className="flex justify-between text-caption font-mono text-text-secondary">
                           <span>Oscurecimiento / Contraste Letras</span>
-                          <span className="text-cyan-300 font-mono">
+                          <span className="text-ios-teal font-mono font-tabular">
                             {Math.round((blobSettings.backgroundTextScrim ?? 0.65) * 100)}%
                           </span>
                         </div>
@@ -417,14 +398,15 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                           step="0.05"
                           value={blobSettings.backgroundTextScrim ?? 0.65}
                           onChange={(e) => updateBlobSettings({ backgroundTextScrim: parseFloat(e.target.value) })}
-                          className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                          className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                          aria-label="Oscurecimiento de fondo"
                         />
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        <div className="flex justify-between text-[10px] font-mono text-white/70">
+                        <div className="flex justify-between text-caption font-mono text-text-secondary">
                           <span>Intensidad de Tinte del Tema</span>
-                          <span className="text-cyan-300 font-mono">
+                          <span className="text-ios-teal font-mono font-tabular">
                             {Math.round((blobSettings.backgroundThemeTint ?? 0.35) * 100)}%
                           </span>
                         </div>
@@ -435,7 +417,8 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                           step="0.05"
                           value={blobSettings.backgroundThemeTint ?? 0.35}
                           onChange={(e) => updateBlobSettings({ backgroundThemeTint: parseFloat(e.target.value) })}
-                          className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                          className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                          aria-label="Tinte de tema"
                         />
                       </div>
                     </>
@@ -450,10 +433,10 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                 {/* Primary Atmosphere Effect Selector */}
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                    <span className="text-caption font-mono text-text-tertiary uppercase tracking-wider">
                       Efecto Principal
                     </span>
-                    <span className="text-[10px] font-mono text-cyan-400 font-semibold">
+                    <span className="text-caption font-mono text-ios-teal font-semibold">
                       {blobSettings.backgroundAtmosphere || 'none'}
                     </span>
                   </div>
@@ -461,15 +444,15 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     {(
                       [
                         ['none', 'Limpio'],
-                        ['sunset', '🌅 Atardecer'],
-                        ['cyber_city', '🏙️ Cyber City'],
-                        ['cosmic_voyager', '🌙 Viajero'],
-                        ['ripples', '💧 Gotas'],
-                        ['rain', '🌧️ Lluvia'],
-                        ['sand', '⏳ Arena'],
-                        ['stars', '✨ Estrellas'],
-                        ['matrix', '💻 Matrix'],
-                        ['aurora', '🌌 Aurora'],
+                        ['sunset', 'Atardecer'],
+                        ['cyber_city', 'Cyber City'],
+                        ['cosmic_voyager', 'Viajero'],
+                        ['ripples', 'Gotas'],
+                        ['rain', 'Lluvia'],
+                        ['sand', 'Arena'],
+                        ['stars', 'Estrellas'],
+                        ['matrix', 'Matrix'],
+                        ['aurora', 'Aurora'],
                       ] as const
                     ).map(([id, label]) => {
                       const isActive = (blobSettings.backgroundAtmosphere || 'none') === id;
@@ -478,20 +461,11 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                           key={id}
                           type="button"
                           onClick={() => updateBlobSettings({ backgroundAtmosphere: id as BackgroundAtmosphere })}
-                          className={`py-1.5 px-1 rounded-xl text-[10px] font-mono transition-all text-center border active:scale-95 ${
+                          className={`min-h-11 py-1.5 px-1 rounded-control text-caption font-mono transition-all text-center border active:scale-95 flex items-center justify-center ${
                             isActive
-                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-bold shadow-sm'
-                              : 'bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.06] border-transparent'
+                              ? 'bg-ios-teal/20 text-ios-teal border-ios-teal/40 font-bold shadow-sm'
+                              : 'bg-surface-subtle text-text-secondary hover:text-text-primary hover:bg-surface-active border-transparent'
                           }`}
-                          style={
-                            isLucid && isActive
-                              ? {
-                                  backgroundColor: `${accentColor}25`,
-                                  borderColor: `${accentColor}60`,
-                                  color: '#ffffff',
-                                }
-                              : undefined
-                          }
                         >
                           {label}
                         </button>
@@ -501,12 +475,12 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                 </div>
 
                 {/* Effect Blending / Variation Selector */}
-                <div className="flex flex-col gap-1.5 pt-2 border-t border-white/[0.08]">
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-border-subtle">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
+                    <span className="text-caption font-mono text-text-tertiary uppercase tracking-wider">
                       Mezcla con Segundo Efecto
                     </span>
-                    <span className="text-[9px] font-mono text-purple-400 font-semibold">
+                    <span className="text-caption font-mono text-ios-purple font-semibold">
                       {blobSettings.atmosphereBlend || 'none'}
                     </span>
                   </div>
@@ -514,11 +488,11 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     {(
                       [
                         ['none', 'Sin Mezcla'],
-                        ['sunset', '🌅 Atardecer'],
-                        ['cyber_city', '🏙️ Cyber City'],
-                        ['cosmic_voyager', '🌙 Viajero'],
-                        ['aurora', '🌌 Aurora'],
-                        ['stars', '✨ Estrellas'],
+                        ['sunset', 'Atardecer'],
+                        ['cyber_city', 'Cyber City'],
+                        ['cosmic_voyager', 'Viajero'],
+                        ['aurora', 'Aurora'],
+                        ['stars', 'Estrellas'],
                       ] as const
                     ).map(([id, label]) => {
                       const isActive = (blobSettings.atmosphereBlend || 'none') === id;
@@ -527,10 +501,10 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                           key={id}
                           type="button"
                           onClick={() => updateBlobSettings({ atmosphereBlend: id as BackgroundAtmosphere | 'none' })}
-                          className={`py-1.5 px-1 rounded-xl text-[9px] font-mono transition-all text-center border active:scale-95 ${
+                          className={`min-h-11 py-1.5 px-1 rounded-control text-caption font-mono transition-all text-center border active:scale-95 flex items-center justify-center ${
                             isActive
-                              ? 'bg-purple-500/25 text-purple-300 border-purple-500/40 font-bold'
-                              : 'bg-white/[0.02] text-white/50 hover:text-white hover:bg-white/[0.06] border-transparent'
+                              ? 'bg-ios-purple/25 text-ios-purple border-ios-purple/40 font-bold'
+                              : 'bg-surface-subtle text-text-secondary hover:text-text-primary hover:bg-surface-active border-transparent'
                           }`}
                         >
                           {label}
@@ -547,12 +521,12 @@ export const BackgroundAtmospherePopover: React.FC = () => {
               <div className="flex flex-col gap-3">
                 {/* Speed Slider */}
                 <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] font-mono text-white/70">
+                  <div className="flex justify-between text-caption font-mono text-text-secondary">
                     <div className="flex items-center gap-1">
-                      <Gauge className="w-3 h-3 text-cyan-400" />
+                      <Gauge className="w-3 h-3 text-ios-teal" />
                       <span>Velocidad de Movimiento</span>
                     </div>
-                    <span className="text-cyan-300 font-mono">
+                    <span className="text-ios-teal font-mono font-tabular">
                       {(blobSettings.atmosphereSpeed || 1.0).toFixed(2)}x
                     </span>
                   </div>
@@ -563,18 +537,19 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     step="0.10"
                     value={blobSettings.atmosphereSpeed || 1.0}
                     onChange={(e) => updateBlobSettings({ atmosphereSpeed: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-teal"
+                    aria-label="Velocidad de movimiento"
                   />
                 </div>
 
                 {/* Illumination / Glow Slider */}
                 <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] font-mono text-white/70">
+                  <div className="flex justify-between text-caption font-mono text-text-secondary">
                     <div className="flex items-center gap-1">
-                      <SunMedium className="w-3 h-3 text-amber-400" />
+                      <SunMedium className="w-3 h-3 text-status-warning" />
                       <span>Iluminación & Resplandor</span>
                     </div>
-                    <span className="text-amber-300 font-mono">
+                    <span className="text-status-warning font-mono font-tabular">
                       {(blobSettings.atmosphereGlow || 1.0).toFixed(2)}x
                     </span>
                   </div>
@@ -585,15 +560,16 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     step="0.10"
                     value={blobSettings.atmosphereGlow || 1.0}
                     onChange={(e) => updateBlobSettings({ atmosphereGlow: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-amber-400"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-status-warning"
+                    aria-label="Iluminación y resplandor"
                   />
                 </div>
 
                 {/* Transition Smoothing Slider */}
                 <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] font-mono text-white/70">
+                  <div className="flex justify-between text-caption font-mono text-text-secondary">
                     <span>Tiempo de Transición / Inercia</span>
-                    <span className="text-purple-300 font-mono">
+                    <span className="text-ios-purple font-mono font-tabular">
                       {Math.round((1 - (blobSettings.atmosphereSmoothing || 0.20)) * 100)}%
                     </span>
                   </div>
@@ -604,26 +580,27 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     step="0.02"
                     value={blobSettings.atmosphereSmoothing || 0.20}
                     onChange={(e) => updateBlobSettings({ atmosphereSmoothing: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-purple-400"
+                    className="w-full h-11 bg-transparent cursor-pointer accent-ios-purple"
+                    aria-label="Tiempo de transición"
                   />
                 </div>
 
                 {/* Mouse & Cursor Particle Trail Toggle */}
-                <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <div className="flex items-center justify-between p-2 rounded-card bg-surface-subtle border border-border-subtle">
                   <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-white/90">
-                      <MousePointer className={`w-3.5 h-3.5 ${mouseEffectsEnabled ? 'text-cyan-400' : 'text-white/40'}`} />
+                    <div className="flex items-center gap-1.5 text-caption font-medium text-text-primary">
+                      <MousePointer className={`w-3.5 h-3.5 ${mouseEffectsEnabled ? 'text-ios-teal' : 'text-text-tertiary'}`} />
                       <span>Efectos de Cursor 3D</span>
                     </div>
-                    <span className="text-[9px] text-white/40">Desactivado por defecto (ahorro de FPS)</span>
+                    <span className="text-caption text-text-tertiary">Desactivado por defecto (ahorro de FPS)</span>
                   </div>
                   <button
                     type="button"
                     onClick={toggleMouseEffects}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase transition-all ${
+                    className={`min-h-11 px-3 py-0.5 rounded-control text-caption font-bold uppercase transition-all flex items-center ${
                       mouseEffectsEnabled
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                        : 'bg-white/5 text-white/40 border border-white/10 hover:text-white'
+                        ? 'bg-ios-teal/20 text-ios-teal border border-ios-teal/40 shadow-sm'
+                        : 'bg-surface-subtle text-text-tertiary border border-border-subtle hover:text-text-primary'
                     }`}
                   >
                     {mouseEffectsEnabled ? 'Activo' : 'Eco (Off)'}
@@ -631,14 +608,14 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                 </div>
 
                 {/* Quick Reset to Defaults */}
-                <div className="pt-2 border-t border-white/[0.08] flex justify-end">
+                <div className="pt-2 border-t border-border-subtle flex justify-end">
                   <button
                     type="button"
                     onClick={handleResetDefaults}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono text-white/60 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all active:scale-95"
+                    className="min-h-11 flex items-center gap-1.5 px-3 py-1.5 rounded-control text-caption font-mono text-text-secondary hover:text-text-primary bg-surface-subtle hover:bg-surface-active border border-border-subtle transition-all active:scale-95"
                     title="Restablecer controles a valores originales"
                   >
-                    <RotateCcw className="w-3 h-3 text-cyan-400" />
+                    <RotateCcw className="w-3 h-3 text-ios-teal" />
                     <span>Restablecer Valores</span>
                   </button>
                 </div>

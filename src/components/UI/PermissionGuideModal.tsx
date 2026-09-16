@@ -25,11 +25,11 @@ export const PermissionGuideModal: React.FC<PermissionGuideModalProps> = ({
     >
       <div className="space-y-4">
         {/* Warning Banner */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-200/90 leading-relaxed">
+        <div className="flex items-start gap-3 p-3.5 rounded-card bg-status-warning/10 border border-status-warning/20">
+          <ShieldAlert className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
+          <div className="text-caption text-status-warning leading-relaxed">
             El navegador ha bloqueado el acceso a{' '}
-            <strong className="text-amber-300">
+            <strong className="text-status-warning font-bold">
               {permissionType === 'mic' ? 'tu micrófono' : permissionType === 'camera' ? 'tu cámara' : 'tu micrófono y cámara'}
             </strong>.
             Aura3D procesa la señal de audio y tracking de forma estrictamente local y privada en tu dispositivo (cero telemetría ni subida a servidores).
@@ -38,48 +38,48 @@ export const PermissionGuideModal: React.FC<PermissionGuideModalProps> = ({
 
         {/* Diagnostic Steps */}
         <div className="space-y-2.5">
-          <div className="text-[11px] font-mono tracking-wider text-white/50 uppercase">
+          <div className="text-caption font-mono tracking-wider text-text-tertiary uppercase">
             Instrucciones para Desbloquear:
           </div>
 
-          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
-            <span className="w-5 h-5 rounded-full bg-white/10 text-white/80 flex items-center justify-center text-[10px] font-mono shrink-0">1</span>
-            <div className="text-xs text-white/80 leading-relaxed">
-              Haz clic en el icono del <strong className="text-white">candado / sintonizador de permisos</strong> situado en la barra de direcciones del navegador (a la izquierda de la URL).
+          <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle flex items-start gap-3">
+            <span className="w-6 h-6 rounded-pill bg-white/10 text-text-primary flex items-center justify-center text-caption font-mono shrink-0">1</span>
+            <div className="text-caption text-text-secondary leading-relaxed">
+              Haz clic en el icono del <strong className="text-text-primary">candado / sintonizador de permisos</strong> situado en la barra de direcciones del navegador (a la izquierda de la URL).
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
-            <span className="w-5 h-5 rounded-full bg-white/10 text-white/80 flex items-center justify-center text-[10px] font-mono shrink-0">2</span>
-            <div className="text-xs text-white/80 leading-relaxed">
+          <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle flex items-start gap-3">
+            <span className="w-6 h-6 rounded-pill bg-white/10 text-text-primary flex items-center justify-center text-caption font-mono shrink-0">2</span>
+            <div className="text-caption text-text-secondary leading-relaxed">
               Cambia el interruptor de{' '}
               {permissionType === 'mic' || permissionType === 'both' ? (
-                <span className="inline-flex items-center gap-1 font-mono text-cyan-400">
-                  <Mic className="w-3 h-3" /> Micrófono
+                <span className="inline-flex items-center gap-1 font-mono text-accent-teal">
+                  <Mic className="w-3.5 h-3.5" /> Micrófono
                 </span>
               ) : null}
               {permissionType === 'both' ? ' y ' : ''}
               {permissionType === 'camera' || permissionType === 'both' ? (
-                <span className="inline-flex items-center gap-1 font-mono text-cyan-400">
-                  <Camera className="w-3 h-3" /> Cámara
+                <span className="inline-flex items-center gap-1 font-mono text-accent-teal">
+                  <Camera className="w-3.5 h-3.5" /> Cámara
                 </span>
               ) : null}{' '}
-              a <strong className="text-emerald-400">Permitir</strong>.
+              a <strong className="text-status-success font-bold">Permitir</strong>.
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
-            <span className="w-5 h-5 rounded-full bg-white/10 text-white/80 flex items-center justify-center text-[10px] font-mono shrink-0">3</span>
-            <div className="text-xs text-white/80 leading-relaxed">
+          <div className="p-3 rounded-card bg-surface-base/60 border border-border-subtle flex items-start gap-3">
+            <span className="w-6 h-6 rounded-pill bg-white/10 text-text-primary flex items-center justify-center text-caption font-mono shrink-0">3</span>
+            <div className="text-caption text-text-secondary leading-relaxed">
               Recarga la página para que el motor de audio WebAudio / MediaPipe reconozca el hardware de captura.
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/40">
-            <HelpCircle className="w-3.5 h-3.5" />
+        <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-caption font-mono text-text-tertiary">
+            <HelpCircle className="w-4 h-4" />
             <span>Sin almacenamiento en la nube</span>
           </div>
           <div className="flex items-center gap-2">
@@ -93,7 +93,7 @@ export const PermissionGuideModal: React.FC<PermissionGuideModalProps> = ({
             <StudioButton
               variant="primary"
               size="sm"
-              icon={<ExternalLink className="w-3.5 h-3.5" />}
+              icon={<ExternalLink className="w-4 h-4" />}
               onClick={() => window.location.reload()}
             >
               Recargar Ahora

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SlidersHorizontal, Download, Upload, Plus, Trash2, Check, Search, X, Sparkles } from "lucide-react";
 import { PresetService, FACTORY_PRESETS } from "../../services/presetService";
 import type { ScenePreset } from "../../types/presets";
@@ -156,47 +156,47 @@ export const PresetsModal: React.FC = () => {
 
       {/* Drawer */}
       <aside
-        className="pm-drawer fixed right-0 top-0 bottom-0 z-50 flex flex-col w-[340px] max-w-[calc(100vw-24px)] bg-[#080c17]/97 backdrop-blur-2xl border-l border-white/[0.07] overflow-hidden"
+        className="pm-drawer fixed right-0 top-0 bottom-0 z-50 flex flex-col w-[360px] max-w-[calc(100vw-24px)] bg-surface-overlay material-thick border-l border-border-subtle overflow-hidden text-text-primary"
         role="dialog"
         aria-modal="true"
         aria-label="Presets de Escena"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ─────────────────────────── */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle flex-shrink-0">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-xs font-semibold text-white tracking-wide">Presets</span>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-white/40 border border-white/[0.06]">
+            <SlidersHorizontal className="w-4 h-4 text-accent-teal" />
+            <span className="text-body font-semibold text-text-primary tracking-wide">Presets</span>
+            <span className="text-caption font-mono px-2 py-0.5 rounded-badge bg-surface-base text-text-secondary border border-border-subtle font-tabular">
               {list.length}
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setSaving(!saving)} title="Guardar actual"
-              className={`p-1.5 rounded-lg transition-colors ${saving ? "text-cyan-300 bg-cyan-500/15" : "text-white/40 hover:text-white hover:bg-white/[0.05]"}`}>
-              <Plus className="w-3.5 h-3.5" />
+            <button onClick={() => setSaving(!saving)} title="Guardar actual" aria-label="Guardar preset actual"
+              className={`min-h-11 min-w-11 p-2 rounded-control flex items-center justify-center transition-colors cursor-pointer ${saving ? "text-accent-teal bg-accent-teal/15 border border-accent-teal/30" : "text-text-secondary hover:text-text-primary hover:bg-white/10"}`}>
+              <Plus className="w-4 h-4" />
             </button>
-            <button onClick={exportAll} title="Exportar JSON"
-              className="p-1.5 text-white/40 hover:text-white hover:bg-white/[0.05] rounded-lg transition-colors">
-              <Download className="w-3.5 h-3.5" />
+            <button onClick={exportAll} title="Exportar JSON" aria-label="Exportar presets a JSON"
+              className="min-h-11 min-w-11 p-2 text-text-secondary hover:text-text-primary hover:bg-white/10 rounded-control transition-colors flex items-center justify-center cursor-pointer">
+              <Download className="w-4 h-4" />
             </button>
-            <button onClick={() => fileRef.current?.click()} title="Importar JSON"
-              className="p-1.5 text-white/40 hover:text-white hover:bg-white/[0.05] rounded-lg transition-colors">
-              <Upload className="w-3.5 h-3.5" />
+            <button onClick={() => fileRef.current?.click()} title="Importar JSON" aria-label="Importar presets desde JSON"
+              className="min-h-11 min-w-11 p-2 text-text-secondary hover:text-text-primary hover:bg-white/10 rounded-control transition-colors flex items-center justify-center cursor-pointer">
+              <Upload className="w-4 h-4" />
             </button>
             <input type="file" ref={fileRef} accept=".json" onChange={importFile} className="hidden" />
-            <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
-            <button onClick={close} className="p-1.5 text-white/40 hover:text-white hover:bg-white/[0.05] rounded-lg transition-colors">
-              <X className="w-3.5 h-3.5" />
+            <div className="w-px h-5 bg-border-subtle mx-0.5" />
+            <button onClick={close} aria-label="Cerrar panel de presets" className="min-h-11 min-w-11 p-2 text-text-secondary hover:text-text-primary hover:bg-white/10 rounded-control transition-colors flex items-center justify-center cursor-pointer">
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* ── Save form ──────────────────────── */}
         {saving && (
-          <form onSubmit={saveNew} className="px-4 py-3 border-b border-white/[0.06] flex-shrink-0 flex gap-2">
-            <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 flex-shrink-0">
-              <Sparkles className="w-3 h-3" />
+          <form onSubmit={saveNew} className="px-4 py-3 border-b border-border-subtle flex-shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-caption text-accent-teal flex-shrink-0">
+              <Sparkles className="w-4 h-4" />
             </div>
             <input
               autoFocus
@@ -204,14 +204,14 @@ export const PresetsModal: React.FC = () => {
               placeholder="Nombre del preset…"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
-              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/50"
+              className="flex-1 min-h-11 bg-surface-base border border-border-subtle rounded-control px-3 py-2 text-caption text-text-primary placeholder-text-tertiary"
             />
             <button type="submit"
-              className="px-3 py-1.5 rounded-lg bg-white text-black text-xs font-semibold hover:bg-white/90 transition-colors flex-shrink-0">
+              className="min-h-11 px-3 py-2 rounded-control bg-accent-teal text-black text-caption font-semibold hover:bg-accent-teal/90 transition-colors flex-shrink-0 cursor-pointer">
               OK
             </button>
             <button type="button" onClick={() => setSaving(false)}
-              className="px-2 py-1.5 text-white/40 hover:text-white text-xs flex-shrink-0">
+              className="min-h-11 px-2.5 py-2 text-text-secondary hover:text-text-primary text-caption flex-shrink-0 cursor-pointer">
               ✕
             </button>
           </form>
@@ -220,20 +220,20 @@ export const PresetsModal: React.FC = () => {
         {/* ── Search + Tabs ──────────────────── */}
         <div className="px-4 pt-3 pb-2 flex flex-col gap-2 flex-shrink-0">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/25" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
             <input
               type="text"
               placeholder="Buscar…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-7 pr-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[11px] text-white placeholder-white/25 focus:outline-none focus:border-white/20"
+              className="w-full min-h-11 pl-9 pr-3 py-2 bg-surface-base border border-border-subtle rounded-control text-caption text-text-primary placeholder-text-tertiary"
             />
           </div>
-          <div className="flex gap-0.5">
+          <div className="flex gap-1 p-1 rounded-control bg-surface-base border border-border-subtle">
             {(["all", "factory", "user"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-1 rounded-md text-[10px] font-mono transition-colors ${
-                  tab === t ? "bg-white/[0.08] text-white" : "text-white/35 hover:text-white/60"
+                className={`flex-1 min-h-11 py-1 rounded-control text-caption font-mono transition-colors cursor-pointer ${
+                  tab === t ? "bg-white/20 text-text-primary font-bold shadow-subtle" : "text-text-tertiary hover:text-text-primary"
                 }`}>
                 {t === "all" ? "Todos" : t === "factory" ? "Fábrica" : "Míos"}
               </button>
@@ -244,7 +244,7 @@ export const PresetsModal: React.FC = () => {
         {/* ── List ───────────────────────────── */}
         <div className="flex-1 overflow-y-auto pm-list min-h-0">
           {list.length === 0 && (
-            <div className="py-12 text-center text-white/25 text-xs font-mono">
+            <div className="py-12 text-center text-text-tertiary text-caption font-mono">
               Sin resultados
             </div>
           )}
@@ -255,30 +255,30 @@ export const PresetsModal: React.FC = () => {
             return (
               <div
                 key={p.id}
-                className={`group flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.04] transition-colors ${
-                  isActive ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"
+                className={`group flex items-center gap-3 px-4 py-3 border-b border-border-subtle transition-colors ${
+                  isActive ? "bg-white/10" : "hover:bg-surface-base/60"
                 }`}
               >
                 {/* Color dot */}
                 <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  className="w-3.5 h-3.5 rounded-pill flex-shrink-0"
                   style={{
                     background: `linear-gradient(135deg, ${p.lucidPrimaryColor}, ${p.lucidSecondaryColor})`,
-                    boxShadow: isActive ? `0 0 6px ${p.lucidPrimaryColor}80` : "none",
+                    boxShadow: isActive ? `0 0 8px ${p.lucidPrimaryColor}80` : "none",
                   }}
                 />
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`text-[11px] font-medium truncate ${isActive ? "text-white" : "text-white/80"}`}>
+                    <span className={`text-caption font-medium truncate ${isActive ? "text-text-primary font-bold" : "text-text-secondary"}`}>
                       {p.name}
                     </span>
                     {atmo && (
-                      <span className="text-[9px] text-white/30 font-mono flex-shrink-0">{atmo}</span>
+                      <span className="text-caption text-text-tertiary font-mono flex-shrink-0">{atmo}</span>
                     )}
                   </div>
-                  <span className="text-[9px] text-white/25 font-mono uppercase">
+                  <span className="text-caption text-text-tertiary font-mono uppercase">
                     {p.visualizerMode}
                   </span>
                 </div>
@@ -288,22 +288,24 @@ export const PresetsModal: React.FC = () => {
                   {!p.isFactory && (
                     <button
                       onClick={(e) => { e.stopPropagation(); remove(p.id, p.name); }}
-                      className="p-1 text-white/25 hover:text-rose-400 rounded transition-colors"
+                      aria-label={`Eliminar preset ${p.name}`}
+                      className="min-h-11 min-w-11 p-2 text-text-tertiary hover:text-status-error rounded-control transition-colors flex items-center justify-center cursor-pointer"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
 
                 <button
                   onClick={(e) => { e.stopPropagation(); apply(p); }}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono transition-all ${
+                  aria-label={`Aplicar preset ${p.name}`}
+                  className={`flex-shrink-0 flex items-center gap-1 min-h-11 px-3 py-1.5 rounded-control text-caption font-mono font-bold transition-all cursor-pointer ${
                     isActive
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                      : "bg-white/[0.04] text-white/50 border border-white/[0.08] hover:bg-white/[0.08] hover:text-white"
+                      ? "bg-accent-teal/20 text-accent-teal border border-accent-teal/40"
+                      : "bg-surface-base text-text-secondary border border-border-subtle hover:bg-white/10 hover:text-text-primary"
                   }`}
                 >
-                  {isActive ? <Check className="w-2.5 h-2.5" /> : null}
+                  {isActive ? <Check className="w-3.5 h-3.5" /> : null}
                   {isActive ? "Activo" : "Activar"}
                 </button>
               </div>

@@ -191,22 +191,22 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl pointer-events-auto select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-backdrop material-thick pointer-events-auto select-none"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      <div className="relative w-full max-w-lg bg-[#080b18]/95 border border-cyan-400/30 rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg bg-surface-overlay material-thick border border-border-subtle rounded-modal shadow-modal overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-fast">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0 bg-white/[0.02]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle flex-shrink-0 bg-surface-base/40">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,242,254,0.3)]">
-              <ImageIcon className="w-4 h-4 text-cyan-300" />
+            <div className="w-10 h-10 rounded-control bg-accent-teal/15 border border-accent-teal/30 flex items-center justify-center shadow-subtle">
+              <ImageIcon className="w-5 h-5 text-accent-teal" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-sm tracking-wide">
+              <h3 className="text-text-primary font-semibold text-body tracking-wide">
                 Editor y Recorte de Logo
               </h3>
-              <p className="text-[10px] font-mono text-cyan-400/60 uppercase tracking-widest">
+              <p className="text-caption font-mono text-accent-teal uppercase tracking-widest">
                 ENCUADRE CIRCULAR · FILTROS · TINTE NEÓN
               </p>
             </div>
@@ -214,35 +214,36 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-white/40 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            aria-label="Cerrar modal"
+            className="min-h-11 min-w-11 p-2 text-text-secondary hover:text-text-primary rounded-control hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Strip */}
-        <div className="flex border-b border-white/8 px-6 bg-black/40 flex-shrink-0">
+        <div className="flex border-b border-border-subtle px-6 bg-surface-base/60 flex-shrink-0">
           <button
             onClick={() => setActiveTab('crop')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-medium border-b-2 transition-all ${
+            className={`min-h-11 flex items-center gap-2 py-3 px-4 text-caption font-medium border-b-2 transition-all cursor-pointer ${
               activeTab === 'crop'
-                ? 'border-cyan-400 text-cyan-300 -mb-px bg-cyan-500/10'
-                : 'border-transparent text-white/50 hover:text-white/80'
+                ? 'border-accent-teal text-accent-teal -mb-px bg-accent-teal/10'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
-            <Move className="w-3.5 h-3.5" />
+            <Move className="w-4 h-4" />
             <span>Encuadre y Recorte (1:1 Circular)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('filters')}
-            className={`flex items-center gap-2 py-3 px-4 text-xs font-medium border-b-2 transition-all ${
+            className={`min-h-11 flex items-center gap-2 py-3 px-4 text-caption font-medium border-b-2 transition-all cursor-pointer ${
               activeTab === 'filters'
-                ? 'border-cyan-400 text-cyan-300 -mb-px bg-cyan-500/10'
-                : 'border-transparent text-white/50 hover:text-white/80'
+                ? 'border-accent-teal text-accent-teal -mb-px bg-accent-teal/10'
+                : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
-            <Palette className="w-3.5 h-3.5" />
+            <Palette className="w-4 h-4" />
             <span>Filtros y Efectos Neón</span>
           </button>
         </div>
@@ -255,10 +256,10 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
               ref={viewportRef}
               onMouseDown={handleMouseDown}
               onWheel={handleWheel}
-              className={`relative w-60 h-60 rounded-full border-2 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing shadow-[0_0_40px_rgba(0,0,0,0.8)] bg-black/90 ${
+              className={`relative w-60 h-60 rounded-full border-2 overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing shadow-modal bg-surface-base ${
                 neonBorder
-                  ? 'border-cyan-400 shadow-[0_0_25px_rgba(0,242,254,0.4)]'
-                  : 'border-white/20'
+                  ? 'border-accent-teal shadow-subtle'
+                  : 'border-border-subtle'
               }`}
             >
               {/* Overlay Crosshair Grid */}
@@ -282,14 +283,14 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 src={imageSrc}
                 alt="Logo Preview"
                 draggable={false}
-                className="max-w-none transition-transform duration-75 origin-center select-none"
+                className="max-w-none transition-transform duration-fast origin-center select-none"
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${zoom})`,
                   filter: cssFilterString,
                 }}
               />
             </div>
-            <p className="text-[10px] font-mono text-white/40 mt-2 tracking-wider">
+            <p className="text-caption font-mono text-text-tertiary mt-2 tracking-wider">
               ARRASTRA PARA MOVER · SCROLL PARA ZOOM
             </p>
           </div>
@@ -299,25 +300,40 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
             <div className="space-y-4 pt-2">
               {/* Zoom Slider */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70 flex items-center gap-1.5 font-medium">
-                    <ZoomIn className="w-3.5 h-3.5 text-cyan-400" />
+                <div className="flex items-center justify-between text-caption">
+                  <span className="text-text-secondary flex items-center gap-1.5 font-medium">
+                    <ZoomIn className="w-4 h-4 text-accent-teal" />
                     Zoom de Imagen
                   </span>
-                  <span className="text-cyan-300 font-mono text-xs">{zoom.toFixed(2)}x</span>
+                  <span className="text-accent-teal font-mono font-tabular text-caption">{zoom.toFixed(2)}x</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <ZoomOut className="w-4 h-4 text-white/40 cursor-pointer hover:text-white" onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))} />
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))}
+                    aria-label="Reducir zoom"
+                    className="min-h-11 min-w-11 flex items-center justify-center rounded-control text-text-secondary hover:text-text-primary cursor-pointer"
+                  >
+                    <ZoomOut className="w-5 h-5" />
+                  </button>
                   <input
                     type="range"
                     min="0.5"
                     max="3.5"
                     step="0.05"
                     value={zoom}
+                    aria-label="Nivel de zoom"
                     onChange={(e) => setZoom(parseFloat(e.target.value))}
-                    className="flex-1 h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                    className="flex-1 min-h-11 bg-transparent cursor-pointer accent-accent-teal"
                   />
-                  <ZoomIn className="w-4 h-4 text-white/40 cursor-pointer hover:text-white" onClick={() => setZoom((z) => Math.min(3.5, z + 0.2))} />
+                  <button
+                    type="button"
+                    onClick={() => setZoom((z) => Math.min(3.5, z + 0.2))}
+                    aria-label="Aumentar zoom"
+                    className="min-h-11 min-w-11 flex items-center justify-center rounded-control text-text-secondary hover:text-text-primary cursor-pointer"
+                  >
+                    <ZoomIn className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
 
@@ -326,9 +342,9 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setRotation((r) => (r + 90) % 360)}
-                  className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/80 font-medium flex items-center justify-center gap-2 transition-all"
+                  className="min-h-11 py-2.5 px-3 bg-surface-base/80 hover:bg-surface-base border border-border-subtle rounded-control text-caption text-text-primary font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
+                  <RotateCw className="w-4 h-4 text-accent-teal" />
                   <span>Rotar 90º ({rotation}º)</span>
                 </button>
 
@@ -339,9 +355,9 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                     setZoom(1.0);
                     setRotation(0);
                   }}
-                  className="py-2.5 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-white/80 font-medium flex items-center justify-center gap-2 transition-all"
+                  className="min-h-11 py-2.5 px-3 bg-surface-base/80 hover:bg-surface-base border border-border-subtle rounded-control text-caption text-text-primary font-medium flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-pink-400" />
+                  <RefreshCw className="w-4 h-4 text-status-warning" />
                   <span>Centrar y Reset</span>
                 </button>
               </div>
@@ -353,64 +369,67 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
             <div className="space-y-4 pt-2">
               {/* Brightness */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70 flex items-center gap-1.5 font-medium">
-                    <Sun className="w-3.5 h-3.5 text-yellow-400" />
+                <div className="flex items-center justify-between text-caption">
+                  <span className="text-text-secondary flex items-center gap-1.5 font-medium">
+                    <Sun className="w-4 h-4 text-status-warning" />
                     Brillo
                   </span>
-                  <span className="text-yellow-300 font-mono text-xs">{brightness}%</span>
+                  <span className="text-status-warning font-mono font-tabular text-caption">{brightness}%</span>
                 </div>
                 <input
                   type="range"
                   min="50"
                   max="160"
                   value={brightness}
+                  aria-label="Nivel de brillo"
                   onChange={(e) => setBrightness(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-yellow-400"
+                  className="w-full min-h-11 bg-transparent cursor-pointer accent-status-warning"
                 />
               </div>
 
               {/* Contrast */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70 flex items-center gap-1.5 font-medium">
-                    <Contrast className="w-3.5 h-3.5 text-cyan-400" />
+                <div className="flex items-center justify-between text-caption">
+                  <span className="text-text-secondary flex items-center gap-1.5 font-medium">
+                    <Contrast className="w-4 h-4 text-accent-teal" />
                     Contraste
                   </span>
-                  <span className="text-cyan-300 font-mono text-xs">{contrast}%</span>
+                  <span className="text-accent-teal font-mono font-tabular text-caption">{contrast}%</span>
                 </div>
                 <input
                   type="range"
                   min="50"
                   max="160"
                   value={contrast}
+                  aria-label="Nivel de contraste"
                   onChange={(e) => setContrast(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
+                  className="w-full min-h-11 bg-transparent cursor-pointer accent-accent-teal"
                 />
               </div>
 
               {/* Saturation */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70 flex items-center gap-1.5 font-medium">
-                    <Droplet className="w-3.5 h-3.5 text-pink-400" />
+                <div className="flex items-center justify-between text-caption">
+                  <span className="text-text-secondary flex items-center gap-1.5 font-medium">
+                    <Droplet className="w-4 h-4 text-accent-purple" />
                     Saturación
                   </span>
-                  <span className="text-pink-300 font-mono text-xs">{saturation}%</span>
+                  <span className="text-accent-purple font-mono font-tabular text-caption">{saturation}%</span>
                 </div>
                 <input
                   type="range"
                   min="0"
                   max="200"
                   value={saturation}
+                  aria-label="Nivel de saturación"
                   onChange={(e) => setSaturation(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-pink-500"
+                  className="w-full min-h-11 bg-transparent cursor-pointer accent-accent-purple"
                 />
               </div>
 
               {/* Tinte Neón */}
               <div className="space-y-2 pt-1">
-                <span className="text-xs font-mono text-cyan-300 uppercase tracking-wider block">
+                <span className="text-caption font-mono text-accent-teal uppercase tracking-wider block">
                   Tinte de Color Neón:
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -419,14 +438,14 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                       key={tint.id}
                       type="button"
                       onClick={() => setActiveTint(tint.id)}
-                      className={`p-2 rounded-xl border flex items-center gap-2 text-xs transition-all ${
+                      className={`min-h-11 p-2.5 rounded-control border flex items-center gap-2 text-caption transition-all cursor-pointer ${
                         activeTint === tint.id
-                          ? 'bg-white/15 border-cyan-400 text-cyan-200 shadow-[0_0_10px_rgba(0,242,254,0.3)]'
-                          : 'bg-white/5 border-white/5 text-white/50 hover:text-white'
+                          ? 'bg-surface-base border-accent-teal text-text-primary shadow-subtle'
+                          : 'bg-surface-base/60 border-border-subtle text-text-secondary hover:text-text-primary'
                       }`}
                     >
                       <span
-                        className="w-3 h-3 rounded-full border border-black/30"
+                        className="w-4 h-4 rounded-pill border border-border-subtle shrink-0"
                         style={{ backgroundColor: tint.color === 'transparent' ? '#fff' : tint.color }}
                       />
                       <span className="truncate">{tint.name}</span>
@@ -440,10 +459,10 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsGrayscale(!isGrayscale)}
-                  className={`p-2.5 rounded-xl border text-xs font-medium transition-all ${
+                  className={`min-h-11 p-2.5 rounded-control border text-caption font-medium transition-all cursor-pointer ${
                     isGrayscale
-                      ? 'bg-white/20 border-white text-white font-semibold'
-                      : 'bg-white/5 border-white/5 text-white/40 hover:text-white'
+                      ? 'bg-white/20 border-white text-text-primary font-semibold'
+                      : 'bg-surface-base/60 border-border-subtle text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   Blanco y Negro: {isGrayscale ? 'ON' : 'OFF'}
@@ -452,10 +471,10 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsInverted(!isInverted)}
-                  className={`p-2.5 rounded-xl border text-xs font-medium transition-all ${
+                  className={`min-h-11 p-2.5 rounded-control border text-caption font-medium transition-all cursor-pointer ${
                     isInverted
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 font-semibold'
-                      : 'bg-white/5 border-white/5 text-white/40 hover:text-white'
+                      ? 'bg-accent-teal/20 border-accent-teal text-accent-teal font-semibold'
+                      : 'bg-surface-base/60 border-border-subtle text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   Invertir Colores: {isInverted ? 'ON' : 'OFF'}
@@ -464,22 +483,22 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
 
               <div
                 onClick={() => setNeonBorder(!neonBorder)}
-                className={`p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
+                className={`min-h-11 p-3 rounded-card border cursor-pointer flex items-center justify-between transition-all ${
                   neonBorder
-                    ? 'bg-cyan-500/15 border-cyan-400/50 text-cyan-200'
-                    : 'bg-white/[0.03] border-white/8 text-white/50'
+                    ? 'bg-accent-teal/15 border-accent-teal/50 text-accent-teal'
+                    : 'bg-surface-base/60 border-border-subtle text-text-secondary'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-medium">Borde Circular de Neón Luminoso</span>
+                  <Sparkles className="w-4 h-4 text-accent-teal" />
+                  <span className="text-caption font-medium">Borde Circular de Neón Luminoso</span>
                 </div>
                 <div
-                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                    neonBorder ? 'border-cyan-400 bg-cyan-400' : 'border-white/20'
+                  className={`w-5 h-5 rounded-pill border flex items-center justify-center ${
+                    neonBorder ? 'border-accent-teal bg-accent-teal' : 'border-border-subtle'
                   }`}
                 >
-                  {neonBorder && <Check className="w-3 h-3 text-black stroke-[3]" />}
+                  {neonBorder && <Check className="w-3.5 h-3.5 text-black stroke-[3]" />}
                 </div>
               </div>
             </div>
@@ -487,11 +506,11 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/8 flex items-center justify-between bg-black/40 flex-shrink-0">
+        <div className="p-4 border-t border-border-subtle flex items-center justify-between bg-surface-base/60 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-white/50 hover:text-white text-xs font-medium transition-colors"
+            className="min-h-11 px-4 py-2 text-text-secondary hover:text-text-primary text-caption font-medium transition-colors cursor-pointer rounded-control hover:bg-white/10"
           >
             Cancelar
           </button>
@@ -499,7 +518,7 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
           <button
             type="button"
             onClick={handleApplyAndSave}
-            className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-black font-semibold rounded-xl text-xs tracking-wider uppercase transition-all shadow-[0_0_20px_rgba(0,242,254,0.4)] flex items-center gap-1.5"
+            className="min-h-11 px-6 py-2.5 bg-accent-teal text-black font-semibold rounded-control text-caption tracking-wider uppercase transition-all shadow-subtle flex items-center gap-1.5 cursor-pointer"
           >
             <Check className="w-4 h-4 stroke-[2.5]" />
             <span>Guardar y Aplicar Logo</span>
