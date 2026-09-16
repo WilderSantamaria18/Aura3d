@@ -58,7 +58,7 @@ function getOrCreatePortal(): HTMLElement {
       overflow: "hidden",
       zIndex: "9000",
       borderRadius: "12px",
-      background: "#000",
+      background: "black",
       transition: "left 0ms, top 0ms, width 200ms, height 200ms",
     });
 

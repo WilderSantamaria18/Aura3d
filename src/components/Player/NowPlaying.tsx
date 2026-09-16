@@ -51,20 +51,20 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
 
       {/* Main Vinyl / Artwork Preview */}
       <div className="my-auto py-5 flex flex-col items-center text-center space-y-4">
-        <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full bg-[#0a0e1a] border border-white/[0.1] p-1 flex items-center justify-center shadow-xl">
+        <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-pill bg-surface-elevated border border-border-subtle p-1 flex items-center justify-center shadow-xl">
           {/* Outer grooved vinyl rings */}
-          <div className="w-full h-full rounded-full border border-white/[0.06] flex items-center justify-center bg-[#05070d]">
-            <div className="w-[78%] h-[78%] rounded-full border border-white/[0.04] flex items-center justify-center">
-              <div className="w-[52%] h-[52%] rounded-full bg-[#121626] border border-white/[0.08] flex items-center justify-center p-[2px]">
-                <div className="w-full h-full bg-[#0a0d17] rounded-full flex items-center justify-center">
+          <div className="w-full h-full rounded-pill border border-border-subtle flex items-center justify-center bg-surface-base">
+            <div className="w-[78%] h-[78%] rounded-pill border border-border-subtle flex items-center justify-center">
+              <div className="w-[52%] h-[52%] rounded-pill bg-surface-subtle border border-border-subtle flex items-center justify-center p-[2px]">
+                <div className="w-full h-full bg-surface-base rounded-pill flex items-center justify-center">
                   {isCapturing ? (
                     <Disc3
-                      className={`w-7 h-7 text-white/70 ${
+                      className={`w-7 h-7 text-text-secondary ${
                         isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''
                       }`}
                     />
                   ) : (
-                    <Music className="w-6 h-6 text-white/30" />
+                    <Music className="w-6 h-6 text-text-tertiary" />
                   )}
                 </div>
               </div>
@@ -72,7 +72,7 @@ export const NowPlaying: React.FC<NowPlayingProps> = ({
           </div>
 
           {/* Center spindle */}
-          <div className="absolute w-2.5 h-2.5 rounded-full bg-black border border-white/40" />
+          <div className="absolute w-2.5 h-2.5 rounded-pill bg-black border border-white/40" />
         </div>
 
         {/* Track Title and Artist */}

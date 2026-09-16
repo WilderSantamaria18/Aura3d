@@ -433,23 +433,23 @@ export const MiniPlayer: React.FC = () => {
       {isZenMode && !isExpanded && (
         <div className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300">
           <div
-            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full select-none backdrop-blur-2xl border"
+            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-pill select-none material-regular border"
             style={themeGlowStyle}
           >
             {/* 3 dancing audio bars */}
             <div className="flex items-end gap-0.5 h-3.5 w-3.5 flex-shrink-0">
               <span
-                className={`w-1 rounded-full bg-cyan-400 transition-all duration-150 ${
+                className={`w-1 rounded-pill bg-cyan-400 transition-all duration-150 ${
                   isPlaying ? 'h-3' : 'h-1 opacity-40'
                 }`}
               />
               <span
-                className={`w-1 rounded-full bg-cyan-300 transition-all duration-150 ${
+                className={`w-1 rounded-pill bg-cyan-300 transition-all duration-150 ${
                   isPlaying ? 'h-3.5' : 'h-1.5 opacity-40'
                 }`}
               />
               <span
-                className={`w-1 rounded-full bg-cyan-400 transition-all duration-150 ${
+                className={`w-1 rounded-pill bg-cyan-400 transition-all duration-150 ${
                   isPlaying ? 'h-2' : 'h-1 opacity-40'
                 }`}
               />
@@ -463,24 +463,26 @@ export const MiniPlayer: React.FC = () => {
             {/* Play / Pause Mini */}
             <button
               onClick={togglePlay}
-              className="w-6 h-6 flex items-center justify-center rounded-full bg-white text-black hover:bg-white/90 btn-spring transition-all shadow text-xs"
+              className="min-w-11 min-h-11 w-11 h-11 flex items-center justify-center rounded-pill bg-white text-black hover:bg-white/90 btn-spring transition-all shadow text-xs cursor-pointer"
               style={
                 isLucid
-                  ? { backgroundColor: lucidTheme.primary, color: '#000' }
-                  : { backgroundColor: 'var(--color-primary, #ffffff)', color: '#000' }
+                  ? { backgroundColor: lucidTheme.primary, color: 'black' }
+                  : { backgroundColor: 'var(--color-primary)', color: 'black' }
               }
               title={isPlaying ? 'Pausar' : 'Reproducir'}
+              aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
-              {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current translate-x-0.5" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />}
             </button>
 
             {/* Exit Zen Mode Button */}
             <button
               onClick={() => setIsZenMode(false)}
-              className="p-1 text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.06] btn-spring transition-colors"
+              className="min-w-11 min-h-11 p-2 text-white/60 hover:text-white rounded-control hover:bg-white/[0.06] btn-spring transition-colors flex items-center justify-center cursor-pointer"
               title="Restaurar Mini-Player estándar"
+              aria-label="Restaurar Mini-Player estándar"
             >
-              <Maximize2 className="w-3.5 h-3.5" />
+              <Maximize2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -492,19 +494,19 @@ export const MiniPlayer: React.FC = () => {
           className="fixed bottom-6 left-4 z-50 pointer-events-auto transition-all duration-300 transform"
         >
           <div
-            className="group relative flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-[var(--radius-dock)] border backdrop-blur-3xl transition-all cursor-pointer max-w-[290px] sm:max-w-[340px]"
+            className="group relative flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-dock border material-regular transition-all cursor-pointer max-w-[290px] sm:max-w-[340px]"
             style={themeGlowStyle}
             onClick={() => setIsExpanded(true)}
           >
             {/* Subtle Progress Background Fill */}
             <div
-              className="absolute left-0 bottom-0 top-0 rounded-[var(--radius-dock)] bg-white/[0.06] pointer-events-none transition-all duration-200"
+              className="absolute left-0 bottom-0 top-0 rounded-dock bg-white/[0.06] pointer-events-none transition-all duration-200"
               style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
             />
 
             {/* Left: Thumbnail & Info */}
             <div className="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
-              <div className="relative w-10 h-10 rounded-[var(--radius-control)] overflow-hidden bg-white/[0.06] border border-white/[0.08] flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              <div className="relative w-10 h-10 rounded-control overflow-hidden bg-white/[0.06] border border-white/[0.08] flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                 <img
                   src={coverUrl}
                   alt={title}
@@ -517,9 +519,9 @@ export const MiniPlayer: React.FC = () => {
                   }}
                 />
                 {isPlaying ? (
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[0.5px]">
-                    <div className="w-4 h-4 rounded-full border border-cyan-400/60 border-t-transparent animate-spin flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center material-thin">
+                    <div className="w-4 h-4 rounded-pill border border-cyan-400/60 border-t-transparent animate-spin flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-pill bg-cyan-400" />
                     </div>
                   </div>
                 ) : (
@@ -548,12 +550,13 @@ export const MiniPlayer: React.FC = () => {
               {currentTrack && (
                 <button
                   onClick={() => toggleFavorite(currentTrack)}
-                  className={`p-1.5 rounded-[8px] transition-all active:scale-90 ${
+                  className={`min-w-11 min-h-11 p-2 rounded-control transition-all active:scale-90 flex items-center justify-center cursor-pointer ${
                     isCurrentFav ? 'text-rose-400 bg-rose-500/10' : 'text-white/40 hover:text-rose-300 hover:bg-white/5'
                   }`}
                   title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                  aria-label={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
                 >
-                  <Heart className={`w-3.5 h-3.5 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                  <Heart className={`w-4 h-4 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                 </button>
               )}
 
@@ -562,21 +565,23 @@ export const MiniPlayer: React.FC = () => {
                   setActiveTab('search');
                   setIsExpanded(true);
                 }}
-                className="p-2 text-white/50 hover:text-white rounded-[8px] hover:bg-white/[0.06] transition-colors"
+                className="min-w-11 min-h-11 p-2 text-white/50 hover:text-white rounded-control hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
                 title="Buscar canciones (YouTube/Spotify)"
+                aria-label="Buscar canciones (YouTube/Spotify)"
               >
                 <Search className="w-4 h-4" />
               </button>
 
               <button
                 onClick={togglePlay}
-                className="w-9 h-9 flex items-center justify-center rounded-[var(--radius-control)] bg-white text-black hover:bg-white/90 active:scale-[0.97] transition-all shadow-sm btn-spring"
+                className="min-w-11 min-h-11 w-11 h-11 flex items-center justify-center rounded-pill bg-white text-black hover:bg-white/90 active:scale-[0.97] transition-all shadow-sm btn-spring cursor-pointer"
                 style={
                   isLucid
-                    ? { backgroundColor: lucidTheme.primary, color: '#000' }
-                    : { backgroundColor: 'var(--color-primary, #ffffff)', color: '#000' }
+                    ? { backgroundColor: lucidTheme.primary, color: 'black' }
+                    : { backgroundColor: 'var(--color-primary)', color: 'black' }
                 }
                 title={isPlaying ? 'Pausar' : 'Reproducir'}
+                aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
               >
                 {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
               </button>
@@ -584,16 +589,18 @@ export const MiniPlayer: React.FC = () => {
               {/* Botón Zen Mode */}
               <button
                 onClick={() => setIsZenMode(true)}
-                className="p-1.5 text-white/40 hover:text-cyan-300 rounded-[8px] hover:bg-white/[0.06] transition-colors"
+                className="min-w-11 min-h-11 p-2 text-white/40 hover:text-cyan-300 rounded-control hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
                 title="Activar Modo Zen (píldora ultracompacta)"
+                aria-label="Activar Modo Zen"
               >
                 <Minimize2 className="w-4 h-4" />
               </button>
 
               <button
                 onClick={() => setIsExpanded(true)}
-                className="p-1.5 text-white/40 hover:text-white rounded-[8px] hover:bg-white/[0.06] transition-colors"
+                className="min-w-11 min-h-11 p-2 text-white/40 hover:text-white rounded-control hover:bg-white/[0.06] transition-colors flex items-center justify-center cursor-pointer"
                 title="Expandir Mini-Player"
+                aria-label="Expandir Mini-Player"
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
@@ -609,7 +616,7 @@ export const MiniPlayer: React.FC = () => {
         }`}
       >
           <div
-            className="flex flex-col rounded-[var(--radius-modal)] backdrop-blur-3xl bg-[var(--surface-overlay)] border border-[var(--border-medium)] shadow-[var(--shadow-modal)] overflow-hidden animate-aura-modal"
+            className="flex flex-col rounded-modal material-thick bg-[var(--surface-overlay)] border border-[var(--border-medium)] shadow-modal overflow-hidden animate-aura-modal"
             style={{
               ...themeGlowStyle,
               transform: `perspective(1000px) rotateX(${tilt.rotateX}deg) rotateY(${tilt.rotateY}deg)`,
@@ -621,7 +628,7 @@ export const MiniPlayer: React.FC = () => {
             {/* Header: Title, Source & Collapse/Close */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white/[0.03]">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span className="w-2 h-2 rounded-pill bg-cyan-400" />
                 <span className="text-xs font-sans font-semibold tracking-tight text-white text-scrim-3d">
                   MiniPlayer
                 </span>
@@ -631,8 +638,9 @@ export const MiniPlayer: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setIsExpanded(false)}
-                  className="p-1.5 text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.06] btn-spring transition-colors"
+                  className="min-w-11 min-h-11 p-2 text-white/60 hover:text-white rounded-control hover:bg-white/[0.06] btn-spring transition-colors flex items-center justify-center cursor-pointer"
                   title="Minimizar a píldora"
+                  aria-label="Minimizar a píldora"
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -640,13 +648,13 @@ export const MiniPlayer: React.FC = () => {
             </div>
 
             {/* Tab Navigation Strip */}
-            <div className="flex border-b border-white/[0.08] bg-white/[0.02]">
+            <div className="flex p-1 gap-1 border-b border-white/[0.08] bg-white/[0.02]">
               <button
                 onClick={() => setActiveTab('player')}
-                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'player'
-                    ? 'text-white border-b border-white font-semibold bg-white/[0.05]'
-                    : 'text-white/50 hover:text-white'
+                    ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                 }`}
                 style={
                   activeTab === 'player' && isLucid
@@ -663,10 +671,10 @@ export const MiniPlayer: React.FC = () => {
                   setActiveTab('search');
                   setTimeout(() => searchInputRef.current?.focus(), 100);
                 }}
-                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'search'
-                    ? 'text-white border-b border-white font-semibold bg-white/[0.05]'
-                    : 'text-white/50 hover:text-white'
+                    ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                 }`}
                 style={
                   activeTab === 'search' && isLucid
@@ -680,10 +688,10 @@ export const MiniPlayer: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('queue')}
-                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'queue'
-                    ? 'text-white border-b border-white font-semibold bg-white/[0.05]'
-                    : 'text-white/50 hover:text-white'
+                    ? 'text-white font-semibold bg-white/[0.12] shadow-sm'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                 }`}
                 style={
                   activeTab === 'queue' && isLucid
@@ -697,17 +705,16 @@ export const MiniPlayer: React.FC = () => {
 
               <button
                 onClick={() => setActiveTab('favorites')}
-                className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors ${
+                className={`flex-1 min-h-11 py-2 px-2 rounded-control flex items-center justify-center gap-1.5 text-[11px] font-sans tracking-tight transition-colors cursor-pointer ${
                   activeTab === 'favorites'
-                    ? 'text-rose-400 border-b border-rose-400 font-semibold bg-rose-500/[0.08]'
-                    : 'text-white/50 hover:text-rose-300'
+                    ? 'text-rose-400 font-semibold bg-rose-500/[0.15] shadow-sm'
+                    : 'text-white/50 hover:text-rose-300 hover:bg-white/[0.04]'
                 }`}
               >
                 <Heart className={`w-3.5 h-3.5 ${favorites.length > 0 ? 'fill-rose-500 text-rose-500' : ''}`} />
                 FAVS ({favorites.length})
               </button>
             </div>
-
             {/* Tab Body */}
             <div className="p-4 flex flex-col gap-3 max-h-[70vh] overflow-y-auto">
               {/* ── 1. PLAYER TAB (Video y Título Limpio sin reproductor inferior) ─── */}
@@ -729,12 +736,13 @@ export const MiniPlayer: React.FC = () => {
                         {currentTrack && (
                           <button
                             onClick={() => toggleFavorite(currentTrack)}
-                            className={`p-1.5 rounded-lg border transition-all active:scale-90 flex items-center justify-center ${
+                            className={`min-h-11 min-w-11 p-2 rounded-control border transition-all active:scale-90 flex items-center justify-center cursor-pointer ${
                               isCurrentFav
                                 ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
                                 : 'text-white/40 hover:text-rose-300 hover:bg-rose-500/10 border-white/10'
                             }`}
                             title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                            aria-label={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
                           >
                             <Heart className={`w-4 h-4 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                           </button>
@@ -742,8 +750,9 @@ export const MiniPlayer: React.FC = () => {
                         {sourceBadge}
                         <button
                           onClick={() => setShowVideoView(false)}
-                          className="text-[10px] text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 px-2 py-1 rounded-lg border border-cyan-500/20 font-mono transition-colors"
+                          className="min-h-11 px-3 py-2 rounded-control text-caption text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/20 font-mono transition-colors flex items-center justify-center cursor-pointer"
                           title="Ver portada del tema"
+                          aria-label="Ver portada del tema"
                         >
                           Portada
                         </button>
@@ -752,9 +761,11 @@ export const MiniPlayer: React.FC = () => {
                             href={`https://www.youtube.com/watch?v=${currentTrack.youtubeId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[10px] text-white/40 hover:text-white flex items-center gap-0.5 font-mono px-2 py-1 rounded-lg bg-white/5 border border-white/10"
+                            className="min-h-11 px-3 py-2 rounded-control text-caption text-white/40 hover:text-white flex items-center gap-1 font-mono bg-white/5 border border-white/10"
+                            title="Abrir en YouTube"
+                            aria-label="Abrir en YouTube"
                           >
-                            YT <ExternalLink className="w-2.5 h-2.5" />
+                            YT <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                       </div>
@@ -768,20 +779,20 @@ export const MiniPlayer: React.FC = () => {
                     <div className="relative flex-shrink-0">
                       {/* Realistic Grooved Vinyl Disc */}
                       <div
-                        className={`absolute top-0 bottom-0 left-0 w-16 h-16 sm:w-20 sm:h-20 rounded-full shadow-2xl transition-all duration-700 ease-out pointer-events-none flex items-center justify-center ${
+                        className={`absolute top-0 bottom-0 left-0 w-16 h-16 sm:w-20 sm:h-20 rounded-pill shadow-2xl transition-all duration-700 ease-out pointer-events-none flex items-center justify-center ${
                           isPlaying
                             ? 'translate-x-5 sm:translate-x-7 opacity-100'
                             : 'translate-x-0 opacity-0'
                         }`}
                         style={{
-                          background: 'repeating-radial-gradient(circle, #0e0e12 0px, #14141a 2px, #0a0a0d 3px, #181822 5px)',
+                          background: 'repeating-radial-gradient(circle, rgba(14,14,18,1) 0px, rgba(20,20,26,1) 2px, rgba(10,10,13,1) 3px, rgba(24,24,34,1) 5px)',
                           boxShadow: '0 8px 24px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.9)',
                           zIndex: 0,
                         }}
                       >
                         {/* Center Vinyl Label (Spinning at 33 RPM) */}
                         <div
-                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden border border-white/30 shadow-inner flex items-center justify-center ${
+                          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-pill overflow-hidden border border-white/30 shadow-inner flex items-center justify-center ${
                             isPlaying ? 'animate-spin' : ''
                           }`}
                           style={{ animationDuration: '2.4s' }}
@@ -791,12 +802,12 @@ export const MiniPlayer: React.FC = () => {
                             alt=""
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute w-1.5 h-1.5 rounded-full bg-black border border-white/50" />
+                          <div className="absolute w-1.5 h-1.5 rounded-pill bg-black border border-white/50" />
                         </div>
                       </div>
 
                       {/* Foreground Album Cover Sleeve */}
-                      <div className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-white/5 border border-white/10 shadow-lg">
+                      <div className="relative z-10 w-16 h-16 sm:w-20 sm:h-20 rounded-card overflow-hidden bg-white/5 border border-white/10 shadow-lg">
                         <img
                           src={coverUrl}
                           alt={title}
@@ -825,23 +836,26 @@ export const MiniPlayer: React.FC = () => {
                         {currentTrack && (
                           <button
                             onClick={() => toggleFavorite(currentTrack)}
-                            className={`p-1.5 rounded-lg border btn-spring transition-all active:scale-90 flex items-center justify-center ${
+                            className={`min-h-11 min-w-11 p-2 rounded-control border btn-spring transition-all active:scale-90 flex items-center justify-center cursor-pointer ${
                               isCurrentFav
                                 ? 'text-rose-400 bg-rose-500/15 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
                                 : 'text-white/60 hover:text-rose-300 hover:bg-rose-500/10 border-white/15'
                             }`}
                             title={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                            aria-label={isCurrentFav ? 'Quitar de favoritos' : 'Guardar en favoritos'}
                           >
-                            <Heart className={`w-3.5 h-3.5 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
+                            <Heart className={`w-4 h-4 ${isCurrentFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                           </button>
                         )}
                         {sourceBadge}
                         {sourceType === 'youtube' && (
                           <button
                             onClick={() => setShowVideoView(true)}
-                            className="text-[10px] text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 px-2 py-0.5 rounded-md border border-cyan-500/25 font-mono btn-spring transition-colors flex items-center gap-1 font-medium"
+                            className="min-h-11 px-3 py-2 rounded-control text-caption text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/25 font-mono btn-spring transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                            title="Ver Video de YouTube"
+                            aria-label="Ver Video de YouTube"
                           >
-                            <Eye className="w-3 h-3" /> Ver Video
+                            <Eye className="w-3.5 h-3.5" /> Ver Video
                           </button>
                         )}
                         {sourceType === 'youtube' && currentTrack?.youtubeId && (
@@ -849,9 +863,11 @@ export const MiniPlayer: React.FC = () => {
                             href={`https://www.youtube.com/watch?v=${currentTrack.youtubeId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[10px] text-slate-300 hover:text-white flex items-center gap-0.5 font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10"
+                            className="min-h-11 px-3 py-2 rounded-control text-caption text-slate-300 hover:text-white flex items-center gap-1 font-mono bg-white/5 border border-white/10"
+                            title="Abrir en YouTube"
+                            aria-label="Abrir en YouTube"
                           >
-                            Abrir en YT <ExternalLink className="w-2.5 h-2.5" />
+                            Abrir en YT <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                       </div>
@@ -869,13 +885,13 @@ export const MiniPlayer: React.FC = () => {
                     </div>
 
                     <div
-                      className="relative w-full h-8 bg-black/40 rounded-xl overflow-hidden border border-white/10 group px-1 flex items-center shadow-inner cursor-pointer"
+                      className="relative w-full min-h-11 h-11 bg-black/40 rounded-card overflow-hidden border border-white/10 group px-2 flex items-center shadow-inner cursor-pointer"
                       onMouseDown={handleSeekMouseDown}
                       onTouchStart={handleSeekMouseDown}
                     >
                       <MiniWaveform
                         progress={progressPercent}
-                        activeColor={isLucid ? lucidTheme.primary : '#00f2fe'}
+                        activeColor={isLucid ? lucidTheme.primary : 'var(--ios-cyan)'}
                         isPlaying={isPlaying}
                       />
                       <input
@@ -887,8 +903,9 @@ export const MiniPlayer: React.FC = () => {
                         onChange={handleSeekChange}
                         onMouseUp={handleSeekMouseUp}
                         onTouchEnd={handleSeekMouseUp}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full min-h-11 z-20"
                         title="Arrastra para avanzar o retroceder"
+                        aria-label="Arrastra para avanzar o retroceder"
                       />
                     </div>
                   </div>
@@ -899,17 +916,19 @@ export const MiniPlayer: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={toggleShuffle}
-                        className={`p-1.5 rounded-lg transition-colors ${
+                        className={`min-h-11 min-w-11 p-2.5 rounded-control flex items-center justify-center transition-colors cursor-pointer ${
                           isShuffled ? 'text-cyan-400 bg-cyan-500/15' : 'text-white/40 hover:text-white'
                         }`}
                         title="Modo aleatorio"
+                        aria-label="Modo aleatorio"
                       >
-                        <Shuffle className="w-3.5 h-3.5" />
+                        <Shuffle className="w-4 h-4" />
                       </button>
                       <button
                         onClick={playPrevious}
-                        className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                        className="min-h-11 min-w-11 p-2.5 text-white/60 hover:text-white rounded-control hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                         title="Pista anterior"
+                        aria-label="Pista anterior"
                       >
                         <SkipBack className="w-4 h-4" />
                       </button>
@@ -918,18 +937,19 @@ export const MiniPlayer: React.FC = () => {
                     {/* Big Center Play/Pause */}
                     <button
                       onClick={togglePlay}
-                      className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white text-black hover:scale-105 active:scale-95 transition-all shadow-lg"
+                      className="min-h-11 min-w-11 w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-pill bg-white text-black hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer"
                       style={
                         isLucid
-                          ? { backgroundColor: lucidTheme.primary, color: '#000' }
-                          : { backgroundColor: '#ffffff', color: '#000' }
+                          ? { backgroundColor: lucidTheme.primary, color: 'black' }
+                          : { backgroundColor: 'var(--color-primary)', color: 'black' }
                       }
                       title={isPlaying ? 'Pausar' : 'Reproducir'}
+                      aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
                     >
                       {isPlaying ? (
-                        <Pause className="w-4 h-4 fill-current" />
+                        <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                       ) : (
-                        <Play className="w-4 h-4 fill-current translate-x-0.5" />
+                        <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current translate-x-0.5" />
                       )}
                     </button>
 
@@ -937,36 +957,39 @@ export const MiniPlayer: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={playNext}
-                        className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                        className="min-h-11 min-w-11 p-2.5 text-white/60 hover:text-white rounded-control hover:bg-white/5 transition-colors flex items-center justify-center cursor-pointer"
                         title="Siguiente pista"
+                        aria-label="Siguiente pista"
                       >
                         <SkipForward className="w-4 h-4" />
                       </button>
                       <button
                         onClick={cycleRepeat}
-                        className={`p-1.5 rounded-lg transition-colors ${
+                        className={`min-h-11 min-w-11 p-2.5 rounded-control flex items-center justify-center transition-colors cursor-pointer ${
                           repeatMode !== 'off' ? 'text-cyan-400 bg-cyan-500/15' : 'text-white/40 hover:text-white'
                         }`}
                         title={`Repetir: ${repeatMode}`}
+                        aria-label={`Repetir: ${repeatMode}`}
                       >
-                        {repeatMode === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
+                        {repeatMode === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
 
                   {/* Volume Slider */}
-                  <div className="flex items-center gap-2 px-1 pt-1 border-t border-white/[0.04]">
+                  <div className="flex items-center gap-2 px-1 pt-1 border-t border-white/[0.04] min-h-11">
                     <button
                       onClick={toggleMute}
-                      className="p-1 text-white/40 hover:text-white transition-colors"
+                      className="min-h-11 min-w-11 p-2 text-white/40 hover:text-white transition-colors rounded-control flex items-center justify-center cursor-pointer"
                       title={isMuted ? 'Activar sonido' : 'Silenciar'}
+                      aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
                     >
                       {isMuted || volume === 0 ? (
-                        <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                        <VolumeX className="w-4 h-4 text-rose-400" />
                       ) : volume < 0.5 ? (
-                        <Volume1 className="w-3.5 h-3.5" />
+                        <Volume1 className="w-4 h-4" />
                       ) : (
-                        <Volume2 className="w-3.5 h-3.5" />
+                        <Volume2 className="w-4 h-4" />
                       )}
                     </button>
                     <input
@@ -976,39 +999,42 @@ export const MiniPlayer: React.FC = () => {
                       step={0.01}
                       value={isMuted ? 0 : volume}
                       onChange={handleVolumeChange}
-                      className="flex-1 h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/20"
+                      className="flex-1 min-h-11 h-11 bg-white/10 rounded-pill appearance-none accent-white cursor-pointer transition-all hover:bg-white/20"
                       title={`Volumen: ${Math.round(volume * 100)}%`}
+                      aria-label={`Volumen: ${Math.round(volume * 100)}%`}
                     />
-                    <span className="text-[10px] font-mono text-white/40 w-7 text-right">
+                    <span className="text-[10px] font-mono text-white/40 w-8 text-right font-tabular">
                       {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
                     </span>
                   </div>
 
                   {/* ── Utilities Bar: EQ 3-Band, Sleep Timer, Backup JSON ── */}
                   <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between gap-1 text-[11px] font-mono">
+                    <div className="flex items-center justify-between gap-1 text-[11px] font-mono flex-wrap">
                       {/* EQ Toggle */}
                       <button
                         onClick={() => setShowQuickEQ(!showQuickEQ)}
-                        className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 transition-all ${
+                        className={`min-h-11 px-3 py-2 rounded-control border flex items-center gap-1.5 transition-all cursor-pointer ${
                           showQuickEQ || threeBandEQ.bass !== 0 || threeBandEQ.mids !== 0 || threeBandEQ.treble !== 0
                             ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
                             : 'bg-white/[0.03] hover:bg-white/[0.08] text-white/60 border-white/10'
                         }`}
                         title="Ecualizador rápido de 3 bandas (Bajos, Medios, Agudos)"
+                        aria-label="Ecualizador rápido de 3 bandas"
                       >
-                        <SlidersHorizontal className="w-3 h-3" />
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
                         <span>EQ 3-Band</span>
                       </button>
 
                       {/* Sleep Timer Selector */}
-                      <div className="flex items-center gap-1 bg-white/[0.03] px-1.5 py-0.5 rounded-lg border border-white/10">
-                        <Moon className={`w-3 h-3 ${sleepTimerMinutes > 0 ? 'text-amber-300 animate-pulse' : 'text-white/40'}`} />
+                      <div className="flex items-center gap-1 bg-white/[0.03] px-2 py-1 rounded-control border border-white/10 min-h-11">
+                        <Moon className={`w-3.5 h-3.5 ${sleepTimerMinutes > 0 ? 'text-amber-300 animate-pulse' : 'text-white/40'}`} />
                         {sleepTimerMinutes > 0 ? (
                           <button
                             onClick={() => setSleepTimer(0)}
-                            className="text-[10px] text-amber-300 font-bold hover:underline"
+                            className="min-h-11 px-2 text-caption text-amber-300 font-bold hover:underline rounded-control flex items-center cursor-pointer"
                             title="Haz clic para cancelar temporizador"
+                            aria-label="Cancelar temporizador"
                           >
                             {formatTime(sleepTimerRemainingSec)}
                           </button>
@@ -1018,7 +1044,9 @@ export const MiniPlayer: React.FC = () => {
                               <button
                                 key={m}
                                 onClick={() => setSleepTimer(m)}
-                                className="text-[10px] text-white/50 hover:text-white px-1 rounded hover:bg-white/10 transition-colors"
+                                className="min-h-11 px-3 text-caption text-white/50 hover:text-white rounded-control hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer"
+                                title={`Temporizador ${m} minutos`}
+                                aria-label={`Temporizador ${m} minutos`}
                               >
                                 {m}m
                               </button>
@@ -1031,23 +1059,26 @@ export const MiniPlayer: React.FC = () => {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={handleExportJSON}
-                          className="p-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors"
+                          className="min-h-11 min-w-11 p-2 rounded-control bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors flex items-center justify-center cursor-pointer"
                           title="Exportar respaldo de favoritos y listas (JSON)"
+                          aria-label="Exportar respaldo de favoritos y listas (JSON)"
                         >
-                          <Download className="w-3 h-3" />
+                          <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => jsonImportInputRef.current?.click()}
-                          className="p-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors"
+                          className="min-h-11 min-w-11 p-2 rounded-control bg-white/[0.03] hover:bg-white/[0.08] text-white/50 hover:text-white border border-white/10 transition-colors flex items-center justify-center cursor-pointer"
                           title="Restaurar copia de respaldo (JSON)"
+                          aria-label="Restaurar copia de respaldo (JSON)"
                         >
-                          <Upload className="w-3 h-3" />
+                          <Upload className="w-4 h-4" />
                         </button>
                         <input
                           ref={jsonImportInputRef}
                           type="file"
                           accept=".json"
                           className="hidden"
+                          aria-label="Subir archivo de respaldo JSON"
                           onChange={handleImportJSON}
                         />
                       </div>
@@ -1055,16 +1086,18 @@ export const MiniPlayer: React.FC = () => {
 
                     {/* Collapsible Quick 3-Band Equalizer */}
                     {showQuickEQ && (
-                      <div className="p-2.5 rounded-xl bg-[#070913]/70 backdrop-blur-xl border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="p-3 rounded-card bg-[var(--surface-overlay)] material-thick border border-white/[0.06] border-t-white/[0.12] flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between text-[10px] font-mono text-white/60">
-                          <span className="tracking-[0.14em] uppercase text-[9px]">AJUSTES TONALES DSP</span>
+                          <span className="tracking-[0.14em] uppercase text-[9px] font-bold">AJUSTES TONALES DSP</span>
                           <button
                             onClick={() => {
                               setThreeBandGain('bass', 0);
                               setThreeBandGain('mids', 0);
                               setThreeBandGain('treble', 0);
                             }}
-                            className="text-white/60 hover:text-white hover:underline transition-colors text-[9px]"
+                            className="min-h-11 px-2.5 rounded-control text-white/60 hover:text-white hover:underline transition-colors text-caption flex items-center justify-center cursor-pointer"
+                            title="Restablecer ecualizador a 0 dB"
+                            aria-label="Restablecer ecualizador a 0 dB"
                           >
                             Restablecer (0 dB)
                           </button>
@@ -1080,9 +1113,11 @@ export const MiniPlayer: React.FC = () => {
                               step={1}
                               value={threeBandEQ.bass}
                               onChange={(e) => setThreeBandGain('bass', parseFloat(e.target.value))}
-                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              className="w-full min-h-11 h-11 bg-white/10 rounded-pill appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              title={`Bajos: ${threeBandEQ.bass} dB`}
+                              aria-label={`Bajos: ${threeBandEQ.bass} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80">
+                            <span className="text-[9px] font-mono text-white/80 font-tabular">
                               {threeBandEQ.bass > 0 ? `+${threeBandEQ.bass}` : threeBandEQ.bass} dB
                             </span>
                           </div>
@@ -1097,9 +1132,11 @@ export const MiniPlayer: React.FC = () => {
                               step={1}
                               value={threeBandEQ.mids}
                               onChange={(e) => setThreeBandGain('mids', parseFloat(e.target.value))}
-                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              className="w-full min-h-11 h-11 bg-white/10 rounded-pill appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              title={`Medios: ${threeBandEQ.mids} dB`}
+                              aria-label={`Medios: ${threeBandEQ.mids} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80">
+                            <span className="text-[9px] font-mono text-white/80 font-tabular">
                               {threeBandEQ.mids > 0 ? `+${threeBandEQ.mids}` : threeBandEQ.mids} dB
                             </span>
                           </div>
@@ -1114,9 +1151,11 @@ export const MiniPlayer: React.FC = () => {
                               step={1}
                               value={threeBandEQ.treble}
                               onChange={(e) => setThreeBandGain('treble', parseFloat(e.target.value))}
-                              className="w-full h-[2px] hover:h-[3px] bg-white/10 rounded-full appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              className="w-full min-h-11 h-11 bg-white/10 rounded-pill appearance-none accent-white cursor-pointer transition-all hover:bg-white/25"
+                              title={`Agudos: ${threeBandEQ.treble} dB`}
+                              aria-label={`Agudos: ${threeBandEQ.treble} dB`}
                             />
-                            <span className="text-[9px] font-mono text-white/80">
+                            <span className="text-[9px] font-mono text-white/80 font-tabular">
                               {threeBandEQ.treble > 0 ? `+${threeBandEQ.treble}` : threeBandEQ.treble} dB
                             </span>
                           </div>
@@ -1129,20 +1168,20 @@ export const MiniPlayer: React.FC = () => {
               {/* ── 2. SEARCH TAB (Filtro Canciones / Playlists del Artista) ──── */}
               <div className={activeTab === 'search' ? 'flex flex-col gap-2.5' : 'hidden'}>
                 {/* Selector de Filtro: Canciones vs Playlists */}
-                <div className="flex items-center gap-1.5 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06]">
+                <div className="flex items-center gap-1.5 p-1 bg-white/[0.03] rounded-card border border-white/[0.06]">
                   <button
                     type="button"
                     onClick={() => {
                       setSearchFilter('video');
                       if (searchQuery.trim().length >= 2) searchYouTube(searchQuery, true, 'video');
                     }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-h-11 py-2 px-3 rounded-control text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       searchFilter === 'video'
                         ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
                         : 'text-white/50 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <Music className="w-3 h-3" /> Canciones
+                    <Music className="w-3.5 h-3.5" /> Canciones
                   </button>
                   <button
                     type="button"
@@ -1150,20 +1189,20 @@ export const MiniPlayer: React.FC = () => {
                       setSearchFilter('playlist');
                       if (searchQuery.trim().length >= 2) searchYouTube(searchQuery, true, 'playlist');
                     }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center justify-center gap-1.5 ${
+                    className={`flex-1 min-h-11 py-2 px-3 rounded-control text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       searchFilter === 'playlist'
                         ? 'bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm'
                         : 'text-white/50 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <ListMusic className="w-3 h-3" /> Playlists del Artista
+                    <ListMusic className="w-3.5 h-3.5" /> Playlists del Artista
                   </button>
                 </div>
 
                 {/* YouTube Search Bar */}
                 <div className="flex flex-col gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
                     <input
                       ref={searchInputRef}
                       type="text"
@@ -1174,16 +1213,19 @@ export const MiniPlayer: React.FC = () => {
                           ? 'Buscar playlists del artista en YouTube...'
                           : 'Buscar canciones del artista en YouTube...'
                       }
-                      className="w-full pl-9 pr-8 py-2 bg-white/[0.05] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all font-mono"
+                      className="w-full min-h-11 pl-9 pr-11 py-2 bg-white/[0.05] border border-white/10 rounded-control text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-all font-mono"
+                      aria-label="Buscar música en YouTube"
                     />
                     {isSearching ? (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                      <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 animate-spin pointer-events-none" />
                     ) : searchQuery ? (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5"
+                        className="min-h-11 min-w-11 absolute right-0 top-1/2 -translate-y-1/2 text-white/40 hover:text-white rounded-control flex items-center justify-center cursor-pointer"
+                        title="Limpiar búsqueda"
+                        aria-label="Limpiar búsqueda"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-4 h-4" />
                       </button>
                     ) : null}
                   </div>
@@ -1220,10 +1262,10 @@ export const MiniPlayer: React.FC = () => {
                         <div
                           key={item.id}
                           onClick={() => handleSelectYouTubeTrack(item)}
-                          className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
+                          className="group min-h-11 flex items-center justify-between p-2 rounded-card bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                            <div className="relative w-10 h-10 rounded-control overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
                               <img
                                 src={item.thumbnail}
                                 alt={item.title}
@@ -1253,7 +1295,7 @@ export const MiniPlayer: React.FC = () => {
                                   {item.title}
                                 </span>
                                 {isPlaylist && (
-                                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 shrink-0 font-bold">
+                                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-badge bg-cyan-500/20 text-cyan-300 shrink-0 font-bold">
                                     PLAYLIST
                                   </span>
                                 )}
@@ -1264,7 +1306,7 @@ export const MiniPlayer: React.FC = () => {
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-mono text-slate-400 font-medium group-hover:text-white/70 flex-shrink-0 ml-2">
+                          <span className="text-[10px] font-mono text-slate-400 font-medium group-hover:text-white/70 flex-shrink-0 ml-2 font-tabular">
                             {isPlaylist ? (item.videoCount || 'Playlist') : formatTime(item.duration)}
                           </span>
                         </div>
@@ -1276,17 +1318,18 @@ export const MiniPlayer: React.FC = () => {
 
               {/* ── 4. FAVORITES TAB (Lista de temas favoritos usable) ─────── */}
               <div className={activeTab === 'favorites' ? 'flex flex-col gap-2' : 'hidden'}>
-                <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06]">
+                <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06] min-h-11">
                   <span className="text-xs font-mono text-rose-300 font-bold flex items-center gap-1.5">
-                    <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" /> Canciones Favoritas ({favorites.length})
+                    <Heart className="w-4 h-4 fill-rose-500 text-rose-500" /> Canciones Favoritas ({favorites.length})
                   </span>
                   {favorites.length > 0 && (
                     <button
                       onClick={handleClearFavorites}
-                      className="flex items-center gap-1 text-[10px] font-mono text-rose-400/80 hover:text-rose-300 transition-colors px-2 py-0.5 rounded-lg hover:bg-rose-500/10 border border-rose-500/20"
+                      className="min-h-11 px-3 py-1.5 rounded-control flex items-center gap-1 text-caption font-mono text-rose-400/80 hover:text-rose-300 transition-colors hover:bg-rose-500/10 border border-rose-500/20 cursor-pointer"
                       title="Eliminar todas las canciones favoritas guardadas"
+                      aria-label="Vaciar canciones favoritas"
                     >
-                      <Trash2 className="w-3 h-3" /> Vaciar
+                      <Trash2 className="w-3.5 h-3.5" /> Vaciar
                     </button>
                   )}
                 </div>
@@ -1314,10 +1357,10 @@ export const MiniPlayer: React.FC = () => {
                           }
                           await playTrack(fav);
                         }}
-                        className="group flex items-center justify-between p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
+                        className="group min-h-11 flex items-center justify-between p-2 rounded-card bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/15 transition-all cursor-pointer"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                          <div className="relative w-10 h-10 rounded-control overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
                             <img
                               src={fav.coverUrl || (fav.youtubeId ? `https://img.youtube.com/vi/${fav.youtubeId}/hqdefault.jpg` : '')}
                               alt={fav.title}
@@ -1340,7 +1383,7 @@ export const MiniPlayer: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-white/40">
+                          <span className="text-[10px] font-mono text-white/40 font-tabular">
                             {formatTime(fav.duration)}
                           </span>
                           <button
@@ -1348,10 +1391,11 @@ export const MiniPlayer: React.FC = () => {
                               e.stopPropagation();
                               toggleFavorite(fav);
                             }}
-                            className="p-1 text-rose-500 hover:text-rose-400 transition-colors"
+                            className="min-h-11 min-w-11 p-2 text-rose-500 hover:text-rose-400 rounded-control hover:bg-rose-500/10 transition-colors flex items-center justify-center cursor-pointer"
                             title="Quitar de favoritos"
+                            aria-label="Quitar de favoritos"
                           >
-                            <Heart className="w-3.5 h-3.5 fill-rose-500" />
+                            <Heart className="w-4 h-4 fill-rose-500" />
                           </button>
                         </div>
                       </div>
@@ -1362,20 +1406,22 @@ export const MiniPlayer: React.FC = () => {
 
               {/* ── 3. QUEUE TAB (Dynamic 50+ Infinite Queue & History) ───── */}
               <div className={activeTab === 'queue' ? 'flex flex-col gap-2' : 'hidden'}>
-                  <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06]">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-white/[0.06] min-h-11">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono text-white/80 font-bold">
                         Cola de reproducción ({queue.length})
                       </span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
                         <Sparkles className="w-2.5 h-2.5" /> 50+ Auto
                       </span>
                     </div>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1 text-[11px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
+                      className="min-h-11 px-3 py-1.5 rounded-control flex items-center gap-1 text-caption font-mono text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
+                      title="Subir archivo de audio local"
+                      aria-label="Subir archivo de audio local"
                     >
-                      <Upload className="w-3 h-3" />
+                      <Upload className="w-3.5 h-3.5" />
                       Subir archivo
                     </button>
                   </div>
@@ -1386,7 +1432,9 @@ export const MiniPlayer: React.FC = () => {
                       <span>No hay pistas en la cola actual</span>
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="mt-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-mono transition-colors"
+                        className="min-h-11 mt-1 px-4 py-2 rounded-control bg-white/10 hover:bg-white/15 text-white text-xs font-mono transition-colors flex items-center justify-center cursor-pointer"
+                        title="Cargar archivo local"
+                        aria-label="Cargar archivo local"
                       >
                         Cargar archivo local
                       </button>
@@ -1417,7 +1465,9 @@ export const MiniPlayer: React.FC = () => {
                             {idx === queueIndex + 1 && (
                               <div className="text-[10px] font-mono text-white/40 uppercase tracking-wider px-1 pt-2 pb-0.5 flex items-center justify-between">
                                 <span>A Continuación ({queue.length - queueIndex - 1})</span>
-                                <span className="text-[9px] text-cyan-400/70">♾️ Radio Infinita</span>
+                                <span className="text-[9px] text-cyan-400/70 flex items-center gap-1">
+                                  <Radio className="w-2.5 h-2.5" /> Radio Infinita
+                                </span>
                               </div>
                             )}
 
@@ -1426,7 +1476,7 @@ export const MiniPlayer: React.FC = () => {
                                 usePlayerStore.setState({ queueIndex: idx });
                                 await playTrack(track);
                               }}
-                              className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                              className={`min-h-11 flex items-center justify-between p-2 rounded-card transition-all cursor-pointer ${
                                 isCurrent
                                   ? 'bg-cyan-500/15 border border-cyan-500/40 text-white font-medium shadow-[0_0_15px_rgba(0,242,254,0.15)]'
                                   : isPast
@@ -1435,7 +1485,7 @@ export const MiniPlayer: React.FC = () => {
                               }`}
                             >
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                                <div className="relative w-8 h-8 rounded-control overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
                                   <img
                                     src={track.coverUrl || `https://img.youtube.com/vi/${track.youtubeId}/hqdefault.jpg`}
                                     alt={track.title}
@@ -1446,7 +1496,7 @@ export const MiniPlayer: React.FC = () => {
                                   />
                                   {isCurrent && isPlaying && (
                                     <div className="absolute inset-0 bg-cyan-950/60 flex items-center justify-center">
-                                      <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                                      <div className="w-2.5 h-2.5 rounded-pill bg-cyan-400 animate-ping" />
                                     </div>
                                   )}
                                 </div>
@@ -1461,7 +1511,7 @@ export const MiniPlayer: React.FC = () => {
                                 </div>
                               </div>
 
-                              <span className="text-[10px] font-mono text-slate-300 font-medium ml-2 flex-shrink-0">
+                              <span className="text-[10px] font-mono text-slate-300 font-medium ml-2 flex-shrink-0 font-tabular">
                                 {formatTime(track.duration)}
                               </span>
                             </div>
@@ -1474,7 +1524,7 @@ export const MiniPlayer: React.FC = () => {
 
               {/* Error Toast if applicable */}
               {audioError && (
-                <div className="p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-[11px] font-mono text-rose-300">
+                <div className="p-2.5 rounded-card bg-rose-500/15 border border-rose-500/30 text-caption font-mono text-rose-300">
                   {audioError}
                 </div>
               )}

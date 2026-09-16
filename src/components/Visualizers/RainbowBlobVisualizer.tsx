@@ -943,10 +943,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
         <button
           type="button"
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`group flex items-center gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl backdrop-blur-xl border transition-all duration-200 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] active:scale-95 ${
+          className={`group flex items-center gap-2 px-3 sm:px-3.5 py-2 min-h-11 rounded-control material-thick border transition-all duration-200 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] active:scale-95 cursor-pointer ${
             isBlobPanelOpen
-              ? 'bg-white/15 text-white border-white/30 shadow-[0_0_20px_rgba(0,229,255,0.25)]'
-              : 'bg-[#090d18]/90 text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06] hover:border-white/20'
+              ? 'bg-white/15 text-white border-white/30 shadow-subtle'
+              : 'bg-surface-elevated/90 text-white/80 border-border-subtle hover:text-white hover:bg-white/[0.06] hover:border-white/20'
           }`}
           style={
             isLucid
@@ -960,18 +960,18 @@ export const RainbowBlobVisualizer: React.FC = () => {
           aria-label="Configuración y Estilo de Halo"
         >
           <div
-            className="w-5 h-5 rounded-lg flex items-center justify-center transition-colors"
+            className="w-6 h-6 rounded-badge flex items-center justify-center transition-colors"
             style={{
-              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(43, 220, 210, 0.15)',
             }}
           >
             <Sliders
-              className="w-3 h-3 transition-transform group-hover:rotate-45 duration-300"
-              style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
+              className="w-3.5 h-3.5 transition-transform group-hover:rotate-45 duration-300"
+              style={{ color: isLucid ? lucidPrimaryColor : 'var(--ios-teal)' }}
             />
           </div>
 
-          <span className="text-xs font-medium tracking-wide text-white/90">
+          <span className="text-caption font-medium tracking-wide text-white/90">
             Rainbow Void
           </span>
 

@@ -25,17 +25,16 @@ export const NowPlayingPanel: React.FC = () => {
       <div
         className={`flex items-center gap-2.5 transition-all duration-300 ${
           isNowPlayingExpanded
-            ? 'px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-2xl max-w-[calc(100vw-4rem)] sm:max-w-[280px]'
-            : 'p-1 rounded-xl'
+            ? 'px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-card max-w-[calc(100vw-4rem)] sm:max-w-[280px]'
+            : 'p-1 rounded-card'
         } ${
           isLucid
-            ? 'backdrop-blur-2xl border'
-            : 'bg-[#070a14]/92 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.6)]'
+            ? 'material-thick border'
+            : 'bg-surface-overlay material-regular border border-border-subtle shadow-modal'
         }`}
         style={
           isLucid
             ? {
-                backgroundColor: lucidTheme.glassColor || 'rgba(7, 10, 20, 0.92)',
                 borderColor: `${lucidTheme.primary}40`,
                 boxShadow: `0 8px 24px rgba(0,0,0,0.7), 0 0 20px ${lucidTheme.glow}`,
               }
@@ -46,10 +45,11 @@ export const NowPlayingPanel: React.FC = () => {
         <button
           type="button"
           onClick={() => !isNowPlayingExpanded && setNowPlayingExpanded(true)}
-          className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-white/[0.04] border border-white/[0.08] transition-transform ${
+          className={`relative min-w-11 min-h-11 w-11 h-11 rounded-control overflow-hidden flex items-center justify-center flex-shrink-0 bg-surface-subtle border border-border-subtle transition-transform ${
             !isNowPlayingExpanded ? 'hover:scale-105 cursor-pointer' : ''
           }`}
           title={!isNowPlayingExpanded ? 'Expandir información de pista' : undefined}
+          aria-label={isNowPlayingExpanded ? 'Pista actual' : 'Expandir información de pista'}
         >
           {currentTrack?.coverUrl ? (
             <img
@@ -60,17 +60,17 @@ export const NowPlayingPanel: React.FC = () => {
               }`}
             />
           ) : isMicActive ? (
-            <Radio className="w-4 h-4 text-emerald-400" />
+            <Radio className="w-4 h-4 text-status-success" />
           ) : (
             <Disc
-              className={`w-4 h-4 text-white/50 ${
+              className={`w-4 h-4 text-text-secondary ${
                 isPlaying ? 'animate-[spin_8s_linear_infinite]' : ''
               }`}
             />
           )}
 
           {/* Center spindle dot */}
-          <div className="absolute w-2 h-2 rounded-full bg-black/80 border border-white/30" />
+          <div className="absolute w-2 h-2 rounded-pill bg-black/80 border border-white/30" />
         </button>
 
         {/* Track details (visible when expanded) */}
@@ -78,17 +78,17 @@ export const NowPlayingPanel: React.FC = () => {
           <div className="flex-1 min-w-0 pr-1">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-pill ${
                   isSpotifyConnected
-                    ? 'bg-[#1DB954] animate-pulse'
+                    ? 'bg-status-success animate-pulse'
                     : isPlaying || isMicActive
-                    ? 'bg-emerald-400'
-                    : 'bg-white/30'
+                    ? 'bg-status-success'
+                    : 'bg-text-tertiary'
                 }`}
               />
               <span
-                className={`text-[9px] uppercase font-mono tracking-widest font-medium ${
-                  isSpotifyConnected ? 'text-[#1DB954]' : 'text-emerald-400/90'
+                className={`text-caption uppercase font-mono tracking-widest font-medium ${
+                  isSpotifyConnected ? 'text-status-success' : 'text-status-success'
                 }`}
               >
                 {isSpotifyConnected
@@ -103,10 +103,10 @@ export const NowPlayingPanel: React.FC = () => {
               </span>
             </div>
 
-            <h4 className="text-white font-medium text-xs truncate max-w-[130px] sm:max-w-[170px] leading-tight">
+            <h4 className="text-text-primary font-medium text-caption truncate max-w-[130px] sm:max-w-[170px] leading-tight">
               {isMicActive ? 'Micrófono en vivo' : currentTrack?.title || 'Sin pista'}
             </h4>
-            <p className="text-white/40 text-[10px] truncate font-mono mt-0.5 max-w-[130px] sm:max-w-[170px]">
+            <p className="text-text-tertiary text-caption truncate font-mono mt-0.5 max-w-[130px] sm:max-w-[170px]">
               {isMicActive ? 'Captura activa' : currentTrack?.artist || 'Aura3D Engine'}
             </p>
           </div>
@@ -116,27 +116,31 @@ export const NowPlayingPanel: React.FC = () => {
         <div className="flex items-center gap-0.5">
           {isNowPlayingExpanded && currentTrack && !isMicActive && (
             <button
+              type="button"
               onClick={() => toggleFavorite(currentTrack)}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`min-w-11 min-h-11 p-2 rounded-control transition-colors flex items-center justify-center cursor-pointer ${
                 isFav
-                  ? 'text-rose-500'
-                  : 'text-white/30 hover:text-white/70 hover:bg-white/[0.04]'
+                  ? 'text-status-error'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-surface-subtle'
               }`}
               title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+              aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             >
-              <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`} />
+              <Heart className={`w-4 h-4 ${isFav ? 'fill-current' : ''}`} />
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => setNowPlayingExpanded(!isNowPlayingExpanded)}
-            className="p-1 text-white/30 hover:text-white rounded-md hover:bg-white/[0.04] transition-colors"
+            className="min-w-11 min-h-11 p-2 text-text-tertiary hover:text-text-primary rounded-control hover:bg-surface-subtle transition-colors flex items-center justify-center cursor-pointer"
             title={isNowPlayingExpanded ? 'Contraer' : 'Expandir'}
+            aria-label={isNowPlayingExpanded ? 'Contraer información de pista' : 'Expandir información de pista'}
           >
             {isNowPlayingExpanded ? (
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             )}
           </button>
         </div>
