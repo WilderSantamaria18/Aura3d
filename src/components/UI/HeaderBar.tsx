@@ -247,14 +247,14 @@ export const HeaderBar: React.FC = () => {
       setActiveMenu(null);
       if (isLyricsOpen) setLyricsOpen(false);
     }
-  }, [isBlobPanelOpen, isLyricsOpen, setLyricsOpen]);
+  }, [isBlobPanelOpen]);
 
   useEffect(() => {
     if (isLyricsOpen) {
       setActiveMenu(null);
       if (isBlobPanelOpen) setBlobPanelOpen(false);
     }
-  }, [isLyricsOpen, isBlobPanelOpen, setBlobPanelOpen]);
+  }, [isLyricsOpen]);
 
   useEffect(() => {
     return pictureInPictureService.subscribe(setIsPipActive);
