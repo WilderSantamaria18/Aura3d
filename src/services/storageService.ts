@@ -68,6 +68,23 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   dhonkioPowerKick: 1.045,
   dhonkioKickBoost: 6,
   isUiHidden: false,
+  // Cat-Ears & Sacred Minimalism defaults
+  catEarsCount: 2,
+  catEarsLayers: 2,
+  catEarsStrokeWidth: 1.0,
+  catEarsSharpness: 2.2,
+  sacredPalette: 'neon',
+  transparentHalo: true,
+  isAdvancedMode: false,
+  // LiquidVoidCircle defaults (off by default as requested)
+  showPeripheralShapes: false,
+  peripheralShapeType: 'cat_ears',
+  peripheralShapeCount: 2,
+  strokeHairline: 1.0,
+  kickIntensity: 1.0,
+  crestStretch: 1.0,
+  crestBassBoost: 1.6,
+  crestNoteMovement: 1.0,
 };
 
 export class StorageService {

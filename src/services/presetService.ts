@@ -250,7 +250,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     sphereOpacity: 0.95,
     musicSensitivity: 0.84,
     audioSpeed: 0.84,
-    backgroundAtmosphere: 'cyber_city',
+    backgroundAtmosphere: 'radial_burst',
     blobSettings: {
       circleColor: '#000000',
       haloColor1: '#ff007f',
@@ -265,7 +265,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       logoStyle: 'ghost',
       customLogoUrl: null,
       scaleSensitivity: 1.4,
-      backgroundAtmosphere: 'cyber_city',
+      backgroundAtmosphere: 'radial_burst',
       kickThreshold: 0.32,
       kickPower: 1.6,
     },
@@ -291,7 +291,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     sphereOpacity: 0.92,
     musicSensitivity: 0.78,
     audioSpeed: 0.78,
-    backgroundAtmosphere: 'cosmic_voyager',
+    backgroundAtmosphere: 'stardust_drift',
     blobSettings: {
       circleColor: '#000000',
       haloColor1: '#7928ca',
@@ -306,7 +306,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       logoStyle: 'ghost',
       customLogoUrl: null,
       scaleSensitivity: 1.4,
-      backgroundAtmosphere: 'cosmic_voyager',
+      backgroundAtmosphere: 'stardust_drift',
       kickThreshold: 0.32,
       kickPower: 1.6,
     },
@@ -375,7 +375,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     blobScale: 1.0,
     musicSensitivity: 0.82,
     audioSpeed: 0.82,
-    backgroundAtmosphere: 'matrix',
+    backgroundAtmosphere: 'light_beams',
     blobSettings: {
       circleColor: '#000000',
       haloColor1: '#00ff66',
@@ -390,7 +390,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       logoStyle: 'ghost',
       customLogoUrl: null,
       scaleSensitivity: 1.4,
-      backgroundAtmosphere: 'matrix',
+      backgroundAtmosphere: 'light_beams',
       kickThreshold: 0.32,
       kickPower: 1.6,
     },
@@ -499,7 +499,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     sphereOpacity: 0.88,
     musicSensitivity: 0.7,
     audioSpeed: 0.7,
-    backgroundAtmosphere: 'ripples',
+    backgroundAtmosphere: 'quantum_waves',
     blobSettings: {
       circleColor: '#000000',
       haloColor1: '#10b981',
@@ -514,7 +514,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       logoStyle: 'ghost',
       customLogoUrl: null,
       scaleSensitivity: 1.4,
-      backgroundAtmosphere: 'ripples',
+      backgroundAtmosphere: 'quantum_waves',
       kickThreshold: 0.32,
       kickPower: 1.6,
     },
@@ -607,7 +607,7 @@ export class PresetService {
     store.setAutoNotification({
       id: Date.now(),
       type: 'success',
-      message: `✨ Preset activado: ${preset.name}`,
+      message: `Preset activado: ${preset.name}`,
     });
   }
 

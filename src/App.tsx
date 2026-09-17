@@ -309,7 +309,7 @@ export const App: React.FC = () => {
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 p-2 sm:p-4 md:p-5 transition-all duration-500 pointer-events-none flex flex-col items-center ${
+          className={`fixed bottom-0 left-0 right-0 z-50 p-1.5 sm:p-2.5 pb-2 transition-all duration-500 pointer-events-none flex flex-col items-center ${
             shouldHideUI || isZenGhostMode
               ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
               : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
@@ -318,10 +318,10 @@ export const App: React.FC = () => {
           onMouseLeave={() => setIsDockHovered(false)}
         >
           <div
-            className={`w-[clamp(320px,94vw,840px)] rounded-[var(--radius-dock)] p-2 sm:p-3 flex flex-col gap-2 pointer-events-auto transition-all duration-300 group/capsule ${
+            className={`w-[clamp(280px,72vw,530px)] rounded-[var(--radius-dock)] px-2.5 py-1.5 flex flex-col gap-0.5 sm:gap-1 pointer-events-auto transition-all duration-300 group/capsule ${
               isLucid
                 ? 'lucid-panel opacity-90 hover:opacity-100'
-                : 'ios-glass-dock opacity-90 hover:opacity-100'
+                : 'liquid-glass liquid-glass-dock opacity-95 hover:opacity-100'
             }`}
             style={
               isLucid
@@ -340,76 +340,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Zen Ghost Micro-Pill Dock (Visible when rotating sphere or idle) */}
-      {hasStarted && !isUiHidden && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 transition-all duration-500 ${
-            isZenGhostMode
-              ? 'opacity-100 translate-y-0 pointer-events-auto scale-100'
-              : 'opacity-0 translate-y-8 pointer-events-none scale-90'
-          }`}
-          onMouseEnter={() => {
-            setIsDockHovered(true);
-            resetIdleTimer();
-          }}
-          onClick={() => {
-            setIsDockHovered(true);
-            resetIdleTimer();
-          }}
-        >
-          <div
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-[var(--radius-pill)] border shadow-[var(--shadow-dock)] cursor-pointer backdrop-blur-2xl transition-all hover:scale-105 ${
-              isLucid
-                ? 'lucid-panel'
-                : 'bg-[var(--surface-dock)] border-[var(--border-subtle)] text-white'
-            }`}
-            style={
-              isLucid
-                ? {
-                    backgroundColor: lucidTheme.glassColor,
-                    borderColor: lucidTheme.borderColor,
-                  }
-                : undefined
-            }
-            title="Auto-Dock Zen Ghost: Clic para expandir controles de estudio"
-          >
-            {/* LED Micro-Spectrum Bars */}
-            <div className="flex items-center h-4">
-              <MiniSpectrumBars />
-            </div>
 
-            {/* Track Info */}
-            <div className="max-w-[110px] sm:max-w-[150px] truncate">
-              <span className="text-[11px] font-medium text-white/90 block truncate leading-tight">
-                {currentTrack?.title || 'Aura 3D'}
-              </span>
-              <span className="text-[9px] text-white/40 font-mono block truncate leading-none mt-0.5">
-                {currentTrack?.artist || 'DAW Studio'}
-              </span>
-            </div>
-
-            {/* Quick Play/Pause */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isSpotifyConnected) {
-                  spotifyTogglePlayPause();
-                } else {
-                  engineTogglePlayPause();
-                }
-              }}
-              className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-95"
-              title={isPlaying ? 'Pausar' : 'Reproducir'}
-            >
-              {isPlaying ? (
-                <Pause className="w-2.5 h-2.5 fill-current" />
-              ) : (
-                <Play className="w-2.5 h-2.5 fill-current translate-x-0.5" />
-              )}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 6. Full-Body VR Dance & Pose Tracker Camera Card */}
       {hasStarted && vrMode && (

@@ -870,7 +870,7 @@ export const PoseTracker: React.FC = () => {
                 : 'text-white/50 hover:text-white hover:bg-white/5'
             }`}
           >
-            <span>🕺 Cuerpo</span>
+            <span>Cuerpo</span>
           </button>
           <button
             onClick={() => setVrTrackingMode('hands')}
@@ -880,7 +880,7 @@ export const PoseTracker: React.FC = () => {
                 : 'text-white/50 hover:text-white hover:bg-white/5'
             }`}
           >
-            <span>🤲 2 Manos</span>
+            <span>2 Manos</span>
           </button>
         </div>
 
@@ -919,7 +919,7 @@ export const PoseTracker: React.FC = () => {
             {isCameraReady && isNoDetection && !errorMessage && !isSleeping && (
               <div className="absolute top-2 left-2 right-2 p-2 rounded-xl bg-red-950/90 border border-red-500/60 shadow-[0_0_20px_rgba(255,0,0,0.5)] backdrop-blur-md text-center flex items-center justify-center gap-1.5 text-[9px] font-mono text-red-200 animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                <span>🔴 Cámara activa, pero sin detección. ¿Estás en el encuadre?</span>
+                <span>Cámara activa, pero sin detección. ¿Estás en el encuadre?</span>
               </div>
             )}
 
@@ -969,7 +969,7 @@ export const PoseTracker: React.FC = () => {
                       className="font-bold tracking-wider"
                       style={{ color: danceLevel === 'party' ? '#ff088a' : '#00f2fe' }}
                     >
-                      {danceLevel === 'party' ? '🔥 MODO FIESTA' : danceLevel === 'dancing' ? '⚡ BAILANDO' : 'LISTO'}
+                      {danceLevel === 'party' ? 'MODO FIESTA' : danceLevel === 'dancing' ? 'BAILANDO' : 'LISTO'}
                     </span>
                   </>
                 ) : (

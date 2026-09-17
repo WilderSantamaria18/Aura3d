@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AlignLeft, Maximize2, Mic } from 'lucide-react';
 import { LyricsPanel } from './LyricsPanel';
 import { useLyrics } from '../../hooks/useLyrics';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -18,11 +20,15 @@ export const LyricsOverlay: React.FC = () => {
     isPlaying,
     currentTime,
     isSpotifyConnected,
+    isLucid,
+    lucidTheme,
   } = usePlayerStore();
 
-  const { lyricsData } = useLyrics();
+  const { lyricsData, activeLineIndex, loadLrcFile } = useLyrics();
   const { seek } = useAudioEngine();
   const { seek: spotifySeek } = useSpotifyPlayer();
+
+  const activeColor = isLucid ? (lucidTheme?.primary || '#00f0ff') : '#00f0ff';
 
   // Position & Size state with localStorage persistence
   const [position, setPosition] = useState<LyricsPosition>(() => {
@@ -40,6 +46,9 @@ export const LyricsOverlay: React.FC = () => {
       return 'standard';
     }
   });
+
+  // Zen mode state for lyrics micro-pill
+  const [isZenMode, setIsZenMode] = useState<boolean>(false);
 
   // Custom mouse drag coordinates
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(() => {
@@ -110,8 +119,8 @@ export const LyricsOverlay: React.FC = () => {
       const dx = e.clientX - dragStartRef.current.mouseX;
       const dy = e.clientY - dragStartRef.current.mouseY;
 
-      const newX = Math.max(16, Math.min(window.innerWidth - 320, dragStartRef.current.elemX + dx));
-      const newY = Math.max(16, Math.min(window.innerHeight - 200, dragStartRef.current.elemY + dy));
+      const newX = Math.max(16, Math.min(window.innerWidth - 340, dragStartRef.current.elemX + dx));
+      const newY = Math.max(16, Math.min(window.innerHeight - 240, dragStartRef.current.elemY + dy));
 
       const newCoords = { x: newX, y: newY };
       setCoords(newCoords);
@@ -145,98 +154,172 @@ export const LyricsOverlay: React.FC = () => {
 
   if (!isLyricsOpen && !isKaraokeFullscreen) return null;
 
+  // Active lyric line text snippet for the Zen Micro-Pill
+  const currentActiveLyricText =
+    activeLineIndex >= 0 && lyricsData.lines[activeLineIndex]
+      ? lyricsData.lines[activeLineIndex].text
+      : '';
+
   // Resolve layout classes and inline styles
-  let containerClasses = 'fixed z-40 pointer-events-auto transition-[box-shadow,border-color,background] duration-300';
+  let containerClasses =
+    'fixed z-40 pointer-events-auto transition-[box-shadow,border-color,background] duration-300';
   let containerStyle: React.CSSProperties = {};
 
   if (isFullscreenActive) {
-    containerClasses = 'fixed inset-0 z-50 p-4 sm:p-8 md:p-12 flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl pointer-events-auto';
+    containerClasses = 'fixed inset-0 z-50 pointer-events-auto';
   } else if (position === 'custom' && coords) {
     containerStyle = {
       left: `${coords.x}px`,
       top: `${coords.y}px`,
-      width: size === 'compact' ? '320px' : size === 'lateral' ? '440px' : '390px',
-      height: size === 'compact' ? '400px' : size === 'lateral' ? 'calc(100vh - 8rem)' : '520px',
-      maxWidth: 'calc(100vw - 2rem)',
-      maxHeight: 'calc(100vh - 4rem)',
+      width: size === 'compact' ? '330px' : size === 'lateral' ? '460px' : '390px',
+      height: size === 'compact' ? '440px' : size === 'lateral' ? 'calc(100vh - 7.5rem)' : '520px',
+      maxWidth: 'calc(100vw - 1.5rem)',
+      maxHeight: 'calc(100vh - 6rem)',
     };
   } else {
-    // Preset docking positions
     switch (position) {
       case 'dock-left':
-        containerClasses += ' top-14 left-4 sm:left-6';
+        containerClasses += ' top-16 sm:top-18 left-3 sm:left-6 max-sm:inset-x-3 max-sm:top-16 max-sm:w-auto max-sm:max-w-[390px] max-sm:mx-auto';
         containerStyle = {
-          width: size === 'compact' ? '320px' : size === 'lateral' ? '440px' : '390px',
-          height: size === 'lateral' ? 'calc(100vh - 8.5rem)' : size === 'compact' ? '400px' : '520px',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: size === 'compact' ? '330px' : size === 'lateral' ? '460px' : '390px',
+          height: size === 'lateral' ? 'calc(100vh - 7.5rem)' : size === 'compact' ? '440px' : '520px',
+          maxWidth: 'calc(100vw - 1.5rem)',
+          maxHeight: 'calc(100vh - 8.5rem)',
         };
         break;
       case 'dock-right':
-        containerClasses += ' top-14 right-4 sm:right-6';
+      default:
+        containerClasses += ' top-16 sm:top-18 right-3 sm:right-6 max-sm:inset-x-3 max-sm:top-16 max-sm:w-auto max-sm:max-w-[390px] max-sm:mx-auto';
         containerStyle = {
-          width: size === 'compact' ? '320px' : size === 'lateral' ? '440px' : '390px',
-          height: size === 'lateral' ? 'calc(100vh - 8.5rem)' : size === 'compact' ? '400px' : '520px',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: size === 'compact' ? '330px' : size === 'lateral' ? '460px' : '390px',
+          height: size === 'lateral' ? 'calc(100vh - 7.5rem)' : size === 'compact' ? '440px' : '520px',
+          maxWidth: 'calc(100vw - 1.5rem)',
+          maxHeight: 'calc(100vh - 8.5rem)',
         };
         break;
       case 'center':
-        containerClasses += ' top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2';
+        containerClasses += ' top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-sm:inset-x-3 max-sm:top-1/2 max-sm:-translate-y-1/2 max-sm:translate-x-0 max-sm:w-auto max-sm:max-w-[390px] max-sm:mx-auto';
         containerStyle = {
-          width: size === 'compact' ? '320px' : size === 'lateral' ? '460px' : '420px',
-          height: size === 'compact' ? '420px' : size === 'lateral' ? 'calc(100vh - 8rem)' : '540px',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: size === 'compact' ? '340px' : size === 'lateral' ? '480px' : '410px',
+          height: size === 'compact' ? '450px' : size === 'lateral' ? 'calc(100vh - 7rem)' : '540px',
+          maxWidth: 'calc(100vw - 1.5rem)',
+          maxHeight: 'calc(100vh - 8.5rem)',
         };
         break;
       case 'bottom-right':
-      default:
-        containerClasses += ' bottom-28 right-4 sm:right-6';
+        containerClasses += ' bottom-24 right-3 sm:right-6 max-sm:inset-x-3 max-sm:bottom-24 max-sm:w-auto max-sm:max-w-[390px] max-sm:mx-auto';
         containerStyle = {
-          width: size === 'compact' ? '320px' : size === 'lateral' ? '440px' : '390px',
-          height: size === 'lateral' ? 'calc(100vh - 11rem)' : size === 'compact' ? '400px' : '520px',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: size === 'compact' ? '330px' : size === 'lateral' ? '460px' : '390px',
+          height: size === 'lateral' ? 'calc(100vh - 9rem)' : size === 'compact' ? '440px' : '520px',
+          maxWidth: 'calc(100vw - 1.5rem)',
+          maxHeight: 'calc(100vh - 10rem)',
         };
         break;
     }
   }
 
   return (
-    <div
-      ref={panelRef}
-      className={containerClasses}
-      style={containerStyle}
-    >
-      <LyricsPanel
-        lyrics={lyricsData.lines.map((l) => ({ time: l.time, text: l.text }))}
-        currentTime={currentTime}
-        isPlaying={isPlaying}
-        title={currentTrack?.title || 'Sin título'}
-        artist={currentTrack?.artist || 'Artista desconocido'}
-        position={position}
-        size={size}
-        isFullscreen={isFullscreenActive}
-        onPositionChange={handlePositionChange}
-        onSizeChange={handleSizeChange}
-        onDragStart={handleDragStart}
-        onToggleFullscreen={() => {
-          if (isFullscreenActive) {
-            handleSizeChange('standard');
-          } else {
-            handleSizeChange('fullscreen');
-          }
-        }}
-        onSeek={(time) => {
-          if (isSpotifyConnected) {
-            spotifySeek(Math.round(time * 1000));
-          } else {
-            seek(time);
-          }
-        }}
-        onClose={() => {
-          setLyricsOpen(false);
-          if (isKaraokeFullscreen) toggleKaraokeFullscreen();
-        }}
-      />
-    </div>
+    <>
+      {/* ── Zen Micro-Pill Floating Anchor (Rendered when minimized) ── */}
+      <AnimatePresence>
+        {isZenMode && !isFullscreenActive && (
+          <motion.div
+            initial={{ opacity: 0, y: 25, scale: 0.9, filter: 'blur(12px)' }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: 20, scale: 0.9, filter: 'blur(8px)' }}
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto select-none"
+          >
+            <div
+              onClick={() => setIsZenMode(false)}
+              className="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-[#090a0f]/85 backdrop-blur-3xl saturate-[190%] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_24px_rgba(0,240,255,0.25)] hover:scale-105 cursor-pointer transition-all"
+            >
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shadow-[0_0_10px_#00f0ff]"
+                style={{
+                  backgroundColor: `${activeColor}25`,
+                  color: activeColor,
+                }}
+              >
+                <AlignLeft className="w-3.5 h-3.5" />
+              </div>
+
+              <div className="flex flex-col min-w-0 max-w-[180px] sm:max-w-[260px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-white tracking-tight truncate">
+                    {currentTrack?.title || 'Resonance Wave'}
+                  </span>
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-ping"
+                    style={{ backgroundColor: activeColor }}
+                  />
+                </div>
+                <span className="text-[11px] font-mono text-cyan-300 truncate">
+                  "{currentActiveLyricText || 'Sincronizando letra en vivo...'}"
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1 pl-2 border-l border-white/15">
+                <span className="w-1 h-3 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="w-1 h-5 rounded-full bg-cyan-300 animate-pulse" />
+                <span className="w-1 h-2 rounded-full bg-purple-400 animate-pulse" />
+              </div>
+
+              <Maximize2 className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Floating Liquid Glass Window & Fullscreen Portal ── */}
+      <AnimatePresence>
+        {(!isZenMode || isFullscreenActive) && (
+          <motion.div
+            ref={panelRef}
+            initial={{ opacity: 0, scale: 0.94, filter: 'blur(16px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.94, filter: 'blur(12px)' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className={containerClasses}
+            style={containerStyle}
+          >
+            <LyricsPanel
+              lyrics={lyricsData.lines.map((l) => ({ time: l.time, text: l.text }))}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              title={currentTrack?.title || 'Sin título'}
+              artist={currentTrack?.artist || 'Artista desconocido'}
+              position={position}
+              size={size}
+              isFullscreen={isFullscreenActive}
+              onPositionChange={handlePositionChange}
+              onSizeChange={handleSizeChange}
+              onDragStart={handleDragStart}
+              onToggleFullscreen={() => {
+                if (isFullscreenActive) {
+                  handleSizeChange('standard');
+                } else {
+                  handleSizeChange('fullscreen');
+                }
+              }}
+              onToggleZenMode={() => setIsZenMode(true)}
+              onSeek={(time) => {
+                if (isSpotifyConnected) {
+                  spotifySeek(Math.round(time * 1000));
+                } else {
+                  seek(time);
+                }
+              }}
+              onClose={() => {
+                setLyricsOpen(false);
+                if (isKaraokeFullscreen) toggleKaraokeFullscreen();
+              }}
+              onUploadLRC={loadLrcFile}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

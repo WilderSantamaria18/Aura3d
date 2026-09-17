@@ -5,6 +5,7 @@
 export * from '../../components/3D/SceneContainer';
 export * from '../../components/3D/SphereVisualizer';
 export * from '../../components/Visualizers/RainbowBlobVisualizer';
+export * from '../../components/Visualizers/LiquidVoidCircle';
 export * from '../../components/Visualizers/SynthwaveGridVisualizer';
 export * from '../../components/Visualizers/AtmosphereBackground';
 export * from '../../components/UI/VisualizerQuickControls';

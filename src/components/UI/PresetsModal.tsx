@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SlidersHorizontal, Download, Upload, Plus, Trash2, Check, Search, X, Sparkles } from "lucide-react";
 import { PresetService, FACTORY_PRESETS } from "../../services/presetService";
 import type { ScenePreset } from "../../types/presets";
@@ -16,9 +16,14 @@ const Flash: React.FC<{ c1: string; c2: string }> = ({ c1, c2 }) => (
 );
 
 const ATMO: Record<string, string> = {
-  sunset: "Atardecer", cyber_city: "Cyber City", cosmic_voyager: "Viajero",
-  ripples: "Gotas", rain: "Lluvia", sand: "Arena", stars: "Estrellas",
-  matrix: "Matrix", aurora: "Aurora",
+  sunset: "Atardecer",
+  rain: "Lluvia",
+  sand: "Arena",
+  stars: "Estrellas",
+  radial_burst: "Estallido Radial",
+  stardust_drift: "Polvo Cósmico",
+  light_beams: "Haces Luz",
+  quantum_waves: "Ondas Cuánticas",
 };
 
 export const PresetsModal: React.FC = () => {
@@ -89,7 +94,7 @@ export const PresetsModal: React.FC = () => {
     });
     setPresets(PresetService.getAllPresets());
     setSaving(false); setSaveName("");
-    notify({ id: Date.now(), type: "success", message: `💾 "${saved.name}" guardado` });
+    notify({ id: Date.now(), type: "success", message: `"${saved.name}" guardado` });
   };
 
   const remove = (id: string, name: string) => {
@@ -100,7 +105,7 @@ export const PresetsModal: React.FC = () => {
 
   const exportAll = () => {
     PresetService.exportPresetsAsJson(presets);
-    notify({ id: Date.now(), type: "info", message: "📦 Presets exportados" });
+    notify({ id: Date.now(), type: "info", message: "Presets exportados con éxito" });
   };
 
   const importFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,9 +115,9 @@ export const PresetsModal: React.FC = () => {
       const r = PresetService.importPresetsFromJson(ev.target?.result as string);
       if (r.success) {
         setPresets(PresetService.getAllPresets());
-        notify({ id: Date.now(), type: "success", message: `✨ ${r.count} presets importados` });
+        notify({ id: Date.now(), type: "success", message: `${r.count} presets importados con éxito` });
       } else {
-        notify({ id: Date.now(), type: "warning", message: `⚠️ ${r.error}` });
+        notify({ id: Date.now(), type: "warning", message: `${r.error}` });
       }
     };
     reader.readAsText(file); e.target.value = "";

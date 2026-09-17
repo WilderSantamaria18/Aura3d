@@ -8,14 +8,16 @@ type WaveformMode = 'harmonic' | 'sine' | 'pulse';
 
 /**
  * StudioOscilloscope
- * Osciloscopio de fósforo CRT de alta precisión con trazado de ondas armónicas en tiempo real
- * y selector interactivo de forma de onda.
+ * Osciloscopio de fósforo CRT analógico de alta precisión (Canal 01).
+ * Grilla vectorial analógica, barrido de haz de fósforo verde y cian en tiempo real a 60 FPS,
+ * y micro-lecturas de telemetría de laboratorio.
  */
 export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
-  color = '#00e5ff',
+  color = '#00ff9d',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [waveMode, setWaveMode] = useState<WaveformMode>('harmonic');
+  const [isCalibrated, setIsCalibrated] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,101 +36,89 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
 
       ctx.clearRect(0, 0, w, h);
 
-      // Grid background (Studio CRT lines)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-      ctx.lineWidth = 1;
-
-      // Horizontal grid lines
-      for (let y = 15; y < h; y += 15) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-      // Vertical grid lines
-      for (let x = 20; x < w; x += 20) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-
-      // Center crosshair
-      ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
-      ctx.beginPath();
-      ctx.moveTo(0, cy);
-      ctx.lineTo(w, cy);
-      ctx.moveTo(w / 2, 0);
-      ctx.lineTo(w / 2, h);
-      ctx.stroke();
-
-      // Waveform calculation based on active mode
+      // 1. Sub-harmonic Cyan Waveform
       ctx.beginPath();
       for (let x = 0; x < w; x++) {
         const nx = x / w;
         let yOffset = 0;
-
         if (waveMode === 'sine') {
-          yOffset = Math.sin(nx * Math.PI * 6 + elapsed * 5) * 20;
+          yOffset = Math.sin(nx * Math.PI * 4 + elapsed * 3) * 22;
         } else if (waveMode === 'pulse') {
-          const raw = Math.sin(nx * Math.PI * 8 + elapsed * 4);
-          yOffset = (raw > 0.1 ? 16 : -16) * Math.sin(nx * Math.PI);
+          const raw = Math.sin(nx * Math.PI * 6 + elapsed * 2.5);
+          yOffset = (raw > 0 ? 14 : -14) * Math.sin(nx * Math.PI);
         } else {
-          // Harmonic mode
-          const wave1 = Math.sin(nx * Math.PI * 6 + elapsed * 4.5) * 18;
-          const wave2 = Math.sin(nx * Math.PI * 14 - elapsed * 6) * 8;
-          const wave3 = Math.cos(nx * Math.PI * 2 + elapsed * 2) * 5;
-          const beatPulse = Math.sin(elapsed * 2.2) > 0.4 ? 1.25 : 0.85;
-          yOffset = (wave1 + wave2 + wave3) * beatPulse;
+          // Harmonic dual-tone
+          const w1 = Math.sin(nx * Math.PI * 4 + elapsed * 3.5) * 16;
+          const w2 = Math.cos(nx * Math.PI * 8 - elapsed * 2) * 6;
+          yOffset = w1 + w2;
         }
+        const y = cy + yOffset;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.55;
+      ctx.stroke();
 
+      // 2. Primary Phosphor Green Waveform with Glow
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const nx = x / w;
+        let yOffset = 0;
+        if (waveMode === 'sine') {
+          yOffset = Math.sin(nx * Math.PI * 6 + elapsed * 4.5) * 32;
+        } else if (waveMode === 'pulse') {
+          const raw = Math.sin(nx * Math.PI * 8 + elapsed * 3.5);
+          yOffset = (raw > 0.05 ? 24 : -24) * Math.sin(nx * Math.PI);
+        } else {
+          const w1 = Math.sin(nx * Math.PI * 6 + elapsed * 4.2) * 26;
+          const w2 = Math.sin(nx * Math.PI * 14 - elapsed * 5) * 9;
+          const beatPulse = Math.sin(elapsed * 2.2) > 0.35 ? 1.2 : 0.9;
+          yOffset = (w1 + w2) * beatPulse;
+        }
         const y = cy + yOffset;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
 
-      // Phosphor trace glow layer
+      // Phosphor outer glow
+      ctx.save();
       ctx.strokeStyle = color;
-      ctx.globalAlpha = 0.25;
       ctx.lineWidth = 4.5;
+      ctx.globalAlpha = 0.35;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
       ctx.stroke();
+      ctx.restore();
 
-      // Phosphor trace crisp core layer
-      ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = color;
+      // Phosphor crisp core trace
+      ctx.strokeStyle = '#c8ffe6';
       ctx.lineWidth = 1.75;
+      ctx.globalAlpha = 0.95;
       ctx.stroke();
 
-      // Bright leading sweep point
-      const sweepX = (elapsed * 90) % w;
-      const sweepNx = sweepX / w;
-      let sweepYOffset = 0;
-      if (waveMode === 'sine') {
-        sweepYOffset = Math.sin(sweepNx * Math.PI * 6 + elapsed * 5) * 20;
-      } else if (waveMode === 'pulse') {
-        const raw = Math.sin(sweepNx * Math.PI * 8 + elapsed * 4);
-        sweepYOffset = (raw > 0.1 ? 16 : -16) * Math.sin(sweepNx * Math.PI);
-      } else {
-        sweepYOffset =
-          (Math.sin(sweepNx * Math.PI * 6 + elapsed * 4.5) * 18 +
-            Math.sin(sweepNx * Math.PI * 14 - elapsed * 6) * 8) *
-          (Math.sin(elapsed * 2.2) > 0.4 ? 1.25 : 0.85);
-      }
+      // 3. Dynamic sweep points
+      const sweepX1 = (elapsed * 110) % w;
+      const sweepNx1 = sweepX1 / w;
+      const sweepY1 = cy + Math.sin(sweepNx1 * Math.PI * 6 + elapsed * 4.2) * 26;
 
-      const sweepY = cy + sweepYOffset;
-
-      // Glow halo around point
       ctx.beginPath();
-      ctx.arc(sweepX, sweepY, 5, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.4;
+      ctx.arc(sweepX1, sweepY1, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#00ff9d';
+      ctx.globalAlpha = 0.9;
+      ctx.shadowColor = '#00ff9d';
+      ctx.shadowBlur = 8;
       ctx.fill();
 
-      // Sharp center point
+      const sweepX2 = ((elapsed * 75) + 120) % w;
+      const sweepNx2 = sweepX2 / w;
+      const sweepY2 = cy + Math.sin(sweepNx2 * Math.PI * 4 + elapsed * 3) * 22;
+
       ctx.beginPath();
-      ctx.arc(sweepX, sweepY, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.globalAlpha = 1.0;
+      ctx.arc(sweepX2, sweepY2, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#00e5ff';
+      ctx.globalAlpha = 0.8;
       ctx.fill();
 
       animId = requestAnimationFrame(render);
@@ -138,42 +128,132 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [color, waveMode]);
 
+  const toggleWaveMode = () => {
+    setWaveMode((prev) =>
+      prev === 'harmonic' ? 'sine' : prev === 'sine' ? 'pulse' : 'harmonic'
+    );
+  };
+
   return (
-    <div className="relative w-full h-24 rounded-xl overflow-hidden bg-[#05070d] border border-white/[0.08] shadow-[0_4px_20px_-2px_rgba(0,0,0,0.5)] group">
-      {/* Corner rack screw markers */}
-      <span className="absolute top-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute top-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute bottom-1 left-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-      <span className="absolute bottom-1 right-1.5 text-[8px] font-mono text-white/20 select-none">+</span>
-
-      <canvas
-        ref={canvasRef}
-        width={320}
-        height={96}
-        className="w-full h-full object-cover"
-      />
-
-      <div className="absolute top-2 left-4 flex items-center gap-2 font-mono text-[9px] text-[#8b95a5]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff] animate-pulse" />
-        <span className="tracking-wider">OSC-1 // REALTIME FFT</span>
+    <div className="w-full max-w-md p-4 rounded-3xl bg-[#1a1b21]/80 border border-white/[0.08] backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] select-none">
+      {/* Bezel Header */}
+      <div className="flex items-center justify-between pb-3 px-1 text-[11px] font-mono text-[#849495]">
+        <span className="flex items-center gap-1.5 text-[#00ff9d] font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
+          CRT // CH1 SIG-IN
+        </span>
+        <span className="text-white/60">128 BPM / 440.0 Hz</span>
+        <span className="text-[#00f0ff] font-medium">OSC-TRIG: AUTO</span>
       </div>
 
-      {/* Waveform Selector Badge */}
-      <button
-        type="button"
-        onClick={() =>
-          setWaveMode((prev) => (prev === 'harmonic' ? 'sine' : prev === 'sine' ? 'pulse' : 'harmonic'))
-        }
-        className="absolute top-2 right-4 px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 font-mono text-[9px] uppercase tracking-wider text-[#00e5ff] transition-colors cursor-pointer"
-        title="Clic para alternar forma de onda del osciloscopio"
-      >
-        MODE: {waveMode}
-      </button>
+      {/* CRT Screen Container */}
+      <div className="relative w-full h-48 sm:h-52 rounded-2xl bg-[#03070b] overflow-hidden shadow-[inset_0_2px_14px_rgba(0,0,0,0.95)] flex items-center justify-center border border-white/[0.06]">
+        {/* Analog Sub-Grid (SVG) */}
+        <svg
+          className="absolute inset-0 w-full h-full opacity-20 text-[#00ff9d] pointer-events-none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <pattern
+              id="crt-grid-pattern"
+              width="24"
+              height="24"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 24 0 L 0 0 0 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="0.75"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#crt-grid-pattern)" />
+          <line
+            x1="0"
+            y1="50%"
+            x2="100%"
+            y2="50%"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeDasharray="3 3"
+          />
+          <line
+            x1="50%"
+            y1="0"
+            x2="50%"
+            y2="100%"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeDasharray="3 3"
+          />
+        </svg>
 
-      {/* Telemetry bottom bar */}
-      <div className="absolute bottom-1.5 left-4 right-4 flex items-center justify-between font-mono text-[8px] text-[#556075]">
-        <span>48.0 kHz SAMPLING</span>
-        <span className="tabular-nums">RMS: -14.2 dB</span>
+        {/* CRT Scanline Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00ff9d]/5 to-transparent h-16 w-full pointer-events-none animate-[pulse_3s_ease-in-out_infinite]" />
+
+        {/* Real-time HTML5 2D Vector Canvas */}
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={200}
+          className="relative z-10 w-full h-full object-cover"
+        />
+
+        {/* CRT Vignette & Specular Lens Curve */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#03070b]/60 via-transparent to-[#03070b]/60" />
+        <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_35px_rgba(0,255,157,0.12)]" />
+      </div>
+
+      {/* Oscilloscope Micro Controls Row */}
+      <div className="grid grid-cols-4 gap-2 pt-3 text-center">
+        <button
+          type="button"
+          onClick={toggleWaveMode}
+          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          title="Alternar forma de onda"
+        >
+          <span className="block font-mono text-[9px] text-[#849495]">VOLT/DIV</span>
+          <span className="font-mono text-[11px] text-[#dbfcff] font-semibold">50 mV</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleWaveMode}
+          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          title="Alternar base de tiempo"
+        >
+          <span className="block font-mono text-[9px] text-[#849495]">TIME/DIV</span>
+          <span className="font-mono text-[11px] text-[#dbfcff] font-semibold">1.2 ms</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsCalibrated((prev) => !prev)}
+          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          title="Alternar calibración de fase"
+        >
+          <span className="block font-mono text-[9px] text-[#849495]">CALIBR</span>
+          <span
+            className={`font-mono text-[11px] font-semibold ${
+              isCalibrated ? 'text-[#00ff9d]' : 'text-[#ffb4ab]'
+            }`}
+          >
+            {isCalibrated ? 'PHASE-OK' : 'OFFSET'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleWaveMode}
+          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          title="Alternar modo espectral"
+        >
+          <span className="block font-mono text-[9px] text-[#849495]">SPECTR</span>
+          <span className="font-mono text-[11px] text-[#8c38ff] font-semibold uppercase">
+            {waveMode === 'harmonic' ? 'STEREO' : waveMode}
+          </span>
+        </button>
       </div>
     </div>
   );

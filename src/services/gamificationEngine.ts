@@ -24,12 +24,12 @@ export interface GamificationState {
 }
 
 export const DANCER_RANKS: Record<string, DancerRank> = {
-  'S+': { tier: 'S+', title: 'CYBER DANCER', color: '#ff088a', badge: '👑' },
-  S: { tier: 'S', title: 'RHYTHM GOD', color: '#00f2fe', badge: '⚡' },
-  A: { tier: 'A', title: 'MAESTRO', color: '#39FF14', badge: '🔥' },
-  B: { tier: 'B', title: 'BAILARÍN', color: '#00E5FF', badge: '✨' },
-  C: { tier: 'C', title: 'EN RITMO', color: '#FFD700', badge: '🎵' },
-  D: { tier: 'D', title: 'NOVATO', color: '#8A99AD', badge: '🌱' },
+  'S+': { tier: 'S+', title: 'CYBER DANCER', color: '#ff088a', badge: 'S+' },
+  S: { tier: 'S', title: 'RHYTHM GOD', color: '#00f2fe', badge: 'S' },
+  A: { tier: 'A', title: 'MAESTRO', color: '#39FF14', badge: 'A' },
+  B: { tier: 'B', title: 'BAILARÍN', color: '#00E5FF', badge: 'B' },
+  C: { tier: 'C', title: 'EN RITMO', color: '#FFD700', badge: 'C' },
+  D: { tier: 'D', title: 'NOVATO', color: '#8A99AD', badge: 'D' },
 };
 
 export class GamificationEngine {

@@ -108,11 +108,11 @@ export const ProgressBar: React.FC = React.memo(() => {
 
   return (
     <div
-      className="w-full flex items-center gap-2.5 text-xs select-none"
+      className="w-full flex items-center gap-1 sm:gap-1.5 text-[9px] select-none"
       style={{ color: isLucid ? lucidTheme.primary : 'rgba(255, 255, 255, 0.45)' }}
     >
       {/* Current Time Display */}
-      <span className="w-11 text-right font-display font-tabular text-[11px] text-white/60 tracking-wide shrink-0">
+      <span className="w-7 sm:w-8 text-right font-display font-tabular text-[9px] text-white/60 tracking-wide shrink-0">
         {formatTime(isDragging ? dragTime : currentTime)}
       </span>
 
@@ -126,8 +126,8 @@ export const ProgressBar: React.FC = React.memo(() => {
         }}
         onPointerLeave={handlePointerLeave}
         onPointerUp={handlePointerUp}
-        className="relative flex-1 h-7 group flex items-center cursor-pointer py-1"
-        title="Arrastra para buscar en la onda sonora o salta a los marcadores de Drop ⚡"
+        className="relative flex-1 h-3 sm:h-3.5 group flex items-center cursor-pointer py-0.5"
+        title="Arrastra para buscar en la onda sonora o salta a los marcadores de Drop"
       >
         {/* Waveform Bars Canvas/DOM */}
         <div className="relative w-full h-full flex items-center gap-[1px] sm:gap-[2px] overflow-hidden px-0.5">
@@ -237,19 +237,19 @@ export const ProgressBar: React.FC = React.memo(() => {
 
         {/* Precision Hairline Scrubber Thumb */}
         <div
-          className={`absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 transition-transform pointer-events-none shadow-[0_2px_8px_rgba(0,0,0,0.9)] border border-white/60 z-20 ${
+          className={`absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 transition-transform pointer-events-none shadow-[0_2px_6px_rgba(0,0,0,0.9)] border border-white/60 z-20 ${
             isDragging ? 'scale-150' : 'scale-100 group-hover:scale-125'
           }`}
           style={{
             left: `${progressPct}%`,
             backgroundColor: activeColor,
-            boxShadow: `0 0 10px ${activeColor}`,
+            boxShadow: `0 0 6px ${activeColor}`,
           }}
         />
       </div>
 
       {/* Duration Display */}
-      <span className="w-11 text-left font-display font-tabular text-[11px] text-white/50 tracking-wide shrink-0">
+      <span className="w-7 sm:w-8 text-left font-display font-tabular text-[9px] text-white/50 tracking-wide shrink-0">
         {formatTime(duration)}
       </span>
     </div>

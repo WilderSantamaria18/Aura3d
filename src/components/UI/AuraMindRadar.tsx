@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
-import { Sparkles, Activity, X, Zap, HeartPulse, Disc, Music2 } from 'lucide-react';
+import { Sparkles, Activity, X, Zap, HeartPulse, Disc, Music2, Wind, Moon } from 'lucide-react';
 
 interface AuraMindRadarProps {
   isOpen: boolean;
@@ -18,35 +18,36 @@ export const AuraMindRadar: React.FC<AuraMindRadarProps> = ({ isOpen, onClose })
 
   const moodConfig: Record<
     string,
-    { label: string; icon: string; desc: string; gradient: string }
+    { label: string; icon: React.ComponentType<{ className?: string }>; desc: string; gradient: string }
   > = {
     energetic: {
       label: 'Energético',
-      icon: '⚡',
+      icon: Zap,
       desc: 'Alta intensidad rítmica & euforia',
       gradient: 'from-amber-500/20 via-rose-500/20 to-purple-500/20 border-rose-500/40',
     },
     happy: {
       label: 'Alegre / Solar',
-      icon: '✨',
+      icon: Sparkles,
       desc: 'Armonías brillantes & tempo optimista',
       gradient: 'from-yellow-500/20 via-amber-500/20 to-orange-500/20 border-amber-500/40',
     },
     chill: {
       label: 'Chill / Celestial',
-      icon: '🌿',
+      icon: Wind,
       desc: 'Atmósferas relajantes & texturas etéreas',
       gradient: 'from-emerald-500/20 via-teal-500/20 to-cyan-500/20 border-emerald-500/40',
     },
     melancholic: {
       label: 'Melancólico / Deep',
-      icon: '🌌',
+      icon: Moon,
       desc: 'Graves profundos & resonancia introspectiva',
       gradient: 'from-blue-600/20 via-indigo-600/20 to-violet-600/20 border-indigo-500/40',
     },
   };
 
   const currentMood = moodConfig[mood] || moodConfig.chill;
+  const MoodIcon = currentMood.icon;
 
   // Tempo descriptor
   const getBpmLabel = (val: number) => {
@@ -99,26 +100,26 @@ export const AuraMindRadar: React.FC<AuraMindRadarProps> = ({ isOpen, onClose })
 
         {/* Main Content Body */}
         <div className="p-4 flex flex-col gap-4 font-mono text-xs">
-          {/* 1. Mood Card */}
-          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-white/40 uppercase tracking-wider">Estado Emocional</span>
-              <span className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
-                <span>{currentMood.icon}</span> {currentMood.label}
-              </span>
-              <span className="text-[10px] text-white/50 mt-0.5">{currentMood.desc}</span>
-            </div>
+              {/* 1. Mood Card */}
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-white/40 uppercase tracking-wider">Estado Emocional</span>
+                  <span className="text-sm font-bold text-white flex items-center gap-1.5 mt-0.5">
+                    <MoodIcon className="w-4 h-4 text-cyan-400" /> {currentMood.label}
+                  </span>
+                  <span className="text-[10px] text-white/50 mt-0.5">{currentMood.desc}</span>
+                </div>
 
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-xl bg-white/5 border border-white/10 shadow-inner"
-              style={{
-                transform: `scale(${1 + beatPulse * 0.15})`,
-                transition: 'transform 0.1s ease-out',
-              }}
-            >
-              {currentMood.icon}
-            </div>
-          </div>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 shadow-inner"
+                  style={{
+                    transform: `scale(${1 + beatPulse * 0.15})`,
+                    transition: 'transform 0.1s ease-out',
+                  }}
+                >
+                  <MoodIcon className="w-6 h-6 text-cyan-300" />
+                </div>
+              </div>
 
           {/* 2. BPM & Live Tempo Pulse */}
           <div className="grid grid-cols-2 gap-2">

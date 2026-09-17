@@ -11,7 +11,6 @@ interface ChannelMeta {
   type: SoundscapeType;
   title: string;
   subtitle: string;
-  emoji: string;
   icon: React.FC<{ className?: string }>;
   sliderColor: string;
 }
@@ -21,7 +20,6 @@ const CHANNELS: ChannelMeta[] = [
     type: 'rain',
     title: 'Lluvia en Ventana',
     subtitle: 'Ruido rosa 750Hz y gotas suaves',
-    emoji: '🌧️',
     icon: CloudRain,
     sliderColor: 'accent-sky-400',
   },
@@ -29,7 +27,6 @@ const CHANNELS: ChannelMeta[] = [
     type: 'fire',
     title: 'Crepitar de Fogata',
     subtitle: 'Retumbe 140Hz y chispas Poisson',
-    emoji: '🔥',
     icon: Flame,
     sliderColor: 'accent-orange-500',
   },
@@ -37,7 +34,6 @@ const CHANNELS: ChannelMeta[] = [
     type: 'cafe',
     title: 'Cafetería de Noche',
     subtitle: 'Formantes 520Hz/1350Hz acústicos',
-    emoji: '☕',
     icon: Coffee,
     sliderColor: 'accent-amber-400',
   },
@@ -45,7 +41,6 @@ const CHANNELS: ChannelMeta[] = [
     type: 'ocean',
     title: 'Olas del Mar Nocturnas',
     subtitle: 'Oleaje sinusoidal 8.5s continuo',
-    emoji: '🌊',
     icon: Waves,
     sliderColor: 'accent-teal-400',
   },
@@ -143,8 +138,10 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm shrink-0">{ch.emoji}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-md bg-white/[0.06] border border-white/[0.08] flex items-center justify-center shrink-0">
+                      <Icon className="w-3.5 h-3.5 text-white/80" />
+                    </div>
                     <div className="truncate">
                       <div className="text-[12px] font-bold text-white/95 truncate leading-tight tracking-studio-tight font-heading">
                         {ch.title}

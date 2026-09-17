@@ -42,6 +42,7 @@ import {
   Sun,
   Moon,
   Palette,
+  Image,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
@@ -99,7 +100,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
   type: SoundscapeType;
   title: string;
   subtitle: string;
-  emoji: string;
   icon: React.FC<{ className?: string }>;
   accentColor: string;
 }> = [
@@ -107,7 +107,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'rain',
     title: 'Lluvia en Ventana',
     subtitle: 'Ruido rosa 750Hz y gotas suaves',
-    emoji: '🌧️',
     icon: CloudRain,
     accentColor: 'text-sky-400',
   },
@@ -115,7 +114,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'fire',
     title: 'Crepitar de Fogata',
     subtitle: 'Retumbe 140Hz y chispas Poisson',
-    emoji: '🔥',
     icon: Flame,
     accentColor: 'text-orange-400',
   },
@@ -123,7 +121,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'cafe',
     title: 'Cafetería de Noche',
     subtitle: 'Formantes 520Hz/1350Hz acústicos',
-    emoji: '☕',
     icon: Coffee,
     accentColor: 'text-amber-400',
   },
@@ -131,7 +128,6 @@ const SOUNDSCAPE_CHANNELS: Array<{
     type: 'ocean',
     title: 'Olas del Mar',
     subtitle: 'Oleaje sinusoidal continuo de 8.5s',
-    emoji: '🌊',
     icon: Waves,
     accentColor: 'text-teal-400',
   },
@@ -181,6 +177,7 @@ export const HeaderBar: React.FC = () => {
     toggleRgbGlitch,
     isCrossfadeActive,
     toggleCrossfade,
+    blobSettings,
     updateBlobSettings,
     isRetroCrtActive,
     toggleRetroCrt,
@@ -204,6 +201,8 @@ export const HeaderBar: React.FC = () => {
     vocalMode,
     setVocalMode,
     setStoryCardOpen,
+    isBlobPanelOpen,
+    setBlobPanelOpen,
   } = usePlayerStore();
 
   const { toggleMicrophone, startSystemCapture, isCapturing, playRadioStation } = useAudioEngine();
@@ -211,6 +210,7 @@ export const HeaderBar: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isAuraMindOpen, setIsAuraMindOpen] = useState(false);
+  const [isAtmosphereOpen, setIsAtmosphereOpen] = useState(false);
   const [soundscapeConfig, setSoundscapeConfig] = useState<SoundscapesConfig>(soundscapeEngine.getConfig());
   const [soundscapeActiveCount, setSoundscapeActiveCount] = useState(0);
   const [harmonicKey, setHarmonicKey] = useState<HarmonicKeyResult>(harmonicAnalysisService.getLastResult());
@@ -218,12 +218,43 @@ export const HeaderBar: React.FC = () => {
   const [snapshotSuccess, setSnapshotSuccess] = useState(false);
   const [isPipActive, setIsPipActive] = useState(false);
 
-  // Consolidated Menu States
-  const [activeMenu, setActiveMenu] = useState<'visualizers' | 'dsp' | 'intel_hub' | 'studio' | 'settings' | 'timer' | null>(null);
+  const hasActiveBg =
+    Boolean(blobSettings?.customBackgroundImage) ||
+    (Boolean(blobSettings?.backgroundAtmosphere) && blobSettings.backgroundAtmosphere !== 'none');
+
+  // Consolidated Menu States (Only ONE card can ever be open at a time)
+  type HeaderMenuType = 'visualizers' | 'dsp' | 'intel_hub' | 'studio' | 'settings' | 'timer' | 'recorder' | 'lucid' | null;
+  const [activeMenu, setActiveMenu] = useState<HeaderMenuType>(null);
   const [dspTab, setDspTab] = useState<'master' | 'spatial' | 'modulation'>('master');
   const [intelTab, setIntelTab] = useState<'harmonic' | 'soundscapes' | 'auramind'>('harmonic');
 
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Exclusive single-card policy: opening any card closes any other card
+  const handleToggleMenu = (menu: 'visualizers' | 'dsp' | 'intel_hub' | 'studio' | 'settings' | 'timer' | 'recorder' | 'lucid') => {
+    setActiveMenu((prev) => {
+      const next = prev === menu ? null : menu;
+      if (next !== null) {
+        if (isBlobPanelOpen) setBlobPanelOpen(false);
+        if (isLyricsOpen) setLyricsOpen(false);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (isBlobPanelOpen) {
+      setActiveMenu(null);
+      if (isLyricsOpen) setLyricsOpen(false);
+    }
+  }, [isBlobPanelOpen, isLyricsOpen, setLyricsOpen]);
+
+  useEffect(() => {
+    if (isLyricsOpen) {
+      setActiveMenu(null);
+      if (isBlobPanelOpen) setBlobPanelOpen(false);
+    }
+  }, [isLyricsOpen, isBlobPanelOpen, setBlobPanelOpen]);
 
   useEffect(() => {
     return pictureInPictureService.subscribe(setIsPipActive);
@@ -296,8 +327,8 @@ export const HeaderBar: React.FC = () => {
 
   const handleShare = async () => {
     const shareText = currentTrack
-      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis 🎧`
-      : 'Disfrutando de Auralis - Reproductor Inmersivo Web 🎧';
+      ? `Escuchando "${currentTrack.title}" por ${currentTrack.artist} en Auralis`
+      : 'Disfrutando de Auralis - Reproductor Inmersivo Web';
 
     if (navigator.share) {
       try {
@@ -319,11 +350,11 @@ export const HeaderBar: React.FC = () => {
   const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
 
   const { mood, dominantPitch, beatPulse, primaryColor: aiColor } = useAIAudioEngine();
-  const moodLabels: Record<string, { label: string; icon: string }> = {
-    energetic: { label: 'Energético', icon: '⚡' },
-    happy: { label: 'Alegre', icon: '✨' },
-    chill: { label: 'Relajado', icon: '🌙' },
-    melancholic: { label: 'Melancólico', icon: '🌊' },
+  const moodLabels: Record<string, { label: string }> = {
+    energetic: { label: 'Energético' },
+    happy: { label: 'Alegre' },
+    chill: { label: 'Relajado' },
+    melancholic: { label: 'Melancólico' },
   };
 
   const isAnyDspActive =
@@ -341,51 +372,54 @@ export const HeaderBar: React.FC = () => {
   return (
     <header
       ref={menuRef}
-      className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-2 sm:px-4 md:px-6 py-2 pointer-events-auto select-none gap-2 font-sans max-w-full"
+      className="w-full flex items-center justify-start px-3 sm:px-6 md:px-8 pt-2 sm:pt-3 pointer-events-none select-none font-sans"
     >
-      {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
-      <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.5)] transition-colors"
-          style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
-        >
-          <Disc3 className="w-4 h-4" style={{ color: activeAccent }} />
-        </div>
-
-        <div className="hidden min-[380px]:flex flex-col min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold tracking-[0.15em] font-display text-[13px] uppercase text-white/90">
-              Auralis
-            </span>
-            <span className="text-[9px] tracking-wider uppercase font-display font-tabular px-1.5 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.02]">
-              Studio
-            </span>
-            <MiniSpectrumBars />
+      <div className="w-auto liquid-glass liquid-glass-pill flex items-center px-2.5 sm:px-3.5 py-1 pointer-events-auto gap-1.5 sm:gap-2 shadow-[0_16px_40px_rgba(0,0,0,0.65)] border border-white/15 backdrop-blur-3xl bg-[#080c18]/90">
+        {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center bg-white/[0.06] border border-white/10 border-t-white/20 shadow-sm transition-colors"
+            style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
+          >
+            <Disc3 className="w-3.5 h-3.5" style={{ color: activeAccent }} />
           </div>
 
-          {currentTrack && (
-            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-white/50 truncate max-w-[180px] lg:max-w-[240px]">
-              <span className="truncate text-white/80 font-medium">{currentTrack.title}</span>
-              <span className="text-white/30">•</span>
-              <span className="truncate text-white/50">{currentTrack.artist}</span>
+          <div className="hidden min-[380px]:flex flex-col min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="font-semibold tracking-[0.1em] font-display text-[11px] uppercase text-white/95">
+                Auralis
+              </span>
+              <span className="text-[7.5px] tracking-wider uppercase font-mono px-1 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
+                Studio
+              </span>
+              <MiniSpectrumBars />
             </div>
-          )}
+
+            {currentTrack && (
+              <div className="hidden md:flex items-center gap-1 text-[9px] text-white/50 truncate max-w-[100px] lg:max-w-[130px]">
+                <span className="truncate text-white/80 font-medium">{currentTrack.title}</span>
+                <span className="text-white/30">•</span>
+                <span className="truncate text-white/50">{currentTrack.artist}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Global Command Palette Chip */}
+          <button
+            onClick={() => setCommandPaletteOpen(true)}
+            className="hidden 2xl:flex items-center gap-1 px-2 py-0.5 h-6.5 sm:h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 border-t-white/20 text-[8.5px] font-mono text-white/70 hover:text-white transition-all shadow-sm pointer-events-auto ml-0.5 cursor-pointer active:scale-95"
+            title="Abrir Paleta Universal de Comandos (Ctrl+K / ⌘K)"
+          >
+            <Keyboard className="w-2.5 h-2.5 text-cyan-400" />
+            <span>Cmd</span>
+            <kbd className="px-1.5 py-0.2 rounded-full bg-white/10 text-[7.5px] text-white/80">⌘K</kbd>
+          </button>
         </div>
 
-        {/* Global Command Palette Chip */}
-        <button
-          onClick={() => setCommandPaletteOpen(true)}
-          className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[10px] font-mono text-white/50 hover:text-white transition-all shadow-sm pointer-events-auto ml-1"
-          title="Abrir Paleta Universal de Comandos (Ctrl+K / ⌘K)"
-        >
-          <Keyboard className="w-3 h-3 text-cyan-400" />
-          <span>Comandos</span>
-          <kbd className="px-1 py-0.2 rounded bg-white/10 text-[9px] text-white/70">⌘K</kbd>
-        </button>
-      </div>
+        <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block flex-shrink-0" />
 
-      {/* ── CLUSTER 2 (Center): Stage, DSP Studio & Live Harmony Hub ── */}
-      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        {/* ── CLUSTER 2 (Center): Stage, DSP Studio & Live Harmony Hub ── */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
         {/* 1. Selector de Visualizador 3D / Shaders */}
         <div className="relative">
           {(() => {
@@ -393,20 +427,20 @@ export const HeaderBar: React.FC = () => {
             const VizIcon = currentViz.icon;
             return (
               <button
-                onClick={() => setActiveMenu(activeMenu === 'visualizers' ? null : 'visualizers')}
+                onClick={() => handleToggleMenu('visualizers')}
                 aria-haspopup="true"
                 aria-expanded={activeMenu === 'visualizers'}
                 aria-label="Seleccionar modo de visualización"
-                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl glass-panel text-xs font-display transition-all cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
                   activeMenu === 'visualizers'
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                    : 'text-white/90 hover:text-white hover:bg-white/[0.06]'
+                    ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                    : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/90 shadow-sm'
                 }`}
                 title="Seleccionar Modo de Visualización (Rainbow Void, Synthwave 3D, Warp, Terreno)"
               >
-                <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
-                <span className="font-medium text-[11px] sm:text-xs">{currentViz.name}</span>
-                <ChevronDown className="w-3 h-3 text-white/50" />
+                <VizIcon className={`w-3 h-3 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
+                <span className="font-medium text-[9.5px] sm:text-[10px]">{currentViz.name}</span>
+                <ChevronDown className="w-2.5 h-2.5 text-white/50" />
               </button>
             );
           })()}
@@ -415,40 +449,58 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Modos de visualización interactivos"
-              className="fixed inset-x-3 top-14 max-w-[280px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-64 p-2 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95"
+              className="fixed inset-x-3 top-14 max-w-[290px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-72 p-2.5 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 select-none text-white font-sans"
             >
-              <span className="text-[10px] font-mono text-white/65 px-2 pt-1 uppercase tracking-wider">
-                Visualizadores Interactivos
-              </span>
-              {VISUALIZERS.map((viz) => {
-                const Icon = viz.icon;
-                const isActive = visualizerMode === viz.id;
-                return (
-                  <button
-                    key={viz.id}
-                    role="menuitem"
-                    aria-label={`Activar visualizador ${viz.name}`}
-                    onClick={() => {
-                      setVisualizerMode(viz.id as any);
-                      setActiveMenu(null);
-                    }}
-                    className={`flex items-center justify-between p-2 min-h-[40px] rounded-xl text-xs font-mono transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-white/10 text-white border border-white/20 font-medium'
-                        : 'text-white/80 hover:text-white hover:bg-white/5 border border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-white/60'}`} />
-                      <div className="flex flex-col text-left">
-                        <span className="font-medium text-xs text-white">{viz.name}</span>
-                        <span className="text-[9px] text-white/60 tracking-wider font-mono">{viz.desc}</span>
+              <div className="flex items-center justify-between px-2 pt-0.5 pb-1.5 border-b border-white/[0.08]">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-[11px] font-semibold text-white tracking-tight">
+                    Visualizadores 3D
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-full border border-cyan-500/25">
+                  WebGL 2.0
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                {VISUALIZERS.map((viz) => {
+                  const Icon = viz.icon;
+                  const isActive = visualizerMode === viz.id;
+                  return (
+                    <button
+                      key={viz.id}
+                      role="menuitem"
+                      aria-label={`Activar visualizador ${viz.name}`}
+                      onClick={() => {
+                        setVisualizerMode(viz.id as any);
+                        setActiveMenu(null);
+                      }}
+                      className={`flex items-center justify-between p-2 min-h-[42px] rounded-xl transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-white/15 text-white border border-white/20 font-semibold shadow-sm'
+                          : 'text-white/80 hover:text-white hover:bg-white/[0.06] border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                            isActive
+                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                              : 'bg-white/[0.05] text-white/60'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-xs text-white tracking-tight">{viz.name}</span>
+                          <span className="text-[9.5px] text-white/50 tracking-tight font-sans">{viz.desc}</span>
+                        </div>
                       </div>
-                    </div>
-                    {isActive && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
-                  </button>
-                );
-              })}
+                      {isActive && <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff]" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -456,66 +508,78 @@ export const HeaderBar: React.FC = () => {
         {/* 2. Efectos & DSP Organizado en 3 Pestañas */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'dsp' ? null : 'dsp')}
+            onClick={() => handleToggleMenu('dsp')}
             aria-haspopup="true"
             aria-expanded={activeMenu === 'dsp'}
             aria-label="Efectos de Audio y DSP"
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-xl bg-[#070913]/70 backdrop-blur-3xl border border-white/[0.06] border-t-white/[0.12] text-xs font-mono transition-all shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
               activeMenu === 'dsp' || isAnyDspActive
-                ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300'
-                : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white shadow-sm'
             }`}
             title="Efectos de Audio y DSP de Estudio: Masterización, Audio 8D, Reverb, Pitch y Modulación"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isAnyDspActive ? 'text-cyan-400' : 'text-white/70'}`} />
-            <span className="hidden sm:inline text-[11px]">Efectos & DSP</span>
-            <span className="sm:hidden text-[11px]">DSP</span>
+            <Headphones className={`w-3 h-3 ${isAnyDspActive ? 'text-cyan-400' : 'text-white/70'}`} />
+            <span className="hidden sm:inline text-[9.5px] sm:text-[10.5px]">DSP</span>
             {isAnyDspActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />}
-            <ChevronDown className="w-3 h-3 text-white/50" />
+            <ChevronDown className="w-2.5 h-2.5 text-white/50" />
           </button>
 
           {activeMenu === 'dsp' && (
             <div
               role="region"
               aria-label="Panel de efectos y DSP de audio"
-              className="fixed inset-x-3 top-14 max-w-[390px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto scrollbar-thin p-3 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-xs font-mono"
+              className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[400px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_28px_70px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 select-none text-white font-sans"
             >
-              {/* Selector de 3 Pestañas Claras */}
-              <div className="flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[10px] font-mono">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+                <div className="flex items-center gap-1.5">
+                  <Headphones className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-xs font-bold text-white tracking-tight">DSP & Efectos de Audio</span>
+                </div>
+                {isAnyDspActive && (
+                  <span className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-full border border-cyan-500/25">
+                    ACTIVO
+                  </span>
+                )}
+              </div>
+
+              {/* Selector de 3 Pestañas (Apple Segmented Control) */}
+              <div className="p-1 rounded-xl bg-black/40 border border-white/10 backdrop-blur-xl grid grid-cols-3 gap-1">
                 <button
                   onClick={() => setDspTab('master')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     dspTab === 'master'
-                      ? 'bg-amber-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                   title="Mastering Limiter y Mezcla Armónica DJ"
                 >
-                  <Gauge className="w-3 h-3" />
+                  <Gauge className="w-3.5 h-3.5" />
                   <span>Master & DJ</span>
                 </button>
                 <button
                   onClick={() => setDspTab('spatial')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     dspTab === 'spatial'
-                      ? 'bg-cyan-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                   title="Audio 8D Orbital, Reverb y Frecuencias Binaurales"
                 >
-                  <Headphones className="w-3 h-3" />
+                  <Headphones className="w-3.5 h-3.5" />
                   <span>Espacial (8D)</span>
                 </button>
                 <button
                   onClick={() => setDspTab('modulation')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     dspTab === 'modulation'
-                      ? 'bg-fuchsia-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-fuchsia-500/25 text-fuchsia-200 border border-fuchsia-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                   title="Velocidad, Pitch DJ, Grano CRT y Cintas de Luz"
                 >
-                  <Tv className="w-3 h-3" />
+                  <Tv className="w-3.5 h-3.5" />
                   <span>Modulación</span>
                 </button>
               </div>
@@ -861,27 +925,27 @@ export const HeaderBar: React.FC = () => {
         {/* 3. Hub Unificado de Inteligencia Musical & Armonía */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'intel_hub' ? null : 'intel_hub')}
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-xl border shadow-sm text-xs font-mono transition-all hover:bg-white/[0.05] cursor-pointer ${
+            onClick={() => handleToggleMenu('intel_hub')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
               activeMenu === 'intel_hub' || soundscapeActiveCount > 0
-                ? 'border-purple-500/50 bg-purple-500/15 text-white'
-                : 'border-white/[0.08] hover:border-purple-500/40 text-white/90'
+                ? 'border-purple-400/50 bg-purple-500/20 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
+                : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/85 hover:text-white shadow-sm'
             }`}
             title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
           >
             {/* Camelot Badge */}
-            <span className="text-[9px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[4px] border border-purple-500/30">
+            <span className="text-[8px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[3px] border border-purple-500/30">
               {harmonicKey.camelot}
             </span>
-            <span className="hidden md:inline text-[11px] font-medium text-white/80">
+            <span className="hidden 2xl:inline text-[9.5px] sm:text-[10px] font-medium text-white/80">
               {harmonicKey.shortKey !== '--' ? harmonicKey.shortKey : 'Tonalidad'}
             </span>
 
-            <span className="text-white/20 hidden sm:inline">|</span>
+            <span className="text-white/20 hidden 2xl:inline">|</span>
 
             {/* Soundscapes indicator */}
             <span className="text-[11px] flex items-center gap-1 text-cyan-300">
-              <span>🌧️</span>
+              <Waves className="w-3 h-3 text-cyan-400" />
               {soundscapeActiveCount > 0 && (
                 <span className="text-[9px] px-1 bg-cyan-400 text-black font-bold rounded-full">
                   {soundscapeActiveCount}
@@ -889,11 +953,11 @@ export const HeaderBar: React.FC = () => {
               )}
             </span>
 
-            <span className="text-white/20 hidden lg:inline">|</span>
+            <span className="text-white/20 hidden 2xl:inline">|</span>
 
             {/* Mood indicator */}
-            <span className="hidden lg:flex items-center gap-1 text-[11px] text-amber-300">
-              <span>{moodLabels[mood]?.icon}</span>
+            <span className="hidden 2xl:flex items-center gap-1 text-[11px] text-amber-300">
+              <Sparkles className="w-3 h-3 text-amber-400" />
               <span className="text-white/80">{moodLabels[mood]?.label}</span>
             </span>
 
@@ -902,40 +966,51 @@ export const HeaderBar: React.FC = () => {
 
           {/* Popover Unificado del Hub de Inteligencia */}
           {activeMenu === 'intel_hub' && (
-            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[390px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.08] shadow-[0_24px_60px_rgba(0,0,0,0.75)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 text-white font-mono">
-              {/* Selector de Pestañas del Hub */}
-              <div className="flex items-center p-0.5 rounded-[12px] bg-white/[0.04] border border-white/[0.06] text-[10px] font-mono">
+            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[400px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_28px_70px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 select-none text-white font-sans">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs font-bold text-white tracking-tight">Hub de Inteligencia & Armonía</span>
+                </div>
+                <span className="text-[9px] font-mono font-bold text-purple-300 bg-purple-500/15 px-2 py-0.5 rounded-full border border-purple-500/25">
+                  IA DJ
+                </span>
+              </div>
+
+              {/* Selector de Pestañas del Hub (Apple Segmented Control) */}
+              <div className="p-1 rounded-xl bg-black/40 border border-white/10 backdrop-blur-xl grid grid-cols-3 gap-1">
                 <button
                   onClick={() => setIntelTab('harmonic')}
-                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'harmonic'
-                      ? 'bg-purple-500 text-white font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-purple-500/25 text-purple-200 border border-purple-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                 >
-                  <Radio className="w-3 h-3" />
+                  <Radio className="w-3.5 h-3.5" />
                   <span>Tonalidad & DJ</span>
                 </button>
                 <button
                   onClick={() => setIntelTab('soundscapes')}
-                  className={`flex-1 py-1 px-1.5 rounded-[10px] transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'soundscapes'
-                      ? 'bg-cyan-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                 >
-                  <CloudRain className="w-3 h-3" />
+                  <CloudRain className="w-3.5 h-3.5" />
                   <span>Ambientes Lo-Fi</span>
                 </button>
                 <button
                   onClick={() => setIntelTab('auramind')}
-                  className={`flex-1 py-1 px-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'auramind'
-                      ? 'bg-amber-500 text-black font-bold shadow-sm'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm backdrop-blur-md'
+                      : 'text-white/50 hover:text-white/80'
                   }`}
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-3.5 h-3.5" />
                   <span>AuraMind AI</span>
                 </button>
               </div>
@@ -1061,7 +1136,9 @@ export const HeaderBar: React.FC = () => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="text-base">{ch.emoji}</span>
+                              <div className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
+                                <Icon className={`w-3.5 h-3.5 ${ch.accentColor}`} />
+                              </div>
                               <div>
                                 <div className="text-xs font-semibold text-white/90">{ch.title}</div>
                                 <div className="text-[8px] text-white/40 font-sans">{ch.subtitle}</div>
@@ -1118,8 +1195,9 @@ export const HeaderBar: React.FC = () => {
                         }}
                       />
                       <div>
-                        <div className="text-xs font-bold text-white">
-                          {moodLabels[mood]?.icon} Estado: {moodLabels[mood]?.label}
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Estado: {moodLabels[mood]?.label || 'Analizando'}</span>
                         </div>
                         <div className="text-[9px] text-amber-300/80 font-sans">
                           Tono dominante: {dominantPitch} • Pulso: {Math.round(beatPulse * 100)}%
@@ -1152,88 +1230,108 @@ export const HeaderBar: React.FC = () => {
         </div>
       </div>
 
+      <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block flex-shrink-0" />
+
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#090d18]/90 backdrop-blur-xl border border-white/[0.08] shadow-[0_12px_32px_-4px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.05] border border-white/10 border-t-white/20 backdrop-blur-md shadow-sm">
           <BpmMeter />
-          <div className="w-px h-3.5 bg-white/[0.08] mx-0.5 hidden sm:block" />
-          <VideoRecorderButton />
+          <div className="w-px h-3 bg-white/[0.08] mx-0.5 hidden sm:block" />
+          <VideoRecorderButton
+            isOpen={activeMenu === 'recorder'}
+            onToggle={() => handleToggleMenu('recorder')}
+            onClose={() => setActiveMenu(null)}
+          />
 
           {/* 4K Snapshot Wallpaper */}
           <button
             onClick={handleCaptureSnapshot}
             disabled={isCapturingSnapshot}
-            className={`p-1.5 rounded-lg transition-all flex items-center gap-1 ${
+            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 ${
               snapshotSuccess
-                ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 font-bold'
+                ? 'text-emerald-300 bg-emerald-500/25 border border-emerald-400/40 font-bold'
                 : isCapturingSnapshot
-                ? 'text-cyan-400 animate-pulse bg-cyan-500/15'
-                : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
+                ? 'text-cyan-300 animate-pulse bg-cyan-500/20'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.1]'
             }`}
             title="Captura Fondo 4K (Sin interfaz para wallpaper de escritorio)"
             aria-label="Captura Fondo 4K"
           >
-            {snapshotSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Camera className="w-3.5 h-3.5" />}
-            <span className="text-[9px] font-mono hidden xl:inline">4K</span>
+            {snapshotSuccess ? <Check className="w-3 h-3 text-emerald-300" /> : <Camera className="w-3 h-3" />}
           </button>
 
           {/* Auralis Story Card 9:16 Social Export */}
           <button
             onClick={() => setStoryCardOpen(true)}
-            className="p-1.5 rounded-lg transition-all flex items-center gap-1 text-purple-300 hover:text-purple-200 hover:bg-purple-500/15"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
             title="Crear Tarjeta Estética para Historias (9:16 para Instagram Stories y TikTok)"
             aria-label="Tarjeta 9:16 para Historias"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-[9px] font-mono hidden xl:inline">9:16</span>
+            <Sparkles className="w-3 h-3 text-purple-400" />
           </button>
         </div>
 
         {/* 2. Menú Unificado: Estudio & Entradas (Mic, Sistema, Spotify, Radio, VR, Air Synth, PiP) */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'studio' ? null : 'studio')}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 border shadow-[0_12px_32px_rgba(0,0,0,0.5)] ${
+            onClick={() => handleToggleMenu('studio')}
+            className={`px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
               activeMenu === 'studio' || isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive
-                ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(0,229,255,0.2)]'
-                : 'bg-[#070913]/70 backdrop-blur-3xl text-white/70 border-white/[0.06] hover:text-white hover:bg-white/[0.04]'
+                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border-white/10 border-t-white/20 shadow-sm'
             }`}
             title="Estudio: Entradas de audio, Radios 24/7, Experiencias 3D y Picture-in-Picture"
           >
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden md:inline text-[11px]">Estudio</span>
+            <Layers className="w-3 h-3 text-cyan-400" />
+            <span className="hidden md:inline text-[9.5px] sm:text-[10px]">Estudio</span>
             {(isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive) && (
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             )}
-            <ChevronDown className="w-3 h-3 text-white/40" />
+            <ChevronDown className="w-2.5 h-2.5 text-white/40" />
           </button>
 
           {activeMenu === 'studio' && (
-            <div className="absolute right-0 top-full mt-2 w-64 p-2.5 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-2xl z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono">
+            <div className="fixed inset-x-3 top-14 max-w-[290px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 p-3 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans">
+              {/* Header */}
+              <div className="flex items-center justify-between px-1 pb-1.5 border-b border-white/[0.08]">
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-xs font-bold text-white tracking-tight">Estudio y Fuentes</span>
+                </div>
+                <span className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-full border border-cyan-500/25">
+                  I/O Audio
+                </span>
+              </div>
+
               {/* Sección Fuentes */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-white/45 px-1 uppercase tracking-wider block mb-1">
                   Fuentes de Audio
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1">
                   {/* Micrófono */}
                   <button
                     onClick={() => {
                       toggleMicrophone();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                       isMicActive
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Mic className="w-4 h-4" />
-                      <span>Micrófono en vivo</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 shadow-sm">
+                        <Mic className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">Micrófono en vivo</span>
+                        <span className="text-[9px] text-white/45">Entrada de voz o DAW</span>
+                      </div>
                     </div>
-                    {isMicActive && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+                    {isMicActive && <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />}
                   </button>
 
                   {/* Audio de Pantalla / Tab */}
@@ -1242,17 +1340,22 @@ export const HeaderBar: React.FC = () => {
                       startSystemCapture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                       isCapturing
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Cast className="w-4 h-4" />
-                      <span>Audio de Pantalla/Tab</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
+                        <Cast className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">Audio de Pantalla</span>
+                        <span className="text-[9px] text-white/45">Captura directa de pestaña</span>
+                      </div>
                     </div>
-                    {isCapturing && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
+                    {isCapturing && <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#00e5ff]" />}
                   </button>
 
                   {/* Spotify */}
@@ -1262,19 +1365,26 @@ export const HeaderBar: React.FC = () => {
                       else connectSpotify();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                       isSpotifyConnected
-                        ? 'bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/35 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
-                      </svg>
-                      <span>{isSpotifyConnected ? 'Spotify Conectado' : 'Conectar Spotify'}</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center border border-[#1DB954]/30 flex-shrink-0 shadow-sm">
+                        <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
+                        </svg>
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">
+                          {isSpotifyConnected ? 'Spotify Conectado' : 'Conectar Spotify'}
+                        </span>
+                        <span className="text-[9px] text-white/45">Sincronización Web API</span>
+                      </div>
                     </div>
-                    {isSpotifyConnected && <span className="w-2 h-2 rounded-full bg-[#1DB954]" />}
+                    {isSpotifyConnected && <span className="w-2 h-2 rounded-full bg-[#1DB954] shadow-[0_0_6px_#1DB954]" />}
                   </button>
 
                   {/* Radio Web 24/7 */}
@@ -1284,13 +1394,20 @@ export const HeaderBar: React.FC = () => {
                       if (synthwaveStation) playRadioStation(synthwaveStation);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center justify-between p-2 rounded-xl text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="flex items-center justify-between p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-fuchsia-400" />
-                      <span>Radio Synthwave 24/7</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center border border-fuchsia-500/30 flex-shrink-0 shadow-sm">
+                        <Radio className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">Radio Synthwave</span>
+                        <span className="text-[9px] text-white/45">Emisión continua 24/7</span>
+                      </div>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.2 bg-fuchsia-500/20 text-fuchsia-300 rounded font-bold uppercase">LIVE</span>
+                    <span className="text-[9px] px-1.5 py-0.2 bg-fuchsia-500/20 text-fuchsia-300 rounded-full font-bold uppercase border border-fuchsia-500/30">
+                      LIVE
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1299,10 +1416,10 @@ export const HeaderBar: React.FC = () => {
 
               {/* Sección Experiencias Inmersivas */}
               <div>
-                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                <span className="text-[10px] font-semibold text-white/45 px-1 uppercase tracking-wider block mb-1">
                   Experiencias Inmersivas
                 </span>
-                <div className="flex flex-col gap-1 mt-1">
+                <div className="flex flex-col gap-1">
                   {/* Air Synth */}
                   <button
                     onClick={() => {
@@ -1314,17 +1431,22 @@ export const HeaderBar: React.FC = () => {
                       }
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                       isAirInstrumentsActive
-                        ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/30 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/35 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Piano className="w-4 h-4 text-[#00e5ff]" />
-                      <span>3D Air Synth (Manos)</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
+                        <Piano className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">3D Air Synth</span>
+                        <span className="text-[9px] text-white/45">Control gestual con manos</span>
+                      </div>
                     </div>
-                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-full bg-[#00e5ff]" />}
+                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-full bg-[#00e5ff] shadow-[0_0_6px_#00e5ff]" />}
                   </button>
 
                   {/* VR Pose & Dance */}
@@ -1333,17 +1455,22 @@ export const HeaderBar: React.FC = () => {
                       toggleVrMode();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
                       vrMode
-                        ? 'bg-white/15 text-white border border-white/25 font-medium'
-                        : 'text-white/70 hover:text-white hover:bg-white/5'
+                        ? 'bg-white/15 text-white border border-white/25 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Camera className="w-4 h-4" />
-                      <span>VR Dance & Tracker</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30 flex-shrink-0 shadow-sm">
+                        <Camera className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">VR Dance & Tracker</span>
+                        <span className="text-[9px] text-white/45">Captura de movimiento</span>
+                      </div>
                     </div>
-                    {vrMode && <span className="text-[9px] px-1 bg-white/20 rounded font-bold uppercase">{vrTrackingMode}</span>}
+                    {vrMode && <span className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded-full font-bold uppercase">{vrTrackingMode}</span>}
                   </button>
 
                   {/* Picture-in-Picture (PiP) */}
@@ -1352,15 +1479,22 @@ export const HeaderBar: React.FC = () => {
                       await pictureInPictureService.togglePictureInPicture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-mono transition-all ${
-                      isPipActive ? 'bg-cyan-500/15 text-cyan-300 font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                      isPipActive
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 font-semibold'
+                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Tv className="w-4 h-4 text-cyan-400" />
-                      <span>Ventana Flotante (PiP)</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center border border-sky-500/30 flex-shrink-0 shadow-sm">
+                        <Tv className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col text-left">
+                        <span className="text-xs font-semibold text-white">Ventana Flotante (PiP)</span>
+                        <span className="text-[9px] text-white/45">Mini pantalla externa</span>
+                      </div>
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 font-bold">
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-white/10 font-bold border border-white/10">
                       {isPipActive ? 'ON' : 'POP'}
                     </span>
                   </button>
@@ -1373,32 +1507,32 @@ export const HeaderBar: React.FC = () => {
         {/* 3. Menú Unificado: Ajustes & Sistema */}
         <div className="relative">
           <button
-            onClick={() => setActiveMenu(activeMenu === 'settings' ? null : 'settings')}
+            onClick={() => handleToggleMenu('settings')}
             aria-haspopup="true"
             aria-expanded={activeMenu === 'settings'}
             aria-label="Ajustes de Sistema y Herramientas"
-            className={`px-2.5 py-1.5 min-h-[36px] rounded-[12px] text-xs font-mono transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer ${
+            className={`px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
               activeMenu === 'settings' || isEqualizerOpen || isLyricsOpen || isSidebarOpen || sleepTimerMinutes > 0
-                ? 'bg-purple-500/15 text-purple-300 border-purple-500/40'
-                : 'bg-[#0c101a]/90 backdrop-blur-3xl text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
+                ? 'bg-purple-500/20 text-purple-200 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
+                : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border-white/10 border-t-white/20 shadow-sm'
             }`}
             title="Ajustes de Sistema: Biblioteca, Letras, Ecualizador, Temporizador, Rendimiento y Atajos"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden md:inline text-[11px]">Ajustes</span>
+            <SlidersHorizontal className="w-3 h-3 text-purple-400" />
+            <span className="hidden md:inline text-[9.5px] sm:text-[10px]">Ajustes</span>
             {sleepTimerMinutes > 0 && (
-              <span className="text-[9px] font-mono font-bold text-amber-300">
+              <span className="text-[8px] font-mono font-bold text-amber-300">
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-3 h-3 text-white/50" />
+            <ChevronDown className="w-2.5 h-2.5 text-white/50" />
           </button>
 
           {activeMenu === 'settings' && (
             <div
               role="menu"
               aria-label="Ajustes de Sistema"
-              className="fixed inset-x-3 top-14 max-w-[280px] ml-auto sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 p-2.5 rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.1] shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2 animate-in fade-in zoom-in-95 text-xs font-mono"
+              className="fixed inset-x-3 top-14 max-w-[300px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 p-3 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans max-h-[85vh] overflow-y-auto custom-scrollbar"
             >
               {/* Sección Vistas & Utilidades */}
               <div>
@@ -1421,23 +1555,6 @@ export const HeaderBar: React.FC = () => {
                       <span>Biblioteca de Pistas</span>
                     </div>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">B</span>
-                  </button>
-
-                  {/* Letras */}
-                  <button
-                    onClick={() => {
-                      setLyricsOpen(!isLyricsOpen);
-                      setActiveMenu(null);
-                    }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isLyricsOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <AlignLeft className="w-4 h-4 text-emerald-400" />
-                      <span>Letras Sincronizadas</span>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-white/10 text-white/60 font-bold">L</span>
                   </button>
 
                   {/* Ecualizador Pro-Q */}
@@ -1524,6 +1641,39 @@ export const HeaderBar: React.FC = () => {
 
               <div className="h-px bg-white/[0.06] my-0.5" />
 
+              {/* Sección Fondo & Atmósfera 3D (Acoplada en Ajustes) */}
+              <div>
+                <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
+                  Fondo & Entorno 3D
+                </span>
+                <div className="mt-1">
+                  <button
+                    onClick={() => {
+                      setIsAtmosphereOpen(true);
+                      setActiveMenu(null);
+                    }}
+                    className="w-full flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all text-white/80 hover:text-white hover:bg-white/5 border border-white/[0.04] bg-white/[0.02] cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Image className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                      <div className="flex flex-col text-left">
+                        <span className="font-semibold text-[11px] text-white">Fondo & Atmósfera 3D</span>
+                        <span className="text-[9px] text-white/40 font-sans">
+                          Imágenes, difuminado y shaders de entorno
+                        </span>
+                      </div>
+                    </div>
+                    {hasActiveBg && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase border border-cyan-500/30">
+                        ACTIVO
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/[0.06] my-0.5" />
+
               {/* Sección Rendimiento & Hardware */}
               <div>
                 <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
@@ -1594,54 +1744,65 @@ export const HeaderBar: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Pie de Ajustes: Compartir e Idioma acoplados */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/[0.06] text-[11px] text-white/60">
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1.5 text-[10px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                  title="Compartir enlace de sesión"
+                >
+                  <Share2 className="w-3 h-3 text-purple-400" />
+                  <span>{copied ? '¡Copiado!' : 'Compartir'}</span>
+                </button>
+
+                <button
+                  onClick={() => changeLanguage(currentLang === 'es' ? 'en' : 'es')}
+                  className="px-2 py-0.5 rounded-[6px] text-[10px] font-mono font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer border border-white/10"
+                  title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
+                >
+                  <Globe className="w-3 h-3 text-cyan-400" />
+                  <span className="uppercase">{currentLang === 'es' ? 'Español (ES)' : 'English (EN)'}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* 4. Pod: Estilo Lúcido & Fondo & Idioma */}
-        <div className="flex items-center gap-1 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
-          <button
-            onClick={() => changeLanguage(currentLang === 'es' ? 'en' : 'es')}
-            className="px-2 py-1 rounded-[8px] text-[11px] font-mono font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer"
-            title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
-            aria-label={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
-          >
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="uppercase">{currentLang}</span>
-          </button>
-          <LucidToggle />
-          <BackgroundAtmospherePopover />
-        </div>
-
-        {/* 5. Acciones Rápidas: Compartir, Modo Inmersivo & Pantalla Completa */}
-        <div className="flex items-center gap-0.5 p-1 rounded-[12px] bg-[#0c101a]/90 backdrop-blur-3xl border border-white/[0.08] shadow-sm">
-          <button
-            onClick={handleShare}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors hidden sm:flex"
-            title="Compartir sesión de música"
-            aria-label="Compartir"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-          </button>
+        {/* 4. Pod Final Compacto: Lúcido & Pantalla Completa */}
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.05] border border-white/10 border-t-white/20 backdrop-blur-md shadow-sm">
+          <LucidToggle
+            isOpen={activeMenu === 'lucid'}
+            onToggle={() => handleToggleMenu('lucid')}
+            onClose={() => setActiveMenu(null)}
+          />
 
           <button
             onClick={() => updateBlobSettings({ isUiHidden: true })}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-cyan-300 hover:bg-white/[0.04] transition-colors hidden min-[440px]:flex"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full text-white/60 hover:text-cyan-300 hover:bg-white/[0.1] active:scale-95 transition-all hidden sm:flex items-center justify-center"
             title="Modo Galería / Inmersión Pura (Atajo: G)"
             aria-label="Modo Galería"
           >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <Sparkles className="w-3 h-3 text-cyan-400" />
           </button>
 
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded-[8px] text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] active:scale-95 transition-all cursor-pointer"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             aria-label="Pantalla completa"
           >
-            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
+            {isFullscreen ? <Minimize className="w-3 h-3" /> : <Maximize className="w-3 h-3" />}
           </button>
         </div>
+
+        {/* Popover de Fondo y Atmósfera (Activado desde Ajustes) */}
+        <BackgroundAtmospherePopover
+          isOpen={isAtmosphereOpen}
+          onOpenChange={setIsAtmosphereOpen}
+          showTrigger={false}
+        />
+      </div>
       </div>
 
       {/* Modal AuraMind Radar si se abre */}

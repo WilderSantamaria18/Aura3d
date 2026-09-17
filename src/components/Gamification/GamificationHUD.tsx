@@ -254,10 +254,10 @@ export const GamificationHUD: React.FC = () => {
               }}
             >
               {gameState.isHyperActive
-                ? '⚡ MODO LÚCIDO BOOST'
+                ? 'MODO LÚCIDO BOOST'
                 : gameState.isIdle
-                ? '🌙 MODO AHORRO'
-                : '✨ EN RITMO'}
+                ? 'MODO AHORRO'
+                : 'EN RITMO'}
             </span>
           </div>
         </div>

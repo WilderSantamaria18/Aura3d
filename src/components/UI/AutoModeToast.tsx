@@ -23,7 +23,7 @@ export const AutoModeToast: React.FC = () => {
 
   if ((!autoFeedbackToast && !autoNotification) || !autoMode) return null;
 
-  const message = autoNotification?.message || '🧠 Modo Inteligente ACTIVADO: Color dinámico fluido';
+  const message = autoNotification?.message || 'Modo Inteligente ACTIVADO: Color dinámico fluido';
   const isSuccess = autoNotification?.type === 'success';
 
   return (

@@ -3,16 +3,6 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
 import { hexToRgba } from '../../types/audio';
 
-interface Ripple {
-  x: number;
-  y: number;
-  radius: number;
-  maxRadius: number;
-  alpha: number;
-  hue: number;
-  lineWidth: number;
-}
-
 interface RainDrop {
   x: number;
   y: number;
@@ -52,19 +42,45 @@ interface Star3D {
   color: string;
 }
 
-interface MatrixColumn {
-  x: number;
-  y: number;
+interface RadialBurstParticle {
+  angle: number;
+  distance: number;
+  prevDistance: number;
   speed: number;
-  length: number;
-  chars: string[];
+  size: number;
+  alpha: number;
+  color: string;
+  maxDistance: number;
+}
+
+interface StardustParticle {
+  baseRadius: number;
+  angle: number;
+  angularSpeed: number;
+  size: number;
+  alpha: number;
+  phase: number;
+  color: string;
+}
+
+interface QuantumRing {
+  radius: number;
+  maxRadius: number;
+  alpha: number;
+  lineWidth: number;
+  speed: number;
+  color: string;
 }
 
 /**
  * AtmosphereBackground
- * Fullscreen atmospheric animated background layer with hardware-accelerated canvas.
- * Guaranteed visibility on all screens, responsive dynamic DPR, proportional custom image layer,
- * and 9 rich audiovisual reactive environments.
+ * Capa de fondo atmosférico a pantalla completa acelerada por GPU en Canvas.
+ * Efectos seleccionados y conservados: Atardecer, Lluvia, Arena, Estrellas 3D.
+ * Nuevos efectos minimalistas:
+ *  - radial_burst: Partículas estelares que emanan directamente del centro del círculo en 360°
+ *  - stardust_drift: Polvo cósmico y bruma estelar zen flotando en espirales concéntricas
+ *  - light_beams: Haces de luz volumétrica suave radiante desde el núcleo
+ *  - quantum_waves: Anillos concéntricos cuánticos en cada golpe de bajo
  */
 export const AtmosphereBackground: React.FC = () => {
   const {
@@ -121,13 +137,14 @@ export const AtmosphereBackground: React.FC = () => {
   const currentAtmosphereRef = useRef<string>(atmosphere);
   const transitionAlphaRef = useRef(1.0);
 
-  // Effect Entities
-  const ripplesRef = useRef<Ripple[]>([]);
+  // Effect Particle Pools
   const rainRef = useRef<RainDrop[]>([]);
   const sandRef = useRef<SandParticle[]>([]);
   const dustRef = useRef<MagicDust[]>([]);
   const starsRef = useRef<Star3D[]>([]);
-  const matrixRef = useRef<MatrixColumn[]>([]);
+  const radialBurstRef = useRef<RadialBurstParticle[]>([]);
+  const stardustRef = useRef<StardustParticle[]>([]);
+  const quantumRingsRef = useRef<QuantumRing[]>([]);
 
   // Track atmosphere transitions smoothly
   useEffect(() => {
@@ -141,6 +158,7 @@ export const AtmosphereBackground: React.FC = () => {
   useEffect(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
     const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const maxDim = Math.hypot(w, h) / 2;
 
     // 1. Rain Pool (~180 drops)
     const rain: RainDrop[] = [];
@@ -172,7 +190,7 @@ export const AtmosphereBackground: React.FC = () => {
     }
     sandRef.current = sand;
 
-    // 3. Dust / Snow / Embers for Sunset & Cosmic (~140 motes)
+    // 3. Dust & Embers for Sunset (~140 motes)
     const dust: MagicDust[] = [];
     for (let i = 0; i < 140; i++) {
       dust.push({
@@ -203,25 +221,41 @@ export const AtmosphereBackground: React.FC = () => {
     }
     starsRef.current = stars;
 
-    // 5. Matrix Digital Columns (~50 columns)
-    const matrixChars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ'.split('');
-    const cols = Math.max(30, Math.floor(w / 26));
-    const matrixCols: MatrixColumn[] = [];
-    for (let i = 0; i < cols; i++) {
-      const colLen = Math.floor(Math.random() * 18 + 8);
-      const chars: string[] = [];
-      for (let c = 0; c < colLen; c++) {
-        chars.push(matrixChars[Math.floor(Math.random() * matrixChars.length)]);
-      }
-      matrixCols.push({
-        x: i * 26 + 13,
-        y: Math.random() * -h,
-        speed: 3.5 + Math.random() * 6.5,
-        length: colLen,
-        chars,
+    // 5. Radial Burst Particles (Partículas saliendo desde el centro del círculo) (~260 particles)
+    const radial: RadialBurstParticle[] = [];
+    for (let i = 0; i < 260; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 30 + Math.random() * (maxDim * 0.9);
+      radial.push({
+        angle,
+        distance,
+        prevDistance: distance,
+        speed: 1.6 + Math.random() * 4.4,
+        size: 1.0 + Math.random() * 2.2,
+        alpha: 0.4 + Math.random() * 0.6,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        maxDistance: maxDim * (0.65 + Math.random() * 0.45),
       });
     }
-    matrixRef.current = matrixCols;
+    radialBurstRef.current = radial;
+
+    // 6. Stardust Drift (Bruma y Polvo Cósmico Orbital) (~220 motes)
+    const stardust: StardustParticle[] = [];
+    for (let i = 0; i < 220; i++) {
+      stardust.push({
+        baseRadius: 60 + Math.random() * (maxDim * 0.85),
+        angle: Math.random() * Math.PI * 2,
+        angularSpeed: (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.8),
+        size: 1.0 + Math.random() * 2.4,
+        alpha: 0.25 + Math.random() * 0.65,
+        phase: Math.random() * Math.PI * 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+    stardustRef.current = stardust;
+
+    // 7. Quantum Rings (anillos concéntricos dinámicos iniciales)
+    quantumRingsRef.current = [];
   }, []);
 
   // Window resize handler
@@ -283,62 +317,31 @@ export const AtmosphereBackground: React.FC = () => {
       const sBass = smoothedBassRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
-      prevBassRef.current = rawBass;
+      const bassDelta = sBass - prevBassRef.current;
+      prevBassRef.current = sBass;
 
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, width, height);
+
+      // Center coords
+      const cx = width / 2;
+      const cy = height / 2;
+      const maxDim = Math.hypot(width, height) / 2;
 
       // Helper function to render an atmospheric mode
       const renderMode = (mode: string, modeAlpha: number) => {
         ctx.save();
         ctx.globalAlpha = modeAlpha;
 
-        // ── Mode: none (Ambient subtle space aura) ─────────────────────────
+        // ── Mode: none (Fondo Limpio Zen: Negro abisal puro sin velos) ─────
         if (mode === 'none') {
-          if (!customBg) {
-            const ambGrad = ctx.createRadialGradient(
-              width * 0.5,
-              height * 0.5,
-              10,
-              width * 0.5,
-              height * 0.5,
-              Math.max(width, height) * 0.75
-            );
-            ambGrad.addColorStop(
-              0,
-              isLucid ? `${primaryColor}22` : `rgba(0, 242, 254, ${0.08 + sBass * 0.08})`
-            );
-            ambGrad.addColorStop(
-              0.55,
-              isLucid ? `${secondaryColor}12` : `rgba(255, 8, 138, ${0.05 + sEnergy * 0.06})`
-            );
-            ambGrad.addColorStop(1, 'rgba(4, 6, 13, 0.95)');
-            ctx.fillStyle = ambGrad;
-            ctx.fillRect(0, 0, width, height);
-
-            // Floating subtle starlight motes
-            dustRef.current.slice(0, 70).forEach((d) => {
-              d.y += d.vy * (0.6 + sEnergy * 0.4) * atmoSpeed;
-              d.x += (d.vx + Math.sin(timeSec * 0.8 + d.twinklePhase) * 0.2) * atmoSpeed;
-              if (d.y > height) {
-                d.y = -6;
-                d.x = Math.random() * width;
-              }
-              const a = d.alpha * (0.35 + Math.sin(timeSec * 2 + d.twinklePhase) * 0.25) * atmoGlow;
-              ctx.beginPath();
-              ctx.arc(d.x, d.y, d.size * 0.85, 0, Math.PI * 2);
-              ctx.fillStyle = isLucid
-                ? (d.twinklePhase > Math.PI ? primaryColor : secondaryColor)
-                : `rgba(255, 255, 255, ${a})`;
-              ctx.fill();
-            });
-          }
+          ctx.restore();
+          return;
         }
 
         // ── Mode: sunset (Atardecer Épico DHONKIO & Silueta en Acantilado) ──
         else if (mode === 'sunset') {
-          // 0. Full Dusk Sky Gradient
           if (!customBg) {
             const sky = ctx.createLinearGradient(0, 0, 0, height);
             if (isLucid) {
@@ -405,7 +408,7 @@ export const AtmosphereBackground: React.FC = () => {
           ctx.closePath();
           ctx.fill();
 
-          // 4. Wanderer Silhouette Standing on Cliff Peak with Fluttering Ribbon
+          // 4. Wanderer Silhouette Standing on Cliff Peak with Fluttering Scarf
           const charX = width * 0.31;
           const charY = height * 0.735;
           const charScale = Math.min(width, height) * 0.0017;
@@ -459,290 +462,77 @@ export const AtmosphereBackground: React.FC = () => {
           });
         }
 
-        // ── Mode: cyber_city (Silueta Cyberpunk & Rooftop Skyline) ─────────
-        else if (mode === 'cyber_city') {
-          const horizonY = height * 0.64;
-
-          if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, horizonY);
-            sky.addColorStop(0, '#03020a');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}25` : '#130424');
-            sky.addColorStop(1, isLucid ? `${primaryColor}20` : '#32093e');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, width, height);
-          }
-
-          // Neon horizon fog
-          const cityFog = ctx.createLinearGradient(0, horizonY - 160, 0, height);
-          cityFog.addColorStop(0, 'rgba(0,0,0,0)');
-          cityFog.addColorStop(0.35, isLucid ? `${secondaryColor}40` : `rgba(255, 0, 128, ${0.32 * atmoGlow})`);
-          cityFog.addColorStop(0.75, isLucid ? `${primaryColor}35` : `rgba(0, 242, 254, ${0.24 * atmoGlow})`);
-          cityFog.addColorStop(1, '#02040b');
-          ctx.fillStyle = cityFog;
-          ctx.fillRect(0, horizonY - 160, width, height - (horizonY - 160));
-
-          // Skyscrapers with neon edges & glowing windows
-          const numTowers = 18;
-          const towerW = width / numTowers;
-          for (let i = 0; i < numTowers; i++) {
-            const towerH = (45 + ((i * 41) % 120) + sBass * 28) * (height * 0.002);
-            const tx = i * towerW;
-            const ty = horizonY - towerH;
-
-            ctx.fillStyle = '#04060f';
-            ctx.fillRect(tx + 2, ty, towerW - 4, height - ty);
-
-            const isNeon = i % 3 === 0;
-            ctx.strokeStyle = isLucid
-              ? (isNeon ? secondaryColor : primaryColor)
-              : isNeon
-              ? '#ff007f'
-              : '#00f2fe';
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.moveTo(tx + 2, ty);
-            ctx.lineTo(tx + towerW - 2, ty);
-            ctx.stroke();
-
-            const winRows = Math.floor(towerH / 14);
-            const winCols = 2;
-            for (let r = 0; r < winRows; r++) {
-              for (let c = 0; c < winCols; c++) {
-                if (((i + r + c) % 3) === 0) {
-                  const wx = tx + 4 + c * (towerW * 0.4);
-                  const wy = ty + 10 + r * 14;
-                  ctx.fillStyle = isLucid
-                    ? ((r + i) % 2 === 0 ? primaryColor : secondaryColor)
-                    : (r + i) % 2 === 0
-                    ? `rgba(0, 242, 254, ${0.45 + sEnergy * 0.45})`
-                    : `rgba(255, 230, 0, ${0.45 + sBass * 0.45})`;
-                  ctx.fillRect(wx, wy, 2.5, 3.5);
-                }
-              }
-            }
-
-            // Antennas with blinking beacons
-            if (i % 4 === 1) {
-              ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = 1.2;
-              ctx.beginPath();
-              ctx.moveTo(tx + towerW * 0.5, ty);
-              ctx.lineTo(tx + towerW * 0.5, ty - 24);
-              ctx.stroke();
-
-              const beaconAlpha = Math.sin(timeSec * 6 + i) > 0 ? 0.95 : 0.2;
-              ctx.fillStyle = isLucid ? secondaryColor : `rgba(255, 30, 60, ${beaconAlpha})`;
-              ctx.beginPath();
-              ctx.arc(tx + towerW * 0.5, ty - 24, 2.5, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          }
-
-          // Sweeping searchlight beams
-          const beamAngle = Math.sin(timeSec * 0.8) * 0.45;
-          const beamGrad = ctx.createLinearGradient(
-            width * 0.22,
-            horizonY,
-            width * 0.22 + Math.tan(beamAngle) * height,
-            0
-          );
-          beamGrad.addColorStop(0, isLucid ? `${primaryColor}40` : `rgba(0, 242, 254, ${0.28 * atmoGlow})`);
-          beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = beamGrad;
-          ctx.beginPath();
-          ctx.moveTo(width * 0.22 - 20, horizonY);
-          ctx.lineTo(width * 0.22 + 20, horizonY);
-          ctx.lineTo(width * 0.22 + Math.tan(beamAngle) * height + 100, 0);
-          ctx.lineTo(width * 0.22 + Math.tan(beamAngle) * height - 100, 0);
-          ctx.closePath();
-          ctx.fill();
-
-          // Foreground rooftop silhouette
-          ctx.fillStyle = '#010205';
-          ctx.beginPath();
-          ctx.moveTo(0, height * 0.84);
-          ctx.lineTo(width * 0.42, height * 0.84);
-          ctx.lineTo(width * 0.42, height * 0.91);
-          ctx.lineTo(width, height * 0.91);
-          ctx.lineTo(width, height);
-          ctx.lineTo(0, height);
-          ctx.closePath();
-          ctx.fill();
-        }
-
-        // ── Mode: cosmic_voyager (Viajero Cósmico & Luna Gigante) ───────────
-        else if (mode === 'cosmic_voyager') {
+        // ── Mode: rain (Lluvia Neón Estelar) ────────────────────────────────
+        else if (mode === 'rain') {
           if (!customBg) {
             const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#02030a');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}18` : '#060c22');
-            sky.addColorStop(1, isLucid ? `${primaryColor}20` : '#0c1836');
+            sky.addColorStop(0, '#030712');
+            sky.addColorStop(0.5, isLucid ? `${secondaryColor}10` : '#081122');
+            sky.addColorStop(1, isLucid ? `${primaryColor}14` : '#050a16');
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, width, height);
           }
 
-          const moonX = width * 0.70;
-          const moonY = height * 0.36;
-          const moonR = Math.min(width, height) * (0.24 + sBass * 0.03);
+          const rain = rainRef.current;
+          const speedMult = (1 + sEnergy * 2.2 + (isPlaying || isMicActive ? 0.8 : 0)) * atmoSpeed;
 
-          // Lunar corona
-          const corona = ctx.createRadialGradient(moonX, moonY, moonR * 0.8, moonX, moonY, moonR * 2.3);
-          corona.addColorStop(0, isLucid ? `${primaryColor}66` : `rgba(190, 225, 255, ${0.50 * atmoGlow})`);
-          corona.addColorStop(0.5, isLucid ? `${secondaryColor}40` : `rgba(150, 95, 255, ${0.22 * atmoGlow})`);
-          corona.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = corona;
-          ctx.beginPath();
-          ctx.arc(moonX, moonY, moonR * 2.3, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Moon body
-          const moonBody = ctx.createLinearGradient(moonX - moonR, moonY - moonR, moonX + moonR, moonY + moonR);
-          moonBody.addColorStop(0, '#f8f9fa');
-          moonBody.addColorStop(0.6, isLucid ? `${primaryColor}40` : '#cfd8dc');
-          moonBody.addColorStop(1, '#455a64');
-          ctx.fillStyle = moonBody;
-          ctx.beginPath();
-          ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Craters
-          ctx.fillStyle = 'rgba(70, 90, 110, 0.25)';
-          ctx.beginPath();
-          ctx.arc(moonX - moonR * 0.3, moonY - moonR * 0.2, moonR * 0.22, 0, Math.PI * 2);
-          ctx.arc(moonX + moonR * 0.2, moonY + moonR * 0.3, moonR * 0.28, 0, Math.PI * 2);
-          ctx.arc(moonX - moonR * 0.1, moonY + moonR * 0.4, moonR * 0.15, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Aurora ribbons across the sky
-          for (let w = 0; w < 2; w++) {
-            const t = timeSec * (0.6 + w * 0.2);
-            const grad = ctx.createLinearGradient(0, height * 0.3, width, height * 0.7);
-            grad.addColorStop(0, isLucid ? `${primaryColor}45` : `rgba(0, 255, 180, ${0.22 * atmoGlow})`);
-            grad.addColorStop(0.5, isLucid ? `${secondaryColor}40` : `rgba(180, 0, 255, ${0.25 * atmoGlow})`);
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-
-            ctx.beginPath();
-            ctx.moveTo(0, height * 0.5);
-            for (let x = 0; x <= width; x += 30) {
-              const yOff = Math.sin(x * 0.003 + t + w) * 50 + Math.cos(x * 0.006 - t) * 35;
-              ctx.lineTo(x, height * 0.5 + yOff);
+          rain.forEach((drop) => {
+            drop.y += drop.speed * speedMult;
+            if (drop.y > height) {
+              drop.y = -drop.length;
+              drop.x = Math.random() * width;
             }
-            ctx.lineTo(width, height);
-            ctx.lineTo(0, height);
-            ctx.closePath();
-            ctx.fillStyle = grad;
-            ctx.fill();
+
+            const currentAlpha = Math.min(1, drop.alpha * (0.6 + sBass * 0.8) * atmoGlow);
+            ctx.beginPath();
+            ctx.moveTo(drop.x, drop.y);
+            ctx.lineTo(drop.x, drop.y + drop.length * (1 + sBass * 0.5));
+            ctx.strokeStyle = isLucid
+              ? (drop.hue % 2 === 0 ? primaryColor : secondaryColor)
+              : `hsla(${drop.hue}, 90%, 65%, ${currentAlpha})`;
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+          });
+        }
+
+        // ── Mode: sand (Mareas de Arena Sub & Partículas Fluidas) ───────────
+        else if (mode === 'sand') {
+          if (!customBg) {
+            const sky = ctx.createLinearGradient(0, 0, 0, height);
+            sky.addColorStop(0, '#080812');
+            sky.addColorStop(0.6, isLucid ? `${secondaryColor}12` : '#18120c');
+            sky.addColorStop(1, isLucid ? `${primaryColor}15` : '#2c1e0e');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, width, height);
           }
 
-          // Mountain ridge silhouette
-          ctx.fillStyle = '#03050c';
-          ctx.beginPath();
-          ctx.moveTo(0, height * 0.82);
-          ctx.bezierCurveTo(width * 0.25, height * 0.78, width * 0.45, height * 0.85, width * 0.65, height * 0.80);
-          ctx.bezierCurveTo(width * 0.80, height * 0.76, width * 0.92, height * 0.79, width, height * 0.84);
-          ctx.lineTo(width, height);
-          ctx.lineTo(0, height);
-          ctx.closePath();
-          ctx.fill();
+          const sand = sandRef.current;
+          const wavePhase = timeSec * 1.5;
 
-          // Stargazer pointing to the moon
-          const px = width * 0.48;
-          const py = height * 0.805;
-          const pScale = Math.min(width, height) * 0.0016;
+          sand.forEach((p) => {
+            p.x += p.vx * (1 + sEnergy * 1.8) * atmoSpeed;
+            p.y += (p.vy + Math.sin(wavePhase + p.phase) * (0.8 + sBass * 2.5)) * atmoSpeed;
 
-          ctx.fillStyle = '#000000';
-          ctx.beginPath();
-          ctx.arc(px, py - 35 * pScale, 4.5 * pScale, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.moveTo(px - 3 * pScale, py - 30 * pScale);
-          ctx.lineTo(px + 4 * pScale, py - 30 * pScale);
-          ctx.lineTo(px + 7 * pScale, py);
-          ctx.lineTo(px - 7 * pScale, py);
-          ctx.closePath();
-          ctx.fill();
+            if (p.x > width) p.x = 0;
+            if (p.x < 0) p.x = width;
+            if (p.y > height) p.y = 0;
+            if (p.y < 0) p.y = height;
 
-          ctx.strokeStyle = isLucid ? primaryColor : '#000000';
-          ctx.lineWidth = 2.4 * pScale;
-          ctx.beginPath();
-          ctx.moveTo(px + 2 * pScale, py - 27 * pScale);
-          ctx.lineTo(px + 16 * pScale, py - 40 * pScale);
-          ctx.stroke();
-
-          // Cosmic dust
-          dustRef.current.forEach((d) => {
-            d.y += d.vy * (1 + sEnergy * 0.6) * atmoSpeed;
-            d.x += (d.vx + Math.sin(timeSec * 2 + d.twinklePhase) * 0.3) * atmoSpeed;
-            if (d.y > height) {
-              d.y = -10;
-              d.x = Math.random() * width;
-            }
-            const alpha = d.alpha * (0.6 + Math.sin(timeSec * 3 + d.twinklePhase) * 0.4) * atmoGlow;
             ctx.beginPath();
-            ctx.arc(d.x, d.y, d.size * 0.9, 0, Math.PI * 2);
-            ctx.fillStyle = isLucid
-              ? (d.twinklePhase > Math.PI ? primaryColor : secondaryColor)
-              : `rgba(210, 240, 255, ${alpha})`;
+            ctx.arc(p.x, p.y, p.size * (1 + sBass * 0.4), 0, Math.PI * 2);
+            ctx.fillStyle = p.isGold
+              ? `rgba(255, 200, 70, ${p.alpha * (0.6 + sBass * 0.5) * atmoGlow})`
+              : isLucid
+              ? (p.phase % 2 === 0 ? primaryColor : secondaryColor)
+              : `rgba(0, 240, 255, ${p.alpha * (0.5 + sEnergy * 0.5) * atmoGlow})`;
             ctx.fill();
           });
         }
 
-        // ── Mode: aurora (Ondas Boreales Neón) ──────────────────────────────
-        else if (mode === 'aurora') {
-          if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#02050f');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}15` : '#05111c');
-            sky.addColorStop(1, isLucid ? `${primaryColor}20` : '#081e2b');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, width, height);
-          }
-
-          const layers = 5;
-          for (let l = 0; l < layers; l++) {
-            const t = timeSec * (0.4 + l * 0.15);
-            const baseH = height * (0.28 + l * 0.11);
-            const grad = ctx.createLinearGradient(0, baseH - 120, 0, baseH + 180);
-
-            if (isLucid) {
-              const startColor = l % 2 === 0 ? primaryColor : secondaryColor;
-              const endColor = l % 2 === 0 ? secondaryColor : primaryColor;
-              grad.addColorStop(0, 'rgba(0,0,0,0)');
-              grad.addColorStop(0.4, `${startColor}50`);
-              grad.addColorStop(0.8, `${endColor}35`);
-              grad.addColorStop(1, 'rgba(0,0,0,0)');
-            } else {
-              const hue = (130 + l * 45 + sBass * 40) % 360;
-              grad.addColorStop(0, 'rgba(0,0,0,0)');
-              grad.addColorStop(0.4, `hsla(${hue}, 100%, 65%, ${0.28 * atmoGlow})`);
-              grad.addColorStop(0.8, `hsla(${(hue + 60) % 360}, 90%, 60%, ${0.18 * atmoGlow})`);
-              grad.addColorStop(1, 'rgba(0,0,0,0)');
-            }
-
-            ctx.beginPath();
-            ctx.moveTo(0, height);
-            for (let x = 0; x <= width; x += 20) {
-              const yOffset =
-                Math.sin(x * 0.003 + t + l) * 60 +
-                Math.cos(x * 0.006 - t * 0.7) * 40 +
-                Math.sin(x * 0.01 + t * 1.5) * (20 + sBass * 45);
-              ctx.lineTo(x, baseH + yOffset);
-            }
-            ctx.lineTo(width, height);
-            ctx.lineTo(0, height);
-            ctx.closePath();
-            ctx.fillStyle = grad;
-            ctx.fill();
-          }
-        }
-
         // ── Mode: stars (Warp Speed Starfield 3D) ───────────────────────────
         else if (mode === 'stars') {
-          const cx = width / 2;
-          const cy = height / 2;
-
           if (!customBg) {
-            const sky = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(width, height) * 0.85);
+            const sky = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxDim * 0.95);
             sky.addColorStop(0, isLucid ? `${primaryColor}14` : '#0a0d24');
             sky.addColorStop(0.6, isLucid ? `${secondaryColor}0c` : '#040612');
             sky.addColorStop(1, '#010206');
@@ -789,146 +579,203 @@ export const AtmosphereBackground: React.FC = () => {
           });
         }
 
-        // ── Mode: matrix (Lluvia Digital Cyberpunk) ─────────────────────────
-        else if (mode === 'matrix') {
+        // ── Mode: radial_burst (NUEVO: Partículas que salen del centro del círculo en 360°) ──
+        else if (mode === 'radial_burst') {
           if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#000803');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}10` : '#001407');
-            sky.addColorStop(1, isLucid ? `${primaryColor}12` : '#000804');
-            ctx.fillStyle = sky;
+            const deepSpace = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxDim * 0.95);
+            deepSpace.addColorStop(0, isLucid ? `${primaryColor}18` : '#070c20');
+            deepSpace.addColorStop(0.5, isLucid ? `${secondaryColor}0c` : '#030510');
+            deepSpace.addColorStop(1, '#010206');
+            ctx.fillStyle = deepSpace;
             ctx.fillRect(0, 0, width, height);
           }
 
-          const matrixCols = matrixRef.current;
-          ctx.font = '13px monospace';
+          // Resplandor del núcleo central
+          const coreAura = ctx.createRadialGradient(cx, cy, 20, cx, cy, 190 * (1 + sBass * 0.35));
+          coreAura.addColorStop(0, isLucid ? `${primaryColor}28` : 'rgba(0, 240, 255, 0.22)');
+          coreAura.addColorStop(0.5, isLucid ? `${secondaryColor}12` : 'rgba(140, 56, 255, 0.10)');
+          coreAura.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = coreAura;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 190 * (1 + sBass * 0.35), 0, Math.PI * 2);
+          ctx.fill();
 
-          matrixCols.forEach((col) => {
-            col.y += col.speed * (1 + sBass * 1.6) * atmoSpeed;
-            if (col.y > height + col.length * 16) {
-              col.y = Math.random() * -120;
-              col.speed = 3.5 + Math.random() * 6.5;
+          const particles = radialBurstRef.current;
+          const speedMult = (1 + sBass * 4.8 + sEnergy * 2.4) * atmoSpeed;
+
+          particles.forEach((p, idx) => {
+            p.prevDistance = p.distance;
+            p.distance += p.speed * speedMult;
+
+            // Si sobrepasa los límites o la distancia máxima, renace en el centro
+            if (p.distance >= p.maxDistance) {
+              p.distance = 25 + Math.random() * 55;
+              p.prevDistance = p.distance;
+              p.angle = Math.random() * Math.PI * 2;
+              p.speed = 1.6 + Math.random() * 4.4;
+              p.maxDistance = maxDim * (0.65 + Math.random() * 0.45);
+              p.size = 1.0 + Math.random() * 2.2;
+              p.alpha = 0.4 + Math.random() * 0.6;
             }
 
-            for (let i = 0; i < col.length; i++) {
-              const charY = col.y - i * 16;
-              if (charY < -20 || charY > height) continue;
+            const px = cx + Math.cos(p.angle) * p.distance;
+            const py = cy + Math.sin(p.angle) * p.distance;
 
-              const isLeader = i === 0;
-              const alpha = isLeader ? 1.0 : Math.max(0.1, (1 - i / col.length) * 0.8 * atmoGlow);
+            const prevPx = cx + Math.cos(p.angle) * p.prevDistance;
+            const prevPy = cy + Math.sin(p.angle) * p.prevDistance;
 
-              ctx.fillStyle = isLeader
-                ? '#ffffff'
-                : isLucid
-                ? (i % 3 === 0 ? secondaryColor : primaryColor)
-                : `rgba(0, 255, 128, ${alpha})`;
+            if (px >= -30 && px <= width + 30 && py >= -30 && py <= height + 30) {
+              const progress = Math.min(1, p.distance / p.maxDistance);
+              const fadeAlpha = (1 - progress * 0.85) * p.alpha * (0.65 + sBass * 0.6) * atmoGlow;
 
-              const char = col.chars[i % col.chars.length];
-              ctx.fillText(char, col.x, charY);
+              // Estela de haz radiante hacia afuera
+              ctx.beginPath();
+              ctx.moveTo(prevPx, prevPy);
+              ctx.lineTo(px, py);
+              ctx.strokeStyle = isLucid
+                ? (idx % 2 === 0 ? primaryColor : secondaryColor)
+                : p.color;
+              ctx.lineWidth = Math.max(0.8, p.size * (1 - progress * 0.35) * (1 + sBass * 0.5));
+              ctx.globalAlpha = Math.min(1, fadeAlpha);
+              ctx.stroke();
+
+              // Cabeza de micro-destello diamantado
+              ctx.beginPath();
+              ctx.arc(px, py, p.size * (0.8 + sBass * 0.35), 0, Math.PI * 2);
+              ctx.fillStyle = '#ffffff';
+              ctx.globalAlpha = Math.min(1, fadeAlpha * 1.15);
+              ctx.fill();
             }
           });
         }
 
-        // ── Mode: ripples (Gotas de Agua en Bombo) ──────────────────────────
-        else if (mode === 'ripples') {
+        // ── Mode: stardust_drift (NUEVO: Polvo Cósmico & Bruma Estelar Zen) ───
+        else if (mode === 'stardust_drift') {
           if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#020914');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}12` : '#041526');
-            sky.addColorStop(1, isLucid ? `${primaryColor}14` : '#030c18');
-            ctx.fillStyle = sky;
+            const grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, maxDim * 0.95);
+            grad.addColorStop(0, isLucid ? `${secondaryColor}14` : '#08081a');
+            grad.addColorStop(0.6, isLucid ? `${primaryColor}0a` : '#03040c');
+            grad.addColorStop(1, '#000104');
+            ctx.fillStyle = grad;
             ctx.fillRect(0, 0, width, height);
           }
 
-          const ripples = ripplesRef.current;
-          for (let i = ripples.length - 1; i >= 0; i--) {
-            const r = ripples[i];
-            r.radius += ((r.maxRadius - r.radius) * 0.07 + 2.5) * atmoSpeed;
-            r.alpha *= 0.96;
-            r.lineWidth *= 0.985;
+          const stardust = stardustRef.current;
+          const rotDelta = (0.003 + sEnergy * 0.008) * atmoSpeed;
 
-            if (r.alpha < 0.015 || r.radius >= r.maxRadius) {
-              ripples.splice(i, 1);
+          stardust.forEach((s, idx) => {
+            s.angle += s.angularSpeed * rotDelta;
+            const r = s.baseRadius + Math.sin(timeSec * 1.2 + s.phase) * (15 + sBass * 35);
+
+            const px = cx + Math.cos(s.angle) * r;
+            const py = cy + Math.sin(s.angle) * r;
+
+            const twinkle = 0.5 + 0.5 * Math.sin(timeSec * 3.0 + s.phase);
+            const alpha = s.alpha * twinkle * (0.6 + sEnergy * 0.6) * atmoGlow;
+
+            ctx.beginPath();
+            ctx.arc(px, py, s.size * (1 + sBass * 0.4), 0, Math.PI * 2);
+            ctx.fillStyle = isLucid
+              ? (idx % 2 === 0 ? primaryColor : secondaryColor)
+              : s.color;
+            ctx.globalAlpha = Math.min(1, alpha);
+            ctx.fill();
+          });
+        }
+
+        // ── Mode: light_beams (NUEVO: Haces de Luz Radiante Etereos desde el Centro) ─
+        else if (mode === 'light_beams') {
+          if (!customBg) {
+            const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxDim);
+            grad.addColorStop(0, isLucid ? `${primaryColor}18` : '#050a18');
+            grad.addColorStop(0.7, '#02040a');
+            grad.addColorStop(1, '#000002');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          const numBeams = 12;
+          const baseRotation = timeSec * 0.12 * atmoSpeed;
+
+          for (let b = 0; b < numBeams; b++) {
+            const beamAngle = baseRotation + (b / numBeams) * Math.PI * 2;
+            const beamSpread = 0.08 + Math.sin(timeSec * 1.5 + b) * 0.02 + sEnergy * 0.04;
+            const beamLength = maxDim * (1.1 + sBass * 0.2);
+
+            const x1 = cx + Math.cos(beamAngle - beamSpread) * beamLength;
+            const y1 = cy + Math.sin(beamAngle - beamSpread) * beamLength;
+            const x2 = cx + Math.cos(beamAngle + beamSpread) * beamLength;
+            const y2 = cy + Math.sin(beamAngle + beamSpread) * beamLength;
+
+            const beamGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, beamLength);
+            const beamAlpha = (0.12 + Math.sin(timeSec * 2.0 + b) * 0.06 + sBass * 0.16) * atmoGlow;
+            const col = isLucid
+              ? (b % 2 === 0 ? primaryColor : secondaryColor)
+              : b % 2 === 0
+              ? '#00f0ff'
+              : '#9d4edd';
+
+            beamGrad.addColorStop(0, hexToRgba(col, Math.min(0.45, beamAlpha * 1.5)));
+            beamGrad.addColorStop(0.5, hexToRgba(col, Math.min(0.25, beamAlpha * 0.7)));
+            beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.closePath();
+            ctx.fillStyle = beamGrad;
+            ctx.fill();
+          }
+        }
+
+        // ── Mode: quantum_waves (NUEVO: Ondas Cuánticas Concéntricas desde el Centro) ─
+        else if (mode === 'quantum_waves') {
+          if (!customBg) {
+            const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxDim);
+            grad.addColorStop(0, isLucid ? `${primaryColor}14` : '#040b18');
+            grad.addColorStop(0.6, isLucid ? `${secondaryColor}0a` : '#02050c');
+            grad.addColorStop(1, '#000205');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          // Disparar nuevos anillos concéntricos en picos de bombo
+          const rings = quantumRingsRef.current;
+          const kickSurge = sBass > 0.30 && bassDelta > 0.03;
+          if (kickSurge && rings.length < 18) {
+            rings.push({
+              radius: 50 + Math.random() * 20,
+              maxRadius: maxDim * (0.85 + Math.random() * 0.35),
+              alpha: 0.85,
+              lineWidth: 1.5,
+              speed: 4.5 + sBass * 5.5,
+              color: isLucid
+                ? (rings.length % 2 === 0 ? primaryColor : secondaryColor)
+                : rings.length % 2 === 0
+                ? '#00f2fe'
+                : '#ffd166',
+            });
+          }
+
+          for (let i = rings.length - 1; i >= 0; i--) {
+            const ring = rings[i];
+            ring.radius += ring.speed * (1 + sBass * 1.5) * atmoSpeed;
+            ring.alpha *= 0.985;
+            ring.lineWidth *= 0.995;
+
+            if (ring.alpha < 0.01 || ring.radius >= ring.maxRadius) {
+              rings.splice(i, 1);
               continue;
             }
 
             ctx.beginPath();
-            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-            ctx.strokeStyle = isLucid
-              ? (i % 2 === 0 ? primaryColor : secondaryColor)
-              : `hsla(${r.hue}, 100%, 65%, ${r.alpha * atmoGlow})`;
-            ctx.lineWidth = Math.max(1, r.lineWidth);
-            ctx.shadowColor = isLucid ? glowColor : ctx.strokeStyle;
-            ctx.shadowBlur = 14 * r.alpha * atmoGlow;
+            ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = ring.color;
+            ctx.lineWidth = Math.max(0.75, ring.lineWidth);
+            ctx.globalAlpha = ring.alpha * atmoGlow;
             ctx.stroke();
           }
-        }
-
-        // ── Mode: rain (Lluvia Neón Estelar) ────────────────────────────────
-        else if (mode === 'rain') {
-          if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#030712');
-            sky.addColorStop(0.5, isLucid ? `${secondaryColor}10` : '#081122');
-            sky.addColorStop(1, isLucid ? `${primaryColor}14` : '#050a16');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, width, height);
-          }
-
-          const rain = rainRef.current;
-          const speedMult = (1 + sEnergy * 2.2 + (isPlaying || isMicActive ? 0.8 : 0)) * atmoSpeed;
-
-          rain.forEach((drop) => {
-            drop.y += drop.speed * speedMult;
-            if (drop.y > height) {
-              drop.y = -drop.length;
-              drop.x = Math.random() * width;
-            }
-
-            const currentAlpha = Math.min(1, drop.alpha * (0.6 + sBass * 0.8) * atmoGlow);
-            ctx.beginPath();
-            ctx.moveTo(drop.x, drop.y);
-            ctx.lineTo(drop.x, drop.y + drop.length * (1 + sBass * 0.5));
-            ctx.strokeStyle = isLucid
-              ? (drop.hue % 2 === 0 ? primaryColor : secondaryColor)
-              : `hsla(${drop.hue}, 90%, 65%, ${currentAlpha})`;
-            ctx.lineWidth = 1.8;
-            ctx.stroke();
-          });
-        }
-
-        // ── Mode: sand (Mareas de Arena Marina & Sub-bajo) ─────────────────
-        else if (mode === 'sand') {
-          if (!customBg) {
-            const sky = ctx.createLinearGradient(0, 0, 0, height);
-            sky.addColorStop(0, '#080812');
-            sky.addColorStop(0.6, isLucid ? `${secondaryColor}12` : '#18120c');
-            sky.addColorStop(1, isLucid ? `${primaryColor}15` : '#2c1e0e');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, width, height);
-          }
-
-          const sand = sandRef.current;
-          const wavePhase = timeSec * 1.5;
-
-          sand.forEach((p) => {
-            p.x += p.vx * (1 + sEnergy * 1.8) * atmoSpeed;
-            p.y += (p.vy + Math.sin(wavePhase + p.phase) * (0.8 + sBass * 2.5)) * atmoSpeed;
-
-            if (p.x > width) p.x = 0;
-            if (p.x < 0) p.x = width;
-            if (p.y > height) p.y = 0;
-            if (p.y < 0) p.y = height;
-
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size * (1 + sBass * 0.4), 0, Math.PI * 2);
-            ctx.fillStyle = p.isGold
-              ? `rgba(255, 200, 70, ${p.alpha * (0.6 + sBass * 0.5) * atmoGlow})`
-              : isLucid
-              ? (p.phase % 2 === 0 ? primaryColor : secondaryColor)
-              : `rgba(0, 240, 255, ${p.alpha * (0.5 + sEnergy * 0.5) * atmoGlow})`;
-            ctx.fill();
-          });
         }
 
         ctx.restore();

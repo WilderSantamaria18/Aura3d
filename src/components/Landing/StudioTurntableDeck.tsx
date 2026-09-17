@@ -1,158 +1,201 @@
 import React, { useState } from 'react';
-import { Disc3, Sparkles, Radio, Waves, Activity } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { VisualizerShape } from '../../types/audio';
 
-const TURNTABLE_PRESETS: { id: VisualizerShape; label: string; icon: any }[] = [
-  { id: 'vortex', label: 'Vórtex', icon: Radio },
-  { id: 'kaleidoscope', label: 'Caleidoscopio', icon: Sparkles },
-  { id: 'fractal', label: 'Fractal', icon: Waves },
-  { id: 'bars', label: 'Spectrum', icon: Activity },
+interface ShapePreset {
+  id: VisualizerShape;
+  label: string;
+}
+
+const SHAPE_PRESETS: ShapePreset[] = [
+  { id: 'vortex', label: 'Vórtex' },
+  { id: 'kaleidoscope', label: 'Caleidoscopio' },
+  { id: 'fractal', label: 'Fractal' },
+  { id: 'cat_ears', label: 'Cat-Ears Spectrum' },
 ];
 
 /**
  * StudioTurntableDeck
- * Tornamesa virtual de vinilo de alta gama con halo arcoíris y selector de modos reactivos.
+ * Tornamesa Virtual Rainbow Void de alta fricción con tracción directa (Canal 03).
+ * Disco de vinilo de 33⅓ RPM con micro-surcos, dispersión cónica cromática,
+ * brazo metálico, pitch con tempo maestro variable y selector de deformación espectral.
  */
 export const StudioTurntableDeck: React.FC = () => {
-  const { setBlobShape, blobShape } = usePlayerStore();
-  const [pitch, setPitch] = useState(0);
-  const [isPlaying] = useState(true);
+  const { blobShape, setBlobShape } = usePlayerStore();
+  const [bpm, setBpm] = useState<number>(128.0);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+
+  // Calculate rotation speed in seconds: faster BPM = lower spin duration
+  const spinDuration = (128 / bpm) * 4;
+
+  const handlePitchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBpm(parseFloat(e.target.value));
+  };
 
   return (
-    <div className="w-full max-w-xl mx-auto rounded-3xl bg-[#070b16]/95 border border-white/[0.10] shadow-[0_30px_70px_rgba(0,0,0,0.85)] p-6 backdrop-blur-2xl text-white font-mono select-none">
-      {/* ── Turntable Header ── */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
-            <Disc3 className="w-4 h-4" />
+    <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center select-none font-sans">
+      {/* ── Turntable Hardware Body (Left/Center) ── */}
+      <div className="lg:col-span-7 flex justify-center">
+        <div className="relative w-full max-w-[420px] sm:max-w-md aspect-square p-5 sm:p-6 rounded-3xl bg-[#1a1b21]/90 border border-white/[0.08] backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.65)] flex items-center justify-center overflow-hidden">
+          {/* Metallic Chassis Corner Highlights */}
+          <div className="absolute top-4 left-5 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#ff088a] shadow-[0_0_8px_#ff088a] animate-pulse" />
+            <span className="font-mono text-[10px] text-[#849495] tracking-wider">
+              DIRECT DRIVE 33⅓ RPM
+            </span>
           </div>
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-white">
-              RAINBOW VOID // DIRECT DRIVE
-            </div>
-            <div className="text-[10px] text-white/40">33 ⅓ RPM HI-FI ROTATIONAL ENGINE</div>
+          <div className="absolute top-4 right-5 font-mono text-[10px] sm:text-[11px] text-[#00dbe9]">
+            QUARTZ LOCK: ACTIVE
           </div>
-        </div>
 
-        {/* BPM & Speed display */}
-        <div className="flex items-center gap-2 bg-black/40 px-3 py-1 rounded-lg border border-white/[0.06] text-xs">
-          <span className="text-white/40 text-[10px]">SPEED</span>
-          <span className="text-cyan-400 font-bold tabular-nums">
-            {(128 + pitch * 1.5).toFixed(1)} BPM
-          </span>
-        </div>
-      </div>
-
-      {/* ── Center Platter & Vinyl Disc Area ── */}
-      <div className="relative my-6 flex items-center justify-center py-4">
-        {/* Outer Rainbow Dispersion Halo */}
-        <div
-          className="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full pointer-events-none transition-all duration-300 will-change-transform"
-          style={{
-            background:
-              'conic-gradient(from 0deg, #ff088a, #8a2be2, #00f2fe, #00ffb3, #ffe600, #ff5e00, #ff088a)',
-            filter: 'blur(22px)',
-            opacity: isPlaying ? 0.35 : 0.15,
-            transform: 'scale(1.08) translateZ(0)',
-          }}
-        />
-
-        {/* Brushed Metal Platter Ring */}
-        <div className="relative w-52 h-52 sm:w-60 sm:h-60 rounded-full bg-[#0d1222] border-2 border-white/20 shadow-2xl flex items-center justify-center overflow-hidden">
-          {/* Vinyl Disc Grooves with sheen */}
-          <div
-            className={`w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-[#060810] border border-white/20 shadow-inner relative flex items-center justify-center ${
-              isPlaying ? 'animate-[spin_20s_linear_infinite]' : ''
-            }`}
-          >
-            {/* Concentric micro-groove sheen rings */}
-            <div className="absolute inset-[10%] rounded-full border border-white/[0.04] pointer-events-none" />
-            <div className="absolute inset-[20%] rounded-full border border-white/[0.03] pointer-events-none" />
-            <div className="absolute inset-[30%] rounded-full border border-white/[0.04] pointer-events-none" />
-            <div className="absolute inset-[40%] rounded-full border border-white/[0.03] pointer-events-none" />
-            {/* Optical sheen reflection gradient */}
+          {/* Turntable Platter (Recessed Obsidian Circle) */}
+          <div className="relative w-[86%] h-[86%] rounded-full bg-[#06080e] border border-white/[0.06] shadow-[inset_0_4px_24px_rgba(0,0,0,0.95),0_0_40px_rgba(0,229,255,0.08)] flex items-center justify-center">
+            {/* Realistic Vinyl Record with Micro-Grooves */}
             <div
-              className="absolute inset-0 rounded-full opacity-35 pointer-events-none"
+              onClick={() => setIsPlaying((prev) => !prev)}
+              className="relative w-[92%] h-[92%] rounded-full bg-[#0a0c14] border border-white/10 shadow-[0_0_18px_rgba(0,0,0,0.9)] flex items-center justify-center cursor-pointer transition-transform"
               style={{
-                background:
-                  'conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.12) 45deg, transparent 90deg, transparent 180deg, rgba(255,255,255,0.12) 225deg, transparent 270deg)',
+                animation: isPlaying
+                  ? `spin ${spinDuration}s linear infinite`
+                  : 'none',
               }}
-            />
+              title="Clic para pausar o girar el vinilo"
+            >
+              {/* Micro-groove Refraction Rings */}
+              <div className="absolute inset-3 sm:inset-4 rounded-full border border-white/[0.04]" />
+              <div className="absolute inset-7 sm:inset-8 rounded-full border border-white/[0.03]" />
+              <div className="absolute inset-11 sm:inset-12 rounded-full border border-white/[0.04]" />
+              <div className="absolute inset-14 sm:inset-16 rounded-full border border-white/[0.02]" />
+              <div className="absolute inset-18 sm:inset-20 rounded-full border border-white/[0.05]" />
+              <div className="absolute inset-22 sm:inset-24 rounded-full border border-white/[0.03]" />
 
-            {/* Central Label / Void Spindle */}
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-500 via-pink-500 to-amber-400 p-0.5 shadow-lg flex items-center justify-center">
-              <div className="w-full h-full rounded-full bg-[#070b16] flex items-center justify-center relative">
-                <div className="w-3 h-3 rounded-full bg-black border border-white/60 shadow" />
+              {/* Subtle Conic Chromatic Dispersion Reflection */}
+              <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(0,229,255,0.08)_45deg,transparent_90deg,rgba(140,56,255,0.08)_180deg,transparent_270deg)] pointer-events-none" />
+
+              {/* Center Label: "Rainbow Void" Artwork */}
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-[#ff088a] via-[#8c38ff] to-[#00e5ff] p-0.5 shadow-xl flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-[#070913] flex flex-col items-center justify-center text-center p-2">
+                  <span className="font-mono text-[7px] text-[#00e5ff] tracking-widest uppercase">
+                    Aura3D Void
+                  </span>
+                  <span className="font-mono text-[10px] sm:text-[11px] font-bold text-[#e3e1e9] leading-tight">
+                    CHROMA
+                  </span>
+                  <span className="font-mono text-[7px] text-[#849495]">STEM 03</span>
+                </div>
+                {/* Spindle hole */}
+                <div className="absolute w-4 h-4 rounded-full bg-[#1e202a] border border-white/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]" />
+              </div>
+            </div>
+
+            {/* Sleek Metallic Tone-Arm Overlay */}
+            <div
+              className={`absolute -top-3 right-5 sm:right-6 w-12 h-60 pointer-events-none origin-top-right transition-transform duration-700 ease-out ${
+                isPlaying ? 'rotate-[18deg]' : 'rotate-[-8deg]'
+              }`}
+            >
+              {/* Pivot Base */}
+              <div className="w-8 h-8 rounded-full bg-[#34343a] border border-white/20 shadow-lg mx-auto" />
+              {/* Arm Tube */}
+              <div className="w-1.5 h-40 bg-gradient-to-r from-[#849495] via-[#dbfcff] to-[#34343a] mx-auto shadow-md" />
+              {/* Headshell / Cartridge */}
+              <div className="w-4 h-8 rounded-sm bg-[#00f0ff] mx-auto -mt-1 shadow-[0_0_10px_#00f0ff] flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#002022]" />
               </div>
             </div>
           </div>
 
-          {/* Tonearm Stylus arm overlay */}
-          <div
-            className="absolute top-2 right-4 w-1 h-36 bg-gradient-to-b from-white/70 via-white/40 to-white/10 origin-top transform rotate-18 pointer-events-none shadow-lg"
-            style={{
-              transform: isPlaying ? 'rotate(18deg)' : 'rotate(-15deg)',
-              transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
-            {/* Cartridge head with LED indicator */}
-            <div className="absolute bottom-0 -left-1.5 w-4 h-5 rounded bg-black border border-white/50 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse shadow-[0_0_6px_#ff088a]" />
-            </div>
+          {/* Platter Strobe Dots */}
+          <div className="absolute bottom-4 left-5 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
+            <span className="w-1 h-1 rounded-full bg-[#34343a]" />
+            <span className="w-1 h-1 rounded-full bg-[#34343a]" />
+            <span className="font-mono text-[9px] text-[#849495] ml-1">STROBE SYNC</span>
           </div>
-        </div>
-
-        {/* Pitch Slider on the right */}
-        <div className="ml-4 flex flex-col items-center gap-1.5">
-          <span className="text-[9px] text-white/40 font-mono">PITCH</span>
-          <div className="relative w-4 h-32 flex items-center justify-center">
-            <div className="w-0.5 h-full bg-white/20 rounded-full" />
-            <input
-              type="range"
-              min="-8"
-              max="8"
-              step="0.5"
-              value={pitch}
-              onChange={(e) => setPitch(parseFloat(e.target.value))}
-              className="absolute w-28 h-4 -rotate-90 opacity-0 cursor-pointer z-10"
-            />
-            <div
-              className="absolute w-4 h-6 rounded bg-white text-black text-[7px] font-bold flex items-center justify-center shadow pointer-events-none"
-              style={{
-                bottom: `${((pitch + 8) / 16) * 78}%`,
-              }}
-            >
-              0
-            </div>
-          </div>
-          <span className="text-[8px] text-white/40 tabular-nums">
-            {pitch > 0 ? `+${pitch}` : pitch}%
-          </span>
         </div>
       </div>
 
-      {/* ── Mode Selection Tiles ── */}
-      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/[0.08]">
-        {TURNTABLE_PRESETS.map((preset) => {
-          const Icon = preset.icon;
-          const isSelected = blobShape === preset.id;
+      {/* ── Turntable Telemetry & Presets (Right) ── */}
+      <div className="lg:col-span-5 flex flex-col items-start gap-5">
+        <div>
+          <span className="font-mono text-[10px] sm:text-[11px] text-[#7df4ff] tracking-wider uppercase">
+            [ 03 // NÚCLEO CINÉTICO DE VINILO ]
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#e3e1e9] mt-0.5">
+            Tornamesa Virtual Rainbow Void
+          </h2>
+          <p className="font-sans text-xs sm:text-sm text-[#b9cacb] mt-2 leading-relaxed">
+            Emulación física de masa giratoria, deslizamiento de aguja y difracción de espectro óptico en un disco virtual de alta fricción.
+          </p>
+        </div>
 
-          return (
-            <button
-              key={preset.id}
-              onClick={() => setBlobShape(preset.id)}
-              className={`p-2.5 rounded-xl border flex flex-col items-center gap-1.5 transition-all text-xs active:scale-95 ${
-                isSelected
-                  ? 'border-cyan-400 bg-cyan-950/30 text-white shadow-[0_0_15px_rgba(0,229,255,0.25)]'
-                  : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:text-white hover:bg-white/[0.05]'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isSelected ? 'text-cyan-400' : 'text-white/40'}`} />
-              <span className="text-[10px] font-medium tracking-wide">{preset.label}</span>
-            </button>
-          );
-        })}
+        {/* Pitch & BPM Display Card */}
+        <div className="w-full p-4 sm:p-5 rounded-2xl bg-[#1a1b21]/80 border border-white/[0.08] backdrop-blur-xl shadow-lg flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-mono text-[10px] text-[#849495] uppercase block">
+                TEMPO MAESTRO
+              </span>
+              <span className="font-mono text-2xl sm:text-3xl font-bold text-[#00f0ff]">
+                {bpm.toFixed(1)}{' '}
+                <span className="text-xs text-[#849495] font-normal">BPM</span>
+              </span>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="px-2 py-0.5 rounded bg-[#292a2f] border border-white/[0.06] font-mono text-[10px] text-[#00ff9d]">
+                KEY LOCK: ON
+              </span>
+              <span className="font-mono text-[11px] text-[#e3e1e9] mt-1">±8% RANGE</span>
+            </div>
+          </div>
+
+          {/* Pitch Slider */}
+          <div className="flex items-center gap-3 pt-1">
+            <span className="font-mono text-[10px] text-[#849495]">118.0</span>
+            <input
+              type="range"
+              min="118"
+              max="138"
+              step="0.1"
+              value={bpm}
+              onChange={handlePitchChange}
+              className="w-full accent-[#00f0ff] bg-[#34343a] h-1.5 rounded-full cursor-pointer"
+            />
+            <span className="font-mono text-[10px] text-[#849495]">138.0</span>
+          </div>
+        </div>
+
+        {/* Shape Preset Tactile Selectors */}
+        <div className="w-full flex flex-col gap-2">
+          <span className="font-mono text-[10px] text-[#849495] uppercase tracking-wider">
+            MODELO DE DEFORMACIÓN ESPECTRAL
+          </span>
+          <div className="grid grid-cols-2 gap-2 w-full">
+            {SHAPE_PRESETS.map((preset) => {
+              const isSelected = blobShape === preset.id;
+
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setBlobShape(preset.id)}
+                  className={`px-4 py-3 rounded-xl font-mono text-xs font-semibold text-left flex items-center justify-between transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#00f0ff] text-[#002022] shadow-[0_0_16px_rgba(0,240,255,0.35)]'
+                      : 'bg-[#1e1f25] hover:bg-[#292a2f] text-[#e3e1e9] border border-white/[0.04]'
+                  }`}
+                >
+                  <span>{preset.label}</span>
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isSelected ? 'bg-[#002022]' : 'bg-[#34343a]'
+                    }`}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -64,8 +64,8 @@ export const usePerformanceMonitor = () => {
             mode,
             message:
               mode === 'eco' || mode === 'ultra_eco'
-                ? '⚡ Modo Rendimiento activado automáticamente para mantener 60 FPS estables.'
-                : '🚀 Modo Alta Calidad restaurado.',
+                ? 'Modo Rendimiento activado automáticamente para mantener 60 FPS estables.'
+                : 'Modo Alta Calidad restaurado.',
           },
         })
       );

@@ -24,14 +24,14 @@ export const AuralisStoryCardModal: React.FC = () => {
   const trackKey = currentTrack ? `${currentTrack.id || currentTrack.title}_${currentTrack.artist}` : 'auralis_story_default';
   const waveformData = useMemo(() => waveformService.generateDeterministic(trackKey, 180, 48), [trackKey]);
 
-  const moodLabels: Record<string, { label: string; icon: string }> = {
-    energetic: { label: 'Energético', icon: '⚡' },
-    happy: { label: 'Alegre', icon: '✨' },
-    chill: { label: 'Relajado', icon: '🌙' },
-    melancholic: { label: 'Melancólico', icon: '🌊' },
+  const moodLabels: Record<string, { label: string }> = {
+    energetic: { label: 'Energético' },
+    happy: { label: 'Alegre' },
+    chill: { label: 'Relajado' },
+    melancholic: { label: 'Melancólico' },
   };
 
-  const currentMood = moodLabels[mood] || { label: 'Inmersivo', icon: '✨' };
+  const currentMood = moodLabels[mood] || { label: 'Inmersivo' };
 
   if (!isStoryCardOpen) return null;
 
@@ -146,7 +146,7 @@ export const AuralisStoryCardModal: React.FC = () => {
     ctx.fillStyle = '#d8b4fe';
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(`🎼 ${harmonicKey.camelot} · ${harmonicKey.shortKey}`, 350, badgeY + 10);
+    ctx.fillText(`${harmonicKey.camelot} · ${harmonicKey.shortKey}`, 350, badgeY + 10);
 
     // Mood badge
     ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
@@ -158,7 +158,7 @@ export const AuralisStoryCardModal: React.FC = () => {
 
     ctx.fillStyle = '#fde68a';
     ctx.font = 'bold 28px sans-serif';
-    ctx.fillText(`${currentMood.icon} ${currentMood.label}`, 730, badgeY + 10);
+    ctx.fillText(currentMood.label, 730, badgeY + 10);
 
     // 7. Waveform Spectrogram
     const waveY = 1380;
@@ -250,88 +250,95 @@ export const AuralisStoryCardModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-2xl animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-[420px] max-h-[92vh] overflow-y-auto rounded-3xl bg-[#090d1a]/95 border border-white/10 shadow-[0_24px_64px_rgba(0,0,0,0.9)] p-4 sm:p-5 flex flex-col gap-4 text-white font-sans custom-scrollbar"
+        className="relative w-full max-w-[420px] max-h-[92vh] overflow-y-auto rounded-[32px] liquid-glass liquid-glass-card border border-white/20 border-t-white/35 shadow-[0_32px_90px_rgba(0,0,0,0.95)] p-5 flex flex-col gap-4 text-white font-sans custom-scrollbar select-none"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* iOS Grabber Pill */}
+        <div className="w-10 h-1 rounded-full bg-white/25 mx-auto -mt-1 mb-0.5" />
+
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-300 shadow-md">
               <Sparkles className="w-4 h-4" />
             </span>
             <div>
-              <div className="text-sm font-bold text-white">Tarjeta para Historias (9:16)</div>
-              <div className="text-[10px] text-white/40 font-mono">Lista para Instagram Stories y TikTok</div>
+              <div className="text-sm font-bold text-white tracking-tight">Historia de Instagram (9:16)</div>
+              <div className="text-[10px] text-white/50 tracking-tight">Lista para Instagram Stories y Reels</div>
             </div>
           </div>
           <button
             onClick={() => setStoryCardOpen(false)}
-            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
+            title="Cerrar modal"
+            aria-label="Cerrar modal"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* 9:16 Preview Container */}
+        {/* 9:16 Preview Container (Apple Squircle Card) */}
         <div
           ref={previewCardRef}
-          className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden border border-white/15 p-4 flex flex-col justify-between select-none shadow-2xl"
+          className="relative w-full aspect-[9/16] rounded-[24px] overflow-hidden border border-white/20 border-t-white/30 p-5 flex flex-col justify-between select-none shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
           style={{
-            background: `radial-gradient(ellipse at 50% 30%, ${activeColor}30 0%, #080b18 60%, #03050c 100%)`,
+            background: `radial-gradient(ellipse at 50% 25%, ${activeColor}35 0%, #090d1c 55%, #020409 100%)`,
           }}
         >
           {/* Card Top Branding */}
-          <div className="text-center pt-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/80 font-bold block">
-              Auralis Studio
+          <div className="text-center pt-1">
+            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/90 font-bold block">
+              AURALIS STUDIO
             </span>
             <span className="text-[8px] tracking-widest uppercase text-white/40 font-sans block mt-0.5">
-              Sesión de Audio Inmersivo 3D
+              Audio Inmersivo 3D
             </span>
           </div>
 
           {/* Card Center Artwork */}
           <div className="flex flex-col items-center gap-3 my-auto">
+            {/* Vinyl Disc Container */}
             <div
-              className="relative w-40 h-40 rounded-2xl bg-[#0f1424] border border-white/20 shadow-[0_16px_40px_rgba(0,0,0,0.8)] flex items-center justify-center overflow-hidden"
-              style={{ boxShadow: `0 12px 36px ${activeColor}35` }}
+              className="relative w-36 h-36 rounded-2xl bg-[#0f1424] border border-white/20 shadow-[0_16px_40px_rgba(0,0,0,0.8)] flex items-center justify-center overflow-hidden"
+              style={{ boxShadow: `0 14px 40px ${activeColor}40` }}
             >
-              <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-[radial-gradient(circle,#1a2238_0%,#080b18_100%)]">
-                <div className="w-24 h-24 rounded-full border border-white/10 flex items-center justify-center">
-                  <Disc3 className="w-12 h-12 text-white/70 animate-spin" style={{ animationDuration: '14s' }} />
+              <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-[radial-gradient(circle,#1b243d_0%,#080b18_100%)]">
+                <div className="w-24 h-24 rounded-full border border-white/10 flex items-center justify-center shadow-inner">
+                  <Disc3 className="w-12 h-12 text-white/80 animate-spin" style={{ animationDuration: '14s' }} />
                 </div>
               </div>
             </div>
 
+            {/* Song Meta */}
             <div className="text-center px-2 max-w-full">
               <div className="text-base font-bold text-white truncate drop-shadow-md">
                 {trackTitle}
               </div>
-              <div className="text-xs text-white/60 truncate mt-0.5">
+              <div className="text-xs text-white/60 truncate mt-0.5 font-medium">
                 {trackArtist}
               </div>
             </div>
 
-            {/* Badges */}
-            <div className="flex items-center gap-1.5 pt-1">
-              <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[9px] font-mono font-bold">
-                🎼 {harmonicKey.camelot} · {harmonicKey.shortKey}
+            {/* iOS Frosted Badges */}
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/35 text-purple-200 text-[10px] font-mono font-bold backdrop-blur-md shadow-sm">
+                KEY {harmonicKey.camelot} · {harmonicKey.shortKey}
               </span>
-              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-sans font-bold">
-                {currentMood.icon} {currentMood.label}
+              <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/35 text-amber-200 text-[10px] font-sans font-bold backdrop-blur-md shadow-sm">
+                {currentMood.label}
               </span>
             </div>
 
-            {/* Mini Waveform in Preview */}
-            <div className="w-full px-4 flex items-center justify-center gap-[2px] h-9 pt-1">
+            {/* Soundwave Bars */}
+            <div className="w-full px-4 flex items-center justify-center gap-[2px] h-8 pt-1">
               {waveformData.peaks.slice(0, 36).map((p, i) => (
                 <div
                   key={i}
                   className="flex-1 rounded-full transition-all"
                   style={{
-                    height: `${Math.max(15, p * 100)}%`,
+                    height: `${Math.max(16, p * 100)}%`,
                     backgroundColor: i < 24 ? activeColor : 'rgba(255, 255, 255, 0.25)',
                   }}
                 />
@@ -340,18 +347,18 @@ export const AuralisStoryCardModal: React.FC = () => {
           </div>
 
           {/* Card Footer */}
-          <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-[9px] font-mono text-white/50">
+          <div className="pt-2 border-t border-white/[0.08] flex items-center justify-between text-[10px] font-mono text-white/50">
             <span>{Math.floor(stats.totalSeconds / 60)} min escuchados</span>
-            <span className="text-cyan-400">#Auralis3D</span>
+            <span className="text-cyan-400 font-semibold">#Auralis3D</span>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* iOS Action Buttons */}
         <div className="flex items-center gap-2 pt-1">
           <button
             onClick={handleDownload}
             disabled={isExporting}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs font-mono flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-cyan-500/25 active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="flex-1 py-3 px-5 rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 text-black font-bold text-xs tracking-tight shadow-[0_8px_25px_rgba(6,182,212,0.35)] hover:shadow-[0_10px_30px_rgba(6,182,212,0.5)] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             <span>{isExporting ? 'Generando...' : 'Descargar 9:16 (PNG)'}</span>
@@ -360,11 +367,11 @@ export const AuralisStoryCardModal: React.FC = () => {
           <button
             onClick={handleCopy}
             disabled={isExporting}
-            className="py-2.5 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-white text-xs font-mono flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="py-3 px-4 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 backdrop-blur-xl cursor-pointer disabled:opacity-50 shadow-sm"
             title="Copiar imagen al portapapeles"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
-            <span className="hidden sm:inline">{copied ? '¡Copiado!' : 'Copiar'}</span>
+            <span className="hidden sm:inline">{copied ? 'Copiado' : 'Copiar'}</span>
           </button>
         </div>
       </div>

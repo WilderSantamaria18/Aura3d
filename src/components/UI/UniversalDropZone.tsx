@@ -70,14 +70,14 @@ export const UniversalDropZone: React.FC<UniversalDropZoneProps> = ({ onFilesDro
           type: 'success',
           message:
             validAudioFiles.length === 1
-              ? `🎵 Pista cargada: ${validAudioFiles[0].name.replace(/\.[^/.]+$/, '')}`
-              : `🎶 ${validAudioFiles.length} canciones añadidas a la sesión de mezcla`,
+              ? `Pista cargada: ${validAudioFiles[0].name.replace(/\.[^/.]+$/, '')}`
+              : `${validAudioFiles.length} canciones añadidas a la sesión de mezcla`,
         });
       } else {
         setAutoNotification({
           id: Date.now(),
           type: 'warning',
-          message: '⚠️ Formato no reconocido. Usa archivos MP3, WAV, FLAC, OGG o M4A.',
+          message: 'Formato no reconocido. Usa archivos MP3, WAV, FLAC, OGG o M4A.',
         });
       }
     };

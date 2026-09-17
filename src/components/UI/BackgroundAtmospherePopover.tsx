@@ -16,7 +16,17 @@ import {
   MousePointer,
 } from 'lucide-react';
 
-export const BackgroundAtmospherePopover: React.FC = () => {
+export interface BackgroundAtmospherePopoverProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+}
+
+export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverProps> = ({
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  showTrigger = true,
+}) => {
   const {
     blobSettings,
     updateBlobSettings,
@@ -27,7 +37,15 @@ export const BackgroundAtmospherePopover: React.FC = () => {
     toggleMouseEffects,
   } = usePlayerStore();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
+  const setIsOpen = (val: boolean) => {
+    if (onOpenChange) onOpenChange(val);
+    if (!isControlled) setInternalIsOpen(val);
+  };
+
   const [activeTab, setActiveTab] = useState<'image' | 'atmosphere' | 'dynamics'>('image');
   const [isPreviewing, setIsPreviewing] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -73,36 +91,38 @@ export const BackgroundAtmospherePopover: React.FC = () => {
   return (
     <div className="relative inline-flex items-center" ref={popoverRef}>
       {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-xs font-sans transition-all duration-200 border active:scale-[0.97] ${
-          isOpen || hasActiveBg
-            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20'
-            : 'bg-white/[0.03] text-white/70 hover:text-white border-white/[0.08] hover:bg-white/[0.06]'
-        }`}
-        style={
-          isLucid && (isOpen || hasActiveBg)
-            ? {
-                backgroundColor: `${accentColor}18`,
-                borderColor: `${accentColor}50`,
-                color: accentColor,
-                boxShadow: `0 0 16px ${lucidTheme.glow}`,
-              }
-            : undefined
-        }
-        title="Personalizar Fondo, Imagen, Opacidad, Difuminado y Efectos Atmosféricos"
-        aria-label="Fondo y Atmósfera"
-      >
-        <Image className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="hidden min-[480px]:inline text-[11px] font-medium">Fondo</span>
-        {hasActiveBg && (
-          <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ backgroundColor: accentColor }}
-          />
-        )}
-      </button>
+      {showTrigger && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-xs font-sans transition-all duration-200 border active:scale-[0.97] ${
+            isOpen || hasActiveBg
+              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/20'
+              : 'bg-white/[0.03] text-white/70 hover:text-white border-white/[0.08] hover:bg-white/[0.06]'
+          }`}
+          style={
+            isLucid && (isOpen || hasActiveBg)
+              ? {
+                  backgroundColor: `${accentColor}18`,
+                  borderColor: `${accentColor}50`,
+                  color: accentColor,
+                  boxShadow: `0 0 16px ${lucidTheme.glow}`,
+                }
+              : undefined
+          }
+          title="Personalizar Fondo, Imagen, Opacidad, Difuminado y Efectos Atmosféricos"
+          aria-label="Fondo y Atmósfera"
+        >
+          <Image className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="hidden min-[480px]:inline text-[11px] font-medium">Fondo</span>
+          {hasActiveBg && (
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ backgroundColor: accentColor }}
+            />
+          )}
+        </button>
+      )}
 
       {/* Popover Menu */}
       {isOpen && (
@@ -118,7 +138,7 @@ export const BackgroundAtmospherePopover: React.FC = () => {
           />
 
           <div
-            className={`fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] sm:max-w-[calc(100vw-24px)] max-h-[min(520px,calc(100vh-4.5rem))] overflow-y-auto p-3.5 sm:p-4 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 custom-scrollbar transition-opacity duration-200 ${
+            className={`fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-[380px] sm:max-w-[calc(100vw-24px)] max-h-[min(520px,calc(100vh-4.5rem))] overflow-y-auto p-3.5 sm:p-4 rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_28px_70px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 custom-scrollbar select-none text-white font-sans transition-opacity duration-200 ${
               isPreviewing ? 'opacity-25 hover:opacity-100' : 'opacity-100'
             }`}
             style={
@@ -461,15 +481,14 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     {(
                       [
                         ['none', 'Limpio'],
-                        ['sunset', '🌅 Atardecer'],
-                        ['cyber_city', '🏙️ Cyber City'],
-                        ['cosmic_voyager', '🌙 Viajero'],
-                        ['ripples', '💧 Gotas'],
-                        ['rain', '🌧️ Lluvia'],
-                        ['sand', '⏳ Arena'],
-                        ['stars', '✨ Estrellas'],
-                        ['matrix', '💻 Matrix'],
-                        ['aurora', '🌌 Aurora'],
+                        ['sunset', 'Atardecer'],
+                        ['rain', 'Lluvia'],
+                        ['sand', 'Arena'],
+                        ['stars', 'Estrellas'],
+                        ['radial_burst', 'Estallido'],
+                        ['stardust_drift', 'Polvo'],
+                        ['light_beams', 'Haces Luz'],
+                        ['quantum_waves', 'Ondas'],
                       ] as const
                     ).map(([id, label]) => {
                       const isActive = (blobSettings.backgroundAtmosphere || 'none') === id;
@@ -514,11 +533,14 @@ export const BackgroundAtmospherePopover: React.FC = () => {
                     {(
                       [
                         ['none', 'Sin Mezcla'],
-                        ['sunset', '🌅 Atardecer'],
-                        ['cyber_city', '🏙️ Cyber City'],
-                        ['cosmic_voyager', '🌙 Viajero'],
-                        ['aurora', '🌌 Aurora'],
-                        ['stars', '✨ Estrellas'],
+                        ['radial_burst', 'Estallido'],
+                        ['stars', 'Estrellas'],
+                        ['stardust_drift', 'Polvo'],
+                        ['light_beams', 'Haces Luz'],
+                        ['quantum_waves', 'Ondas'],
+                        ['sunset', 'Atardecer'],
+                        ['rain', 'Lluvia'],
+                        ['sand', 'Arena'],
                       ] as const
                     ).map(([id, label]) => {
                       const isActive = (blobSettings.atmosphereBlend || 'none') === id;

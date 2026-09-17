@@ -226,6 +226,7 @@ interface PlayerState {
   isSidebarOpen: boolean;
   isKaraokeFullscreen: boolean;
   isNowPlayingExpanded: boolean;
+  isMiniPlayerOpen: boolean;
 
   // EQ Bands
   eqBands: EqualizerBand[];
@@ -349,6 +350,8 @@ interface PlayerState {
   setKaraokeFullscreen: (isFullscreen: boolean) => void;
   toggleKaraokeFullscreen: () => void;
   setNowPlayingExpanded: (isExpanded: boolean) => void;
+  setMiniPlayerOpen: (isOpen: boolean) => void;
+  toggleMiniPlayer: () => void;
   setEqBandGain: (bandId: number, gain: number) => void;
   setRepeatMode: (mode: 'off' | 'all' | 'one') => void;
   toggleShuffle: () => void;
@@ -550,6 +553,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isSidebarOpen: false,
   isKaraokeFullscreen: false,
   isNowPlayingExpanded: true,
+  isMiniPlayerOpen: false,
 
   eqBands: StorageService.getEqBands() || DEFAULT_EQ_BANDS,
 
@@ -854,7 +858,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       autoFeedbackToast: autoMode,
       autoNotification: autoMode
         ? {
-            message: '🧠 Modo Inteligente ACTIVADO: Color dinámico fluido',
+            message: 'Modo Inteligente ACTIVADO: Color dinámico fluido',
             type: 'info',
             id: Date.now(),
             color: state.dynamicColor,
@@ -869,7 +873,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         autoFeedbackToast: nextMode,
         autoNotification: nextMode
           ? {
-              message: '🧠 Modo Inteligente ACTIVADO: Color dinámico fluido',
+              message: 'Modo Inteligente ACTIVADO: Color dinámico fluido',
               type: 'info',
               id: Date.now(),
               color: state.dynamicColor,
@@ -1018,7 +1022,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         baseColorHue: nextHue,
         autoNotification: {
-          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          message: `Nuevo color base: ${Math.round(nextHue)}°`,
           type: 'success',
           id: Date.now(),
         },
@@ -1078,7 +1082,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         baseColorHue: nextHue,
         autoNotification: {
-          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          message: `Nuevo color base: ${Math.round(nextHue)}°`,
           type: 'success',
           id: Date.now(),
         },
@@ -1129,7 +1133,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         baseColorHue: nextHue,
         autoNotification: {
-          message: `🎨 Nuevo color base: ${Math.round(nextHue)}°`,
+          message: `Nuevo color base: ${Math.round(nextHue)}°`,
           type: 'success',
           id: Date.now(),
         },
@@ -1247,6 +1251,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setKaraokeFullscreen: (isFullscreen) => set({ isKaraokeFullscreen: isFullscreen }),
   toggleKaraokeFullscreen: () => set((s) => ({ isKaraokeFullscreen: !s.isKaraokeFullscreen })),
   setNowPlayingExpanded: (isExpanded) => set({ isNowPlayingExpanded: isExpanded }),
+  setMiniPlayerOpen: (isOpen) => set({ isMiniPlayerOpen: isOpen }),
+  toggleMiniPlayer: () => set((s) => ({ isMiniPlayerOpen: !s.isMiniPlayerOpen })),
 
   setEqBandGain: (bandId, gain) => {
     const { eqBands } = get();

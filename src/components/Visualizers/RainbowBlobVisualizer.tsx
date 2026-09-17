@@ -21,6 +21,9 @@ import {
   Save,
   Check,
   Sun,
+  Layers,
+  Compass,
+  Disc,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
 import { RAINBOW_VOID_EFFECTS, ATMOSPHERE_OPTIONS } from '../../config/visualPresets';
@@ -61,10 +64,10 @@ const clamp = (val: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, val));
 
 const computeScaleFactor = (): number => {
-  if (typeof window === 'undefined') return 1.0;
+  if (typeof window === 'undefined') return 0.80;
   const minDim = Math.min(window.innerWidth, window.innerHeight);
-  // Fluid responsive clamp: scales smoothly from 0.42 on 320px mobile up to 1.0 on desktop
-  return clamp(minDim / 680, 0.42, 1.0);
+  // Refined responsive clamp: scales smoothly from 0.38 on small screens to 0.82 on desktop, ensuring negative space and zero viewport crowding
+  return clamp(minDim / 920, 0.38, 0.82);
 };
 
 export const RainbowBlobVisualizer: React.FC = () => {
@@ -100,6 +103,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
   const [savedPresetSuccess, setSavedPresetSuccess] = useState(false);
+  const [calibTab, setCalibTab] = useState<'shapes' | 'kick' | 'style' | 'atmosphere'>('shapes');
 
   // Unitary scale factor u: responsive clamp
   const [scaleU, setScaleU] = useState<number>(computeScaleFactor);
@@ -147,6 +151,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   // Peak hold array for 64-band spectrum
   const peakHoldCaps = useRef<number[]>(new Array(64).fill(0));
+
+  // Kick Spring Physics & Parametric Morphing
+  const kickSpringRef = useRef({
+    displacement: 0,
+    velocity: 0,
+    prevBass: 0,
+  });
+  const morphNRef = useRef(blobSettings.catEarsCount ?? 2);
 
   // Window resize handler: update scale factor ref and canvas dimensions
   useEffect(() => {
@@ -201,21 +213,62 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const sMids = smoothedMidsRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
+      const rotSpeed = blobSettings.rotationSpeed ?? 1.0;
+      const rotDir = blobSettings.rotationDirection === 'counter_clockwise' ? -1 : 1;
       if (isAudioActive) {
-        phase += 0.03 + sBass * 0.1;
-        angle += 0.25 + sMids * 1.2;
+        phase += (0.03 + sBass * 0.1) * rotSpeed;
+        angle += (0.25 + sMids * 1.2) * rotSpeed * rotDir;
       } else {
-        phase += 0.015;
-        angle += 0.1;
+        phase += 0.015 * rotSpeed;
+        angle += 0.1 * rotSpeed * rotDir;
       }
 
-      // Smooth audio-reactive scale calibration (smooth bass response, no sudden boom stutter)
+      // Morphing for Cat-Ears / Sacred Geometry
+      const targetN = blobSettings.catEarsCount ?? 2;
+      morphNRef.current += (targetN - morphNRef.current) * 0.12;
+
+      // ── Kick Transient & iOS Spring Damping Integration ──
+      const kickThresh = blobSettings.kickThreshold ?? 0.32;
+      const kPower = blobSettings.kickPower ?? 1.6;
+      const bassDelta = sBass - kickSpringRef.current.prevBass;
+      kickSpringRef.current.prevBass = sBass;
+
+      if (isAudioActive && sBass > kickThresh && bassDelta > 0.04) {
+        // Elastic impulse proportional to kick
+        kickSpringRef.current.velocity += Math.min(0.38, bassDelta * kPower * 1.5);
+      }
+
+      // Spring physics step (stiffness 140, damping 0.78 for iOS-like elastic return)
+      const springDt = 0.016;
+      const springK = 140;
+      const springDampingFactor = 0.78;
+      const springForce = -springK * kickSpringRef.current.displacement;
+      kickSpringRef.current.velocity = (kickSpringRef.current.velocity + springForce * springDt) * springDampingFactor;
+      kickSpringRef.current.displacement += kickSpringRef.current.velocity * springDt;
+      if (kickSpringRef.current.displacement < 0) kickSpringRef.current.displacement = 0;
+
+      const kickSpringRebound = kickSpringRef.current.displacement * 0.25; // Up to +25% spring expansion on Kick
+
+      // Smooth audio-reactive scale calibration
+      const isEarLikeShape = [
+        'dual_crest', 'vector_spires', 'pulse_antennas', 'aero_fins',
+        'apex_prism', 'harmonic_crown', 'hyperbolic_arcs', 'laser_needles',
+        'wave_peaks',
+        'cat_ears', 'fox_ears', 'cyber_horns', 'valkyrie_wings', 'laser_crown'
+      ].includes(blobShape);
+      const isTransparentHalo = blobSettings.transparentHalo !== false;
+      const kickIntensity = blobSettings.kickIntensity ?? 1.0;
       const nivel = isAudioActive ? sBass : 0;
       const boostVal = blobSettings.bassBoost ?? 2.8;
       const idleBreathing = isAudioActive ? 0 : Math.sin(timeSec * 1.5) * 0.03;
       const sens = (blobSettings.scaleSensitivity ?? 1.40) * audioSens;
       const baseScale = 0.75 + idleBreathing;
-      const bassContribution = Math.pow(nivel, 1.2) * (0.35 + boostVal * 0.18);
+
+      // In Ear-Like Shapes & Sacred Minimalism: Pure spring rebound + smooth bass (no jitter/stutter)
+      const bassContribution = isEarLikeShape
+        ? (sBass * 0.12 * kickIntensity + kickSpringRebound)
+        : (Math.pow(nivel, 1.2) * (0.35 + boostVal * 0.18));
+
       const totalScale = (baseScale + bassContribution) * sens;
       const clampedScale = Math.min(1.85, Math.max(0.40, totalScale));
       const escala = clampedScale * 0.5;
@@ -232,20 +285,32 @@ export const RainbowBlobVisualizer: React.FC = () => {
         haloRef.current.style.display = 'block';
         if (isSunset) {
           haloRef.current.style.opacity = `${blobSettings.dhonkioOpacity ?? 0.42}`;
+        } else if (isTransparentHalo || isEarLikeShape) {
+          // Zero-Noise Transparent Halo (Subtle, non-invasive rim)
+          haloRef.current.style.opacity = isAudioActive ? `${0.06 + sBass * 0.10}` : '0.03';
+          haloRef.current.style.boxShadow = 'none';
+          haloRef.current.style.backdropFilter = 'none';
         } else {
           haloRef.current.style.opacity = '1.0';
+          haloRef.current.style.backdropFilter = 'blur(18px) saturate(160%)';
         }
       }
 
       if (haloGlowRef.current) {
         haloGlowRef.current.style.borderRadius = borderRadius;
         haloGlowRef.current.style.transform = `scale(${escala * 1.15}) rotate(${-angle * 0.5}deg)`;
-        haloGlowRef.current.style.opacity = `${isAudioActive ? 0.4 + nivel * 0.4 : 0.25}`;
-        haloGlowRef.current.style.filter = `blur(${isAudioActive ? (20 + nivel * 24) * u : 18 * u}px)`;
+        if (isTransparentHalo || isEarLikeShape) {
+          // Completely eliminates background wash-out
+          haloGlowRef.current.style.opacity = '0';
+          haloGlowRef.current.style.filter = 'none';
+        } else {
+          haloGlowRef.current.style.opacity = `${isAudioActive ? 0.4 + nivel * 0.4 : 0.25}`;
+          haloGlowRef.current.style.filter = `blur(${isAudioActive ? (20 + nivel * 24) * u : 18 * u}px)`;
+        }
       }
 
       if (auroraRef.current) {
-        if (isSunset) {
+        if (isSunset || (isEarLikeShape && isTransparentHalo)) {
           auroraRef.current.style.opacity = '0';
         } else {
           auroraRef.current.style.transform = `rotate(${timeSec * 8}deg) scale(${1 + sBass * 0.1})`;
@@ -366,6 +431,213 @@ export const RainbowBlobVisualizer: React.FC = () => {
             }
 
             ctx.restore();
+          }
+
+          // ─────────────────────────────────────────────────────────────────
+          // SHAPES: CRESTAS, AGUJAS, ANTENAS & GEOMETRÍAS POLARES (visionOS)
+          // ─────────────────────────────────────────────────────────────────
+          if (isEarLikeShape) {
+            const N = morphNRef.current;
+            const layers = Math.min(4, Math.max(1, blobSettings.catEarsLayers ?? 2));
+            const strokeWidth = Math.max(0.75, Math.min(1.5, blobSettings.strokeHairline ?? blobSettings.catEarsStrokeWidth ?? 1.0)) * u;
+            const baseSharpness = blobSettings.catEarsSharpness ?? 2.2;
+            const palette = blobSettings.sacredPalette ?? 'neon';
+
+            // Sacred Palette Definition
+            let primaryColor = '#00F0FF';
+            let secondaryColor = '#DDB7FF';
+            const accentTipColor = '#FFFFFF';
+
+            if (palette === 'gold') {
+              primaryColor = '#E2C889';
+              secondaryColor = '#FFF2CE';
+            } else if (palette === 'crystal') {
+              primaryColor = '#FFFFFF';
+              secondaryColor = '#B0C4DE';
+            } else if (palette === 'lucid') {
+              primaryColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary) : (dynamicColor || '#00f0ff');
+              secondaryColor = isLucid ? (lucidTheme.secondary || '#a855f7') : '#ddb7ff';
+            } else if (palette === 'cyberpunk') {
+              primaryColor = '#ff007f';
+              secondaryColor = '#00f2fe';
+            } else if (palette === 'aurora') {
+              primaryColor = '#00ff87';
+              secondaryColor = '#60efff';
+            } else if (palette === 'custom') {
+              primaryColor = blobSettings.haloColor1 || '#00f0ff';
+              secondaryColor = blobSettings.haloColor2 || '#ffd166';
+            } else {
+              primaryColor = '#00F0FF';
+              secondaryColor = '#DDB7FF';
+            }
+
+            // Dinámica de Crestas: Estiramiento, Potencia de Bajos y Modulación por Notas Musicales
+            const stretch = blobSettings.crestStretch ?? 1.0;
+            const bassPunch = blobSettings.crestBassBoost ?? 1.6;
+            const noteDancingFactor = blobSettings.crestNoteMovement ?? 1.0;
+
+            // Detección de notas melódicas (voces, sintetizadores, arpegios y acordes)
+            const noteSlice = raw.slice(6, 64);
+            const noteMelody = noteSlice.length > 0 ? noteSlice.reduce((a, b) => a + b, 0) / (noteSlice.length * 255) : 0;
+            const noteElevation = noteMelody * 34 * noteDancingFactor;
+
+            // Potencia de impacto en bajos combinando sub-bajos y rebote elástico
+            const bassSurge = 1 + sBass * 0.70 * bassPunch + kickSpringRebound * 1.35 * bassPunch;
+
+            // Amplitud base de las crestas/hipérbolas estirada y modulada por notas
+            const earAmplitude = (16 + (sMids * 44 + noteElevation) * bassSurge) * stretch * u;
+
+            // Treble energy for apex micro-nodes (diamond sparkle)
+            const trebleSlice = raw.slice(Math.floor(raw.length * 0.65));
+            const trebleEnergy = trebleSlice.length > 0
+              ? trebleSlice.reduce((a, b) => a + b, 0) / (trebleSlice.length * 255)
+              : 0;
+
+            const pointsCount = 180;
+
+            // Render concentric layers (1 to 4)
+            for (let l = 0; l < layers; l++) {
+              ctx.save();
+
+              // Differential rotation for Moiré interference
+              const rotSpeed = l === 0 ? 0.22 : l === 1 ? -0.16 : l === 2 ? 0.11 : -0.07;
+              const layerPhase = timeSec * rotSpeed + l * (Math.PI / 4);
+              const layerBaseRadius = baseCircleRadius + l * 12 * u;
+              const layerAmp = earAmplitude * (1 - l * 0.14);
+              const layerAlpha = Math.max(0.35, 1.0 - l * 0.20);
+
+              // Angular offset so when N=2, the two crests rise symmetrically on top-left and top-right
+              const earOffsetAngle = Math.PI / 2;
+
+              ctx.beginPath();
+              const tipPoints: { x: number; y: number }[] = [];
+
+              for (let i = 0; i <= pointsCount; i++) {
+                const theta = (i / pointsCount) * Math.PI * 2;
+                const modAngle = theta * N + layerPhase + earOffsetAngle;
+                const cosVal = Math.cos(modAngle);
+
+                let currentR = layerBaseRadius;
+                let isApexTip = false;
+
+                // Ondulación melódica continua por notas a lo largo del perímetro
+                const noteBin = Math.min(raw.length - 1, Math.floor((Math.abs(Math.sin(theta * 2 + timeSec * 0.6)) * 0.4 + 0.05) * raw.length));
+                const noteFreqVal = (raw[noteBin] || 0) / 255;
+                const noteMicroRhythm = Math.sin(theta * 6 + timeSec * 4.2) * (noteFreqVal * 7 * noteDancingFactor) * u;
+
+                if (blobShape === 'dual_crest' || blobShape === 'cat_ears') {
+                  // Symmetrical pointed Dual Crests
+                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness) : 0;
+                  currentR = layerBaseRadius + earFactor * layerAmp + noteMicroRhythm;
+                  if (cosVal > 0.992) isApexTip = true;
+                } else if (blobShape === 'vector_spires' || blobShape === 'fox_ears') {
+                  // Slender vector spires with high power exponent
+                  const flare = 1 + 0.22 * Math.cos(modAngle * 2);
+                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.35) * flare : 0;
+                  currentR = layerBaseRadius + earFactor * (layerAmp * 1.32) + noteMicroRhythm;
+                  if (cosVal > 0.994) isApexTip = true;
+                } else if (blobShape === 'pulse_antennas') {
+                  // Slender pulse antennas with harmonic resonance
+                  const harmonicMod = 1 + 0.25 * Math.cos(modAngle * 4);
+                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.2) * harmonicMod : 0;
+                  currentR = layerBaseRadius + earFactor * (layerAmp * 1.25) + noteMicroRhythm;
+                  if (cosVal > 0.990) isApexTip = true;
+                } else if (blobShape === 'hyperbolic_arcs' || blobShape === 'cyber_horns') {
+                  // Swept curved arcs / parabolas with tangential tension and bass stretch
+                  const hornFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.6) : 0;
+                  const sweep = hornFactor * Math.sin(theta * 2) * (6 + sBass * 8 * bassPunch) * u;
+                  currentR = layerBaseRadius + hornFactor * (layerAmp * 1.22) + sweep + noteMicroRhythm;
+                  if (cosVal > 0.990) isApexTip = true;
+                } else if (blobShape === 'aero_fins' || blobShape === 'valkyrie_wings') {
+                  // Lateral aerodynamic feathered fins
+                  const feather = 0.85 + 0.15 * Math.sin(theta * 12);
+                  const wingFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 0.92) * feather : 0;
+                  currentR = layerBaseRadius + wingFactor * (layerAmp * 1.15) + noteMicroRhythm;
+                  if (cosVal > 0.985) isApexTip = true;
+                } else if (blobShape === 'apex_prism') {
+                  // Pure triangular faceted crests
+                  const count = N === 4 ? 4 : 3;
+                  const modA = ((theta * count) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+                  const tri = Math.max(0, 1 - Math.abs((modA / Math.PI) - 1));
+                  const prismFactor = Math.pow(tri, baseSharpness * 1.1);
+                  currentR = layerBaseRadius + prismFactor * (layerAmp * 1.20) + noteMicroRhythm;
+                  if (tri > 0.98) isApexTip = true;
+                } else if (blobShape === 'harmonic_crown' || blobShape === 'laser_crown') {
+                  // 3 or 4 geometric crown peaks
+                  const crownFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 2.8) : 0;
+                  currentR = layerBaseRadius + crownFactor * (layerAmp * 1.25) + noteMicroRhythm;
+                  if (cosVal > 0.992) isApexTip = true;
+                } else if (blobShape === 'laser_needles') {
+                  // Ultra-slender needle spires
+                  const needleFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 4.2) : 0;
+                  currentR = layerBaseRadius + needleFactor * (layerAmp * 1.45) + noteMicroRhythm;
+                  if (cosVal > 0.994) isApexTip = true;
+                } else if (blobShape === 'wave_peaks') {
+                  // Halo orbital con ondas viajeras y picos reactivos
+                  const travelAngle = theta * 8 + timeSec * 3.2 * (l === 0 ? 1 : -0.8);
+                  const wave1 = Math.sin(travelAngle) * 0.45;
+                  const wave2 = Math.cos(theta * 16 - timeSec * 2.0) * 0.25;
+                  const waveHarmonic = wave1 + wave2;
+                  const peakSharpness = Math.pow(Math.max(0, Math.sin(travelAngle)), 3.0);
+                  const reactiveAmp = (sBass * 0.45 * bassPunch + sMids * 0.55 + noteFreqVal * 0.35 * noteDancingFactor) * peakSharpness;
+                  const waveOffset = (waveHarmonic * 10 * u + reactiveAmp * 28 * u) * stretch * (1 + kickSpringRebound * 0.85);
+                  currentR = layerBaseRadius + 8 * u + waveOffset + noteMicroRhythm;
+                  if (peakSharpness > 0.94) isApexTip = true;
+                }
+
+                const px = cx + Math.cos(theta) * currentR;
+                const py = cy + Math.sin(theta) * currentR;
+
+                if (i === 0) {
+                  ctx.moveTo(px, py);
+                } else {
+                  ctx.lineTo(px, py);
+                }
+
+                // Detect tip vertices on primary layer 0
+                if (l === 0 && isApexTip) {
+                  tipPoints.push({ x: px, y: py });
+                }
+              }
+
+              ctx.closePath();
+
+              // Hairline stroke with subtle, controlled bloom (Zero Noise)
+              ctx.strokeStyle = l === 0 ? primaryColor : secondaryColor;
+              ctx.globalAlpha = layerAlpha;
+              ctx.lineWidth = strokeWidth;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.shadowColor = ctx.strokeStyle;
+              ctx.shadowBlur = 8 * u;
+              ctx.stroke();
+
+              ctx.restore();
+
+              // White-hot diamond micro-nodes on apex tips (Layer 0 only)
+              if (l === 0 && tipPoints.length > 0) {
+                const filteredTips: { x: number; y: number }[] = [];
+                tipPoints.forEach((pt) => {
+                  const exists = filteredTips.some(
+                    (ft) => Math.hypot(ft.x - pt.x, ft.y - pt.y) < 14 * u
+                  );
+                  if (!exists) filteredTips.push(pt);
+                });
+
+                filteredTips.forEach((tip) => {
+                  ctx.save();
+                  const nodeRadius = (1.4 + trebleEnergy * 1.6) * u;
+                  ctx.beginPath();
+                  ctx.arc(tip.x, tip.y, nodeRadius, 0, Math.PI * 2);
+                  ctx.fillStyle = accentTipColor;
+                  ctx.shadowColor = '#FFFFFF';
+                  ctx.shadowBlur = (6 + trebleEnergy * 8) * u;
+                  ctx.globalAlpha = 0.85 + trebleEnergy * 0.15;
+                  ctx.fill();
+                  ctx.restore();
+                });
+              }
+            }
           }
 
           // ─────────────────────────────────────────────────────────────────
@@ -667,15 +939,25 @@ export const RainbowBlobVisualizer: React.FC = () => {
     dynamicColor,
     cloudParticles,
     isSunset,
+    blobSettings.catEarsCount,
+    blobSettings.catEarsLayers,
+    blobSettings.catEarsStrokeWidth,
+    blobSettings.catEarsSharpness,
+    blobSettings.sacredPalette,
+    blobSettings.transparentHalo,
+    blobSettings.kickThreshold,
+    blobSettings.kickPower,
   ]);
 
   const haloBackground = isLucid
     ? `conic-gradient(from 0deg, ${lucidTheme.primary}, ${lucidTheme.secondary}, #ff007f, ${lucidTheme.primary})`
     : autoMode
     ? `conic-gradient(from 0deg, ${dynamicColor}, ${dynamicColor}88, ${dynamicColor}ee, ${dynamicColor})`
+    : blobSettings.sacredPalette === 'custom' || (!blobSettings.isRainbowMode && (blobSettings.haloColor1 || blobSettings.haloColor2))
+    ? `conic-gradient(from 0deg, ${blobSettings.haloColor1 || '#00f0ff'}, ${blobSettings.haloColor2 || '#ffd166'}, ${blobSettings.haloColor1 || '#00f0ff'})`
     : blobSettings.isRainbowMode
     ? 'conic-gradient(from 0deg, #ff088a, #8a2be2, #00f2fe, #00ffb3, #ffe600, #ff5e00, #ff088a)'
-    : `conic-gradient(${blobSettings.haloColor1}, ${blobSettings.haloColor2}, ${blobSettings.haloColor1})`;
+    : `conic-gradient(${blobSettings.haloColor1 || '#00f0ff'}, ${blobSettings.haloColor2 || '#ffd166'}, ${blobSettings.haloColor1 || '#00f0ff'})`;
 
   const handleCustomLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -726,6 +1008,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
       dhonkioPowerMid: 1.08,
       dhonkioPowerKick: 1.045,
       dhonkioKickBoost: 6,
+      catEarsCount: 2,
+      catEarsLayers: 2,
+      catEarsStrokeWidth: 1.0,
+      catEarsSharpness: 2.2,
+      sacredPalette: 'neon',
+      transparentHalo: true,
+      isAdvancedMode: false,
     });
     setBlobBassBoomThreshold(0.68);
     setBlobBassBoomIntensity(1.6);
@@ -828,6 +1117,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
     );
   };
 
+  const isEarLikeShape = [
+    'dual_crest', 'vector_spires', 'pulse_antennas', 'aero_fins',
+    'apex_prism', 'harmonic_crown', 'hyperbolic_arcs', 'laser_needles',
+    'cat_ears', 'fox_ears', 'cyber_horns', 'valkyrie_wings', 'laser_crown'
+  ].includes(blobShape);
   const containerPosX = isSunset ? 50 : blobSettings.posX;
   const containerPosY = isSunset ? 43.5 : blobSettings.posY;
 
@@ -871,8 +1165,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
             height: `${haloDimension}px`,
             background: haloBackground,
             boxShadow: isLucid
-              ? `0 0 35px ${lucidTheme.glow}`
-              : '0 0 45px rgba(0, 242, 254, 0.20), 0 0 70px rgba(255, 8, 138, 0.12)',
+              ? `0 0 ${Math.round(35 * (blobSettings.bloomIntensity ?? 1.0))}px ${lucidTheme.glow}`
+              : `0 0 ${Math.round(45 * (blobSettings.bloomIntensity ?? 1.0))}px rgba(0, 242, 254, 0.25), 0 0 ${Math.round(70 * (blobSettings.bloomIntensity ?? 1.0))}px rgba(255, 8, 138, 0.18)`,
             backdropFilter: 'blur(18px) saturate(160%)',
           }}
         />
@@ -936,22 +1230,22 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes (Se auto-oculta en reposo) */}
       <div
-        className={`fixed top-16 sm:top-18 right-3 sm:right-6 z-50 flex items-center gap-2 pointer-events-auto select-none transition-all duration-700 ${
+        className={`fixed top-2 sm:top-2.5 right-3 sm:right-5 z-50 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
           isUiIdle && !isBlobPanelOpen ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
         }`}
       >
         <button
           type="button"
           onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`group flex items-center gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl backdrop-blur-xl border transition-all duration-200 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.6)] active:scale-95 ${
+          className={`group flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-full liquid-glass border transition-all duration-200 shadow-[0_8px_25px_rgba(0,0,0,0.5)] active:scale-95 cursor-pointer backdrop-blur-2xl ${
             isBlobPanelOpen
-              ? 'bg-white/15 text-white border-white/30 shadow-[0_0_20px_rgba(0,229,255,0.25)]'
-              : 'bg-[#090d18]/90 text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06] hover:border-white/20'
+              ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_20px_rgba(0,229,255,0.3)]'
+              : 'bg-[#0a0f1d]/85 text-white/90 border-white/15 border-t-white/30 hover:bg-white/[0.12] hover:text-white'
           }`}
           style={
             isLucid
               ? {
-                  borderColor: isBlobPanelOpen ? `${lucidPrimaryColor}80` : `${lucidPrimaryColor}30`,
+                  borderColor: isBlobPanelOpen ? `${lucidPrimaryColor}80` : `${lucidPrimaryColor}40`,
                   boxShadow: isBlobPanelOpen ? `0 0 25px ${lucidTheme.glow}` : undefined,
                 }
               : undefined
@@ -960,27 +1254,27 @@ export const RainbowBlobVisualizer: React.FC = () => {
           aria-label="Configuración y Estilo de Halo"
         >
           <div
-            className="w-5 h-5 rounded-lg flex items-center justify-center transition-colors"
+            className="w-4 h-4 rounded-full flex items-center justify-center transition-colors bg-cyan-500/15"
             style={{
-              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : undefined,
             }}
           >
             <Sliders
-              className="w-3 h-3 transition-transform group-hover:rotate-45 duration-300"
+              className="w-2.5 h-2.5 transition-transform group-hover:rotate-45 duration-300"
               style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
             />
           </div>
 
-          <span className="text-xs font-medium tracking-wide text-white/90">
+          <span className="text-[11px] font-medium tracking-wide text-white/90">
             Rainbow Void
           </span>
 
-          <span className="hidden sm:inline-block text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
-            CALIBRACIÓN
+          <span className="hidden sm:inline-block text-[8px] font-mono tracking-wider px-1.5 py-0.2 rounded-full border border-white/15 text-white/60 bg-white/[0.04]">
+            CALIB
           </span>
 
           <ChevronDown
-            className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-white/40 transition-transform duration-200 ${
+            className={`w-3 h-3 text-white/40 transition-transform duration-200 ${
               isBlobPanelOpen ? 'rotate-180 text-white' : 'group-hover:text-white/70'
             }`}
           />
@@ -990,23 +1284,23 @@ export const RainbowBlobVisualizer: React.FC = () => {
       {/* Panel de Control Editable (Z-Index: 50, pointer-events: auto) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed top-28 sm:top-30 right-3 sm:right-6 left-3 sm:left-auto sm:w-96 z-50 rounded-2xl p-4 sm:p-5 shadow-[0_24px_64px_rgba(0,0,0,0.9)] space-y-4 max-h-[calc(100vh-8.5rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 animate-in slide-in-from-top-2 duration-200 pointer-events-auto ${
-            isLucid ? 'lucid-panel' : 'bg-[#070a14]/98 backdrop-blur-2xl border border-white/[0.08]'
+          className={`fixed top-12 sm:top-14 right-3 sm:right-5 left-3 sm:left-auto sm:w-84 z-50 rounded-[24px] p-4 shadow-[0_25px_60px_rgba(0,0,0,0.95)] space-y-3.5 max-h-[calc(100vh-4.5rem)] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 duration-200 pointer-events-auto liquid-glass liquid-glass-card bg-[#0a0f1d]/94 backdrop-blur-3xl border border-white/15 border-t-white/30 text-white font-sans ${
+            isLucid ? 'lucid-panel' : ''
           }`}
           style={
             isLucid
               ? {
                   backgroundColor: lucidTheme.glassColor,
                   borderColor: lucidTheme.borderColor,
-                  boxShadow: `0 0 35px ${lucidTheme.glow}, 0 20px 50px rgba(0,0,0,0.9)`,
+                  boxShadow: `0 0 35px ${lucidTheme.glow}, 0 25px 60px rgba(0,0,0,0.95)`,
                 }
               : undefined
           }
         >
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
             <div className="flex items-center gap-2">
               <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center"
+                className="w-6.5 h-6.5 rounded-full flex items-center justify-center border border-white/10"
                 style={{
                   backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
                 }}
@@ -1016,7 +1310,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
                 />
               </div>
-              <h4 className="text-white text-sm font-medium tracking-wide">
+              <h4 className="text-white text-xs sm:text-sm font-semibold tracking-tight">
                 Calibración Rainbow Void
               </h4>
             </div>
@@ -1025,367 +1319,922 @@ export const RainbowBlobVisualizer: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveFavoritePreset}
-                className={`p-1.5 rounded-md transition-colors ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-95 border ${
                   savedPresetSuccess
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
+                    ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40 font-bold'
+                    : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border-white/10 border-t-white/20'
                 }`}
                 title="Guardar combinación favorita en LocalStorage"
               >
-                {savedPresetSuccess ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                {savedPresetSuccess ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Save className="w-3.5 h-3.5" />}
               </button>
 
               <button
                 onClick={handleResetFixedCalibration}
-                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
+                className="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95"
                 title="Restablecer valores de calibración fija"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setBlobPanelOpen(false)}
-                className="p-1.5 text-white/40 hover:text-white rounded-md hover:bg-white/[0.05] transition-colors"
+                className="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95"
                 aria-label="Cerrar panel"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           <div className="space-y-3.5 text-xs text-white/80">
-            {/* 0. Selector de Atmósfera y Fondos de Pantalla Completa (CRÍTICO) */}
-            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
-                  <Sun className="w-3.5 h-3.5 text-amber-400" />
-                  Atmósfera de Fondo:
-                </span>
-                <span className="text-[9px] font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase">
-                  {ATMOSPHERE_OPTIONS.find((a) => a.id === (blobSettings.backgroundAtmosphere || 'none'))?.tag || 'FONDO'}
-                </span>
-              </div>
-              <select
-                value={blobSettings.backgroundAtmosphere || 'none'}
-                onChange={(e) =>
-                  updateBlobSettings({ backgroundAtmosphere: e.target.value as BackgroundAtmosphere })
-                }
-                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-amber-400 cursor-pointer"
-                title="Selecciona la atmósfera de pantalla completa independiente del núcleo"
-              >
-                {ATMOSPHERE_OPTIONS.map((atm) => (
-                  <option key={atm.id} value={atm.id} className="bg-[#0b0e1b] text-white">
-                    {atm.name}
-                  </option>
-                ))}
-              </select>
+            {/* 4 Píldoras de Navegación visionOS (Regla: Sin Emojis) */}
+            <div className="grid grid-cols-4 gap-1 p-1 bg-white/[0.04] rounded-xl border border-white/[0.06]">
+              {[
+                { id: 'shapes', label: 'Geometría', icon: Sliders },
+                { id: 'kick', label: 'Bombo', icon: Activity },
+                { id: 'style', label: 'Estilo', icon: Palette },
+                { id: 'atmosphere', label: 'Atmósfera', icon: Sparkles },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = calibTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setCalibTab(tab.id as any)}
+                    className={`py-2 px-1 rounded-lg text-center transition-all flex flex-col items-center gap-1 border ${
+                      isActive
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 font-semibold shadow-sm'
+                        : 'bg-transparent text-white/40 border-transparent hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="text-[9px] font-mono leading-none tracking-tight">{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* 1. Selector de los 7 Modos Reactivos 2D del Núcleo */}
-            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-pink-400" />
-                  Forma 2D del Núcleo:
-                </span>
-                <span className="text-[9px] font-mono text-pink-300 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20 uppercase">
-                  {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || 'CORE 2D'}
-                </span>
-              </div>
-              <select
-                value={blobShape}
-                onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
-                className="w-full bg-[#0b0e1b] text-white/90 text-xs font-mono p-2 rounded-lg border border-white/[0.12] focus:outline-none focus:border-pink-400 cursor-pointer"
-                title="Selecciona la forma geométrica 2D reactiva del núcleo"
-              >
-                {RAINBOW_VOID_EFFECTS.map((fx) => (
-                  <option key={fx.id} value={fx.id} className="bg-[#0b0e1b] text-white">
-                    {fx.name} ({fx.tag})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {/* PESTAÑA 1: GEOMETRÍA & FORMAS PERIFÉRICAS                       */}
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {calibTab === 'shapes' && (
+              <div className="space-y-3 animate-in fade-in-50 duration-150">
+                {/* 1. Control de Tamaño del Núcleo Void (Regulación Segura Proporcional) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                  <div className="flex justify-between items-center text-[10px] font-mono">
+                    <span className="text-white/80 font-medium">Tamaño del Núcleo Void:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {blobSettings.circleSize || 179} px ({Math.round(((blobSettings.circleSize || 179) / 179) * 100)}%)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="120"
+                    max="220"
+                    step="1"
+                    value={blobSettings.circleSize || 179}
+                    onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="grid grid-cols-3 gap-1 pt-0.5">
+                    {[
+                      { size: 140, label: 'Compacto (140px)' },
+                      { size: 179, label: 'Estándar (179px)' },
+                      { size: 210, label: 'Amplio (210px)' },
+                    ].map((preset) => {
+                      const isActive = (blobSettings.circleSize || 179) === preset.size;
+                      return (
+                        <button
+                          key={preset.size}
+                          type="button"
+                          onClick={() => updateBlobSettings({ circleSize: preset.size })}
+                          className={`py-1 rounded-lg text-[8px] font-mono transition-all border ${
+                            isActive
+                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* SECCIÓN DHONKIO EXCLUSIVA: Si está en modo Silueta & Atardecer */}
-            {isSunset && (
-              <div className="p-3 bg-amber-500/[0.05] rounded-xl border border-amber-500/20 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-amber-300 font-semibold flex items-center gap-1.5">
-                    <Sun className="w-3.5 h-3.5" /> Composición DHONKIO:
+                {/* 2. Toggle Activación de Formas Periféricas (Opcionales por defecto) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-mono text-white/90 font-semibold block">
+                      {blobSettings.showPeripheralShapes ? 'Formas Periféricas Activas' : 'Puro Minimal (Solo Aro + Void)'}
+                    </span>
+                    <span className="text-[8px] text-white/40 block">
+                      {blobSettings.showPeripheralShapes
+                        ? 'Crestas polares ultrafinas con micro-nodos en ápices'
+                        : 'Aro cónico giratorio sin geometrías secundarias (visionOS)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !blobSettings.showPeripheralShapes;
+                      updateBlobSettings({ showPeripheralShapes: next });
+                      if (next && !isEarLikeShape && blobShape !== 'fractal') setBlobShape('dual_crest');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-mono font-bold transition-all border ${
+                      blobSettings.showPeripheralShapes
+                        ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/40 shadow-[0_0_12px_rgba(0,240,255,0.2)]'
+                        : 'bg-white/[0.05] text-white/50 border-white/[0.08] hover:text-white'
+                    }`}
+                  >
+                    {blobSettings.showPeripheralShapes ? 'ACTIVADAS' : 'DESACTIVADAS'}
+                  </button>
+                </div>
+
+                {/* 3. Selector de Efectos Sagrados & Geometrías Minimalistas */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                      Efecto Visual Activo:
+                    </span>
+                    <span className="text-[9px] font-mono text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 uppercase font-bold">
+                      {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || 'MINIMAL'}
+                    </span>
+                  </div>
+
+                  {/* Efectos Sagrados & Ondas Destacadas */}
+                  <div>
+                    <span className="text-[9px] font-mono text-white/50 block mb-1">Geometría Sagrada & Ondas:</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { id: 'fractal', label: 'Mándala Sagrada', icon: Disc3, desc: 'Mándala de 4 capas con pétalos oscilantes' },
+                        { id: 'wave_peaks', label: 'Halo de Ondas', icon: Waves, desc: 'Halo orbital con picos ondulantes viajando al ritmo' },
+                        { id: 'spikes', label: 'Espículas FFT', icon: Sparkles, desc: '48 agujas radiales cristalinas' },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        const isSelected = blobShape === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setBlobShape(item.id as VisualizerShape);
+                              updateBlobSettings({ peripheralShapeType: item.id as any, showPeripheralShapes: true });
+                            }}
+                            className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                              isSelected
+                                ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-[0_0_12px_rgba(0,240,255,0.25)]'
+                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                            }`}
+                            title={item.desc}
+                          >
+                            <Icon className="w-4 h-4 text-cyan-300" />
+                            <span className="text-[8px] font-mono leading-tight">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 8 Crestas Polares Minimalistas */}
+                  <div>
+                    <span className="text-[9px] font-mono text-white/50 block mb-1">Crestas Polares Minimalistas (visionOS):</span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { id: 'dual_crest', label: 'Cresta Dual', icon: Activity, desc: '2 crestas afiladas' },
+                        { id: 'vector_spires', label: 'Agujas', icon: Radio, desc: 'Picos esbeltos' },
+                        { id: 'pulse_antennas', label: 'Antenas', icon: Zap, desc: 'Doble contorno' },
+                        { id: 'aero_fins', label: 'Aletas', icon: Layers, desc: 'Flancos escalonados' },
+                        { id: 'apex_prism', label: 'Prisma', icon: Compass, desc: 'Crestas triangulares' },
+                        { id: 'harmonic_crown', label: 'Corona', icon: Disc, desc: 'Cruz de 4 crestas' },
+                        { id: 'hyperbolic_arcs', label: 'Arcos', icon: Waves, desc: 'Barrido hiperbólico' },
+                        { id: 'laser_needles', label: 'Láser', icon: Sparkles, desc: '0.75px ultrafino' },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        const isSelected = blobShape === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setBlobShape(item.id as VisualizerShape);
+                              updateBlobSettings({ peripheralShapeType: item.id as any, showPeripheralShapes: true });
+                            }}
+                            className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                              isSelected
+                                ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-[0_0_12px_rgba(0,240,255,0.25)]'
+                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                            }`}
+                            title={item.desc}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="text-[8px] font-mono leading-tight">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modulación de Dinámica de Crestas: Estiramiento, Bajos y Movimiento por Notas */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
+                  <span className="text-[11px] font-mono text-cyan-300 font-semibold block">
+                    Dinámica & Estiramiento de Crestas:
                   </span>
-                  <span className="text-[9px] font-mono text-amber-200 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
-                    BLOOM 1.33x
+
+                  {/* 1. Estiramiento de Parabolas / Hipérbolas */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-white/70">Estiramiento / Longitud de Crestas:</span>
+                      <span className="text-cyan-300 font-bold tabular-nums">
+                        {(blobSettings.crestStretch ?? 1.0).toFixed(2)}x
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.6"
+                      max="2.5"
+                      step="0.05"
+                      value={blobSettings.crestStretch ?? 1.0}
+                      onChange={(e) => updateBlobSettings({ crestStretch: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                    />
+                  </div>
+
+                  {/* 2. Impacto & Potencia de Bajos */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-white/70">Expansión & Fuerza en Bajos:</span>
+                      <span className="text-cyan-300 font-bold tabular-nums">
+                        {(blobSettings.crestBassBoost ?? 1.6).toFixed(1)}x
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1.0"
+                      max="3.0"
+                      step="0.1"
+                      value={blobSettings.crestBassBoost ?? 1.6}
+                      onChange={(e) => updateBlobSettings({ crestBassBoost: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                    />
+                  </div>
+
+                  {/* 3. Movimiento Continuo por Notas Musicales */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-white/70">Movimiento Flotante por Notas (Melodía):</span>
+                      <span className="text-cyan-300 font-bold tabular-nums">
+                        {(blobSettings.crestNoteMovement ?? 1.0).toFixed(2)}x
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="2.0"
+                      step="0.05"
+                      value={blobSettings.crestNoteMovement ?? 1.0}
+                      onChange={(e) => updateBlobSettings({ crestNoteMovement: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                    />
+                    <span className="text-[7.5px] text-white/40 block">
+                      Hace que las crestas e hipérbolas suban y bajen fluidamente con cada cambio de nota musical.
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Número de Crestas Simétricas (2, 3 o 4) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Número de Crestas Simétricas:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {blobSettings.catEarsCount === 3
+                        ? '3 Formas (Tríada Sagrada)'
+                        : blobSettings.catEarsCount === 4
+                        ? '4 Formas (Cruz Sagrada)'
+                        : '2 Formas (Simetría Dual)'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { cnt: 2, label: '2 (Dual)' },
+                      { cnt: 3, label: '3 (Tríada)' },
+                      { cnt: 4, label: '4 (Cruz)' },
+                    ].map((item) => {
+                      const active = (blobSettings.catEarsCount ?? 2) === item.cnt;
+                      return (
+                        <button
+                          key={item.cnt}
+                          type="button"
+                          onClick={() => updateBlobSettings({ catEarsCount: item.cnt, peripheralShapeCount: item.cnt as any })}
+                          className={`py-1.5 px-2 rounded-lg text-[9px] font-mono transition-all border cursor-pointer ${
+                            active
+                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Grosor de Línea Hairline (0.75px, 1.00px, 1.50px) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Grosor de Trazo Hairline:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {(blobSettings.strokeHairline || blobSettings.catEarsStrokeWidth || 1.0).toFixed(2)} px
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[0.75, 1.0, 1.5].map((w) => {
+                      const active = (blobSettings.strokeHairline ?? blobSettings.catEarsStrokeWidth ?? 1.0) === w;
+                      return (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => updateBlobSettings({ strokeHairline: w as any, catEarsStrokeWidth: w })}
+                          className={`py-1.5 rounded-lg text-[9px] font-mono transition-all border ${
+                            active
+                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
+                          }`}
+                        >
+                          {w === 0.75 ? '0.75px (Ultrafino)' : w === 1.0 ? '1.00px (Preciso)' : '1.50px (Nítido)'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5. Capas Moiré Concéntricas (1 a 4) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Capas Concéntricas Moiré:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {blobSettings.catEarsLayers || 2} {blobSettings.catEarsLayers === 1 ? 'capa' : 'capas'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[1, 2, 3, 4].map((l) => {
+                      const active = (blobSettings.catEarsLayers || 2) === l;
+                      return (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => updateBlobSettings({ catEarsLayers: l })}
+                          className={`py-1 rounded-lg text-[9px] font-mono transition-all border ${
+                            active
+                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
+                          }`}
+                        >
+                          {l} {l === 1 ? 'Capa' : 'Capas'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {/* PESTAÑA 2: RESPUESTA AL BOMBO (KICK & SPRING PHYSICS)           */}
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {calibTab === 'kick' && (
+              <div className="space-y-3 animate-in fade-in-50 duration-150">
+                {/* 1. Intensidad de Rebote Elástico (Física de Resorte iOS) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Intensidad del Kick (Elastic Rebound):</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {(blobSettings.kickIntensity ?? 1.0).toFixed(2)}x (+{Math.round((blobSettings.kickIntensity ?? 1.0) * 12)}%)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.05"
+                    value={blobSettings.kickIntensity ?? 1.0}
+                    onChange={(e) => updateBlobSettings({ kickIntensity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[8px] font-mono text-white/40">
+                    <span>0.5x (Sutil)</span>
+                    <span>1.0x (Calibrado visionOS)</span>
+                    <span>1.5x (Enérgico)</span>
+                  </div>
+                  <span className="text-[8px] text-white/35 block pt-0.5">
+                    Física de segundo orden (stiffness: 180, damping: 12) con rebote elástico.
                   </span>
                 </div>
 
-                <div className="space-y-1">
+                {/* 2. Sensibilidad Global de Escala */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
                   <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/60">Bloom Texto & Barras:</span>
-                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioBloom ?? 1.33).toFixed(2)}x</span>
+                    <span className="text-white/70">Sensibilidad de Escala al Audio:</span>
+                    <span className="text-white/90 font-bold tabular-nums">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.4"
+                    max="2.2"
+                    step="0.05"
+                    value={blobSettings.scaleSensitivity ?? 1.40}
+                    onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[8px] font-mono text-white/40">
+                    <span>0.4x (Fijo)</span>
+                    <span>1.4x (Estándar)</span>
+                    <span>2.2x (Reactivo)</span>
+                  </div>
+                </div>
+
+                {/* 3. Umbral de Disparo del Sub-Bass */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Umbral Disparo del Bombo:</span>
+                    <span className="text-white/90 font-bold tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.10"
+                    max="0.70"
+                    step="0.02"
+                    value={blobSettings.kickThreshold ?? 0.32}
+                    onChange={(e) => updateBlobSettings({ kickThreshold: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <span className="text-[8px] text-white/35 block">
+                    Nivel mínimo de transitorio para disparar la expansión física del aro.
+                  </span>
+                </div>
+
+                {/* 4. Potencia del Subwoofer */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Potencia Subwoofer (Inercia):</span>
+                    <span className="text-white/90 font-bold tabular-nums">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
                   </div>
                   <input
                     type="range"
                     min="0.8"
-                    max="2.0"
+                    max="2.5"
                     step="0.05"
-                    value={blobSettings.dhonkioBloom ?? 1.33}
-                    onChange={(e) => updateBlobSettings({ dhonkioBloom: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/60">Power Mid (Barras Ciudad):</span>
-                    <span className="text-amber-300 tabular-nums">{(blobSettings.dhonkioPowerMid ?? 1.08).toFixed(3)}x</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1.005"
-                    max="1.15"
-                    step="0.005"
-                    value={blobSettings.dhonkioPowerMid ?? 1.08}
-                    onChange={(e) => updateBlobSettings({ dhonkioPowerMid: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/60">Kick Boost:</span>
-                    <span className="text-amber-300 tabular-nums">{blobSettings.dhonkioKickBoost ?? 6}x</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="2"
-                    max="10"
-                    step="1"
-                    value={blobSettings.dhonkioKickBoost ?? 6}
-                    onChange={(e) => updateBlobSettings({ dhonkioKickBoost: parseInt(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    value={blobSettings.kickPower ?? 1.60}
+                    onChange={(e) => updateBlobSettings({ kickPower: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
                   />
                 </div>
               </div>
             )}
 
-            {/* 2. Calibración Geométrica Circular Fija */}
-            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
-              <span className="text-[11px] font-mono text-white/60 block font-semibold">
-                Geometría Circular:
-              </span>
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {/* PESTAÑA 3: ESTILO, PALETA & HALO TRANSPARENTE                   */}
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {calibTab === 'style' && (
+              <div className="space-y-3 animate-in fade-in-50 duration-150">
+                {/* 1. Paleta de Color Sagrada & Modo Personalizado Pro */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-white/70 block font-semibold">Paleta del Aro & Crestas:</span>
+                    <span className="text-[9px] font-mono text-cyan-300 uppercase font-bold">
+                      {blobSettings.sacredPalette || 'neon'}
+                    </span>
+                  </div>
 
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Diámetro Halo Exterior:</span>
-                  <span className="text-white/80 tabular-nums">{blobSettings.haloSize || 202}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="160"
-                  max="450"
-                  value={blobSettings.haloSize || 202}
-                  onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Diámetro Núcleo (Void):</span>
-                  <span className="text-white/80 tabular-nums">{blobSettings.circleSize || 179}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="100"
-                  max="350"
-                  value={blobSettings.circleSize || 179}
-                  onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* 3. Procesamiento de Audio (Web Audio API) */}
-            <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2.5">
-              <span className="text-[11px] font-mono text-white/60 block font-semibold">
-                Procesamiento de Audio:
-              </span>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Reacción al Bajo (Bass):</span>
-                  <span className="text-white/80 tabular-nums">{(blobSettings.bassBoost ?? 2.8).toFixed(1)}x</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="4.0"
-                  step="0.1"
-                  value={blobSettings.bassBoost ?? 2.8}
-                  onChange={(e) => updateBlobSettings({ bassBoost: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Sensibilidad de Escala:</span>
-                  <span className="text-white/80 tabular-nums">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="2.2"
-                  step="0.05"
-                  value={blobSettings.scaleSensitivity ?? 1.40}
-                  onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Umbral Disparo Kick:</span>
-                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.10"
-                  max="0.80"
-                  step="0.02"
-                  value={blobSettings.kickThreshold ?? 0.32}
-                  onChange={(e) => updateBlobSettings({ kickThreshold: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between text-[11px] font-mono">
-                  <span className="text-white/50">Potencia Subwoofer Kick:</span>
-                  <span className="text-white/80 tabular-nums">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.5"
-                  step="0.05"
-                  value={blobSettings.kickPower ?? 1.60}
-                  onChange={(e) => updateBlobSettings({ kickPower: parseFloat(e.target.value) })}
-                  className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* 4. Sistema de Color: Arcoíris vs Manual */}
-            <div className="flex items-center justify-between py-1">
-              <span className="text-white/70 flex items-center gap-1.5 font-mono text-xs">
-                <Sparkles className="w-3.5 h-3.5 text-white/50" /> Paleta de Arcoíris:
-              </span>
-              <button
-                onClick={() =>
-                  updateBlobSettings({ isRainbowMode: !blobSettings.isRainbowMode })
-                }
-                className={`px-3 py-1 rounded-md text-xs font-mono tracking-wider transition-all ${
-                  blobSettings.isRainbowMode
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'bg-white/[0.06] text-white/60 hover:bg-white/[0.1]'
-                }`}
-              >
-                {blobSettings.isRainbowMode ? 'ARCOÍRIS' : 'MANUAL'}
-              </button>
-            </div>
-
-            {!blobSettings.isRainbowMode && (
-              <div className="grid grid-cols-2 gap-2.5 p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.06]">
-                <div>
-                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 1:</label>
-                  <input
-                    type="color"
-                    value={blobSettings.haloColor1}
-                    onChange={(e) => updateBlobSettings({ haloColor1: e.target.value })}
-                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono text-white/50 mb-1">Color Halo 2:</label>
-                  <input
-                    type="color"
-                    value={blobSettings.haloColor2}
-                    onChange={(e) => updateBlobSettings({ haloColor2: e.target.value })}
-                    className="w-full h-7 bg-transparent rounded cursor-pointer border border-white/10"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* 5. Personalización del Disco Central y Logotipo */}
-            {!isSunset && (
-              <div className="pt-2 border-t border-white/[0.06] space-y-2">
-                <label className="block text-[11px] font-mono text-white/60">
-                  Logotipo Vectorial Integrado:
-                </label>
-
-                <div className="grid grid-cols-4 gap-1.5">
-                  {LOGO_PRESETS.map((preset) => {
-                    const Icon = preset.icon;
-                    const isSelected =
-                      blobSettings.logoStyle === preset.id && !blobSettings.customLogoUrl;
-                    return (
-                      <button
-                        key={preset.id}
-                        onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
-                        className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
-                          isSelected
-                            ? 'bg-white/[0.1] border-white text-white shadow-sm'
-                            : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                        }`}
-                        title={preset.name}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span className="text-[9px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Subida de Logo Propio con Recorte Circular y Filtros */}
-                <div className="pt-2 flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <label className="flex-1 py-2 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs font-mono text-white/80 hover:text-white">
-                      <Upload className="w-3.5 h-3.5 text-white/60" />
-                      <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleCustomLogoUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    {blobSettings.customLogoUrl && (
-                      <>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'neon', name: 'Neón Líquido', desc: 'Cian & Violeta', colors: ['#00F0FF', '#8C38FF'] },
+                      { id: 'gold', name: 'Oro Champán', desc: 'Lujo & Obsidiana', colors: ['#E2C889', '#FFF2CE'] },
+                      { id: 'crystal', name: 'Cristal Esmerilado', desc: 'Blanco visionOS', colors: ['#FFFFFF', '#B0C4DE'] },
+                      { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Magenta & Cian', colors: ['#ff007f', '#00f2fe'] },
+                      { id: 'aurora', name: 'Aurora Boreal', desc: 'Verde & Aguamarina', colors: ['#00ff87', '#60efff'] },
+                      { id: 'lucid', name: 'Sincro Lúcido', desc: 'Color del reproductor', colors: [lucidTheme.primary, lucidTheme.secondary] },
+                      { id: 'custom', name: 'Personalizado Pro', desc: 'Colores a medida', colors: [blobSettings.haloColor1 || '#00f0ff', blobSettings.haloColor2 || '#ffd166'] },
+                    ].map((pal) => {
+                      const isSel = (blobSettings.sacredPalette || 'neon') === pal.id;
+                      return (
                         <button
+                          key={pal.id}
                           type="button"
-                          onClick={() => {
-                            setTempImageForCrop(blobSettings.customLogoUrl);
-                            setIsCropModalOpen(true);
-                          }}
-                          className="py-2 px-3 bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.15] text-white rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
-                          title="Abrir editor de recorte y filtros"
+                          onClick={() => updateBlobSettings({ sacredPalette: pal.id as any })}
+                          className={`p-2 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                            isSel
+                              ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-sm'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white hover:bg-white/[0.05]'
+                          }`}
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>Editar</span>
+                          <div>
+                            <div className="text-[10px] font-bold leading-tight">{pal.name}</div>
+                            <div className="text-[8px] text-white/40">{pal.desc}</div>
+                          </div>
+                          <div className="flex gap-0.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pal.colors[0] }} />
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pal.colors[1] }} />
+                          </div>
                         </button>
+                      );
+                    })}
+                  </div>
 
+                  {/* Selectores de Color Personalizado Pro si está activo */}
+                  {blobSettings.sacredPalette === 'custom' && (
+                    <div className="pt-2 border-t border-white/[0.08] space-y-2 animate-in fade-in-50 duration-150">
+                      <span className="text-[9.5px] font-mono text-cyan-300 block font-semibold">
+                        Ajuste Fino de Colores (HEX):
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
+                          <span className="text-[9px] font-mono text-white/70">Halo 1</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={blobSettings.haloColor1 || '#00f0ff'}
+                              onChange={(e) => updateBlobSettings({ haloColor1: e.target.value })}
+                              className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
+                            />
+                            <span className="text-[8.5px] font-mono uppercase text-white/60">
+                              {blobSettings.haloColor1 || '#00F0FF'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
+                          <span className="text-[9px] font-mono text-white/70">Halo 2</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={blobSettings.haloColor2 || '#ffd166'}
+                              onChange={(e) => updateBlobSettings({ haloColor2: e.target.value })}
+                              className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
+                            />
+                            <span className="text-[8.5px] font-mono uppercase text-white/60">
+                              {blobSettings.haloColor2 || '#FFD166'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Color de Fondo del Núcleo Abisal */}
+                      <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9.5px] font-mono text-white/80 block">Fondo del Núcleo Void</span>
+                          <span className="text-[7.5px] text-white/40 block">Tono de profundidad interna</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            value={blobSettings.circleColor || '#070a16'}
+                            onChange={(e) => updateBlobSettings({ circleColor: e.target.value })}
+                            className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
+                          />
+                          <span className="text-[8.5px] font-mono uppercase text-white/60">
+                            {blobSettings.circleColor || '#070A16'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Grosor & Difusión del Aro (haloSize) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Grosor y Difusión del Aro:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {blobSettings.haloSize || 202} px (+{Math.max(0, (blobSettings.haloSize || 202) - (blobSettings.circleSize || 179))}px difusión)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="180"
+                    max="260"
+                    step="2"
+                    value={blobSettings.haloSize || 202}
+                    onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[8px] font-mono text-white/40">
+                    <span>180px (Línea Fina)</span>
+                    <span>202px (Estándar)</span>
+                    <span>260px (Aura Gruesa)</span>
+                  </div>
+                </div>
+
+                {/* 3. Resplandor / Bloom Intensity */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-white/70">Resplandor Neón & Bloom:</span>
+                    <span className="text-cyan-300 font-bold tabular-nums">
+                      {(blobSettings.bloomIntensity ?? 1.0).toFixed(2)}x
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.3"
+                    max="2.2"
+                    step="0.05"
+                    value={blobSettings.bloomIntensity ?? 1.0}
+                    onChange={(e) => updateBlobSettings({ bloomIntensity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[8px] font-mono text-white/40">
+                    <span>0.3x (Minimalista)</span>
+                    <span>1.0x (Calibrado)</span>
+                    <span>2.2x (Supernova)</span>
+                  </div>
+                </div>
+
+                {/* 4. Velocidad & Dirección de Rotación Orbital */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                  <div className="flex justify-between items-center text-[10px] font-mono">
+                    <span className="text-white/70">Giro Orbital del Aro:</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateBlobSettings({
+                            rotationDirection:
+                              blobSettings.rotationDirection === 'counter_clockwise'
+                                ? 'clockwise'
+                                : 'counter_clockwise',
+                          })
+                        }
+                        className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[8px] font-mono text-cyan-300 cursor-pointer"
+                        title="Cambiar dirección de giro"
+                      >
+                        {blobSettings.rotationDirection === 'counter_clockwise' ? '↺ Antihorario' : '↻ Horario'}
+                      </button>
+                      <span className="text-cyan-300 font-bold tabular-nums">
+                        {(blobSettings.rotationSpeed ?? 1.0).toFixed(2)}x
+                      </span>
+                    </div>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="2.5"
+                    step="0.05"
+                    value={blobSettings.rotationSpeed ?? 1.0}
+                    onChange={(e) => updateBlobSettings({ rotationSpeed: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[8px] font-mono text-white/40">
+                    <span>0.0x (Estático)</span>
+                    <span>1.0x (Suave)</span>
+                    <span>2.5x (Rápido)</span>
+                  </div>
+                </div>
+
+                {/* 5. Halo Transparente (Cero Ruido) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-white/80 block font-semibold">Halo Transparente visionOS</span>
+                    <span className="text-[8px] text-white/40 block">Elimina el blur difuso y mantiene el negro abisal #05070E</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateBlobSettings({ transparentHalo: !blobSettings.transparentHalo })}
+                    className={`px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold transition-all border cursor-pointer ${
+                      blobSettings.transparentHalo !== false
+                        ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/40 shadow-sm'
+                        : 'bg-white/[0.05] text-white/40 border-white/[0.08]'
+                    }`}
+                  >
+                    {blobSettings.transparentHalo !== false ? 'TRANSPARENTE' : 'CLÁSICO DIFUSO'}
+                  </button>
+                </div>
+
+                {/* 3. Logotipo Vectorial del Void */}
+                {!isSunset && (
+                  <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                    <label className="block text-[10px] font-mono text-white/60">Logotipo Central del Void:</label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {LOGO_PRESETS.map((preset) => {
+                        const Icon = preset.icon;
+                        const isSelected = blobSettings.logoStyle === preset.id && !blobSettings.customLogoUrl;
+                        return (
+                          <button
+                            key={preset.id}
+                            onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
+                            className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
+                              isSelected
+                                ? 'bg-white/[0.1] border-white text-white shadow-sm'
+                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                            }`}
+                            title={preset.name}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="text-[8px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-1 flex gap-2">
+                      <label className="flex-1 py-1.5 px-2.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-[10px] font-mono text-white/80 hover:text-white">
+                        <Upload className="w-3 h-3 text-white/60" />
+                        <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
+                        <input type="file" accept="image/*" onChange={handleCustomLogoUpload} className="hidden" />
+                      </label>
+                      {blobSettings.customLogoUrl && (
                         <button
                           type="button"
                           onClick={handleRemoveCustomLogo}
-                          className="p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
+                          className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
                           title="Eliminar logo personalizado"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
-                      </>
-                    )}
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {/* PESTAÑA 4: ATMÓSFERA DE FONDO & PANTALLA COMPLETA                */}
+            {/* ═════════════════════════════════════════════════════════════════ */}
+            {calibTab === 'atmosphere' && (
+              <div className="space-y-3 animate-in fade-in-50 duration-150">
+                {/* 1. Selector de Fondos Ambientales (SIN EMOJIS) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      Ambiente de Pantalla Completa:
+                    </span>
+                    <span className="text-[9px] font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase font-bold">
+                      {ATMOSPHERE_OPTIONS.find((a) => a.id === (blobSettings.backgroundAtmosphere || 'none'))?.tag || 'LIMPIO'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    {[
+                      { id: 'none', label: 'Limpio', desc: 'Negro abisal puro' },
+                      { id: 'sunset', label: 'Atardecer', desc: 'Silueta acantilado' },
+                      { id: 'rain', label: 'Lluvia Neón', desc: 'Trazos verticales' },
+                      { id: 'sand', label: 'Mareas Sub', desc: 'Partículas fluidas' },
+                      { id: 'stars', label: 'Estrellas 3D', desc: 'Campo estelar' },
+                      { id: 'radial_burst', label: 'Estallido', desc: 'Partículas del núcleo' },
+                      { id: 'stardust_drift', label: 'Polvo Cósmico', desc: 'Bruma estelar' },
+                      { id: 'light_beams', label: 'Haces Luz', desc: 'Rayos radiantes zen' },
+                      { id: 'quantum_waves', label: 'Ondas', desc: 'Anillos concéntricos' },
+                    ].map((atm) => {
+                      const isActive = (blobSettings.backgroundAtmosphere || 'none') === atm.id;
+                      return (
+                        <button
+                          key={atm.id}
+                          type="button"
+                          onClick={() => updateBlobSettings({ backgroundAtmosphere: atm.id as BackgroundAtmosphere })}
+                          className={`p-2 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
+                            isActive
+                              ? 'bg-amber-500/20 border-amber-400 text-white font-bold shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
+                          }`}
+                          title={atm.desc}
+                        >
+                          <span className="text-[9px] font-mono font-bold leading-tight">{atm.label}</span>
+                          <span className="text-[7px] text-white/30 truncate max-w-full">{atm.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mezcla Secundaria de Atmósfera (Blend) */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-purple-300 font-semibold flex items-center gap-1.5">
+                      Mezcla con Segundo Efecto:
+                    </span>
+                    <span className="text-[9px] font-mono text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 uppercase font-bold">
+                      {blobSettings.atmosphereBlend || 'none'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                    {[
+                      { id: 'none', label: 'Sin Mezcla' },
+                      { id: 'radial_burst', label: 'Estallido' },
+                      { id: 'stars', label: 'Estrellas' },
+                      { id: 'stardust_drift', label: 'Polvo' },
+                      { id: 'light_beams', label: 'Haces Luz' },
+                      { id: 'quantum_waves', label: 'Ondas' },
+                      { id: 'sunset', label: 'Atardecer' },
+                      { id: 'rain', label: 'Lluvia' },
+                      { id: 'sand', label: 'Arena' },
+                    ].map((blend) => {
+                      const isSel = (blobSettings.atmosphereBlend || 'none') === blend.id;
+                      return (
+                        <button
+                          key={blend.id}
+                          type="button"
+                          onClick={() => updateBlobSettings({ atmosphereBlend: blend.id as BackgroundAtmosphere | 'none' })}
+                          className={`py-1.5 px-1 rounded-xl text-[9px] font-mono transition-all text-center border cursor-pointer active:scale-95 ${
+                            isSel
+                              ? 'bg-purple-500/25 text-purple-200 border-purple-400 font-bold shadow-sm'
+                              : 'bg-white/[0.02] text-white/50 hover:text-white hover:bg-white/[0.06] border-white/[0.06]'
+                          }`}
+                        >
+                          {blend.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Sliders de Velocidad e Intensidad de la Atmósfera */}
+                {blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none' && (
+                  <div className="p-3 bg-amber-500/[0.04] rounded-xl border border-amber-500/20 space-y-2.5">
+                    <span className="text-[10px] font-mono text-amber-300 font-semibold block">Dinámica del Entorno:</span>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-mono">
+                        <span className="text-white/60">Velocidad de Movimiento:</span>
+                        <span className="text-amber-300 tabular-nums">{(blobSettings.atmosphereSpeed ?? 1.0).toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.3"
+                        max="2.5"
+                        step="0.05"
+                        value={blobSettings.atmosphereSpeed ?? 1.0}
+                        onChange={(e) => updateBlobSettings({ atmosphereSpeed: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-mono">
+                        <span className="text-white/60">Brillo & Resplandor (Glow):</span>
+                        <span className="text-amber-300 tabular-nums">{(blobSettings.atmosphereGlow ?? 1.0).toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="2.0"
+                        step="0.05"
+                        value={blobSettings.atmosphereGlow ?? 1.0}
+                        onChange={(e) => updateBlobSettings({ atmosphereGlow: parseFloat(e.target.value) })}
+                        className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Opacidad & Desenfoque de Fondo y Atmósfera */}
+                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
+                  <span className="text-[10px] font-mono text-amber-300 font-semibold block">
+                    Opacidad & Difusión de Fondo:
+                  </span>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-white/60">Opacidad de Fondo:</span>
+                      <span className="text-amber-300 font-bold tabular-nums">
+                        {Math.round((blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.10"
+                      max="1.00"
+                      step="0.05"
+                      value={blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85}
+                      onChange={(e) => updateBlobSettings({ backgroundOpacity: parseFloat(e.target.value) })}
+                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-white/60">Desenfoque de Fondo (Blur):</span>
+                      <span className="text-amber-300 font-bold tabular-nums">
+                        {blobSettings.backgroundBlur ?? 0} px
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="1"
+                      value={blobSettings.backgroundBlur ?? 0}
+                      onChange={(e) => updateBlobSettings({ backgroundBlur: parseInt(e.target.value, 10) })}
+                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
+                    />
+                    <div className="flex justify-between text-[8px] font-mono text-white/35">
+                      <span>0px (Nítido)</span>
+                      <span>15px (Medio)</span>
+                      <span>30px (Seda)</span>
+                    </div>
                   </div>
                 </div>
               </div>

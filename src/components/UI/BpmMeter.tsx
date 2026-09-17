@@ -15,7 +15,7 @@ export const BpmMeter: React.FC = () => {
 
   return (
     <div
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] select-none transition-all duration-150"
+      className="flex items-center gap-1.5 px-2.5 py-0.5 h-6.5 sm:h-7 rounded-full bg-white/[0.06] border border-white/10 border-t-white/20 select-none transition-all duration-150"
       title={bpm > 0 ? `Tempo detectado: ${bpm} BPM (en vivo)` : 'Analizando tempo de la música (BPM)...'}
     >
       {/* Pulsing Metronome LED */}

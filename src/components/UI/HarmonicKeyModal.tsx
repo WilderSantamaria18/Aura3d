@@ -49,7 +49,7 @@ export const HarmonicKeyModal: React.FC<HarmonicKeyModalProps> = ({ isOpen, onCl
 
       {/* Proportional Dropdown Popover centered under telemetry badge */}
       <div
-        className="fixed inset-x-3 top-14 max-w-[380px] mx-auto sm:mx-0 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-full sm:mt-2 sm:w-[370px] max-h-[min(540px,calc(100vh-5rem))] overflow-y-auto p-3.5 rounded-2xl bg-[#080b16]/95 backdrop-blur-3xl border border-white/10 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 custom-scrollbar text-white font-mono"
+        className="fixed inset-x-3 top-14 max-w-[380px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[370px] max-h-[min(540px,calc(100vh-5rem))] overflow-y-auto p-3.5 rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_28px_70px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 custom-scrollbar text-white font-sans select-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

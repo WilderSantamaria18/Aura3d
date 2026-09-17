@@ -71,7 +71,13 @@ function getOrCreatePortal(): HTMLElement {
   return portal;
 }
 
-function placePortal(rect: { left: number; top: number; width: number; height: number }) {
+function placePortal(rect: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  borderRadius?: string;
+}) {
   const portal = getOrCreatePortal();
   Object.assign(portal.style, {
     left: `${rect.left}px`,
@@ -79,6 +85,7 @@ function placePortal(rect: { left: number; top: number; width: number; height: n
     width: `${rect.width}px`,
     height: `${rect.height}px`,
     overflow: "hidden",
+    borderRadius: rect.borderRadius || "12px",
   });
 }
 
@@ -94,6 +101,8 @@ function hidePortal() {
     });
   }
 }
+
+let activeHolderId: string | null = null;
 
 /* ──────────────────────────────────────────────────────────────
    Singleton YT.Player instance (module-level)
@@ -325,13 +334,18 @@ export interface GlobalYouTubePlayerProps {
   showVideoInPlayer?: boolean;
   onToggleVideoView?: () => void;
   onExpandMiniPlayer?: () => void;
+  className?: string;
+  borderRadius?: string;
 }
 
 export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
   showVideoInPlayer = true,
+  className = "w-full aspect-video rounded-2xl bg-black overflow-hidden",
+  borderRadius = "12px",
 }) => {
   const slotRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  const instanceId = useRef<string>(Math.random().toString(36).substring(2, 9));
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const videoId =
@@ -342,24 +356,39 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
   /* Keep the portal aligned to slotRef every animation frame */
   useEffect(() => {
     if (!isYT || !showVideoInPlayer) {
-      hidePortal();
+      if (activeHolderId === instanceId.current) {
+        activeHolderId = null;
+        hidePortal();
+      }
       return;
     }
 
+    activeHolderId = instanceId.current;
+
     const sync = () => {
       if (!isYT || !showVideoInPlayer) {
-        hidePortal();
+        if (activeHolderId === instanceId.current) {
+          activeHolderId = null;
+          hidePortal();
+        }
         return;
       }
 
       if (slotRef.current) {
         const r = slotRef.current.getBoundingClientRect();
         if (r.width > 10 && r.height > 10) {
-          placePortal({ left: r.left, top: r.top, width: r.width, height: r.height });
-        } else {
+          activeHolderId = instanceId.current;
+          placePortal({
+            left: r.left,
+            top: r.top,
+            width: r.width,
+            height: r.height,
+            borderRadius,
+          });
+        } else if (activeHolderId === instanceId.current) {
           hidePortal();
         }
-      } else {
+      } else if (activeHolderId === instanceId.current) {
         hidePortal();
       }
       rafRef.current = requestAnimationFrame(sync);
@@ -367,16 +396,19 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     rafRef.current = requestAnimationFrame(sync);
     return () => {
       cancelAnimationFrame(rafRef.current);
-      hidePortal();
+      if (activeHolderId === instanceId.current) {
+        activeHolderId = null;
+        hidePortal();
+      }
     };
-  }, [isYT, showVideoInPlayer]);
+  }, [isYT, showVideoInPlayer, borderRadius]);
 
   if (!isYT) return null;
 
   return (
     <div
       ref={slotRef}
-      className="w-full aspect-video rounded-2xl bg-black overflow-hidden"
+      className={className}
       aria-label="Reproductor de YouTube"
     />
   );
