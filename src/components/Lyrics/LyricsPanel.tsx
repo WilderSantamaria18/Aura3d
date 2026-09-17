@@ -435,14 +435,14 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       />
 
       <div
-        className="w-full h-full rounded-[28px] sm:rounded-[32px] bg-[#080c18]/90 backdrop-blur-3xl saturate-[190%] border border-white/15 border-t-white/30 flex flex-col relative transition-all duration-300 overflow-hidden pointer-events-auto shadow-[0_32px_80px_rgba(0,0,0,0.85),inset_0_1.5px_2px_rgba(255,255,255,0.22)]"
+        className="w-full h-full rounded-[30px] sm:rounded-[36px] bg-[#0b0f1a]/85 backdrop-blur-[52px] saturate-[190%] border border-white/15 border-t-white/30 flex flex-col relative transition-all duration-300 overflow-hidden pointer-events-auto shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)]"
         style={{
-          boxShadow: '0 32px 80px rgba(0,0,0,0.85), inset 0 1.5px 2px rgba(255,255,255,0.22)',
+          boxShadow: '0 28px 80px rgba(0,0,0,0.85), inset 0 1.5px 2px rgba(255,255,255,0.22)',
           fontFamily: currentFontFamily,
         }}
       >
         {/* Specular Liquid Edge Ambient Highlights */}
-        <div className="absolute inset-0 pointer-events-none rounded-[2rem] shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.22)]" />
+        <div className="absolute inset-0 pointer-events-none rounded-[30px] sm:rounded-[36px] shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.22)]" />
         <div
           className="absolute top-0 inset-x-12 h-px pointer-events-none"
           style={{
@@ -460,23 +460,23 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           style={{ backgroundColor: secondaryColor }}
         />
 
-        {/* ── Window Chrome & Drag Handle ── */}
-        <header className="relative z-20 px-5 pt-2.5 pb-2.5 flex flex-col gap-2 bg-black/35 backdrop-blur-md border-b border-white/[0.06]">
-          {/* Centered Drag Pill Handle */}
+        {/* ── Window Chrome & Apple Drag Grabber ── */}
+        <header className="relative z-20 px-4 sm:px-5 pt-2 pb-2.5 flex flex-col gap-1.5 bg-black/25 backdrop-blur-md border-b border-white/[0.07]">
+          {/* Centered iOS Grabber Pill */}
           <div
-            className="w-full flex items-center justify-center py-0.5 cursor-grab active:cursor-grabbing group"
+            className="w-full flex items-center justify-center py-1 cursor-grab active:cursor-grabbing group"
             onMouseDown={onDragStart}
             title="Arrastrar panel por la pantalla"
           >
-            <div className="w-12 h-1.5 rounded-full bg-white/20 group-hover:bg-cyan-400/80 transition-all" />
+            <div className="w-10 h-1 rounded-full bg-white/30 group-hover:bg-white/60 transition-colors" />
           </div>
 
-          {/* Main Top Header Bar (Clean, Uncluttered, Spaced) */}
+          {/* Main Top Header Bar (Apple Music Navigation Bar) */}
           <div className="flex items-center justify-between gap-3">
             {/* Left: Track Information */}
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0 border shadow-sm"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white flex-shrink-0 border shadow-sm"
                 style={{
                   backgroundColor: `${activeColor}20`,
                   borderColor: `${activeColor}40`,
@@ -488,7 +488,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-white tracking-tight truncate">
+                  <span className="text-xs sm:text-[13px] font-semibold text-white tracking-tight truncate">
                     {title}
                   </span>
                   <span
@@ -497,13 +497,13 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     title="Sincronización activa"
                   />
                 </div>
-                <span className="text-[11px] text-white/50 font-medium truncate">
+                <span className="text-[10.5px] sm:text-[11px] text-white/50 font-medium truncate">
                   {artist}
                 </span>
               </div>
             </div>
 
-            {/* Right: Consolidated Action Toolbar */}
+            {/* Right: Consolidated iOS Action Buttons */}
             <div
               className="flex items-center gap-1.5 flex-shrink-0"
               onMouseDown={(e) => e.stopPropagation()}
@@ -511,28 +511,22 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               {/* Settings / Typography Drawer Button */}
               <button
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all active:scale-95 border ${
                   isSettingsOpen
                     ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/40 shadow-[0_0_10px_rgba(0,240,255,0.3)]'
-                    : 'bg-white/[0.06] hover:bg-white/15 text-white/70 hover:text-white border-white/10'
+                    : 'bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white border-white/15 border-t-white/25'
                 }`}
                 title="Ajustes de tipografía, tamaño y posición"
               >
-                <Type className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden sm:inline text-[11px]">Ajustes</span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${
-                    isSettingsOpen ? 'rotate-180' : ''
-                  }`}
-                />
+                <Type className="w-3.5 h-3.5" />
               </button>
 
-              {/* Fullscreen IMAX Karaoke Trigger */}
+              {/* Fullscreen Apple Music Karaoke Trigger */}
               {onToggleFullscreen && (
                 <button
                   onClick={onToggleFullscreen}
-                  className="w-7 h-7 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 flex items-center justify-center border border-cyan-500/25 transition-all shadow-sm active:scale-95"
-                  title="Modo Karaoke IMAX Pantalla Completa"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/15 border-t-white/25 transition-all active:scale-95 shadow-sm"
+                  title="Pantalla Completa estilo Apple Music"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
                 </button>
@@ -542,27 +536,27 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               {onToggleZenMode && (
                 <button
                   onClick={onToggleZenMode}
-                  className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/15 text-white/70 hover:text-white flex items-center justify-center border border-white/10 transition-all active:scale-95"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/15 border-t-white/25 transition-all active:scale-95 shadow-sm"
                   title="Colapsar a Micro-Píldora Zen"
                 >
                   <Minimize2 className="w-3.5 h-3.5" />
                 </button>
               )}
 
-              {/* Close Button */}
+              {/* Close Button (Apple iOS Frosted Circle) */}
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/15 text-white/70 hover:text-white flex items-center justify-center border border-white/10 transition-all active:scale-95"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/[0.12] hover:bg-white/[0.22] text-white/90 hover:text-white flex items-center justify-center border border-white/20 border-t-white/35 transition-all active:scale-95 shadow-sm"
                   title="Cerrar letras"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
           </div>
 
-          {/* ── Collapsible Settings & Typography Drawer ── */}
+          {/* ── Collapsible Settings & Typography Drawer (iOS Inset Style) ── */}
           <AnimatePresence>
             {isSettingsOpen && (
               <motion.div
@@ -570,11 +564,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
-                className="overflow-hidden pt-2 border-t border-white/[0.06] space-y-3"
+                className="overflow-hidden pt-1.5 pb-0.5 border-t border-white/[0.08] space-y-2.5"
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {/* Section 1: Font Family Selector */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
                     Tipografía
                   </span>
@@ -587,7 +581,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                           onClick={() => handleFontChange(f.id)}
                           className={`px-2.5 py-1 rounded-full text-xs font-medium tracking-tight flex-shrink-0 transition-all ${
                             isActive
-                              ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/40 shadow-[0_0_8px_rgba(0,240,255,0.3)]'
+                              ? 'bg-white/20 text-white font-bold border border-white/25 shadow-sm'
                               : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/10 border border-white/[0.06]'
                           }`}
                           style={{ fontFamily: f.fontFamily }}
@@ -600,7 +594,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 </div>
 
                 {/* Section 2: Font Sizing & Window Position Presets */}
-                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-white/[0.04]">
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-white/[0.06]">
                   {/* Font Size Stepper */}
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-mono text-white/40 uppercase tracking-wider">
@@ -678,11 +672,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 </div>
 
                 {/* Section 3: File Upload Option */}
-                <div className="pt-1 border-t border-white/[0.04] flex items-center justify-between">
+                <div className="pt-1 border-t border-white/[0.06] flex items-center justify-between">
                   <span className="text-[10px] font-mono text-white/40">Archivo de Letras</span>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.06] hover:bg-white/15 text-white/80 hover:text-white text-[11px] font-mono border border-white/10 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.16] text-white/80 hover:text-white text-[11px] font-medium border border-white/15 transition-colors shadow-sm"
                   >
                     <Upload className="w-3 h-3 text-cyan-400" />
                     <span>Cargar .LRC</span>
@@ -698,12 +692,12 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           ref={containerRef}
           role="list"
           aria-label="Letras sincronizadas"
-          className="flex-1 overflow-y-auto py-8 px-6 space-y-5 scroll-smooth select-none custom-scrollbar relative z-10"
+          className="flex-1 overflow-y-auto py-6 px-5 space-y-4 scroll-smooth select-none custom-scrollbar relative z-10"
           style={{
             maskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+              'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
             WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+              'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
           }}
         >
           {lyrics.length === 0 ? (
@@ -717,7 +711,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               </p>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white text-xs font-mono transition-colors flex items-center gap-1.5 border border-white/10 shadow-sm"
+                className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-white/15 shadow-sm"
               >
                 <Upload className="w-3.5 h-3.5 text-cyan-400" />
                 Cargar archivo .LRC
@@ -729,20 +723,20 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               const distance = Math.abs(index - activeIndex);
 
               // Apple Music style progressive blur & opacity falloff
-              const opacity = isActive ? 1.0 : Math.max(0.24, 0.72 - distance * 0.15);
-              const blurAmount = isActive ? 0 : Math.min(4.5, 1.0 + distance * 0.9);
+              const opacity = isActive ? 1.0 : Math.max(0.25, 0.7 - distance * 0.15);
+              const blurAmount = isActive ? 0 : Math.min(3.5, 0.8 + distance * 0.7);
 
               // Responsive font size classes
               const baseSizeClass =
                 fontSizeOffset === -2
-                  ? 'text-xs py-2 px-3'
+                  ? 'text-xs py-1.5 px-3'
                   : fontSizeOffset === -1
-                  ? 'text-xs sm:text-sm py-2.5 px-3.5'
+                  ? 'text-xs sm:text-sm py-2 px-3'
                   : fontSizeOffset === 1
-                  ? 'text-base sm:text-lg py-3.5 px-4'
+                  ? 'text-base sm:text-lg py-3 px-3.5'
                   : fontSizeOffset >= 2
-                  ? 'text-lg sm:text-xl py-4 px-5'
-                  : 'text-sm sm:text-base py-3 px-4';
+                  ? 'text-lg sm:text-xl py-3.5 px-4'
+                  : 'text-sm sm:text-base py-2.5 px-3';
 
               return (
                 <div
@@ -757,41 +751,37 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                       if (onSeek) onSeek(line.time);
                     }
                   }}
-                  className={`group relative rounded-2xl cursor-pointer transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass} ${
+                  className={`group relative rounded-2xl cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass} ${
                     isActive
-                      ? 'scale-[1.04] border backdrop-blur-md bg-white/[0.07] shadow-[0_12px_36px_rgba(0,0,0,0.6)]'
-                      : 'hover:bg-white/[0.04] hover:scale-[1.01]'
+                      ? 'scale-[1.02] border backdrop-blur-md bg-white/[0.08] border-white/15 border-t-white/30 shadow-[0_12px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)]'
+                      : 'hover:bg-white/[0.04]'
                   }`}
                   style={{
                     opacity,
                     filter: `blur(${blurAmount}px)`,
-                    borderColor: isActive ? `${activeColor}40` : 'transparent',
-                    boxShadow: isActive
-                      ? `0 10px 30px -4px ${activeColor}30, inset 0 1px 0 rgba(255,255,255,0.18)`
-                      : 'none',
                   }}
                 >
                   {/* Left Neon Accent Beacon for Active Verse */}
                   {isActive && (
                     <div
-                      className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-full shadow-[0_0_12px_#00f0ff]"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full shadow-[0_0_10px_#00f0ff]"
                       style={{ backgroundColor: activeColor }}
                     />
                   )}
 
-                  <div className="flex flex-col gap-1">
+                  <div className={`flex flex-col gap-1 ${isActive ? 'pl-2' : ''}`}>
                     {/* Verse Text & Timestamp Row */}
                     <div className="flex items-baseline justify-between gap-3">
                       <p
                         className={`transition-all duration-300 leading-snug flex-1 ${
                           isActive
-                            ? 'text-white font-extrabold tracking-tight'
+                            ? 'text-white font-bold tracking-tight'
                             : 'text-white/70 group-hover:text-white font-medium'
                         }`}
                         style={
                           isActive
                             ? {
-                                textShadow: `0 0 20px ${activeColor}, 0 0 45px ${secondaryColor}70, 0 2px 10px rgba(0,0,0,0.9)`,
+                                textShadow: `0 0 24px ${activeColor}80, 0 2px 8px rgba(0,0,0,0.9)`,
                               }
                             : undefined
                         }
@@ -813,7 +803,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
                     {/* Syllable Wave Progress Under Active Verse */}
                     {isActive && (
-                      <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden mt-1 shadow-inner">
+                      <div className="w-36 sm:w-48 h-1 rounded-full bg-white/15 overflow-hidden mt-1 shadow-inner">
                         <div
                           className="h-full rounded-full transition-all duration-150"
                           style={{
@@ -831,8 +821,8 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           )}
         </div>
 
-        {/* ── Glass Bottom Status Footer (Single, Clean, Spacious Line) ── */}
-        <footer className="relative z-20 px-5 py-2.5 bg-black/40 backdrop-blur-xl border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-white/50">
+        {/* ── Apple iOS Glass Bottom Status Footer ── */}
+        <footer className="relative z-20 px-4 sm:px-5 py-2.5 bg-black/30 backdrop-blur-xl border-t border-white/[0.08] flex items-center justify-between text-[11px] text-white/60 font-medium">
           <div className="flex items-center gap-2">
             <span
               className={`w-2 h-2 rounded-full transition-colors ${
@@ -843,16 +833,21 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 boxShadow: isPlaying ? `0 0 6px ${activeColor}` : 'none',
               }}
             />
-            <span className="text-cyan-300 font-semibold uppercase tracking-wider">
+            <span className="text-white/80 font-medium">
               {isPlaying ? 'Sincronizado' : 'En pausa'}
             </span>
-            <span>•</span>
-            <span>{lyrics.length} versos</span>
+            <span className="text-white/30">•</span>
+            <span className="text-white/50">{lyrics.length} versos</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-white/40">Liquid Glass</span>
-            <span className="text-cyan-400 font-semibold">±1.2ms Sync</span>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/[0.08] hover:bg-white/[0.16] text-white/70 hover:text-white text-[10.5px] border border-white/10 transition-colors"
+            >
+              <Upload className="w-3 h-3" />
+              <span>.LRC</span>
+            </button>
           </div>
         </footer>
       </div>
