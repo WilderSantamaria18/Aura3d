@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Video, Square, ChevronDown, Download, Sparkles, Smartphone, Monitor, Check } from 'lucide-react';
+import { Video, Square, ChevronDown, Download, Sparkles, Smartphone, Monitor, Check, Sliders } from 'lucide-react';
 import { videoRecorder, type VideoAspectRatio } from '../../services/videoRecorderService';
+import { usePlayerStore } from '../../stores/playerStore';
 
 export interface VideoRecorderButtonProps {
   isOpen?: boolean;
@@ -23,6 +24,10 @@ export const VideoRecorderButton: React.FC<VideoRecorderButtonProps> = ({
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const setCaptureStudioOpen = usePlayerStore((s) => s.setCaptureStudioOpen);
+  const setCaptureAspectRatio = usePlayerStore((s) => s.setCaptureAspectRatio);
+  const storeAspectRatio = usePlayerStore((s) => s.captureAspectRatio);
+
   const toggleMenu = () => {
     if (onToggle) onToggle();
     else setInternalIsOpen((v) => !v);
@@ -32,6 +37,12 @@ export const VideoRecorderButton: React.FC<VideoRecorderButtonProps> = ({
     if (onClose) onClose();
     else setInternalIsOpen(false);
   };
+
+  useEffect(() => {
+    if (storeAspectRatio) {
+      setAspectRatio(storeAspectRatio as VideoAspectRatio);
+    }
+  }, [storeAspectRatio]);
 
   useEffect(() => {
     const unsub = videoRecorder.subscribeState((rec, sec) => {
@@ -163,11 +174,23 @@ export const VideoRecorderButton: React.FC<VideoRecorderButtonProps> = ({
 
           {/* Aspect Ratio Selector (Apple Segmented Control) */}
           <div className="space-y-1.5 mb-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-white/45 px-0.5">
-              Proporción de Video
+            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-white/45 px-0.5">
+              <span>Proporción de Video</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                  setCaptureStudioOpen(true);
+                }}
+                className="text-cyan-300 hover:text-white flex items-center gap-1 cursor-pointer font-bold lowercase first-letter:uppercase"
+              >
+                <Sliders className="w-3 h-3" />
+                <span>Ajustar encuadre</span>
+              </button>
             </div>
             <div className="p-1 rounded-xl bg-black/40 border border-white/10 backdrop-blur-xl grid grid-cols-4 gap-1">
-              {(['16:9', '9:16', '1:1', '4:3'] as const).map((ratio) => {
+              {(['16:9', '9:16', '1:1', '4:5'] as const).map((ratio) => {
                 const isActive = aspectRatio === ratio;
                 return (
                   <button
@@ -175,9 +198,10 @@ export const VideoRecorderButton: React.FC<VideoRecorderButtonProps> = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setAspectRatio(ratio);
+                      setAspectRatio(ratio as VideoAspectRatio);
+                      setCaptureAspectRatio(ratio);
                     }}
-                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-all text-center ${
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-all text-center cursor-pointer ${
                       isActive
                         ? 'bg-white/20 text-white shadow-sm border border-white/25 backdrop-blur-md'
                         : 'text-white/50 hover:text-white/80'

@@ -48,6 +48,8 @@ const SystemRequirementsModal = lazy(() => import('./components/UI/SystemRequire
 const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalCommandPalette'));
 const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
 const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
+const CaptureFramingOverlay = lazy(() => import('./components/UI/CaptureFramingOverlay'));
+const StudioCaptureCard = lazy(() => import('./components/UI/StudioCaptureCard'));
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -77,6 +79,7 @@ export const App: React.FC = () => {
   const decrementSleepTimer = usePlayerStore((s) => s.decrementSleepTimer);
   const setCommandPaletteOpen = usePlayerStore((s) => s.setCommandPaletteOpen);
   const isCameraStudioOpen = usePlayerStore((s) => s.isCameraStudioOpen);
+  const isCaptureStudioOpen = usePlayerStore((s) => s.isCaptureStudioOpen);
 
   // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
   useEffect(() => {
@@ -142,13 +145,14 @@ export const App: React.FC = () => {
       !isSidebarOpen &&
       !isKaraokeFullscreen &&
       !isCameraStudioOpen &&
+      !isCaptureStudioOpen &&
       !vrMode
     ) {
       idleTimerRef.current = window.setTimeout(() => {
         setIsUiIdle(true);
       }, 4500);
     }
-  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, isCameraStudioOpen, vrMode]);
+  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, isCameraStudioOpen, isCaptureStudioOpen, vrMode]);
 
   useEffect(() => {
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
@@ -386,6 +390,12 @@ export const App: React.FC = () => {
           <CameraStudioPanel />
         </Suspense>
       )}
+
+      {/* Studio Capture Suite & On-Screen Framing Overlay */}
+      <Suspense fallback={null}>
+        <CaptureFramingOverlay />
+        {isCaptureStudioOpen && <StudioCaptureCard />}
+      </Suspense>
 
       {/* Mini Player — panel flotante con visualización de video de YouTube integrada */}
       {hasStarted && <MiniPlayer />}

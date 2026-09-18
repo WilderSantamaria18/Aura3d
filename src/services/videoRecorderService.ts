@@ -1,11 +1,15 @@
 import { AudioEngine } from './audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
 
-export type VideoAspectRatio = '16:9' | '4:3' | '1:1' | '9:16';
+export type VideoAspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '4:3';
+export type VideoQuality = '1080p' | '4k';
+export type VideoSourceMode = 'direct_canvas' | 'screen_tab';
 
 export interface RecorderOptions {
-  durationLimitSec?: number; // Optional auto-stop duration (e.g. 15s or 30s)
+  durationLimitSec?: number; // Optional auto-stop duration (e.g. 15s, 30s, 60s)
   aspectRatio?: VideoAspectRatio;
+  quality?: VideoQuality;
+  sourceMode?: VideoSourceMode;
   includeTrackCard?: boolean; // Overlay song card & Aura3D branding for TikTok / Reels / Shorts
   onProgress?: (elapsedSec: number) => void;
   onFinish?: (blobUrl: string, fileName: string) => void;
@@ -46,26 +50,33 @@ class VideoRecorderService {
   }
 
   /**
-   * Determine target dimensions based on requested aspect ratio for pristine HD recording
+   * Determine target dimensions based on requested aspect ratio & quality
    */
-  private getTargetDimensions(ratio: VideoAspectRatio = '16:9'): { targetW: number; targetH: number } {
+  public getTargetDimensions(
+    ratio: VideoAspectRatio = '16:9',
+    quality: VideoQuality = '1080p'
+  ): { targetW: number; targetH: number } {
+    const is4k = quality === '4k';
+
     switch (ratio) {
-      case '4:3':
-        return { targetW: 1440, targetH: 1080 };
-      case '1:1':
-        return { targetW: 1080, targetH: 1080 };
       case '9:16':
-        return { targetW: 720, targetH: 1280 };
+        return is4k ? { targetW: 2160, targetH: 3840 } : { targetW: 1080, targetH: 1920 };
+      case '1:1':
+        return is4k ? { targetW: 2160, targetH: 2160 } : { targetW: 1080, targetH: 1080 };
+      case '4:5':
+        return is4k ? { targetW: 1728, targetH: 2160 } : { targetW: 1080, targetH: 1350 };
+      case '4:3':
+        return is4k ? { targetW: 2880, targetH: 2160 } : { targetW: 1440, targetH: 1080 };
       case '16:9':
       default:
-        return { targetW: 1920, targetH: 1080 };
+        return is4k ? { targetW: 3840, targetH: 2160 } : { targetW: 1920, targetH: 1080 };
     }
   }
 
   /**
-   * Finds the best active canvas currently on screen as fallback
+   * Finds the best active WebGL canvas currently on screen
    */
-  private findActiveCanvas(): HTMLCanvasElement | null {
+  public findActiveCanvas(): HTMLCanvasElement | null {
     const canvases = Array.from(document.querySelectorAll('canvas'));
     if (canvases.length === 0) return null;
 
@@ -75,18 +86,20 @@ class VideoRecorderService {
     for (const canvas of canvases) {
       const rect = canvas.getBoundingClientRect();
       const area = rect.width * rect.height;
-      if (area > maxArea && rect.width > 120 && rect.height > 120) {
+      const isWebGL = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (area > maxArea && rect.width > 200 && rect.height > 200) {
         maxArea = area;
+        bestCanvas = canvas;
+      } else if (!bestCanvas && isWebGL) {
         bestCanvas = canvas;
       }
     }
 
-    return bestCanvas;
+    return bestCanvas || canvases[0] || null;
   }
 
   /**
-   * Start recording the browser tab, adjusting to aspect ratio (16:9, 4:3, 1:1) without modifying the tab,
-   * with high fidelity MP4 container and integrated player audio.
+   * Start recording with chosen aspect ratio, resolution and source mode.
    */
   public async startRecording(options: RecorderOptions = {}): Promise<boolean> {
     if (this.isCurrentlyRecording) {
@@ -95,112 +108,19 @@ class VideoRecorderService {
     }
 
     const selectedRatio: VideoAspectRatio = options.aspectRatio || '16:9';
-    const { targetW, targetH } = this.getTargetDimensions(selectedRatio);
+    const selectedQuality: VideoQuality = options.quality || '1080p';
+    const sourceMode: VideoSourceMode = options.sourceMode || 'direct_canvas';
+    const { targetW, targetH } = this.getTargetDimensions(selectedRatio, selectedQuality);
 
     let displayStream: MediaStream | null = null;
     let videoStreamToRecord: MediaStream | null = null;
 
     try {
-      // 1. Capture the tab directly using getDisplayMedia
-      if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
-        try {
-          displayStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              displaySurface: 'browser',
-              frameRate: { ideal: 60, max: 60 },
-            },
-            audio: true,
-            // Chromium extensions prioritizing current tab
-            preferCurrentTab: true,
-            selfBrowserSurface: 'include',
-            systemAudio: 'include',
-            surfaceSwitching: 'include',
-          } as unknown as DisplayMediaStreamOptions);
-          this.activeDisplayStream = displayStream;
-        } catch (captureErr) {
-          const cErr = captureErr as Error;
-          // If user pressed "Cancel" in browser modal, don't crash
-          if (cErr.name === 'NotAllowedError' || cErr.message?.includes('Permission denied')) {
-            console.info('[VideoRecorder] El usuario canceló la selección de pestaña.');
-            return false;
-          }
-          console.warn('[VideoRecorder] Falló captura de pestaña, intentando fallback de canvas:', cErr);
-        }
-      }
-
-      // If display stream was acquired, route through crop canvas to match target aspect ratio without touching window
-      if (displayStream && displayStream.getVideoTracks().length > 0) {
-        const videoTrack = displayStream.getVideoTracks()[0];
-
-        // If user stops sharing from browser banner, stop recording cleanly
-        videoTrack.onended = () => {
-          if (this.isCurrentlyRecording) {
-            this.stopRecording();
-          }
-        };
-
-        const hiddenVideo = document.createElement('video');
-        hiddenVideo.srcObject = displayStream;
-        hiddenVideo.muted = true;
-        hiddenVideo.playsInline = true;
-        await hiddenVideo.play().catch((e) => console.warn('[VideoRecorder] video.play error:', e));
-
-        const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = targetW;
-        cropCanvas.height = targetH;
-        const cropCtx = cropCanvas.getContext('2d', { alpha: false, desynchronized: true });
-
-        if (cropCtx) {
-          let isCropping = true;
-          const targetAspect = targetW / targetH;
-
-          const drawCropFrame = () => {
-            if (!isCropping) return;
-
-            const srcW = hiddenVideo.videoWidth || window.innerWidth;
-            const srcH = hiddenVideo.videoHeight || window.innerHeight;
-            const srcAspect = srcW / srcH;
-
-            let cropW = srcW;
-            let cropH = srcH;
-            let startX = 0;
-            let startY = 0;
-
-            if (srcAspect > targetAspect) {
-              // Video is wider than target ratio: crop sides
-              cropW = srcH * targetAspect;
-              startX = (srcW - cropW) / 2;
-            } else {
-              // Video is taller than target ratio: crop top/bottom
-              cropH = srcW / targetAspect;
-              startY = (srcH - cropH) / 2;
-            }
-
-            cropCtx.drawImage(hiddenVideo, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
-            if (options.includeTrackCard) {
-              this.drawTrackWatermark(cropCtx, targetW, targetH, selectedRatio);
-            }
-            requestAnimationFrame(drawCropFrame);
-          };
-
-          requestAnimationFrame(drawCropFrame);
-          this.cropLoopStopper = () => {
-            isCropping = false;
-            hiddenVideo.pause();
-            hiddenVideo.srcObject = null;
-          };
-
-          // Capture 60fps from cropped canvas
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          videoStreamToRecord = (cropCanvas as any).captureStream(60);
-        }
-      }
-
-      // Fallback: If display media failed or was unavailable, capture active canvas directly
-      if (!videoStreamToRecord) {
+      // MODE A: Direct WebGL Canvas Capture (Zero permission prompts, pristine 60 FPS)
+      if (sourceMode === 'direct_canvas') {
         const canvas = this.findActiveCanvas();
         if (!canvas) {
-          throw new Error('No se detectó la pestaña ni un lienzo visualizador activo para grabar.');
+          throw new Error('No se detectó un lienzo visualizador activo para grabar directamente.');
         }
 
         const cropCanvas = document.createElement('canvas');
@@ -209,6 +129,9 @@ class VideoRecorderService {
         const cropCtx = cropCanvas.getContext('2d', { alpha: false, desynchronized: true });
 
         if (cropCtx) {
+          cropCtx.imageSmoothingEnabled = true;
+          cropCtx.imageSmoothingQuality = 'high';
+
           let isCropping = true;
           const targetAspect = targetW / targetH;
 
@@ -243,11 +166,98 @@ class VideoRecorderService {
             isCropping = false;
           };
 
+          // Capture stream at 60 FPS
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           videoStreamToRecord = (cropCanvas as any).captureStream(60);
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          videoStreamToRecord = (canvas as any).captureStream ? (canvas as any).captureStream(60) : null;
+        }
+      }
+
+      // MODE B: Full Tab / Screen Media Capture (with fallback)
+      if (!videoStreamToRecord && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+        try {
+          displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              displaySurface: 'browser',
+              frameRate: { ideal: 60, max: 60 },
+            },
+            audio: true,
+            preferCurrentTab: true,
+            selfBrowserSurface: 'include',
+            systemAudio: 'include',
+            surfaceSwitching: 'include',
+          } as unknown as DisplayMediaStreamOptions);
+          this.activeDisplayStream = displayStream;
+        } catch (captureErr) {
+          const cErr = captureErr as Error;
+          if (cErr.name === 'NotAllowedError' || cErr.message?.includes('Permission denied')) {
+            console.info('[VideoRecorder] El usuario canceló la selección de pantalla.');
+            return false;
+          }
+          console.warn('[VideoRecorder] Falló captura de pestaña, intentando canvas fallback:', cErr);
+        }
+
+        if (displayStream && displayStream.getVideoTracks().length > 0) {
+          const videoTrack = displayStream.getVideoTracks()[0];
+          videoTrack.onended = () => {
+            if (this.isCurrentlyRecording) {
+              this.stopRecording();
+            }
+          };
+
+          const hiddenVideo = document.createElement('video');
+          hiddenVideo.srcObject = displayStream;
+          hiddenVideo.muted = true;
+          hiddenVideo.playsInline = true;
+          await hiddenVideo.play().catch((e) => console.warn('[VideoRecorder] video.play error:', e));
+
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = targetW;
+          cropCanvas.height = targetH;
+          const cropCtx = cropCanvas.getContext('2d', { alpha: false, desynchronized: true });
+
+          if (cropCtx) {
+            cropCtx.imageSmoothingEnabled = true;
+            cropCtx.imageSmoothingQuality = 'high';
+
+            let isCropping = true;
+            const targetAspect = targetW / targetH;
+
+            const drawCropFrame = () => {
+              if (!isCropping) return;
+              const srcW = hiddenVideo.videoWidth || window.innerWidth;
+              const srcH = hiddenVideo.videoHeight || window.innerHeight;
+              const srcAspect = srcW / srcH;
+
+              let cropW = srcW;
+              let cropH = srcH;
+              let startX = 0;
+              let startY = 0;
+
+              if (srcAspect > targetAspect) {
+                cropW = srcH * targetAspect;
+                startX = (srcW - cropW) / 2;
+              } else {
+                cropH = srcW / targetAspect;
+                startY = (srcH - cropH) / 2;
+              }
+
+              cropCtx.drawImage(hiddenVideo, startX, startY, cropW, cropH, 0, 0, targetW, targetH);
+              if (options.includeTrackCard) {
+                this.drawTrackWatermark(cropCtx, targetW, targetH, selectedRatio);
+              }
+              requestAnimationFrame(drawCropFrame);
+            };
+
+            requestAnimationFrame(drawCropFrame);
+            this.cropLoopStopper = () => {
+              isCropping = false;
+              hiddenVideo.pause();
+              hiddenVideo.srcObject = null;
+            };
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            videoStreamToRecord = (cropCanvas as any).captureStream(60);
+          }
         }
       }
 
@@ -263,10 +273,12 @@ class VideoRecorderService {
 
       const combinedTracks: MediaStreamTrack[] = [...videoStreamToRecord.getVideoTracks()];
 
-      // Audio mixing: prefer high quality internal AudioEngine stream, mixing with tab audio if needed
+      // Audio mixing
       if (internalAudioTracks.length > 0 && tabAudioTracks.length > 0) {
         try {
-          const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const AudioContextClass =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
           const mixCtx = new AudioContextClass();
           this.activeAudioContext = mixCtx;
 
@@ -279,7 +291,6 @@ class VideoRecorderService {
 
           dest.stream.getAudioTracks().forEach((track) => combinedTracks.push(track));
         } catch {
-          // Fallback to internal audio track
           combinedTracks.push(internalAudioTracks[0]);
         }
       } else if (internalAudioTracks.length > 0) {
@@ -290,7 +301,7 @@ class VideoRecorderService {
 
       const combinedStream = new MediaStream(combinedTracks);
 
-      // 3. Prioritize MP4 MIME types so the file is exported as MP4
+      // 3. Supported MIME types: prioritize MP4
       const mimeTypes = [
         'video/mp4;codecs=avc1,mp4a.40.2',
         'video/mp4;codecs=avc1',
@@ -317,10 +328,12 @@ class VideoRecorderService {
       this.recordedChunks = [];
       this.elapsedSeconds = 0;
 
+      const videoBitrate = selectedQuality === '4k' ? 28_000_000 : 16_000_000;
+
       this.mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: selectedMimeType,
-        videoBitsPerSecond: 12_000_000, // 12 Mbps for crystal-clear 1080p 60fps
-        audioBitsPerSecond: 256_000,   // 256 kbps studio audio
+        videoBitsPerSecond: videoBitrate, // 16 Mbps for 1080p60, 28 Mbps for 4K
+        audioBitsPerSecond: 320_000,     // 320 kbps studio sound
       });
 
       this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
@@ -338,7 +351,6 @@ class VideoRecorderService {
         this.stopRecording();
       };
 
-      // Request data every second
       this.mediaRecorder.start(1000);
       this.isCurrentlyRecording = true;
       this.notifyState();
@@ -460,9 +472,9 @@ class VideoRecorderService {
     const artist = currentTrack?.artist || 'DAW Studio Visualizer';
 
     ctx.save();
-    const isVertical = ratio === '9:16';
-    const cardW = isVertical ? Math.min(width * 0.88, 620) : Math.min(width * 0.46, 540);
-    const cardH = isVertical ? 116 : 82;
+    const isVertical = ratio === '9:16' || ratio === '4:5';
+    const cardW = isVertical ? Math.min(width * 0.88, 720) : Math.min(width * 0.46, 540);
+    const cardH = isVertical ? 120 : 82;
     const cardX = (width - cardW) / 2;
     const cardY = isVertical ? height - cardH - 140 : height - cardH - 50;
 
@@ -504,10 +516,10 @@ class VideoRecorderService {
     ctx.font = '13px monospace';
     const maxArtistLen = isVertical ? 30 : 36;
     const displayArtist = artist.length > maxArtistLen ? artist.substring(0, maxArtistLen - 2) + '...' : artist;
-    ctx.fillText(displayArtist, cardX + 22, cardY + (isVertical ? 92 : 70));
+    ctx.fillText(displayArtist, cardX + 22, cardY + (isVertical ? 94 : 70));
 
-    // Animated Mini Spectrum Indicator Bars on right side of card
-    const barsX = cardX + cardW - 65;
+    // Animated Mini Spectrum Indicator Bars
+    const barsX = cardX + cardW - 70;
     const barsY = cardY + cardH / 2;
     const t = performance.now() * 0.007;
     ctx.fillStyle = '#00e5ff';

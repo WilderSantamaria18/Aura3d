@@ -229,6 +229,20 @@ interface PlayerState {
   isNowPlayingExpanded: boolean;
   isMiniPlayerOpen: boolean;
 
+  // Studio Capture & Framing Suite
+  isCaptureStudioOpen: boolean;
+  captureAspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
+  isFramingGuideActive: boolean;
+  captureQuality: '1080p' | '4k';
+  captureSourceMode: 'direct_canvas' | 'screen_tab';
+  setCaptureStudioOpen: (isOpen: boolean) => void;
+  toggleCaptureStudio: () => void;
+  setCaptureAspectRatio: (ratio: '16:9' | '9:16' | '1:1' | '4:5') => void;
+  setFramingGuideActive: (active: boolean) => void;
+  toggleFramingGuide: () => void;
+  setCaptureQuality: (quality: '1080p' | '4k') => void;
+  setCaptureSourceMode: (mode: 'direct_canvas' | 'screen_tab') => void;
+
   // EQ Bands
   eqBands: EqualizerBand[];
 
@@ -560,6 +574,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isKaraokeFullscreen: false,
   isNowPlayingExpanded: true,
   isMiniPlayerOpen: false,
+
+  // Studio Capture & Framing Suite
+  isCaptureStudioOpen: false,
+  captureAspectRatio: '16:9',
+  isFramingGuideActive: false,
+  captureQuality: '1080p',
+  captureSourceMode: 'direct_canvas',
 
   eqBands: StorageService.getEqBands() || DEFAULT_EQ_BANDS,
 
@@ -1286,6 +1307,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setNowPlayingExpanded: (isExpanded) => set({ isNowPlayingExpanded: isExpanded }),
   setMiniPlayerOpen: (isOpen) => set({ isMiniPlayerOpen: isOpen }),
   toggleMiniPlayer: () => set((s) => ({ isMiniPlayerOpen: !s.isMiniPlayerOpen })),
+
+  // Studio Capture & Framing Actions
+  setCaptureStudioOpen: (isOpen) => set({ isCaptureStudioOpen: isOpen }),
+  toggleCaptureStudio: () => set((s) => ({ isCaptureStudioOpen: !s.isCaptureStudioOpen })),
+  setCaptureAspectRatio: (captureAspectRatio) => set({ captureAspectRatio }),
+  setFramingGuideActive: (isFramingGuideActive) => set({ isFramingGuideActive }),
+  toggleFramingGuide: () => set((s) => ({ isFramingGuideActive: !s.isFramingGuideActive })),
+  setCaptureQuality: (captureQuality) => set({ captureQuality }),
+  setCaptureSourceMode: (captureSourceMode) => set({ captureSourceMode }),
 
   setEqBandGain: (bandId, gain) => {
     const { eqBands } = get();

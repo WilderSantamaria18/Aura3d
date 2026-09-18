@@ -128,7 +128,7 @@ export const SceneContainer: React.FC = React.memo(() => {
           antialias: performanceTier !== 'eco',
           alpha: true,
           powerPreference: 'high-performance',
-          preserveDrawingBuffer: false,
+          preserveDrawingBuffer: true,
           stencil: false,
           depth: true,
         }}

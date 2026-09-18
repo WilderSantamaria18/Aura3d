@@ -455,7 +455,7 @@ export const BlackHoleVisualizer: React.FC = () => {
           antialias: true,
           alpha: true,
           powerPreference: 'high-performance',
-          preserveDrawingBuffer: false,
+          preserveDrawingBuffer: true,
         }}
         dpr={[1.0, 1.5]}
       >

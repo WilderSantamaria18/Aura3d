@@ -211,7 +211,7 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
           antialias: true,
           alpha: false,
           powerPreference: 'high-performance',
-          preserveDrawingBuffer: false,
+          preserveDrawingBuffer: true,
           stencil: false,
           depth: true,
         }}

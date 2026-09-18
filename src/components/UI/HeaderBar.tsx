@@ -205,6 +205,10 @@ export const HeaderBar: React.FC = () => {
     setStoryCardOpen,
     isBlobPanelOpen,
     setBlobPanelOpen,
+    isCaptureStudioOpen,
+    toggleCaptureStudio,
+    captureAspectRatio,
+    captureQuality,
   } = usePlayerStore();
 
   const { toggleMicrophone, startSystemCapture, isCapturing, playRadioStation } = useAudioEngine();
@@ -281,8 +285,10 @@ export const HeaderBar: React.FC = () => {
     if (isCapturingSnapshot) return;
     setIsCapturingSnapshot(true);
     const ok = await captureVisualizerSnapshot({
-      resolution: '4k',
+      resolution: captureQuality || '4k',
+      aspectRatio: captureAspectRatio || '16:9',
       trackTitle: currentTrack?.title || 'Aura3D_Visualizer',
+      includeWatermark: true,
     });
     if (ok) {
       setSnapshotSuccess(true);
@@ -857,10 +863,24 @@ export const HeaderBar: React.FC = () => {
                 ? 'text-cyan-300 animate-pulse bg-cyan-500/20'
                 : 'text-white/60 hover:text-white hover:bg-white/[0.1]'
             }`}
-            title="Captura Fondo 4K (Sin interfaz para wallpaper de escritorio)"
-            aria-label="Captura Fondo 4K"
+            title={`Captura Foto ${captureAspectRatio} (4K / Full HD)`}
+            aria-label="Captura Foto 4K"
           >
             {snapshotSuccess ? <Check className="w-3 h-3 text-emerald-300" /> : <Camera className="w-3 h-3" />}
+          </button>
+
+          {/* Ajustar Encuadre & Studio Capture Card */}
+          <button
+            onClick={() => toggleCaptureStudio()}
+            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 ${
+              isCaptureStudioOpen
+                ? 'text-cyan-300 bg-cyan-500/25 border border-cyan-400/40 font-bold'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.1]'
+            }`}
+            title="Ajustar Encuadre de Pantalla & Suite de Grabación (9:16, 16:9, 1:1, 4:5)"
+            aria-label="Ajustar Encuadre de Grabación"
+          >
+            <Sliders className="w-3 h-3 text-cyan-400" />
           </button>
 
           {/* Auralis Story Card 9:16 Social Export */}

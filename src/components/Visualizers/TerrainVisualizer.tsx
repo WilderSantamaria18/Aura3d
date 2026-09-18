@@ -278,6 +278,7 @@ export const TerrainVisualizer: React.FC = () => {
           antialias: performanceTier !== 'eco',
           alpha: false,
           powerPreference: 'high-performance',
+          preserveDrawingBuffer: true,
         }}
         onCreated={({ gl, scene }) => {
           gl.setClearColor(0x03050d, 1);

@@ -309,6 +309,7 @@ export const WarpTunnelVisualizer: React.FC = () => {
           antialias: performanceTier !== 'eco',
           alpha: false,
           powerPreference: 'high-performance',
+          preserveDrawingBuffer: true,
         }}
         onCreated={({ gl }) => {
           gl.setClearColor(0x020308, 1);
