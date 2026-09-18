@@ -1,269 +1,279 @@
 import React, { useRef, useMemo, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePlayerStore } from '../../stores/playerStore';
-import { airSynth, SYNTH_SCALES, DRUM_PADS } from '../../services/airSynthEngine';
-import { fingertipTracker, type FingertipPoint } from '../../services/fingertipTracker';
+import {
+  AirInstrumentsAudioEngine,
+  SYNTH_SCALES,
+} from '../../services/airInstrumentsAudioEngine';
+import {
+  SpatialVisionService,
+  projectLandmarkToWorld,
+} from '../../services/spatialVisionService';
 
-// ── Synth Key Configuration ──
-interface Key3DState {
-  pressAmount: number; // 0 to 1
-  glowIntensity: number; // 0 to 1
-}
+// ── Reutilización de vectores para 0 Garbage Collection ───────────────────────
+const _tmpVec = new THREE.Vector3();
+const _targetVec = new THREE.Vector3();
+const _shockwaveScale = new THREE.Vector3();
 
-// ── Drum Pad Configuration ──
-interface DrumPadState {
-  hitAmount: number;
+interface KeyVisualState {
+  pressAmount: number;
   glowIntensity: number;
 }
 
+interface ShockwaveRing {
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  alpha: number;
+  color: string;
+}
+
 export const AirInstruments3D: React.FC = () => {
+  const { camera } = useThree();
   const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
   const airInstrumentType = usePlayerStore((s) => s.airInstrumentType);
-  const airSynthScale = usePlayerStore((s) => s.airSynthScale);
-  const handLandmarks = usePlayerStore((s) => s.handLandmarks);
-  const multiHandLandmarks = usePlayerStore((s) => s.multiHandLandmarks);
-  const setLastTriggeredNote = usePlayerStore((s) => s.setLastTriggeredNote);
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
+  const lucidPrimaryColor = usePlayerStore((s) => s.lucidPrimaryColor);
 
-  // Group references
+  const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00e5ff';
+
+  // Refs de escena
   const groupRef = useRef<THREE.Group>(null);
-  const synthKeysRef = useRef<THREE.Group>(null);
-  const drumKitRef = useRef<THREE.Group>(null);
-  const thereminRef = useRef<THREE.Group>(null);
+  const keysGroupRef = useRef<THREE.Group>(null);
+  const drumsGroupRef = useRef<THREE.Group>(null);
+  const padsGroupRef = useRef<THREE.Group>(null);
+  const thereminOrbRef = useRef<THREE.Mesh>(null);
+  const particlesRef = useRef<THREE.Points>(null);
 
-  // Fingertip visual indicator meshes (up to 10 fingers: 5 per hand)
+  // Estados visuales de las 7 teclas del sintetizador
+  const keyStatesRef = useRef<KeyVisualState[]>(
+    Array(7).fill({ pressAmount: 0, glowIntensity: 0 })
+  );
+  const [keyStates, setKeyStates] = useState<KeyVisualState[]>(() =>
+    Array(7).fill({ pressAmount: 0, glowIntensity: 0 })
+  );
+
+  // Ondas de choque dinámicas
+  const shockwavesRef = useRef<ShockwaveRing[]>([]);
+
+  // Puntas de dedos proyectadas en espacio de mundo Three.js (hasta 2 manos, 10 dedos)
+  const worldFingertipsRef = useRef<THREE.Vector3[]>(
+    Array.from({ length: 10 }, () => new THREE.Vector3(0, -999, 0))
+  );
   const tipMeshesRef = useRef<(THREE.Mesh | null)[]>([]);
 
-  // Key visual states for animations
-  const [keyStates, setKeyStates] = useState<Key3DState[]>(() =>
-    Array(8).fill({ pressAmount: 0, glowIntensity: 0 })
-  );
-  const keyStatesRef = useRef<Key3DState[]>(
-    Array(8).fill({ pressAmount: 0, glowIntensity: 0 })
-  );
+  // Escala musical activa
+  const scaleNotes = useMemo(() => {
+    return SYNTH_SCALES.pentatonic_minor.notes.slice(0, 7);
+  }, []);
 
-  // Drum visual states
-  const [drumStates, setDrumStates] = useState<DrumPadState[]>(() =>
-    Array(DRUM_PADS.length).fill({ hitAmount: 0, glowIntensity: 0 })
-  );
-  const drumStatesRef = useRef<DrumPadState[]>(
-    Array(DRUM_PADS.length).fill({ hitAmount: 0, glowIntensity: 0 })
-  );
-
-  // Theremin indicator ref
-  const thereminOrbRef = useRef<THREE.Mesh>(null);
-  const thereminBeamRef = useRef<THREE.Mesh>(null);
-
-  // Current active scale notes
-  const currentNotes = useMemo(() => {
-    return SYNTH_SCALES[airSynthScale]?.notes || SYNTH_SCALES.pentatonic_minor.notes;
-  }, [airSynthScale]);
-
-  // 3D Key positions (centered arc)
+  // Disposición ergonómica en arco de 7 teclas flotantes a 2.8m de la cámara
   const synthKeyLayout = useMemo(() => {
-    const count = 8;
-    const spacing = 0.52;
+    const count = 7;
+    const spacing = 0.46;
     const startX = -((count - 1) * spacing) / 2;
-    const baseZ = 2.9;
-    const baseY = -1.1;
+    const baseZ = -2.8;
+    const baseY = -0.5;
 
-    return currentNotes.slice(0, count).map((note, i) => {
+    return scaleNotes.map((note, i) => {
       const x = startX + i * spacing;
-      // Slight ergonomic concave curve
-      const curveOffset = Math.sin((i / (count - 1)) * Math.PI) * 0.15;
-      const z = baseZ - curveOffset;
-      const y = baseY + curveOffset * 0.5;
+      // Curvatura convexa natural
+      const curveOffset = Math.sin((i / (count - 1)) * Math.PI) * 0.18;
+      const z = baseZ + curveOffset;
+      const y = baseY + curveOffset * 0.3;
 
       return {
         ...note,
         index: i,
         position: [x, y, z] as [number, number, number],
         bounds: {
-          x,
-          y,
+          minX: x - 0.2,
+          maxX: x + 0.2,
+          minY: y - 0.45,
+          maxY: y + 0.45,
           z,
-          width: 0.48,
-          height: 1.3,
-          depth: 0.25,
         },
       };
     });
-  }, [currentNotes]);
+  }, [scaleNotes]);
 
-  // 3D Drum Pad positions (ergonomic arc)
-  const drumPadLayout = useMemo(() => {
-    // 6 drum pads in a dual arc
-    const layout = [
-      { id: 'snare', x: -1.05, y: -0.9, z: 2.85, radius: 0.36 },
-      { id: 'kick', x: 0.0, y: -1.2, z: 2.75, radius: 0.42 },
-      { id: 'tom', x: 1.05, y: -0.9, z: 2.85, radius: 0.36 },
-      { id: 'hihat', x: -1.7, y: -0.55, z: 3.0, radius: 0.32 },
-      { id: 'crash', x: 0.0, y: -0.4, z: 3.15, radius: 0.38 },
-      { id: 'clap', x: 1.7, y: -0.55, z: 3.0, radius: 0.32 },
-    ];
+  // Disposición de los 4 pads de percusión gestual
+  const drumPads = useMemo(
+    () => [
+      { id: 'kick', name: 'KICK 808', pos: [-0.65, -0.75, -2.6] as [number, number, number], color: '#ff088a' },
+      { id: 'snare', name: 'SNARE', pos: [0.65, -0.75, -2.6] as [number, number, number], color: '#00e5ff' },
+      { id: 'hihat', name: 'HI-HAT', pos: [-0.65, 0.05, -2.6] as [number, number, number], color: '#ffbd00' },
+      { id: 'clap', name: 'CLAP', pos: [0.65, 0.05, -2.6] as [number, number, number], color: '#34c759' },
+    ],
+    []
+  );
 
-    return DRUM_PADS.map((pad) => {
-      const cfg = layout.find((l) => l.id === pad.id) || {
-        x: 0,
-        y: 0,
-        z: 2.8,
-        radius: 0.35,
-      };
-      return {
-        ...pad,
-        position: [cfg.x, cfg.y, cfg.z] as [number, number, number],
-        radius: cfg.radius,
-        bounds: {
-          x: cfg.x,
-          y: cfg.y,
-          z: cfg.z,
-          width: cfg.radius * 2,
-          height: cfg.radius * 2,
-          depth: 0.3,
-        },
-      };
-    });
+  // Cuadrícula 4x4 de pads melódicos tipo Launchpad
+  const gridPads = useMemo(() => {
+    const pads = [];
+    const size = 0.22;
+    const gap = 0.06;
+    const offset = ((4 - 1) * (size + gap)) / 2;
+
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const x = c * (size + gap) - offset;
+        const y = -(r * (size + gap) - offset) - 0.3;
+        pads.push({
+          id: r * 4 + c,
+          noteIdx: (r * 4 + c) % scaleNotes.length,
+          pos: [x, y, -2.65] as [number, number, number],
+          size,
+        });
+      }
+    }
+    return pads;
+  }, [scaleNotes]);
+
+  // Sistema de partículas reactivas (200 puntos que gravitan hacia las manos)
+  const particlePositions = useMemo(() => {
+    const count = 180;
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 4;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 3;
+      pos[i * 3 + 2] = -2.5 + (Math.random() - 0.5) * 1.5;
+    }
+    return pos;
   }, []);
 
-  // Handler to trigger synth note (shared by hand strike and direct click)
-  const triggerKeyStrike = (index: number, velocity = 0.8) => {
-    const note = currentNotes[index];
-    if (!note) return;
-
-    airSynth.setScale(airSynthScale);
-    airSynth.triggerNote(index, velocity);
-    setLastTriggeredNote(note.name);
-
-    // Set visual hit
-    keyStatesRef.current[index] = {
-      pressAmount: 1.0,
-      glowIntensity: 1.0,
-    };
-  };
-
-  // Handler to trigger drum strike (shared by hand strike and direct click)
-  const triggerDrumStrike = (index: number, velocity = 0.85) => {
-    const pad = DRUM_PADS[index];
-    if (!pad) return;
-
-    airSynth.triggerDrum(pad.id, velocity);
-    setLastTriggeredNote(pad.name);
-
-    drumStatesRef.current[index] = {
-      hitAmount: 1.0,
-      glowIntensity: 1.0,
-    };
-  };
-
-  // Frame Loop: Hand collision checks and visual lerps
+  // ── Frame Loop Principal (Three.js rAF) ────────────────────────────────────
   useFrame((_, delta) => {
     if (!isAirInstrumentsActive) return;
 
-    // 1. Process Fingertip Tracking
-    const tips: FingertipPoint[] = fingertipTracker.extractFingertips(
-      handLandmarks,
-      multiHandLandmarks
-    );
+    const vision = SpatialVisionService.getInstance();
+    const audioEngine = AirInstrumentsAudioEngine.getInstance();
+    const perspCamera = camera as THREE.PerspectiveCamera;
 
-    // Update 3D Tip spheres
-    for (let i = 0; i < 10; i++) {
-      const mesh = tipMeshesRef.current[i];
-      if (!mesh) continue;
+    // 1. Obtener manos y proyectar fingertips al espacio 3D
+    let handCount = 0;
 
-      const tip = tips[i];
-      if (tip) {
-        mesh.visible = true;
-        mesh.position.set(tip.x3d, tip.y3d, tip.z3d);
+    // Proyección con cero allocations
+    const hands = (vision as any).previousHands || [];
+    if (hands.length > 0) {
+      hands.forEach((hand: any, hIdx: number) => {
+        const tipLandmark = hand.landmarks[8]; // Punta del índice
+        if (tipLandmark) {
+          projectLandmarkToWorld(tipLandmark, perspCamera, 2.8, _targetVec);
+          const worldPos = worldFingertipsRef.current[hIdx * 5];
+          if (worldPos) {
+            worldPos.copy(_targetVec);
 
-        // Scale up slightly on strike
-        const targetScale = tip.isStriking ? 1.4 : 1.0;
-        mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.3);
-
-        const mat = mesh.material as THREE.MeshBasicMaterial;
-        if (mat) {
-          mat.color.set(tip.handIndex === 0 ? '#00f2fe' : '#ff088a');
+            // Actualizar visualizador de punta de dedo
+            const tipMesh = tipMeshesRef.current[hIdx];
+            if (tipMesh) {
+              tipMesh.visible = true;
+              tipMesh.position.copy(worldPos);
+            }
+          }
         }
-      } else {
-        mesh.visible = false;
+        handCount++;
+      });
+    }
+
+    const primaryTip: THREE.Vector3 | null = handCount > 0 ? worldFingertipsRef.current[0] : null;
+
+    // Ocultar mallas de dedos no detectados
+    for (let i = handCount; i < 2; i++) {
+      if (tipMeshesRef.current[i]) {
+        tipMeshesRef.current[i]!.visible = false;
       }
     }
 
-    // 2. Collision and Strike Handling by Instrument
-    if (airInstrumentType === 'synth') {
-      tips.forEach((tip) => {
-        if (!tip.isStriking) return;
+    // 2. Lógica de Colisión según el Instrumento Activo
+    if (airInstrumentType === 'synth' && primaryTip) {
+      synthKeyLayout.forEach((key, idx) => {
+        const b = key.bounds;
+        // Colisión en caja AABB
+        if (
+          primaryTip.x >= b.minX &&
+          primaryTip.x <= b.maxX &&
+          primaryTip.y >= b.minY &&
+          primaryTip.y <= b.maxY
+        ) {
+          // Si entra al plano de la tecla
+          if (keyStatesRef.current[idx].pressAmount < 0.1) {
+            audioEngine.triggerNoteOn(idx, 0.9);
+            keyStatesRef.current[idx].pressAmount = 1.0;
+            keyStatesRef.current[idx].glowIntensity = 1.0;
 
-        synthKeyLayout.forEach((key, kIdx) => {
-          if (fingertipTracker.check3DCollision(tip, key.bounds)) {
-            triggerKeyStrike(kIdx, tip.velocity);
+            // Generar onda de choque
+            shockwavesRef.current.push({
+              x: key.position[0],
+              y: key.position[1],
+              z: key.position[2],
+              scale: 0.1,
+              alpha: 1.0,
+              color: activeAccent,
+            });
           }
-        });
+        } else {
+          if (keyStatesRef.current[idx].pressAmount > 0.5) {
+            audioEngine.triggerNoteOff(idx);
+          }
+        }
       });
-    } else if (airInstrumentType === 'drums') {
-      tips.forEach((tip) => {
-        if (!tip.isStriking) return;
-
-        drumPadLayout.forEach((drum, dIdx) => {
-          if (fingertipTracker.check3DCollision(tip, drum.bounds)) {
-            triggerDrumStrike(dIdx, tip.velocity);
-          }
-        });
+    } else if (airInstrumentType === 'drums' && primaryTip) {
+      drumPads.forEach((pad) => {
+        const dist = Math.hypot(primaryTip.x - pad.pos[0], primaryTip.y - pad.pos[1]);
+        if (dist < 0.28) {
+          audioEngine.triggerDrum(pad.id as any, 0.95);
+          shockwavesRef.current.push({
+            x: pad.pos[0],
+            y: pad.pos[1],
+            z: pad.pos[2],
+            scale: 0.1,
+            alpha: 1.0,
+            color: pad.color,
+          });
+        }
       });
     } else if (airInstrumentType === 'theremin') {
-      // Index finger of first detected hand controls pitch & volume
-      const indexTip = tips.find((t) => t.name === 'index');
-      if (indexTip) {
-        // Map X (-2.5 to +2.5) to normalized cutoff/timbre
-        const normX = Math.max(0, Math.min(1, (indexTip.x3d + 2.5) / 5.0));
-
-        // Map Y (-1.5 to +1.5) to normalized Y (0.0 to 1.0)
-        const normY = Math.max(0, Math.min(1, 1 - (indexTip.y3d + 1.5) / 3.0));
-        const freq = 150 + (1 - normY) * 1050;
-
-        airSynth.setThereminState(true, normY, normX);
-        setLastTriggeredNote(`${Math.round(freq)} Hz`);
+      if (primaryTip) {
+        audioEngine.startTheremin();
+        const normX = Math.max(0, Math.min(1, (primaryTip.x + 1.5) / 3.0));
+        const normY = Math.max(0, Math.min(1, (primaryTip.y + 1.0) / 2.0));
+        audioEngine.updateTheremin(normX, normY, primaryTip.z);
 
         if (thereminOrbRef.current) {
-          thereminOrbRef.current.position.set(indexTip.x3d, indexTip.y3d, indexTip.z3d);
           thereminOrbRef.current.visible = true;
+          thereminOrbRef.current.position.copy(primaryTip);
         }
       } else {
-        airSynth.setThereminState(false);
+        audioEngine.stopTheremin();
         if (thereminOrbRef.current) {
           thereminOrbRef.current.visible = false;
         }
       }
     }
 
-    // 3. Smoothly Lerp Key States back to rest
-    let needsKeyUpdate = false;
-    const decayRate = Math.min(1.0, delta * 12);
-
-    for (let i = 0; i < 8; i++) {
-      const cur = keyStatesRef.current[i];
-      if (cur.pressAmount > 0.01 || cur.glowIntensity > 0.01) {
-        cur.pressAmount = Math.max(0, cur.pressAmount - decayRate);
-        cur.glowIntensity = Math.max(0, cur.glowIntensity - decayRate * 0.8);
-        needsKeyUpdate = true;
+    // 3. Desvanecimiento suave de estados visuales de teclas
+    const decay = Math.min(1.0, delta * 8);
+    for (let i = 0; i < 7; i++) {
+      const state = keyStatesRef.current[i];
+      if (state.pressAmount > 0.01) {
+        state.pressAmount = Math.max(0, state.pressAmount - decay);
+        state.glowIntensity = Math.max(0, state.glowIntensity - decay * 0.8);
       }
     }
-    if (needsKeyUpdate) {
-      setKeyStates([...keyStatesRef.current]);
-    }
 
-    // 4. Smoothly Lerp Drum States back to rest
-    let needsDrumUpdate = false;
-    for (let i = 0; i < DRUM_PADS.length; i++) {
-      const cur = drumStatesRef.current[i];
-      if (cur.hitAmount > 0.01 || cur.glowIntensity > 0.01) {
-        cur.hitAmount = Math.max(0, cur.hitAmount - decayRate * 1.2);
-        cur.glowIntensity = Math.max(0, cur.glowIntensity - decayRate * 0.7);
-        needsDrumUpdate = true;
+    // 4. Animar Ondas de Choque
+    for (let i = shockwavesRef.current.length - 1; i >= 0; i--) {
+      const sw = shockwavesRef.current[i];
+      sw.scale += delta * 3.5;
+      sw.alpha -= delta * 2.2;
+      if (sw.alpha <= 0) {
+        shockwavesRef.current.splice(i, 1);
       }
-    }
-    if (needsDrumUpdate) {
-      setDrumStates([...drumStatesRef.current]);
     }
   });
 
@@ -271,71 +281,41 @@ export const AirInstruments3D: React.FC = () => {
 
   return (
     <group ref={groupRef}>
-      {/* ── Fingertip Indicator Spheres (10 Pointers) ── */}
-      {Array.from({ length: 10 }).map((_, i) => (
-        <mesh
-          key={`tip-${i}`}
-          ref={(el) => {
-            tipMeshesRef.current[i] = el;
-          }}
-          visible={false}
-        >
-          <sphereGeometry args={[0.075, 16, 16]} />
-          <meshBasicMaterial color="#00f2fe" transparent opacity={0.85} />
-        </mesh>
-      ))}
-
-      {/* ── Instrument 1: 3D Quantum Synth / Aerial Piano ── */}
+      {/* ── 1. Sintetizador 3D (Arco de 7 Teclas Liquid Glass) ── */}
       {airInstrumentType === 'synth' && (
-        <group ref={synthKeysRef}>
-          {synthKeyLayout.map((key, i) => {
-            const state = keyStates[i] || { pressAmount: 0, glowIntensity: 0 };
-            const pressedY = key.position[1] - state.pressAmount * 0.12;
-            const glow = state.glowIntensity;
-
+        <group ref={keysGroupRef}>
+          {synthKeyLayout.map((key, idx) => {
+            const visual = keyStatesRef.current[idx];
             return (
-              <group
-                key={`synth-key-${key.name}-${i}`}
-                position={[key.position[0], pressedY, key.position[2]]}
-                rotation={[0.32, 0, 0]}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerKeyStrike(i, 0.85);
-                }}
-              >
-                {/* 3D Glass Key Mesh */}
-                <mesh castShadow receiveShadow>
-                  <boxGeometry args={[0.46, 1.35, 0.16]} />
-                  <meshStandardMaterial
-                    color={glow > 0.1 ? '#00f2fe' : '#0e1628'}
-                    emissive={glow > 0.1 ? '#00f2fe' : '#031024'}
-                    emissiveIntensity={0.2 + glow * 2.8}
+              <group key={key.name} position={key.position}>
+                {/* Cuerpo de la tecla: MeshPhysicalMaterial con transmisión de cristal */}
+                <mesh
+                  position={[0, -visual.pressAmount * 0.08, 0]}
+                  castShadow
+                  receiveShadow
+                >
+                  <boxGeometry args={[0.38, 1.1, 0.12]} />
+                  <meshPhysicalMaterial
+                    color={visual.glowIntensity > 0.2 ? activeAccent : '#ffffff'}
+                    transmission={0.88}
                     roughness={0.15}
-                    metalness={0.85}
+                    metalness={0.1}
+                    thickness={0.6}
+                    ior={1.4}
                     transparent
-                    opacity={0.88}
+                    opacity={0.85}
+                    emissive={visual.glowIntensity > 0.2 ? activeAccent : '#000000'}
+                    emissiveIntensity={visual.glowIntensity * 1.5}
                   />
                 </mesh>
 
-                {/* Neon Top Edge Accent */}
-                <mesh position={[0, 0.65, 0.08]}>
-                  <boxGeometry args={[0.44, 0.04, 0.02]} />
-                  <meshBasicMaterial
-                    color={glow > 0.1 ? '#ffffff' : '#38bdf8'}
-                    transparent
-                    opacity={0.9}
-                  />
-                </mesh>
-
-                {/* 3D Holographic Note Badge */}
+                {/* Etiqueta de la nota musical */}
                 <Text
-                  position={[0, -0.4, 0.1]}
-                  fontSize={0.16}
-                  color={glow > 0.1 ? '#ffffff' : '#94a3b8'}
+                  position={[0, -0.42, 0.08]}
+                  fontSize={0.09}
+                  color="#ffffff"
                   anchorX="center"
                   anchorY="middle"
-                  outlineWidth={0.015}
-                  outlineColor="#000000"
                 >
                   {key.name}
                 </Text>
@@ -345,100 +325,71 @@ export const AirInstruments3D: React.FC = () => {
         </group>
       )}
 
-      {/* ── Instrument 2: 3D Cyber Drum Kit ── */}
+      {/* ── 2. Batería Gestual (4 Pads Emisivos de Estudio) ── */}
       {airInstrumentType === 'drums' && (
-        <group ref={drumKitRef}>
-          {drumPadLayout.map((drum, i) => {
-            const state = drumStates[i] || { hitAmount: 0, glowIntensity: 0 };
-            const pressedY = drum.position[1] - state.hitAmount * 0.14;
-            const glow = state.glowIntensity;
-
-            return (
-              <group
-                key={`drum-pad-${drum.id}`}
-                position={[drum.position[0], pressedY, drum.position[2]]}
-                rotation={[0.4, 0, 0]}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerDrumStrike(i, 0.9);
-                }}
+        <group ref={drumsGroupRef}>
+          {drumPads.map((pad) => (
+            <group key={pad.id} position={pad.pos}>
+              <mesh>
+                <cylinderGeometry args={[0.26, 0.26, 0.06, 32]} />
+                <meshPhysicalMaterial
+                  color={pad.color}
+                  emissive={pad.color}
+                  emissiveIntensity={0.5}
+                  transmission={0.7}
+                  roughness={0.2}
+                  transparent
+                  opacity={0.85}
+                />
+              </mesh>
+              <Text
+                position={[0, 0, 0.06]}
+                fontSize={0.08}
+                color="#ffffff"
+                anchorX="center"
+                anchorY="middle"
               >
-                {/* Main Cylindrical Drum Pad */}
-                <mesh castShadow receiveShadow>
-                  <cylinderGeometry args={[drum.radius, drum.radius * 0.95, 0.14, 32]} />
-                  <meshStandardMaterial
-                    color={glow > 0.1 ? drum.color : '#0f172a'}
-                    emissive={drum.color}
-                    emissiveIntensity={0.25 + glow * 3.2}
-                    roughness={0.2}
-                    metalness={0.8}
-                    transparent
-                    opacity={0.92}
-                  />
-                </mesh>
-
-                {/* Holographic Glowing Ring */}
-                <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <ringGeometry args={[drum.radius * 0.72, drum.radius * 0.86, 32]} />
-                  <meshBasicMaterial
-                    color={glow > 0.1 ? '#ffffff' : drum.color}
-                    transparent
-                    opacity={0.85}
-                  />
-                </mesh>
-
-                {/* Pad Label */}
-                <Text
-                  position={[0, 0.1, 0]}
-                  rotation={[-Math.PI / 2, 0, 0]}
-                  fontSize={0.12}
-                  color={glow > 0.1 ? '#ffffff' : '#e2e8f0'}
-                  anchorX="center"
-                  anchorY="middle"
-                  outlineWidth={0.015}
-                  outlineColor="#000000"
-                >
-                  {drum.name}
-                </Text>
-              </group>
-            );
-          })}
+                {pad.name}
+              </Text>
+            </group>
+          ))}
         </group>
       )}
 
-      {/* ── Instrument 3: Laser Ribbon / Theremin ── */}
+      {/* ── 3. Theremin Espacial (Orbe Resonante) ── */}
       {airInstrumentType === 'theremin' && (
-        <group ref={thereminRef}>
-          {/* Horizontal Pitch Ribbon Beam */}
-          <mesh ref={thereminBeamRef} position={[0, -0.9, 2.8]}>
-            <boxGeometry args={[5.0, 0.05, 0.05]} />
-            <meshBasicMaterial color="#39FF14" transparent opacity={0.65} />
-          </mesh>
-
-          {/* Vertical Amplitude Beam */}
-          <mesh position={[0, 0, 2.8]}>
-            <boxGeometry args={[0.05, 3.2, 0.05]} />
-            <meshBasicMaterial color="#00f2fe" transparent opacity={0.4} />
-          </mesh>
-
-          {/* Dynamic Laser Orb following finger */}
-          <mesh ref={thereminOrbRef} visible={false}>
-            <sphereGeometry args={[0.16, 24, 24]} />
-            <meshBasicMaterial color="#39FF14" transparent opacity={0.9} />
-          </mesh>
-
-          {/* Guide Text */}
-          <Text
-            position={[0, -1.25, 2.8]}
-            fontSize={0.16}
-            color="#39FF14"
-            anchorX="center"
-            anchorY="middle"
-          >
-            ← FRECUENCIA / PITCH → (Eje Horizontal)
-          </Text>
-        </group>
+        <mesh ref={thereminOrbRef} visible={false}>
+          <sphereGeometry args={[0.12, 32, 32]} />
+          <meshBasicMaterial color={activeAccent} wireframe transparent opacity={0.85} />
+        </mesh>
       )}
+
+      {/* ── 4. Indicadores de Puntas de Dedos ── */}
+      {[0, 1].map((idx) => (
+        <mesh
+          key={idx}
+          ref={(el) => {
+            tipMeshesRef.current[idx] = el;
+          }}
+          visible={false}
+        >
+          <sphereGeometry args={[0.045, 16, 16]} />
+          <meshBasicMaterial color={activeAccent} />
+        </mesh>
+      ))}
+
+      {/* ── 5. Ondas de Choque Expansivas ── */}
+      {shockwavesRef.current.map((sw, i) => (
+        <mesh key={i} position={[sw.x, sw.y, sw.z]}>
+          <ringGeometry args={[sw.scale * 0.8, sw.scale, 32]} />
+          <meshBasicMaterial
+            color={sw.color}
+            transparent
+            opacity={sw.alpha}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
     </group>
   );
 };

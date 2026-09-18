@@ -1,6 +1,18 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Disc3,
+  Upload,
+  Mic,
+  ArrowRight,
+  ChevronDown,
+  Sparkles,
+  Sliders,
+  Headphones,
+} from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useMousePosition } from '../../hooks/useMousePosition';
 import { QuantumCoreShader } from './QuantumCoreShader';
 import { StudioOscilloscope } from './StudioOscilloscope';
 import { StudioMixerDeck } from './StudioMixerDeck';
@@ -9,14 +21,17 @@ import { StudioLaunchDeck } from './StudioLaunchDeck';
 
 /**
  * LandingScreen
- * Adaptación arquitectónica de alta fidelidad estilo visionOS Liquid Glass para Aura3D.
- * 4 Canales con scroll-snap fluido, osciloscopio CRT de fósforo analógico,
- * consola masterizadora de 8 bandas con VU ahumado, tornamesa Rainbow Void
- * y lanzador Liquid Void interactivo.
+ * Adaptación arquitectónica de máxima fidelidad al lenguaje visual Apple iOS / visionOS Liquid Glass.
+ * - 4 Canales con scroll-snap fluido y scrollbars en cápsula de cristal líquido
+ * - Header flotante "Dynamic Island" con telemetría de audio en vivo
+ * - Dock lateral derecho en cápsula de cristal
+ * - Iluminación ambiental cáustica reactiva a la posición del cursor
+ * - Cortina de transición con física elástica (cubic-bezier(0.16, 1, 0.3, 1))
  */
 export const LandingScreen: React.FC = () => {
   const { setHasStarted } = usePlayerStore();
   const { unlockAudio, loadFile, toggleMicrophone } = useAudioEngine();
+  const mousePos = useMousePosition();
 
   const [activeChannel, setActiveChannel] = useState<number>(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState<boolean>(false);
@@ -31,7 +46,7 @@ export const LandingScreen: React.FC = () => {
     await unlockAudio();
     setTimeout(() => {
       setHasStarted(true);
-    }, 450);
+    }, 550);
   }, [unlockAudio, setHasStarted]);
 
   const handleMicStart = useCallback(async () => {
@@ -39,7 +54,7 @@ export const LandingScreen: React.FC = () => {
     await toggleMicrophone();
     setTimeout(() => {
       setHasStarted(true);
-    }, 450);
+    }, 550);
   }, [toggleMicrophone, setHasStarted]);
 
   const handleFileLoaded = useCallback(
@@ -48,7 +63,7 @@ export const LandingScreen: React.FC = () => {
       loadFile(file);
       setTimeout(() => {
         setHasStarted(true);
-      }, 450);
+      }, 550);
     },
     [loadFile, setHasStarted]
   );
@@ -60,7 +75,7 @@ export const LandingScreen: React.FC = () => {
     }
   };
 
-  // Keyboard shortcut listener: Space to launch/kick, M for mic
+  // Keyboard shortcut listener: Space to launch, M for mic, G to enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
@@ -68,9 +83,8 @@ export const LandingScreen: React.FC = () => {
 
       if (e.code === 'Space') {
         e.preventDefault();
-        // In canal 3, Space triggers kick; in other canals, launches experience
         if (activeChannel === 3) {
-          // Let canal 3 handle kick pulse
+          // Channel 4 handles space for kick test
         } else {
           handleStartExperience();
         }
@@ -84,17 +98,17 @@ export const LandingScreen: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleStartExperience, handleMicStart, activeChannel]);
 
-  // High-performance scroll tracking for progress bar and active channel
+  // High-performance scroll tracking using transform scaleX (zero reflows)
   const handleScroll = () => {
     const viewport = viewportRef.current;
     if (!viewport) return;
 
     const { scrollTop, scrollHeight, clientHeight } = viewport;
     const maxScroll = scrollHeight - clientHeight;
-    const progress = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 0;
+    const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
 
     if (progressBarRef.current) {
-      progressBarRef.current.style.width = `${progress}%`;
+      progressBarRef.current.style.transform = `scaleX(${progress})`;
     }
 
     const currentIndex = Math.min(3, Math.max(0, Math.round(scrollTop / clientHeight)));
@@ -111,125 +125,111 @@ export const LandingScreen: React.FC = () => {
     }
   };
 
+  const channels = [
+    { id: 0, label: 'CH 01 // HERO' },
+    { id: 1, label: 'CH 02 // MIXER' },
+    { id: 2, label: 'CH 03 // TURNTABLE' },
+    { id: 3, label: 'CH 04 // LAUNCH' },
+  ];
+
   return (
-    <div
-      className={`fixed inset-0 w-full h-full bg-[#03050c] text-[#e3e1e9] select-none overflow-hidden transition-all duration-700 ease-out font-sans ${
-        isTransitioningOut
-          ? '-translate-y-16 opacity-0 blur-md scale-[0.97]'
-          : 'translate-y-0 opacity-100'
-      }`}
-    >
-      {/* Dynamic WebGL Ambient Shader Layer (Quantum Core: Abyssal void, orbital rings, particles) */}
+    <div className="fixed inset-0 w-full h-full bg-[#03050c] text-white select-none overflow-hidden font-sans">
+      {/* Dynamic WebGL Ambient Shader Layer */}
       <QuantumCoreShader />
 
-      {/* [Z-100] Global Scroll Dynamic Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 h-[2px] z-[100] bg-[#0d0e13]/60 pointer-events-none">
-        <div
-          ref={progressBarRef}
-          className="h-full w-0 bg-gradient-to-r from-[#00e5ff] via-[#8c38ff] to-[#ff088a] transition-[width] duration-75 shadow-[0_0_12px_#00e5ff]"
-        />
-      </div>
+      {/* Reactive Mouse Caustic Light Follower */}
+      <div
+        className="pointer-events-none fixed inset-0 z-[5] transition-opacity duration-500"
+        style={{
+          background: `radial-gradient(700px circle at ${mousePos.clientX}px ${mousePos.clientY}px, rgba(0, 229, 255, 0.07), rgba(140, 56, 255, 0.03) 40%, transparent 80%)`,
+        }}
+      />
 
-      {/* [Z-90] Persistent Precision Brand & Telemetry Bar */}
-      <header className="fixed top-0 left-0 w-full z-[90] px-4 sm:px-8 lg:px-12 py-3 flex items-center justify-between pointer-events-auto backdrop-blur-2xl bg-[#0d0e13]/60 border-b border-white/[0.06] shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        {/* Brand / Engine Signature */}
+      {/* [Z-100] Global Scroll Dynamic Progress Bar */}
+      <div
+        ref={progressBarRef}
+        className="landing-progress-bar"
+        style={{ transform: 'scaleX(0)' }}
+      />
+
+      {/* [Z-50] Floating Header "Dynamic Island" (Apple visionOS Liquid Glass Pill) */}
+      <header className="fixed top-4 left-1/2 -translate-x-1/2 w-[clamp(320px,92vw,1280px)] h-auto px-4 sm:px-6 py-2.5 liquid-glass-pill border border-white/15 border-t-white/30 shadow-[0_16px_48px_rgba(0,0,0,0.75),inset_0_1px_1.5px_rgba(255,255,255,0.28)] z-50 flex items-center justify-between gap-4 pointer-events-auto">
+        {/* Left: Animated Logo + Name */}
         <div
-          className="flex items-center gap-2.5 cursor-pointer group"
           onClick={() => scrollToCanal(0)}
+          className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-8 h-8 rounded-full bg-[#1e1f25] border border-white/10 flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.25)] group-hover:border-[#00e5ff]/50 transition-colors">
-            <svg
-              className="w-4 h-4 text-[#00f0ff] animate-[spin_8s_linear_infinite]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2a10 10 0 0 0-4 18.2" />
-            </svg>
+          <div className="w-8 h-8 rounded-full border border-cyan-400/40 bg-white/[0.06] flex items-center justify-center animate-[spin_8s_linear_infinite] shadow-[0_0_12px_rgba(0,229,255,0.3)] group-hover:border-cyan-400 transition-colors">
+            <Disc3 className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="flex flex-col">
-            <span className="font-sans text-sm font-semibold tracking-wide text-[#dbfcff] leading-tight">
+            <span className="text-white font-bold tracking-tight text-sm leading-tight group-hover:text-cyan-200 transition-colors">
               Aura3D Studio
             </span>
-            <span className="font-mono text-[9px] text-[#849495] tracking-widest uppercase">
+            <span className="font-mono text-[9px] text-white/50 tracking-widest uppercase">
               Hardware Core v4.2
             </span>
           </div>
         </div>
 
-        {/* Center: Hardware Telemetry Pill */}
-        <div className="hidden md:flex items-center gap-2.5 px-4 py-1 rounded-full bg-[#1e1f25]/70 border border-white/[0.06] shadow-[inset_0_1px_2px_rgba(255,255,255,0.08)]">
-          <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-ping" />
-          <span className="font-mono text-[11px] tracking-wider text-[#00ff9d]">
-            48.0 kHz // 32-BIT FLOAT
+        {/* Center: Hardware Telemetry Pill (hidden on small mobile) */}
+        <div className="hidden md:flex items-center gap-3 px-3.5 py-1 rounded-full bg-black/30 border border-white/10 font-mono text-[10px] text-white/70 tracking-wider">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            48.0 kHz
           </span>
-          <span className="text-[#3b494b] text-[11px]">|</span>
-          <span className="font-mono text-[11px] text-[#b9cacb]">DSP &lt;8ms</span>
-          <span className="text-[#3b494b] text-[11px]">|</span>
-          <span className="font-mono text-[11px] text-[#00dbe9]">BUFFER: 128</span>
+          <span className="text-white/20">|</span>
+          <span>32-BIT FLOAT</span>
+          <span className="text-white/20">|</span>
+          <span className="text-cyan-300">DSP &lt;8ms</span>
+          <span className="text-white/20">|</span>
+          <span>BUFFER 128</span>
         </div>
 
-        {/* Right: Quick Action Pill */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => scrollToCanal(1)}
-            className="group px-4 py-1.5 rounded-full bg-[#292a2f]/80 hover:bg-[#34343a] text-[#dbfcff] border border-white/[0.08] font-mono text-xs transition-all duration-200 flex items-center gap-2 shadow-[0_0_16px_rgba(0,240,255,0.2)] cursor-pointer"
-          >
-            <span>Explorar DSP</span>
-            <svg
-              className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M14 5l7 7m0 0l-7 7m7-7H3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
+        {/* Right: Enter Quick Action Button */}
+        <button
+          type="button"
+          onClick={handleStartExperience}
+          className="px-4 py-1.5 rounded-full liquid-glass-pill bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/20 active:scale-[0.97] transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm"
+        >
+          <span>Entrar</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </header>
 
-      {/* [Z-80] Floating Channel Strip Vertical Navigation */}
-      <aside className="fixed right-3 sm:right-6 top-1/2 -translate-y-1/2 z-[80] flex flex-col gap-3 pointer-events-auto">
-        <div className="flex flex-col gap-2.5 p-2 rounded-2xl bg-[#1a1b21]/70 border border-white/[0.08] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-          {[
-            { ch: 0, label: 'CH 01 // HERO' },
-            { ch: 1, label: 'CH 02 // MIXER' },
-            { ch: 2, label: 'CH 03 // TURNTABLE' },
-            { ch: 3, label: 'CH 04 // LAUNCH' },
-          ].map((item) => {
-            const isActive = activeChannel === item.ch;
-
-            return (
-              <button
-                key={item.ch}
-                type="button"
-                onClick={() => scrollToCanal(item.ch)}
-                className="group relative flex items-center justify-end cursor-pointer"
-                title={item.label}
+      {/* [Z-40] Floating Right Channel Strip Dock (Liquid Glass Dock) */}
+      <aside className="fixed right-4 top-1/2 -translate-y-1/2 liquid-glass-dock p-2 z-40 hidden lg:flex flex-col gap-1 pointer-events-auto border border-white/15 border-t-white/30 shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)]">
+        {channels.map((ch) => {
+          const isActive = activeChannel === ch.id;
+          return (
+            <button
+              key={ch.id}
+              type="button"
+              onClick={() => scrollToCanal(ch.id)}
+              className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-2xl transition-all duration-300 cursor-pointer ${
+                isActive ? 'bg-white/15 shadow-sm' : 'hover:bg-white/5'
+              }`}
+              title={ch.label}
+            >
+              {/* LED indicator */}
+              <span
+                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                  isActive
+                    ? 'bg-cyan-400 shadow-[0_0_10px_rgba(0,229,255,0.9)] scale-125'
+                    : 'bg-white/20 group-hover:bg-white/50'
+                }`}
+              />
+              {/* Label */}
+              <span
+                className={`font-mono text-[10px] tracking-wider transition-colors ${
+                  isActive ? 'text-white font-semibold' : 'text-white/50 group-hover:text-white/80'
+                }`}
               >
-                <span className="absolute right-7 px-2 py-0.5 rounded-md bg-[#1e1f25] border border-white/10 text-[#dbfcff] font-mono text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
-                  {item.label}
-                </span>
-                <div
-                  className={`dot-indicator transition-all duration-300 rounded-full ${
-                    isActive
-                      ? 'w-2.5 h-6 bg-[#00f0ff] shadow-[0_0_12px_#00f0ff]'
-                      : 'w-2.5 h-2.5 bg-[#34343a] hover:bg-[#b9cacb]'
-                  }`}
-                />
-              </button>
-            );
-          })}
-        </div>
+                {ch.label}
+              </span>
+            </button>
+          );
+        })}
       </aside>
 
       {/* Master Vertical Scroll-Snap Container */}
@@ -237,40 +237,40 @@ export const LandingScreen: React.FC = () => {
         ref={viewportRef}
         onScroll={handleScroll}
         id="studio-viewport"
-        className="studio-gateway relative z-10 w-full h-screen overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth"
+        className="landing-scroll-container relative z-10 w-full h-screen overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth liquid-glass-scrollbar"
       >
         {/* =============================================================== */}
         {/* CANAL 01: HERO CONSOLE & CRT OSCILLOSCOPE                       */}
         {/* =============================================================== */}
         <section
           id="canal-0"
-          className="w-full h-screen min-h-[640px] max-h-[1080px] snap-start shrink-0 flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 pt-20 pb-12 relative overflow-hidden"
+          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
           {/* Ambient Glow */}
-          <div className="absolute w-[500px] h-[500px] rounded-full bg-[#00f0ff]/10 blur-[130px] pointer-events-none -top-20 -left-20" />
+          <div className="absolute w-[500px] h-[500px] rounded-full bg-cyan-500/10 blur-[130px] pointer-events-none -top-20 -left-20" />
 
           <div className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             {/* Left: Textual Authority & Dropzone */}
             <div className="lg:col-span-7 flex flex-col items-start gap-4">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#292a2f]/60 border border-white/[0.06] backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] animate-pulse" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#7df4ff]">
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full liquid-glass-pill border border-white/10 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00e5ff]" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">
                   Canal Primario // Inmersión Óptica
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-[#dbfcff] leading-tight font-sans">
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-tight font-sans">
                 AURA
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00e5ff] to-[#8c38ff]">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-rose-400">
                   3D
                 </span>
               </h1>
 
-              <p className="text-sm sm:text-base text-[#b9cacb] max-w-xl leading-relaxed">
-                Estación de audio espacial en tiempo real con shaders WebGL y micro-física acústica. Procesa transitorios con latencia ultrabaja en un lienzo háptico.
+              <p className="text-sm sm:text-base text-white/70 max-w-xl leading-relaxed">
+                Estación de audio espacial en tiempo real con shaders WebGL y micro-física acústica. Procesa transitorios con latencia ultrabaja en un lienzo háptico estilo visionOS.
               </p>
 
-              {/* Dropzone Card */}
+              {/* Dropzone Card (Liquid Glass) */}
               <div
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -279,33 +279,21 @@ export const LandingScreen: React.FC = () => {
                 onDragLeave={() => setIsDraggingHero(false)}
                 onDrop={handleHeroDrop}
                 onClick={() => fileInputHeroRef.current?.click()}
-                className={`w-full max-w-lg mt-1 p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                className={`w-full max-w-lg mt-1 p-4 sm:p-5 liquid-glass-card border transition-all cursor-pointer flex items-center justify-between gap-4 ${
                   isDraggingHero
-                    ? 'border-[#00f0ff] bg-[#00f0ff]/15 scale-[1.01] shadow-[0_0_20px_rgba(0,240,255,0.3)]'
-                    : 'bg-[#1a1b21]/70 border-white/[0.08] backdrop-blur-2xl hover:border-white/20 hover:bg-[#1a1b21]/90 shadow-[0_12px_40px_rgba(0,0,0,0.4)]'
+                    ? 'border-cyan-400 bg-cyan-500/20 scale-[1.01] shadow-[0_0_24px_rgba(0,229,255,0.4)]'
+                    : 'border-white/15 border-t-white/30 hover:border-white/25 hover:bg-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.6)]'
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#292a2f] border border-white/10 flex items-center justify-center shrink-0 text-[#00f0ff]">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.75"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl liquid-glass-pill border border-white/20 flex items-center justify-center shrink-0 text-cyan-400 shadow-sm">
+                    <Upload className="w-5 h-5" />
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs sm:text-sm text-[#e3e1e9] font-semibold truncate">
+                    <span className="text-xs sm:text-sm text-white font-semibold truncate">
                       Arrastra master multicanal
                     </span>
-                    <span className="font-mono text-[11px] text-[#849495] truncate">
+                    <span className="font-mono text-[11px] text-white/50 truncate">
                       FLAC, WAV 96kHz, MP3 o Stems
                     </span>
                   </div>
@@ -313,7 +301,7 @@ export const LandingScreen: React.FC = () => {
 
                 <button
                   type="button"
-                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-[#34343a] hover:bg-[#38393f] text-[#dbfcff] font-mono text-xs tracking-wide shrink-0 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full liquid-glass-pill hover:bg-white/20 text-white font-mono text-xs tracking-wide shrink-0 transition-colors cursor-pointer border border-white/20"
                 >
                   Cargar Audio
                 </button>
@@ -332,53 +320,30 @@ export const LandingScreen: React.FC = () => {
               </div>
 
               {/* Dual Tactile CTAs */}
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-1">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2">
                 <button
                   type="button"
                   onClick={handleStartExperience}
-                  className="group px-6 sm:px-7 py-3 rounded-full bg-[#e3e1e9] text-[#121318] font-mono text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-[0_0_24px_rgba(219,252,255,0.35)] hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  className="group px-6 sm:px-7 py-3 rounded-full bg-white text-black font-mono text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-[0_0_30px_rgba(255,255,255,0.4)] hover:scale-[1.02] active:scale-[0.97] transition-all cursor-pointer"
                 >
-                  <svg
-                    className="w-4 h-4 text-[#121318]"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M3 18v-6a9 9 0 0118 0v6M3 18a3 3 0 003 3h1a1 1 0 001-1v-4a1 1 0 00-1-1H4a1 1 0 00-1 1zm18 0a3 3 0 01-3 3h-1a1 1 0 01-1-1v-4a1 1 0 011-1h3a1 1 0 011 1z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <Headphones className="w-4 h-4 text-black" />
                   <span>INICIAR MOTOR 3D</span>
-                  <svg
-                    className="w-4 h-4 transform group-hover:translate-x-1 transition-transform"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                 </button>
 
                 <button
                   type="button"
                   onClick={handleMicStart}
-                  className="px-5 sm:px-6 py-3 rounded-full bg-[#1e1f25]/60 hover:bg-[#292a2f] text-[#dbfcff] border border-white/[0.08] font-mono text-xs sm:text-sm flex items-center gap-2 backdrop-blur-lg transition-colors cursor-pointer"
+                  className="px-5 sm:px-6 py-3 rounded-full liquid-glass-pill hover:bg-white/15 text-white border border-white/20 font-mono text-xs sm:text-sm flex items-center gap-2 active:scale-[0.97] transition-all cursor-pointer shadow-sm"
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#00ff9d] animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
+                  <Mic className="w-4 h-4 text-emerald-400" />
                   <span>Micrófono Directo</span>
                 </button>
               </div>
             </div>
 
-            {/* Right: Studio Oscilloscope (CRT Phosphor) */}
+            {/* Right: Studio Oscilloscope (CRT Phosphor in Liquid Glass) */}
             <div className="lg:col-span-5 flex justify-center">
               <StudioOscilloscope />
             </div>
@@ -389,22 +354,10 @@ export const LandingScreen: React.FC = () => {
             onClick={() => scrollToCanal(1)}
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
           >
-            <span className="font-mono text-[10px] tracking-widest text-[#7df4ff] uppercase">
+            <span className="font-mono text-[10px] tracking-widest text-cyan-300 uppercase">
               Explorar Consola DSP
             </span>
-            <svg
-              className="w-4 h-4 text-[#dbfcff] animate-bounce"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M19 14l-7 7m0 0l-7-7m7 7V3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <ChevronDown className="w-4 h-4 text-white animate-bounce" />
           </div>
         </section>
 
@@ -413,7 +366,7 @@ export const LandingScreen: React.FC = () => {
         {/* =============================================================== */}
         <section
           id="canal-1"
-          className="w-full h-screen min-h-[640px] max-h-[1080px] snap-start shrink-0 flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 py-14 relative overflow-hidden"
+          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
           <StudioMixerDeck />
         </section>
@@ -423,10 +376,10 @@ export const LandingScreen: React.FC = () => {
         {/* =============================================================== */}
         <section
           id="canal-2"
-          className="w-full h-screen min-h-[640px] max-h-[1080px] snap-start shrink-0 flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 py-14 relative overflow-hidden"
+          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
           {/* Violet Backdrop Bloom */}
-          <div className="absolute w-[600px] h-[600px] rounded-full bg-[#8c38ff]/10 blur-[150px] pointer-events-none -bottom-20 -right-20" />
+          <div className="absolute w-[600px] h-[600px] rounded-full bg-purple-500/10 blur-[150px] pointer-events-none -bottom-20 -right-20" />
           <StudioTurntableDeck />
         </section>
 
@@ -435,10 +388,10 @@ export const LandingScreen: React.FC = () => {
         {/* =============================================================== */}
         <section
           id="canal-3"
-          className="w-full h-screen min-h-[640px] max-h-[1080px] snap-start shrink-0 flex flex-col justify-center items-center px-4 sm:px-8 lg:px-12 py-14 relative overflow-hidden"
+          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
           {/* Magenta Ambient Halo */}
-          <div className="absolute w-[500px] h-[500px] rounded-full bg-[#ff088a]/10 blur-[140px] pointer-events-none -top-10 right-1/4" />
+          <div className="absolute w-[500px] h-[500px] rounded-full bg-rose-500/10 blur-[140px] pointer-events-none -top-10 right-1/4" />
           <StudioLaunchDeck
             onStartExperience={handleStartExperience}
             onMicStart={handleMicStart}
@@ -446,6 +399,22 @@ export const LandingScreen: React.FC = () => {
           />
         </section>
       </div>
+
+      {/* Elastic Physics Transition Curtain */}
+      <AnimatePresence>
+        {isTransitioningOut && (
+          <motion.div
+            initial={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+            animate={{ y: '-100%', opacity: 0, filter: 'blur(20px)' }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 0.9,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="fixed inset-0 z-[100] pointer-events-none bg-gradient-to-b from-black via-black/95 to-black/80"
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

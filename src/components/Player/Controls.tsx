@@ -142,9 +142,19 @@ export const Controls: React.FC = React.memo(() => {
           </button>
         )}
 
-        {/* Mobile Volume */}
+        {/* Mobile Actions (Volume & MiniPlayer) */}
         <div className="flex sm:hidden items-center gap-1">
           <VolumeControl />
+          <button
+            onClick={toggleMiniPlayer}
+            className={`p-1 h-6.5 w-6.5 rounded-md transition-all flex items-center justify-center cursor-pointer border ${
+              isMiniPlayerOpen
+                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-[0_0_8px_rgba(0,229,255,0.2)]'
+                : 'text-white/40 hover:text-white border-transparent hover:bg-white/[0.06]'
+            }`}
+          >
+            <Maximize2 className="w-3 h-3" />
+          </button>
         </div>
       </div>
 

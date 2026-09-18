@@ -30,3 +30,7 @@ dist-ssr
 # Server persistent data
 server/data/
 .cache/
+
+# Playwright Test Artifacts
+test-results/
+playwright-report/

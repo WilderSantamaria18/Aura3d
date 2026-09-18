@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Disc, Play, Pause, Flame } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { VisualizerShape } from '../../types/audio';
 
@@ -17,8 +18,10 @@ const SHAPE_PRESETS: ShapePreset[] = [
 /**
  * StudioTurntableDeck
  * Tornamesa Virtual Rainbow Void de alta fricción con tracción directa (Canal 03).
- * Disco de vinilo de 33⅓ RPM con micro-surcos, dispersión cónica cromática,
- * brazo metálico, pitch con tempo maestro variable y selector de deformación espectral.
+ * Rediseñada con la auténtica fórmula Apple visionOS Liquid Glass:
+ * - Chasis de cristal líquido ahumado con bisel de luz incidente
+ * - Disco de vinilo a 33⅓ RPM con micro-surcos y dispersión cónica cromática
+ * - Controles de pitch DJ y deformador espectral en cápsulas de vidrio
  */
 export const StudioTurntableDeck: React.FC = () => {
   const { blobShape, setBlobShape } = usePlayerStore();
@@ -36,24 +39,24 @@ export const StudioTurntableDeck: React.FC = () => {
     <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center select-none font-sans">
       {/* ── Turntable Hardware Body (Left/Center) ── */}
       <div className="lg:col-span-7 flex justify-center">
-        <div className="relative w-full max-w-[420px] sm:max-w-md aspect-square p-5 sm:p-6 rounded-3xl bg-[#1a1b21]/90 border border-white/[0.08] backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.65)] flex items-center justify-center overflow-hidden">
+        <div className="relative w-full max-w-[420px] sm:max-w-md aspect-square p-5 sm:p-6 liquid-glass-card border border-white/10 border-t-white/30 shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)] flex items-center justify-center overflow-hidden">
           {/* Metallic Chassis Corner Highlights */}
           <div className="absolute top-4 left-5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#ff088a] shadow-[0_0_8px_#ff088a] animate-pulse" />
-            <span className="font-mono text-[10px] text-[#849495] tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-pulse" />
+            <span className="font-mono text-[10px] text-white/60 tracking-wider">
               DIRECT DRIVE 33⅓ RPM
             </span>
           </div>
-          <div className="absolute top-4 right-5 font-mono text-[10px] sm:text-[11px] text-[#00dbe9]">
+          <div className="absolute top-4 right-5 font-mono text-[10px] sm:text-[11px] text-cyan-300">
             QUARTZ LOCK: ACTIVE
           </div>
 
-          {/* Turntable Platter (Recessed Obsidian Circle) */}
-          <div className="relative w-[86%] h-[86%] rounded-full bg-[#06080e] border border-white/[0.06] shadow-[inset_0_4px_24px_rgba(0,0,0,0.95),0_0_40px_rgba(0,229,255,0.08)] flex items-center justify-center">
+          {/* Turntable Platter (Recessed Obsidian Liquid Glass Circle) */}
+          <div className="relative w-[86%] h-[86%] rounded-full bg-black/80 border border-white/10 shadow-[inset_0_4px_24px_rgba(0,0,0,0.95),0_0_40px_rgba(0,229,255,0.12)] flex items-center justify-center">
             {/* Realistic Vinyl Record with Micro-Grooves */}
             <div
               onClick={() => setIsPlaying((prev) => !prev)}
-              className="relative w-[92%] h-[92%] rounded-full bg-[#0a0c14] border border-white/10 shadow-[0_0_18px_rgba(0,0,0,0.9)] flex items-center justify-center cursor-pointer transition-transform"
+              className="relative w-[92%] h-[92%] rounded-full bg-[#080a10] border border-white/10 shadow-[0_0_24px_rgba(0,0,0,0.9)] flex items-center justify-center cursor-pointer transition-transform group"
               style={{
                 animation: isPlaying
                   ? `spin ${spinDuration}s linear infinite`
@@ -70,21 +73,21 @@ export const StudioTurntableDeck: React.FC = () => {
               <div className="absolute inset-22 sm:inset-24 rounded-full border border-white/[0.03]" />
 
               {/* Subtle Conic Chromatic Dispersion Reflection */}
-              <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(0,229,255,0.08)_45deg,transparent_90deg,rgba(140,56,255,0.08)_180deg,transparent_270deg)] pointer-events-none" />
+              <div className="absolute inset-0 rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,rgba(0,229,255,0.12)_45deg,transparent_90deg,rgba(168,85,247,0.12)_180deg,transparent_270deg)] pointer-events-none" />
 
               {/* Center Label: "Rainbow Void" Artwork */}
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-[#ff088a] via-[#8c38ff] to-[#00e5ff] p-0.5 shadow-xl flex items-center justify-center">
-                <div className="w-full h-full rounded-full bg-[#070913] flex flex-col items-center justify-center text-center p-2">
-                  <span className="font-mono text-[7px] text-[#00e5ff] tracking-widest uppercase">
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr from-rose-500 via-purple-500 to-cyan-400 p-0.5 shadow-xl flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-black/90 flex flex-col items-center justify-center text-center p-2">
+                  <span className="font-mono text-[7px] text-cyan-300 tracking-widest uppercase">
                     Aura3D Void
                   </span>
-                  <span className="font-mono text-[10px] sm:text-[11px] font-bold text-[#e3e1e9] leading-tight">
+                  <span className="font-mono text-[10px] sm:text-[11px] font-bold text-white leading-tight">
                     CHROMA
                   </span>
-                  <span className="font-mono text-[7px] text-[#849495]">STEM 03</span>
+                  <span className="font-mono text-[7px] text-white/50">STEM 03</span>
                 </div>
                 {/* Spindle hole */}
-                <div className="absolute w-4 h-4 rounded-full bg-[#1e202a] border border-white/20 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]" />
+                <div className="absolute w-4 h-4 rounded-full bg-white/20 border border-white/30 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]" />
               </div>
             </div>
 
@@ -95,22 +98,22 @@ export const StudioTurntableDeck: React.FC = () => {
               }`}
             >
               {/* Pivot Base */}
-              <div className="w-8 h-8 rounded-full bg-[#34343a] border border-white/20 shadow-lg mx-auto" />
+              <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 shadow-lg mx-auto backdrop-blur-md" />
               {/* Arm Tube */}
-              <div className="w-1.5 h-40 bg-gradient-to-r from-[#849495] via-[#dbfcff] to-[#34343a] mx-auto shadow-md" />
+              <div className="w-1.5 h-40 bg-gradient-to-r from-white/40 via-cyan-200/80 to-white/20 mx-auto shadow-md" />
               {/* Headshell / Cartridge */}
-              <div className="w-4 h-8 rounded-sm bg-[#00f0ff] mx-auto -mt-1 shadow-[0_0_10px_#00f0ff] flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#002022]" />
+              <div className="w-4 h-8 rounded-sm bg-cyan-400 mx-auto -mt-1 shadow-[0_0_12px_rgba(0,229,255,0.7)] flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-black" />
               </div>
             </div>
           </div>
 
           {/* Platter Strobe Dots */}
-          <div className="absolute bottom-4 left-5 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
-            <span className="w-1 h-1 rounded-full bg-[#34343a]" />
-            <span className="w-1 h-1 rounded-full bg-[#34343a]" />
-            <span className="font-mono text-[9px] text-[#849495] ml-1">STROBE SYNC</span>
+          <div className="absolute bottom-4 left-5 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
+            <span className="w-1 h-1 rounded-full bg-white/30" />
+            <span className="w-1 h-1 rounded-full bg-white/30" />
+            <span className="font-mono text-[9px] text-white/50 ml-1">STROBE SYNC</span>
           </div>
         </div>
       </div>
@@ -118,79 +121,92 @@ export const StudioTurntableDeck: React.FC = () => {
       {/* ── Turntable Telemetry & Presets (Right) ── */}
       <div className="lg:col-span-5 flex flex-col items-start gap-5">
         <div>
-          <span className="font-mono text-[10px] sm:text-[11px] text-[#7df4ff] tracking-wider uppercase">
+          <span className="font-mono text-[10px] sm:text-[11px] text-cyan-400 tracking-wider uppercase">
             [ 03 // NÚCLEO CINÉTICO DE VINILO ]
           </span>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#e3e1e9] mt-0.5">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mt-0.5">
             Tornamesa Virtual Rainbow Void
           </h2>
-          <p className="font-sans text-xs sm:text-sm text-[#b9cacb] mt-2 leading-relaxed">
+          <p className="font-sans text-xs sm:text-sm text-white/70 mt-2 leading-relaxed">
             Emulación física de masa giratoria, deslizamiento de aguja y difracción de espectro óptico en un disco virtual de alta fricción.
           </p>
         </div>
 
-        {/* Pitch & BPM Display Card */}
-        <div className="w-full p-4 sm:p-5 rounded-2xl bg-[#1a1b21]/80 border border-white/[0.08] backdrop-blur-xl shadow-lg flex flex-col gap-3">
+        {/* Pitch & BPM Display Card (Liquid Glass) */}
+        <div className="w-full p-5 rounded-2xl liquid-glass-card border border-white/10 border-t-white/30 shadow-lg flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div>
-              <span className="font-mono text-[10px] text-[#849495] uppercase block">
+              <span className="font-mono text-[10px] text-white/50 uppercase block">
                 TEMPO MAESTRO
               </span>
-              <span className="font-mono text-2xl sm:text-3xl font-bold text-[#00f0ff]">
+              <span className="font-mono text-2xl sm:text-3xl font-bold text-cyan-300">
                 {bpm.toFixed(1)}{' '}
-                <span className="text-xs text-[#849495] font-normal">BPM</span>
+                <span className="text-xs font-normal text-white/50">BPM</span>
               </span>
             </div>
-            <div className="flex flex-col items-end">
-              <span className="px-2 py-0.5 rounded bg-[#292a2f] border border-white/[0.06] font-mono text-[10px] text-[#00ff9d]">
-                KEY LOCK: ON
-              </span>
-              <span className="font-mono text-[11px] text-[#e3e1e9] mt-1">±8% RANGE</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              className="px-4 py-2 liquid-glass-pill bg-white/10 hover:bg-white/15 text-white border border-white/20 flex items-center gap-2 font-mono text-xs active:scale-[0.97] transition-all cursor-pointer shadow-sm"
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>PAUSAR</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+                  <span>GIRAR</span>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Pitch Slider */}
-          <div className="flex items-center gap-3 pt-1">
-            <span className="font-mono text-[10px] text-[#849495]">118.0</span>
+          {/* Pitch Slider Track */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex justify-between font-mono text-[10px] text-white/50">
+              <span>-16% (96 BPM)</span>
+              <span className="text-cyan-400 font-semibold">
+                {(((bpm - 128) / 128) * 100).toFixed(1)}% PITCH
+              </span>
+              <span>+16% (160 BPM)</span>
+            </div>
             <input
               type="range"
-              min="118"
-              max="138"
-              step="0.1"
+              min="96"
+              max="160"
+              step="0.5"
               value={bpm}
               onChange={handlePitchChange}
-              className="w-full accent-[#00f0ff] bg-[#34343a] h-1.5 rounded-full cursor-pointer"
+              className="w-full h-1.5 bg-white/10 rounded-full appearance-none accent-cyan-400 cursor-pointer"
             />
-            <span className="font-mono text-[10px] text-[#849495]">138.0</span>
           </div>
         </div>
 
-        {/* Shape Preset Tactile Selectors */}
+        {/* Spectral Deformation Shape Selector */}
         <div className="w-full flex flex-col gap-2">
-          <span className="font-mono text-[10px] text-[#849495] uppercase tracking-wider">
-            MODELO DE DEFORMACIÓN ESPECTRAL
+          <span className="font-mono text-[10px] text-white/50 uppercase tracking-wider">
+            DEFORMACIÓN ESPECTRAL RAINBOW
           </span>
-          <div className="grid grid-cols-2 gap-2 w-full">
+          <div className="grid grid-cols-2 gap-2">
             {SHAPE_PRESETS.map((preset) => {
               const isSelected = blobShape === preset.id;
-
               return (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => setBlobShape(preset.id)}
-                  className={`px-4 py-3 rounded-xl font-mono text-xs font-semibold text-left flex items-center justify-between transition-all cursor-pointer ${
+                  className={`p-2.5 rounded-xl text-left font-mono text-xs transition-all cursor-pointer flex items-center justify-between border active:scale-[0.97] ${
                     isSelected
-                      ? 'bg-[#00f0ff] text-[#002022] shadow-[0_0_16px_rgba(0,240,255,0.35)]'
-                      : 'bg-[#1e1f25] hover:bg-[#292a2f] text-[#e3e1e9] border border-white/[0.04]'
+                      ? 'liquid-glass bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_16px_rgba(0,229,255,0.25)]'
+                      : 'liquid-glass text-white/70 hover:text-white border-white/10 hover:border-white/20'
                   }`}
                 >
-                  <span>{preset.label}</span>
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      isSelected ? 'bg-[#002022]' : 'bg-[#34343a]'
-                    }`}
-                  />
+                  <span className="truncate">{preset.label}</span>
+                  {isSelected && (
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff] shrink-0" />
+                  )}
                 </button>
               );
             })}

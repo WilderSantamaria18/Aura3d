@@ -230,9 +230,15 @@ export const EqualizerModal: React.FC = () => {
         const specWidth = availW / binCount;
 
         const specGrad = ctx.createLinearGradient(0, H, 0, 0);
-        specGrad.addColorStop(0, 'rgba(0, 229, 255, 0.02)');
-        specGrad.addColorStop(0.7, 'rgba(0, 229, 255, 0.12)');
-        specGrad.addColorStop(1, 'rgba(168, 85, 247, 0.22)');
+        if (isLucid) {
+          specGrad.addColorStop(0, `${activeColor}05`);
+          specGrad.addColorStop(0.7, `${activeColor}22`);
+          specGrad.addColorStop(1, `${activeColor}38`);
+        } else {
+          specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.02)');
+          specGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.12)');
+          specGrad.addColorStop(1, 'rgba(255, 255, 255, 0.25)');
+        }
 
         ctx.fillStyle = specGrad;
         ctx.beginPath();
@@ -261,8 +267,13 @@ export const EqualizerModal: React.FC = () => {
       if (points.length >= 2) {
         // Shaded curve area
         const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
-        fillGrad.addColorStop(0, isLucid ? `${activeColor}25` : 'rgba(0, 229, 255, 0.18)');
-        fillGrad.addColorStop(1, 'transparent');
+        if (isLucid) {
+          fillGrad.addColorStop(0, `${activeColor}25`);
+          fillGrad.addColorStop(1, 'transparent');
+        } else {
+          fillGrad.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+          fillGrad.addColorStop(1, 'transparent');
+        }
 
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
@@ -299,8 +310,8 @@ export const EqualizerModal: React.FC = () => {
           const cp2y = p2.y - (p3.y - p1.y) / 6;
           ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
         }
-        ctx.strokeStyle = isLucid ? activeColor : '#00e5ff';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = isLucid ? activeColor : '#ffffff';
+        ctx.lineWidth = 2.2;
         ctx.stroke();
 
         // 4. Interactive Nodes for each band
@@ -310,15 +321,15 @@ export const EqualizerModal: React.FC = () => {
           if (isTargeted) {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
-            ctx.fillStyle = isLucid ? `${activeColor}40` : 'rgba(0, 229, 255, 0.3)';
+            ctx.fillStyle = isLucid ? `${activeColor}40` : 'rgba(255, 255, 255, 0.35)';
             ctx.fill();
           }
 
           ctx.beginPath();
-          ctx.arc(p.x, p.y, isTargeted ? 4.5 : 3, 0, Math.PI * 2);
-          ctx.fillStyle = isTargeted ? '#ffffff' : isLucid ? activeColor : '#00e5ff';
+          ctx.arc(p.x, p.y, isTargeted ? 5 : 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = isTargeted ? '#ffffff' : isLucid ? activeColor : '#ffffff';
           ctx.fill();
-          ctx.strokeStyle = '#000000';
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
           ctx.lineWidth = 1;
           ctx.stroke();
         });
@@ -439,19 +450,54 @@ export const EqualizerModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-display animate-aura-backdrop"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/40 backdrop-blur-[36px] saturate-[140%] pointer-events-auto select-none font-display animate-aura-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setEqualizerOpen(false);
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="eq-dialog-title"
     >
       <div
-        className="w-full max-w-3xl rounded-[20px] p-4 sm:p-5 relative flex flex-col max-h-[92vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.12] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] animate-aura-modal"
-        style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
+        className={`w-full max-w-3xl rounded-[28px] p-4 sm:p-6 relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300 animate-aura-modal ${
+          isLucid
+            ? 'backdrop-blur-[64px] saturate-[190%]'
+            : 'liquid-glass-modal'
+        }`}
+        style={{
+          fontFeatureSettings: "'ss01', 'cv01'",
+          ...(isLucid
+            ? {
+                backgroundColor: lucidTheme.glassColor || 'rgba(15, 15, 22, 0.65)',
+                borderColor: `${activeColor}40`,
+                borderTopColor: `${activeColor}80`,
+                boxShadow: `0 32px 80px -10px rgba(0,0,0,0.85), 0 0 35px ${activeColor}20, inset 0 1px 1.5px rgba(255,255,255,0.30)`,
+              }
+            : {
+                background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.09) 0%, rgba(18, 18, 22, 0.58) 45%, rgba(8, 8, 12, 0.80) 100%)',
+                borderColor: 'rgba(255, 255, 255, 0.14)',
+                borderTopColor: 'rgba(255, 255, 255, 0.35)',
+                boxShadow: '0 32px 80px -10px rgba(0, 0, 0, 0.85), inset 0 1px 2px rgba(255, 255, 255, 0.30)',
+              }),
+        }}
       >
+        {/* Specular Liquid Edge Accent Highlight */}
+        <div
+          className="absolute top-0 inset-x-8 h-px pointer-events-none transition-all duration-300"
+          style={{
+            background: isLucid
+              ? `linear-gradient(to right, transparent, ${activeColor}99, transparent)`
+              : 'linear-gradient(to right, transparent, rgba(255,255,255,0.4), transparent)',
+          }}
+        />
+
         {/* ── Header ── */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm">
+            <div
+              className="w-8 h-8 rounded-[10px] bg-white/[0.08] border border-white/[0.12] flex items-center justify-center transition-colors shadow-sm"
+              style={{ color: isLucid ? activeColor : '#ffffff' }}
+            >
               <Sliders className="w-4 h-4" aria-hidden="true" />
             </div>
             <div>
@@ -459,11 +505,19 @@ export const EqualizerModal: React.FC = () => {
                 <h2 id="eq-dialog-title" className="text-white font-bold text-sm sm:text-base tracking-tight">
                   Ecualizador de Estudio
                 </h2>
-                <span className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 text-cyan-300 uppercase font-bold">
+                <span
+                  className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full uppercase font-bold transition-colors"
+                  style={{
+                    backgroundColor: isLucid ? `${activeColor}18` : 'rgba(255, 255, 255, 0.08)',
+                    borderColor: isLucid ? `${activeColor}40` : 'rgba(255, 255, 255, 0.16)',
+                    color: isLucid ? activeColor : 'rgba(255, 255, 255, 0.9)',
+                    borderWidth: 1,
+                  }}
+                >
                   DSP 10 BANDAS
                 </span>
               </div>
-              <p className="text-white/65 text-[11px] font-display tracking-normal mt-0.5">
+              <p className="text-white/60 text-[11px] font-sans tracking-normal mt-0.5">
                 Calibración de frecuencia en tiempo real · 20Hz - 20kHz
               </p>
             </div>
@@ -475,21 +529,27 @@ export const EqualizerModal: React.FC = () => {
               onClick={handleToggleBypass}
               aria-pressed={isBypassed}
               aria-label={isBypassed ? 'Desactivar modo Bypass' : 'Activar modo Bypass a 0dB'}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-display font-tabular font-bold tracking-wider uppercase border btn-spring flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-display font-tabular font-bold tracking-wider uppercase border btn-spring flex items-center gap-2 cursor-pointer transition-all ${
                 isBypassed
-                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                  : 'bg-white/[0.03] text-white/80 border-white/[0.08] hover:text-white hover:bg-white/[0.06]'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/35 shadow-[0_0_14px_rgba(245,158,11,0.25)]'
+                  : 'bg-white/[0.06] text-white/90 border-white/[0.12] hover:bg-white/[0.12] hover:text-white shadow-sm'
               }`}
               title="Alternar entre Ecualizador Activo y Bypass 0dB (A/B Test)"
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isBypassed ? 'bg-amber-400 animate-pulse' : 'bg-[#00e5ff]'}`} />
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${isBypassed ? 'bg-amber-400 animate-pulse' : ''}`}
+                style={{
+                  backgroundColor: isBypassed ? undefined : isLucid ? activeColor : '#34c759',
+                }}
+              />
               {isBypassed ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
               <span>{isBypassed ? 'Bypass' : 'Activo'}</span>
             </button>
 
+            {/* iOS Circle Close Button */}
             <button
               onClick={() => setEqualizerOpen(false)}
-              className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/[0.08] btn-spring transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/10 active:scale-95 transition-all cursor-pointer"
               aria-label="Cerrar ecualizador"
             >
               <X className="w-4 h-4" />
@@ -497,18 +557,21 @@ export const EqualizerModal: React.FC = () => {
           </div>
         </div>
 
-        {/* ── Continuous Studio Surface (No Nested Cards) ── */}
+        {/* ── Continuous Studio Surface ── */}
         <div className="flex-1 overflow-y-auto space-y-4 py-3 scrollbar-thin scrollbar-thumb-white/10 pr-1">
-          {/* 1. Curva de Respuesta de Frecuencia (Plano integrado) */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between px-1 text-[10px] font-mono text-white/65 uppercase">
+          {/* 1. Curva de Respuesta de Frecuencia */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-1 text-[10px] font-mono text-white/60 uppercase">
               <span className="flex items-center gap-1.5">
-                <Activity className="w-3 h-3 text-[#00e5ff]" />
+                <Activity
+                  className="w-3 h-3"
+                  style={{ color: isLucid ? activeColor : 'rgba(255, 255, 255, 0.85)' }}
+                />
                 Respuesta Espectral (dB vs Hz)
               </span>
               <span>{isBypassed ? 'Modo Bypass Flat' : 'Filtros Activos'}</span>
             </div>
-            <div className="w-full relative pt-0.5 bg-black/40 rounded-[12px] border border-white/[0.08] p-1.5 overflow-hidden">
+            <div className="w-full relative pt-0.5 bg-black/35 rounded-[16px] border border-white/[0.08] p-1.5 overflow-hidden backdrop-blur-md">
               <canvas
                 ref={canvasRef}
                 onPointerDown={handleCanvasPointerDown}
@@ -516,18 +579,22 @@ export const EqualizerModal: React.FC = () => {
                 onPointerUp={handleCanvasPointerUp}
                 onPointerCancel={handleCanvasPointerUp}
                 onDoubleClick={handleCanvasDoubleClick}
-                className="w-full block rounded-[8px] cursor-crosshair touch-none select-none"
+                className="w-full block rounded-[10px] cursor-crosshair touch-none select-none"
                 aria-label="Gráfica interactiva de ecualización"
               />
               {tooltipInfo && (
                 <div
-                  className="absolute pointer-events-none px-2 py-0.5 rounded-[6px] bg-[#070913]/95 border border-cyan-500/40 text-[9px] font-mono text-cyan-300 shadow-xl -translate-x-1/2 z-20 whitespace-nowrap"
-                  style={{ left: `${tooltipInfo.x}px`, top: `${tooltipInfo.y}px` }}
+                  className="absolute pointer-events-none px-2.5 py-1 rounded-[8px] bg-black/85 backdrop-blur-md border border-white/20 text-[10px] font-mono shadow-2xl -translate-x-1/2 z-20 whitespace-nowrap"
+                  style={{
+                    left: `${tooltipInfo.x}px`,
+                    top: `${tooltipInfo.y}px`,
+                    color: isLucid ? activeColor : '#ffffff',
+                  }}
                 >
                   {tooltipInfo.text}
                 </div>
               )}
-              <div className="absolute bottom-2 right-3 pointer-events-none text-[8px] font-mono text-white/50 hidden sm:block">
+              <div className="absolute bottom-2 right-3 pointer-events-none text-[8px] font-mono text-white/45 hidden sm:block">
                 Arrastra los nodos • Doble clic para 0dB
               </div>
             </div>
@@ -536,8 +603,12 @@ export const EqualizerModal: React.FC = () => {
           {/* 2. Matriz de Presets de Estudio */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs px-1">
-              <span className="font-mono text-white/65 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-cyan-400" /> Presets de Estudio:
+              <span className="font-mono text-white/60 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                <Zap
+                  className="w-3 h-3"
+                  style={{ color: isLucid ? activeColor : 'rgba(255, 255, 255, 0.85)' }}
+                />{' '}
+                Presets de Estudio:
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -568,16 +639,32 @@ export const EqualizerModal: React.FC = () => {
                     onClick={() => handleApplyPreset(preset)}
                     aria-pressed={isSelected}
                     aria-label={`Aplicar preset ${preset.name}`}
-                    className={`min-h-[44px] px-2.5 py-2 rounded-[10px] border text-left flex flex-col justify-between btn-spring transition-all cursor-pointer ${
+                    className={`min-h-[46px] px-3 py-2 rounded-[12px] border text-left flex flex-col justify-between btn-spring transition-all cursor-pointer backdrop-blur-sm ${
                       isSelected
-                        ? 'bg-white/[0.12] border-cyan-400/50 text-white shadow-sm ring-1 ring-cyan-400/30'
-                        : 'bg-white/[0.03] border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.07] text-white/80 hover:text-white'
+                        ? isLucid
+                          ? 'text-white shadow-md'
+                          : 'bg-white/[0.18] border-white/40 text-white shadow-md ring-1 ring-white/20'
+                        : 'bg-white/[0.04] border-white/[0.07] hover:border-white/[0.18] hover:bg-white/[0.08] text-white/80 hover:text-white'
                     }`}
+                    style={
+                      isSelected && isLucid
+                        ? {
+                            backgroundColor: `${activeColor}25`,
+                            borderColor: `${activeColor}65`,
+                            boxShadow: `0 4px 14px ${activeColor}30`,
+                          }
+                        : undefined
+                    }
                   >
                     <span className="text-[11px] font-medium leading-tight truncate">
                       {preset.name}
                     </span>
-                    <span className="text-[8px] font-mono text-white/55 tracking-wider uppercase mt-1">
+                    <span
+                      className="text-[8px] font-mono tracking-wider uppercase mt-1 transition-colors"
+                      style={{
+                        color: isSelected && isLucid ? activeColor : 'rgba(255, 255, 255, 0.55)',
+                      }}
+                    >
                       {preset.tag}
                     </span>
                   </button>
@@ -586,9 +673,9 @@ export const EqualizerModal: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Faders Verticales de Precisión (Consola de Audio Continua) */}
+          {/* 3. Faders Verticales de Precisión */}
           <div className="pt-2 border-t border-white/[0.06]">
-            <div className="grid grid-cols-5 sm:grid-cols-10 divide-x divide-white/[0.04] bg-black/20 rounded-[12px] border border-white/[0.06]">
+            <div className="grid grid-cols-5 sm:grid-cols-10 divide-x divide-white/[0.04] bg-white/[0.02] backdrop-blur-md rounded-[16px] border border-white/[0.08] shadow-inner">
               {eqBands.map((band, idx) => {
                 const cat = BAND_CATEGORIES[idx] || { tag: 'MID' };
 
@@ -632,7 +719,10 @@ export const EqualizerModal: React.FC = () => {
                           setActivePresetId('custom');
                           StorageService.saveActiveEqPresetId('custom');
                         }}
-                        className="w-28 sm:w-32 h-1.5 bg-white/[0.1] rounded-full appearance-none cursor-pointer accent-[#00e5ff] -rotate-90 origin-center z-10 disabled:opacity-30 focus:outline-none"
+                        className="w-28 sm:w-32 h-1.5 bg-white/[0.12] rounded-full appearance-none cursor-pointer -rotate-90 origin-center z-10 disabled:opacity-30 focus:outline-none transition-all"
+                        style={{
+                          accentColor: isLucid ? activeColor : '#ffffff',
+                        }}
                       />
                     </div>
 
@@ -645,7 +735,7 @@ export const EqualizerModal: React.FC = () => {
                         }}
                         disabled={isBypassed || band.gain <= -12}
                         aria-label={`Disminuir ${band.label} 0.5 dB`}
-                        className="w-5 h-5 flex items-center justify-center rounded bg-white/[0.06] text-white/70 hover:text-white text-[10px] font-bold disabled:opacity-20 transition-colors cursor-pointer"
+                        className="w-5 h-5 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] text-white/80 hover:text-white text-[11px] font-bold disabled:opacity-20 transition-all cursor-pointer shadow-sm active:scale-90"
                         title="Bajar 0.5dB"
                       >
                         -
@@ -657,7 +747,7 @@ export const EqualizerModal: React.FC = () => {
                         }}
                         disabled={isBypassed || band.gain >= 12}
                         aria-label={`Aumentar ${band.label} 0.5 dB`}
-                        className="w-5 h-5 flex items-center justify-center rounded bg-white/[0.06] text-white/70 hover:text-white text-[10px] font-bold disabled:opacity-20 transition-colors cursor-pointer"
+                        className="w-5 h-5 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] text-white/80 hover:text-white text-[11px] font-bold disabled:opacity-20 transition-all cursor-pointer shadow-sm active:scale-90"
                         title="Subir 0.5dB"
                       >
                         +

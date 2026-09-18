@@ -2,9 +2,18 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Aura3D Critical User Flows', () => {
   test.beforeEach(async ({ page }) => {
+    // Disable the Onboarding/Quickstart modal for E2E tests
+    await page.addInitScript(() => {
+      window.localStorage.setItem('aura3d_studio_onboarded_v1', 'true');
+    });
     await page.goto('/');
     // Wait for the app shell to hydrate
     await page.waitForLoadState('domcontentloaded');
+    const startButton = page.locator('button:has-text("INICIAR MOTOR 3D")').first();
+    if (await startButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await startButton.click();
+      await page.waitForTimeout(700);
+    }
   });
 
   test('Audio Controls: Toggle Play, Pause, Next, and Previous', async ({ page }) => {
@@ -35,7 +44,7 @@ test.describe('Aura3D Critical User Flows', () => {
 
   test('Equalizer: Open modal, select preset, toggle bypass, and close', async ({ page }) => {
     // Open EQ modal via button or keyboard shortcut
-    const eqButton = page.locator('button[aria-label*="Ecualizador"], button[title*="Ecualizador"]');
+    const eqButton = page.locator('button[aria-label="Abrir Ecualizador"], button[title="Ecualizador Avanzado"]');
     if (await eqButton.count() > 0 && await eqButton.first().isVisible()) {
       await eqButton.first().click();
     } else {

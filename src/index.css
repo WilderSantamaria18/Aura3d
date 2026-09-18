@@ -89,10 +89,10 @@
 
   /* ── 9. Apple visionOS Liquid Glass Master Shader Tokens ── */
   --liquid-blur: blur(40px) saturate(190%) contrast(105%);
-  --liquid-resin: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(14, 18, 30, 0.65) 45%, rgba(7, 9, 15, 0.85) 100%);
-  --liquid-specular-top: rgba(255, 255, 255, 0.28);
-  --liquid-specular-rim: rgba(255, 255, 255, 0.12);
-  --liquid-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.72), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4);
+  --liquid-resin: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(18, 18, 22, 0.60) 45%, rgba(8, 8, 12, 0.80) 100%);
+  --liquid-specular-top: rgba(255, 255, 255, 0.32);
+  --liquid-specular-rim: rgba(255, 255, 255, 0.14);
+  --liquid-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.75), inset 0 1px 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4);
 
   /* ── 10. Sombras de Elevación iOS (Neutras y Claras) ── */
   --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -288,6 +288,195 @@ html, body, #root {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 229, 255, 0.5);
+}
+
+/* ── Apple iOS / visionOS Liquid Glass Master Formulas ── */
+.liquid-glass {
+  backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(18, 20, 28, 0.65) 50%,
+    rgba(8, 10, 16, 0.85) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.30);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 28px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+}
+
+.liquid-glass-card {
+  backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(18, 20, 28, 0.65) 50%,
+    rgba(8, 10, 16, 0.85) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.30);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 28px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+}
+
+.liquid-glass-pill {
+  backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(18, 20, 28, 0.60) 50%,
+    rgba(8, 10, 16, 0.80) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.75),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.28);
+  border-radius: 9999px;
+}
+
+.liquid-glass-modal {
+  backdrop-filter: blur(56px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(56px) saturate(190%) contrast(105%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(14, 16, 24, 0.70) 50%,
+    rgba(6, 8, 14, 0.90) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 32px 90px rgba(0, 0, 0, 0.90),
+    inset 0 1px 2px rgba(255, 255, 255, 0.25);
+  border-radius: 32px;
+}
+
+.liquid-glass-dock {
+  backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(52px) saturate(190%) contrast(105%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(18, 20, 28, 0.65) 50%,
+    rgba(8, 10, 16, 0.85) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.30);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    0 28px 80px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.22);
+  border-radius: 28px;
+}
+
+/* ── Scrollbar Liquid Glass estilo iOS ── */
+.liquid-glass-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.liquid-glass-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+
+.liquid-glass-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    0 0 12px rgba(0, 240, 255, 0);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 240, 255, 0.5) 0%,
+    rgba(140, 56, 255, 0.4) 100%
+  );
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    0 0 16px rgba(0, 240, 255, 0.6);
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.liquid-glass-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.liquid-glass-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 240, 255, 0.6) 0%,
+    rgba(140, 56, 255, 0.5) 100%
+  );
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.7);
+}
+
+/* ── Landing Scroll-Snap Container & Canales ── */
+.landing-scroll-container {
+  width: 100vw;
+  height: 100dvh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.landing-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.landing-channel {
+  width: 100%;
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vw, 64px);
+  padding-top: clamp(80px, 12vh, 120px);
+  padding-bottom: clamp(48px, 8vh, 80px);
+}
+
+.landing-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    #00e5ff 0%,
+    #8c38ff 50%,
+    #ff088a 100%
+  );
+  transform-origin: left;
+  z-index: 100;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+  transition: transform 0.15s linear;
 }
 
 /* Scrollbar None Utility */
@@ -507,10 +696,13 @@ html, body, #root {
 }
 
 .liquid-glass-modal {
-  border-radius: var(--radius-modal, 20px);
-  backdrop-filter: blur(44px) saturate(190%) contrast(105%);
-  -webkit-backdrop-filter: blur(44px) saturate(190%) contrast(105%);
-  box-shadow: 0 28px 64px -8px rgba(0, 0, 0, 0.80), inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-modal, 24px);
+  background: var(--liquid-resin);
+  backdrop-filter: blur(50px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(50px) saturate(190%) contrast(105%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 0 32px 80px -10px rgba(0, 0, 0, 0.85), inset 0 1px 1.5px rgba(255, 255, 255, 0.30);
 }
 
 .liquid-glass-micro {
@@ -518,7 +710,7 @@ html, body, #root {
 }
 
 .liquid-glass:hover {
-  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.80), 0 0 24px rgba(0, 240, 255, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.40);
+  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.80), inset 0 1px 2px rgba(255, 255, 255, 0.40);
 }
 
 .ios-glass-dock {

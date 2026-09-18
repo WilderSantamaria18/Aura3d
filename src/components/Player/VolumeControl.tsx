@@ -63,7 +63,7 @@ export const VolumeControl: React.FC = () => {
         />
       </div>
 
-      <span className="w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors">
+      <span className="hidden sm:inline-block w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors">
         {dbText}
       </span>
     </div>

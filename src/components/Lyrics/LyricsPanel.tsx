@@ -198,22 +198,10 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.98 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed inset-0 z-50 bg-[#05070e]/95 backdrop-blur-[64px] saturate-[180%] flex flex-col justify-between p-5 sm:p-8 md:p-12 overflow-hidden select-none"
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[80px] saturate-[200%] flex flex-col justify-between p-5 sm:p-8 md:p-12 overflow-hidden select-none"
         style={{ fontFamily: currentFontFamily }}
       >
-        {/* Background Atmospheric Fluid Glow Orbs */}
-        <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
-          <div
-            className="absolute -top-40 left-1/4 w-[800px] h-[800px] rounded-full blur-[200px] opacity-30 animate-pulse transition-all duration-1000"
-            style={{ backgroundColor: activeColor }}
-          />
-          <div
-            className="absolute -bottom-40 right-1/4 w-[850px] h-[750px] rounded-full blur-[220px] opacity-25 transition-all duration-1000"
-            style={{ backgroundColor: secondaryColor }}
-          />
-          <div className="absolute inset-0 bg-radial-vignette opacity-70" />
-        </div>
-
+        {/* Eliminamos los orbes palpitantes para un estilo cristal iOS limpio */}
         {/* Top iOS Header Navigation Bar */}
         <div className="w-full max-w-6xl mx-auto flex items-center justify-between z-30 pt-1 pb-3 px-2">
           {/* Left: Track Information Pill */}
@@ -435,7 +423,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       />
 
       <div
-        className="w-full h-full rounded-[30px] sm:rounded-[36px] bg-[#0b0f1a]/85 backdrop-blur-[52px] saturate-[190%] border border-white/15 border-t-white/30 flex flex-col relative transition-all duration-300 overflow-hidden pointer-events-auto shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)]"
+        className="w-full h-full rounded-[30px] sm:rounded-[36px] bg-black/30 backdrop-blur-[64px] saturate-[200%] border border-white/15 border-t-white/30 flex flex-col relative transition-all duration-300 overflow-hidden pointer-events-auto shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)]"
         style={{
           boxShadow: '0 28px 80px rgba(0,0,0,0.85), inset 0 1.5px 2px rgba(255,255,255,0.22)',
           fontFamily: currentFontFamily,

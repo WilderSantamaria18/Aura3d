@@ -1239,7 +1239,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes (Se auto-oculta en reposo) */}
       <div
-        className={`fixed top-2 sm:top-2.5 right-3 sm:right-5 z-50 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
+        className={`fixed top-20 sm:top-24 right-3 sm:right-5 z-40 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
           isUiIdle && !isBlobPanelOpen ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
         }`}
       >

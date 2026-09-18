@@ -19,7 +19,7 @@ export const CameraPresetBar: React.FC = React.memo(() => {
   ];
 
   return (
-    <div className="fixed top-12 sm:top-13 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 p-0.5 px-1 rounded-full bg-[#0c101a]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto select-none font-sans max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-none">
+    <div className="fixed top-[72px] sm:top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-0.5 p-0.5 px-1 rounded-full bg-[#0c101a]/90 backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto select-none font-sans max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-none">
       <span className="text-[8px] font-mono tracking-wider text-white/40 uppercase px-2 font-semibold hidden min-[480px]:inline">
         Cámara
       </span>

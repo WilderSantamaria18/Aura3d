@@ -47,6 +47,7 @@ const UserProfileModal = lazy(() => import('./components/UI/UserProfileModal'));
 const SystemRequirementsModal = lazy(() => import('./components/UI/SystemRequirementsModal'));
 const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalCommandPalette'));
 const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
+const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -75,6 +76,7 @@ export const App: React.FC = () => {
   const sleepTimerMinutes = usePlayerStore((s) => s.sleepTimerMinutes);
   const decrementSleepTimer = usePlayerStore((s) => s.decrementSleepTimer);
   const setCommandPaletteOpen = usePlayerStore((s) => s.setCommandPaletteOpen);
+  const isCameraStudioOpen = usePlayerStore((s) => s.isCameraStudioOpen);
 
   // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
   useEffect(() => {
@@ -139,13 +141,14 @@ export const App: React.FC = () => {
       !isLyricsOpen &&
       !isSidebarOpen &&
       !isKaraokeFullscreen &&
+      !isCameraStudioOpen &&
       !vrMode
     ) {
       idleTimerRef.current = window.setTimeout(() => {
         setIsUiIdle(true);
       }, 4500);
     }
-  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, vrMode]);
+  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, isCameraStudioOpen, vrMode]);
 
   useEffect(() => {
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
@@ -376,6 +379,11 @@ export const App: React.FC = () => {
       {isAdminModalOpen && (
         <Suspense fallback={null}>
           <AdminModal />
+        </Suspense>
+      )}
+      {isCameraStudioOpen && (
+        <Suspense fallback={null}>
+          <CameraStudioPanel />
         </Suspense>
       )}
 

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Zap, Upload, Mic, ArrowRight, Sparkles } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 
 interface StudioLaunchDeckProps {
@@ -18,8 +19,10 @@ const PALETTES: { id: PaletteId; label: string }[] = [
 /**
  * StudioLaunchDeck
  * Plataforma de Lanzamiento con Núcleo Esférico Liquid Void reactivo al kick (Canal 04).
- * Prueba de resorte háptico de graves, selector de paleta óptica y puntos de entrada
- * directos (Stems locales / Micrófono en vivo).
+ * Rediseñada con la auténtica fórmula Apple visionOS Liquid Glass:
+ * - Esfera central de cristal líquido interactiva con feedback al kick
+ * - Dropzone de audio en vidrio esmerilado con bisel de luz superior
+ * - Botones CTA en cápsulas liquid glass con física táctil elástica
  */
 export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
   onStartExperience,
@@ -72,60 +75,47 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
     <div className="w-full max-w-6xl mx-auto flex flex-col gap-6 select-none font-sans">
       {/* Header */}
       <div className="text-center max-w-xl mx-auto">
-        <span className="font-mono text-[10px] sm:text-[11px] text-[#7df4ff] tracking-widest uppercase">
+        <span className="font-mono text-[10px] sm:text-[11px] text-cyan-400 tracking-widest uppercase">
           [ 04 // PLATAFORMA DE LANZAMIENTO ]
         </span>
-        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#e3e1e9] mt-0.5">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mt-0.5">
           Liquid Void Interactive Engine
         </h2>
-        <p className="font-sans text-xs sm:text-sm text-[#b9cacb] mt-1">
+        <p className="font-sans text-xs sm:text-sm text-white/70 mt-1">
           Prueba la respuesta háptica de graves sobre el núcleo óptico reactivo.
         </p>
       </div>
 
-      {/* Main Visualizer Arena */}
-      <div className="w-full p-6 sm:p-8 rounded-3xl bg-[#1a1b21]/80 border border-white/[0.08] backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      {/* Main Visualizer Arena (Liquid Glass Card) */}
+      <div className="w-full p-6 sm:p-8 liquid-glass-card border border-white/10 border-t-white/30 shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)] grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Central Interactive Liquid Void Sphere */}
         <div className="lg:col-span-6 flex flex-col items-center justify-center">
           <div className="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
-            {/* Outer Titanium Bezel */}
-            <div className="absolute inset-0 rounded-full border border-white/10 shadow-[0_0_40px_rgba(0,229,255,0.15)]" />
+            {/* Outer Specular Rim Bezel */}
+            <div className="absolute inset-0 rounded-full border border-white/20 shadow-[0_0_40px_rgba(0,229,255,0.2)]" />
 
             {/* Rotating Conic Multi-Chromatic Gradient Hairline */}
             <div className="absolute inset-2 rounded-full bg-[conic-gradient(from_0deg,#00e5ff,#8c38ff,#ff088a,#00e5ff)] p-[1.5px] animate-[spin_6s_linear_infinite]">
-              <div className="w-full h-full rounded-full bg-[#05070e]" />
+              <div className="w-full h-full rounded-full bg-black/90" />
             </div>
 
             {/* Dynamic Kick-Reactive Void Orb */}
             <div
               onClick={triggerKickPulse}
-              className="relative w-44 h-44 rounded-full bg-gradient-to-tr from-[#05070e] via-[#0b0f1d] to-[#05070e] flex flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-100 ease-out will-change-transform"
+              className="relative w-44 h-44 rounded-full bg-gradient-to-tr from-black/90 via-slate-900/80 to-black/90 flex flex-col items-center justify-center text-center p-4 cursor-pointer transition-all duration-100 ease-out will-change-transform border border-white/10"
               style={{
                 transform: isKicking ? `scale(${scaleFactor})` : 'scale(1)',
                 boxShadow: isKicking
-                  ? 'inset 0 0 35px rgba(0,229,255,0.6), 0 0 50px rgba(0,229,255,0.7)'
-                  : 'inset 0 0 30px rgba(0,229,255,0.25), 0 0 30px rgba(140,56,255,0.2)',
+                  ? 'inset 0 0 35px rgba(0,229,255,0.6), 0 0 60px rgba(0,229,255,0.7)'
+                  : 'inset 0 0 30px rgba(0,229,255,0.25), 0 0 30px rgba(140,56,255,0.25)',
               }}
               title="Clic o presiona ESPACIO para probar el golpe"
             >
-              {/* Lightning Pulse SVG */}
-              <svg
-                className="w-8 h-8 text-[#00f0ff] mb-1"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="font-mono text-[10px] text-[#00f0ff] tracking-wider uppercase">
+              <Zap className="w-8 h-8 text-cyan-400 mb-1" />
+              <span className="font-mono text-[10px] text-cyan-300 tracking-wider uppercase">
                 PULSO VOID
               </span>
-              <span className="font-mono text-base sm:text-lg font-bold text-[#00ff9d]">
+              <span className="font-mono text-base sm:text-lg font-bold text-emerald-400">
                 {kickIntensity}% INT
               </span>
             </div>
@@ -135,179 +125,116 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
           <button
             type="button"
             onClick={triggerKickPulse}
-            className="mt-4 px-6 py-2 rounded-full bg-[#292a2f] hover:bg-[#34343a] text-[#dbfcff] border border-white/[0.08] font-mono text-xs tracking-wider transition-all active:scale-95 shadow-md cursor-pointer"
+            className="mt-4 px-6 py-2.5 liquid-glass-pill hover:bg-white/15 text-white border border-white/20 font-mono text-xs tracking-wider transition-all active:scale-[0.97] shadow-md cursor-pointer flex items-center gap-2"
           >
-            TRIGGER KICK (SPACEBAR)
+            <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            <span>TRIGGER KICK (SPACEBAR)</span>
           </button>
         </div>
 
-        {/* Controls & Stems Launch Cards (Right) */}
-        <div className="lg:col-span-6 flex flex-col gap-4">
-          {/* Kick Intensity Control Card */}
-          <div className="p-4 rounded-2xl bg-[#1e1f25]/70 border border-white/[0.06] backdrop-blur-md flex flex-col gap-2">
+        {/* Right Configuration & Action Launchpad */}
+        <div className="lg:col-span-6 flex flex-col gap-6">
+          {/* Kick Intensity Slider */}
+          <div className="flex flex-col gap-2 p-4 rounded-2xl liquid-glass border border-white/10 shadow-sm">
             <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-[#e3e1e9]">Intensidad del Golpe (Kick Spring)</span>
-              <span className="text-[#00f0ff] font-bold">{kickIntensity}%</span>
+              <span className="text-white/70">SENSIBILIDAD TRANSIENTES</span>
+              <span className="text-cyan-400 font-bold">{kickIntensity}%</span>
             </div>
             <input
               type="range"
-              min="0"
-              max="100"
+              min="20"
+              max="150"
               value={kickIntensity}
               onChange={(e) => handleIntensityChange(parseInt(e.target.value))}
-              className="w-full accent-[#00f0ff] bg-[#34343a] h-1.5 rounded-full cursor-pointer"
+              className="w-full h-1.5 bg-white/10 rounded-full appearance-none accent-cyan-400 cursor-pointer"
             />
           </div>
 
-          {/* Optical Color Palette Pills */}
-          <div className="p-4 rounded-2xl bg-[#1e1f25]/70 border border-white/[0.06] backdrop-blur-md flex flex-col gap-2">
-            <span className="font-mono text-[10px] text-[#849495] uppercase">
-              Paleta Óptica Activa
+          {/* Sacred Palette Optical Selector */}
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[10px] text-white/50 uppercase tracking-wider">
+              PALETA ÓPTICA DEL VACÍO
             </span>
-            <div className="flex flex-wrap gap-2">
-              {PALETTES.map((pal) => {
-                const isSelected = activePalette === pal.id;
-
-                return (
-                  <button
-                    key={pal.id}
-                    type="button"
-                    onClick={() => handlePaletteSelect(pal.id)}
-                    className={`px-3.5 py-1.5 rounded-full font-mono text-[11px] font-medium transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/50 shadow-[0_0_12px_rgba(0,240,255,0.25)]'
-                        : 'bg-[#292a2f] hover:bg-[#34343a] text-[#b9cacb] border border-white/[0.04]'
-                    }`}
-                  >
-                    {pal.label}
-                  </button>
-                );
-              })}
+            <div className="grid grid-cols-3 gap-2">
+              {PALETTES.map((pal) => (
+                <button
+                  key={pal.id}
+                  type="button"
+                  onClick={() => handlePaletteSelect(pal.id)}
+                  className={`py-2 px-3 rounded-xl font-mono text-xs transition-all cursor-pointer border active:scale-[0.97] text-center ${
+                    activePalette === pal.id
+                      ? 'liquid-glass bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                      : 'liquid-glass text-white/70 hover:text-white border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  {pal.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Two Launch Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-            {/* Local Stems Card */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer group shadow-sm flex flex-col justify-between h-28 ${
-                isDragging
-                  ? 'bg-[#00f0ff]/15 border-[#00f0ff] shadow-[0_0_20px_rgba(0,240,255,0.3)]'
-                  : 'bg-[#1e1f25] border-white/[0.06] hover:bg-[#292a2f] hover:border-white/20'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-[#00f0ff] tracking-wider">
-                  BIBLIOTECA LOCAL
-                </span>
-                <svg
-                  className="w-4 h-4 text-[#849495] group-hover:text-[#00f0ff] group-hover:translate-x-1 transition-all"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M9 5l7 7-7 7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+          {/* Quick Dropzone for Launch */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              isDragging
+                ? 'border-cyan-400 bg-cyan-500/20 scale-[1.01] shadow-[0_0_20px_rgba(0,229,255,0.4)]'
+                : 'liquid-glass border-white/10 hover:border-white/20 hover:bg-white/[0.08] shadow-sm'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl liquid-glass-pill border border-white/20 flex items-center justify-center shrink-0 text-cyan-400">
+                <Upload className="w-5 h-5" />
               </div>
-              <div>
-                <span className="font-sans text-sm font-semibold text-[#e3e1e9] block">
-                  Explorar Stems
+              <div className="flex flex-col text-left">
+                <span className="text-xs sm:text-sm text-white font-semibold">
+                  Arrastra archivo de audio
                 </span>
-                <span className="font-mono text-[11px] text-[#849495]">
-                  16 Tracks precargados o cargar
+                <span className="font-mono text-[10px] text-white/50">
+                  Carga inmediata al motor 3D
                 </span>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*,.mp3,.wav,.flac,.ogg"
-                onChange={handleFileInput}
-                className="hidden"
-              />
             </div>
+            <span className="text-xs font-mono text-cyan-300 underline underline-offset-2">
+              Explorar
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,.mp3,.wav,.flac,.ogg"
+              onChange={handleFileInput}
+              className="hidden"
+            />
+          </div>
 
-            {/* Active Streaming (Mic / Line In) */}
-            <div
+          {/* Master Entry Buttons */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onStartExperience}
+              className="flex-1 min-w-[200px] py-3.5 px-6 rounded-full bg-white text-black hover:bg-white/90 font-mono text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-[0.97] transition-all cursor-pointer group"
+            >
+              <Sparkles className="w-4 h-4 text-black" />
+              <span>INICIAR MOTOR 3D</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            <button
+              type="button"
               onClick={onMicStart}
-              className="p-4 rounded-2xl bg-[#1e1f25] border border-white/[0.06] hover:bg-[#292a2f] hover:border-[#00ff9d]/40 transition-all cursor-pointer group shadow-sm flex flex-col justify-between h-28"
+              className="py-3.5 px-5 rounded-full liquid-glass-pill hover:bg-white/15 text-white border border-white/20 font-mono text-xs sm:text-sm flex items-center gap-2 active:scale-[0.97] transition-all cursor-pointer shadow-sm"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-[#00ff9d] tracking-wider">
-                  STREAMING ACTIVO
-                </span>
-                <svg
-                  className="w-4 h-4 text-[#849495] group-hover:text-[#00ff9d] group-hover:translate-x-1 transition-all"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M9 5l7 7-7 7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <div>
-                <span className="font-sans text-sm font-semibold text-[#e3e1e9] block">
-                  WASAPI / Line In
-                </span>
-                <span className="font-mono text-[11px] text-[#849495]">
-                  Ruta de audio directa
-                </span>
-              </div>
-            </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
+              <Mic className="w-4 h-4 text-emerald-400" />
+              <span>Micrófono</span>
+            </button>
           </div>
-        </div>
-      </div>
-
-      {/* Technical Keyboard Shortcuts & Badges Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-2 pt-2 text-[#849495] font-mono text-[11px]">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#292a2f] text-[#dbfcff] font-semibold text-[10px] border border-white/[0.06]">
-              ESPACIO
-            </kbd>{' '}
-            Iniciar
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#292a2f] text-[#dbfcff] font-semibold text-[10px] border border-white/[0.06]">
-              M
-            </kbd>{' '}
-            Micrófono
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#292a2f] text-[#dbfcff] font-semibold text-[10px] border border-white/[0.06]">
-              SCROLL
-            </kbd>{' '}
-            Canales
-          </span>
-          <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-[#292a2f] text-[#dbfcff] font-semibold text-[10px] border border-white/[0.06]">
-              G
-            </kbd>{' '}
-            Galería 3D
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-[10px]">
-          <span className="text-[#00e5ff]">48 kHz DSP</span>
-          <span>•</span>
-          <span className="text-[#8c38ff]">8-Band EQ</span>
-          <span>•</span>
-          <span className="text-[#ff088a]">WebGL Shaders</span>
         </div>
       </div>
     </div>

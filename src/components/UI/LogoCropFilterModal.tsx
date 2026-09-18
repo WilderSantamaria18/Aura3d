@@ -274,10 +274,10 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
               <ImageIcon className="w-3.5 h-3.5" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-xs tracking-tight">
-                Editor de Logo & Carátula
+              <h3 className="text-white font-medium text-[13px] tracking-tight">
+                Carátula
               </h3>
-              <p className="text-[9px] font-mono text-cyan-400/70 uppercase tracking-wider">
+              <p className="text-[10px] text-white/50">
                 ENCUADRE CIRCULAR · FILTROS NEÓN
               </p>
             </div>
@@ -298,27 +298,27 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('crop')}
-            className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'crop'
-                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/35 shadow-sm font-semibold'
-                : 'text-white/50 hover:text-white'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
             <Move className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-mono">Encuadre & Zoom</span>
+            <span>Ajustar</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('filters')}
-            className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeTab === 'filters'
-                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/35 shadow-sm font-semibold'
-                : 'text-white/50 hover:text-white'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-mono">Filtros & Neón</span>
+            <span>Filtros</span>
           </button>
         </div>
 
@@ -367,8 +367,8 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 />
               </div>
 
-              <p className="text-[8.5px] font-mono text-white/40 mt-1.5 tracking-wider text-center">
-                ARRASTRA PARA MOVER · SCROLL PARA ZOOM
+              <p className="text-[10px] text-white/40 mt-3 text-center">
+                Arrastra para mover · Scroll para zoom
               </p>
             </>
           ) : (
@@ -412,21 +412,18 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
           />
         </div>
 
-        {/* ── 4. PESTAÑA: ENCUADRE & ZOOM ── */}
+        {/* ── 4. PESTAÑA: AJUSTAR ── */}
         {activeTab === 'crop' && (
-          <div className="space-y-3 pt-1">
+          <div className="flex-1 overflow-y-auto py-6 px-5 space-y-4 scroll-smooth select-none custom-scrollbar relative z-10">
             {/* Zoom Slider */}
-            <div className="p-2.5 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-white/70 flex items-center gap-1.5 font-medium">
-                  <ZoomIn className="w-3 h-3 text-cyan-400" />
-                  Zoom de Imagen:
-                </span>
-                <span className="text-cyan-300 font-bold tabular-nums">{zoom.toFixed(2)}x</span>
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-white/80">Zoom</span>
+                <span className="text-white/60 tabular-nums">{zoom.toFixed(2)}x</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <ZoomOut
-                  className="w-3.5 h-3.5 text-white/40 cursor-pointer hover:text-white"
+                  className="w-4 h-4 text-white/40 cursor-pointer hover:text-white"
                   onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))}
                 />
                 <input
@@ -436,24 +433,24 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                   step="0.05"
                   value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="flex-1 h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                  className="flex-1 h-1.5 bg-white/[0.08] rounded-full cursor-pointer accent-white"
                 />
                 <ZoomIn
-                  className="w-3.5 h-3.5 text-white/40 cursor-pointer hover:text-white"
+                  className="w-4 h-4 text-white/40 cursor-pointer hover:text-white"
                   onClick={() => setZoom((z) => Math.min(3.5, z + 0.2))}
                 />
               </div>
             </div>
 
             {/* Quick Actions Grid */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setRotation((r) => (r + 90) % 360)}
-                className="py-2 px-2.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-[10px] text-white/80 font-mono flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                className="py-2.5 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-xs text-white/80 font-medium flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
               >
-                <RotateCw className="w-3 h-3 text-cyan-400" />
-                <span>Rotar 90º ({rotation}º)</span>
+                <RotateCw className="w-3.5 h-3.5 text-white/60" />
+                <span>Rotar</span>
               </button>
 
               <button
@@ -463,36 +460,33 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                   setZoom(1.0);
                   setRotation(0);
                 }}
-                className="py-2 px-2.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-[10px] text-white/80 font-mono flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                className="py-2.5 px-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl text-xs text-white/80 font-medium flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
               >
-                <RefreshCw className="w-3 h-3 text-pink-400" />
-                <span>Centrar & Reset</span>
+                <RefreshCw className="w-3.5 h-3.5 text-white/60" />
+                <span>Restaurar</span>
               </button>
             </div>
 
-            {/* Cambiar o Subir Imagen Button */}
+            {/* Cambiar Imagen Button */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-1.5 px-3 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-[10px] font-mono text-white/70 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full py-2.5 px-3 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-xs font-medium text-white/80 hover:text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
-              <Upload className="w-3 h-3 text-cyan-300" />
-              <span>{activeImageSrc ? 'Cambiar Imagen / Subir PNG' : 'Subir Nueva Imagen'}</span>
+              <Upload className="w-3.5 h-3.5" />
+              <span>{activeImageSrc ? 'Cambiar Imagen' : 'Seleccionar Imagen'}</span>
             </button>
           </div>
         )}
 
-        {/* ── 5. PESTAÑA: FILTROS & EFECTOS NEÓN ── */}
+        {/* ── 5. PESTAÑA: FILTROS ── */}
         {activeTab === 'filters' && (
-          <div className="space-y-2.5 pt-1">
+          <div className="flex-1 overflow-y-auto py-6 px-5 space-y-4 scroll-smooth select-none custom-scrollbar relative z-10">
             {/* Brightness */}
-            <div className="p-2 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-white/70 flex items-center gap-1 font-medium">
-                  <Sun className="w-3 h-3 text-yellow-400" />
-                  Brillo:
-                </span>
-                <span className="text-yellow-300 font-bold tabular-nums">{brightness}%</span>
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-white/80">Brillo</span>
+                <span className="text-white/60 tabular-nums">{brightness}%</span>
               </div>
               <input
                 type="range"
@@ -500,18 +494,15 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 max="160"
                 value={brightness}
                 onChange={(e) => setBrightness(parseInt(e.target.value, 10))}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-yellow-400"
+                className="w-full h-1.5 bg-white/[0.08] rounded-full cursor-pointer accent-white"
               />
             </div>
 
             {/* Contrast */}
-            <div className="p-2 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-white/70 flex items-center gap-1 font-medium">
-                  <Contrast className="w-3 h-3 text-cyan-400" />
-                  Contraste:
-                </span>
-                <span className="text-cyan-300 font-bold tabular-nums">{contrast}%</span>
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-white/80">Contraste</span>
+                <span className="text-white/60 tabular-nums">{contrast}%</span>
               </div>
               <input
                 type="range"
@@ -519,18 +510,15 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 max="160"
                 value={contrast}
                 onChange={(e) => setContrast(parseInt(e.target.value, 10))}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
+                className="w-full h-1.5 bg-white/[0.08] rounded-full cursor-pointer accent-white"
               />
             </div>
 
             {/* Saturation */}
-            <div className="p-2 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1">
-              <div className="flex items-center justify-between text-[10px] font-mono">
-                <span className="text-white/70 flex items-center gap-1 font-medium">
-                  <Droplet className="w-3 h-3 text-pink-400" />
-                  Saturación:
-                </span>
-                <span className="text-pink-300 font-bold tabular-nums">{saturation}%</span>
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-white/80">Saturación</span>
+                <span className="text-white/60 tabular-nums">{saturation}%</span>
               </div>
               <input
                 type="range"
@@ -538,25 +526,25 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
                 max="200"
                 value={saturation}
                 onChange={(e) => setSaturation(parseInt(e.target.value, 10))}
-                className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-pink-500"
+                className="w-full h-1.5 bg-white/[0.08] rounded-full cursor-pointer accent-white"
               />
             </div>
 
-            {/* Tinte de Color Neón */}
-            <div className="p-2 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-              <span className="text-[9px] font-mono text-cyan-300 uppercase tracking-wider block font-semibold">
-                Tinte Neón:
+            {/* Tintes */}
+            <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-3">
+              <span className="text-xs font-medium text-white/80 block">
+                Tinte
               </span>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-2">
                 {NEON_TINTS.map((tint) => (
                   <button
                     key={tint.id}
                     type="button"
                     onClick={() => setActiveTint(tint.id)}
-                    className={`py-1 px-1.5 rounded-lg border flex items-center gap-1.5 text-[9px] font-mono transition-all cursor-pointer ${
+                    className={`py-1.5 px-2 rounded-lg border flex items-center justify-center gap-1.5 text-xs font-medium transition-all cursor-pointer ${
                       activeTint === tint.id
-                        ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-sm font-semibold'
-                        : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white'
+                        ? 'bg-white/20 border-white text-white shadow-sm'
+                        : 'bg-white/[0.02] border-white/[0.06] text-white/60 hover:text-white'
                     }`}
                   >
                     <span
@@ -575,51 +563,51 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
               </div>
             </div>
 
-            {/* Toggles (Blanco y Negro / Invertir / Borde Neón) */}
-            <div className="grid grid-cols-2 gap-1.5">
+            {/* Toggles (Blanco y Negro / Invertir) */}
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setIsGrayscale(!isGrayscale)}
-                className={`py-1.5 px-2 rounded-xl border text-[9.5px] font-mono font-medium transition-all cursor-pointer ${
+                className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                   isGrayscale
-                    ? 'bg-white/20 border-white text-white font-semibold'
-                    : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-white'
+                    ? 'bg-white/20 border-white text-white'
+                    : 'bg-white/[0.03] border-white/[0.06] text-white/60 hover:text-white'
                 }`}
               >
-                B/N: {isGrayscale ? 'ON' : 'OFF'}
+                B/N: {isGrayscale ? 'Activo' : 'Inactivo'}
               </button>
 
               <button
                 type="button"
                 onClick={() => setIsInverted(!isInverted)}
-                className={`py-1.5 px-2 rounded-xl border text-[9.5px] font-mono font-medium transition-all cursor-pointer ${
+                className={`py-2 px-3 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                   isInverted
-                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 font-semibold shadow-sm'
-                    : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-white'
+                    ? 'bg-white/20 border-white text-white'
+                    : 'bg-white/[0.03] border-white/[0.06] text-white/60 hover:text-white'
                 }`}
               >
-                Invertir: {isInverted ? 'ON' : 'OFF'}
+                Invertir: {isInverted ? 'Activo' : 'Inactivo'}
               </button>
             </div>
 
             <div
               onClick={() => setNeonBorder(!neonBorder)}
-              className={`p-2 rounded-xl border cursor-pointer flex items-center justify-between transition-all ${
+              className={`p-3 rounded-xl border cursor-pointer flex items-center justify-between transition-all ${
                 neonBorder
-                  ? 'bg-cyan-500/15 border-cyan-400/40 text-cyan-200'
-                  : 'bg-white/[0.03] border-white/[0.06] text-white/40'
+                  ? 'bg-white/20 border-white text-white'
+                  : 'bg-white/[0.03] border-white/[0.06] text-white/60'
               }`}
             >
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-[10px] font-medium font-mono">Borde Neón Luminoso</span>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-xs font-medium">Borde Luminoso</span>
               </div>
               <div
-                className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
-                  neonBorder ? 'border-cyan-400 bg-cyan-400' : 'border-white/20'
+                className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                  neonBorder ? 'border-white bg-white' : 'border-white/20'
                 }`}
               >
-                {neonBorder && <Check className="w-2.5 h-2.5 text-black stroke-[3]" />}
+                {neonBorder && <Check className="w-3 h-3 text-black stroke-[3]" />}
               </div>
             </div>
           </div>
@@ -630,7 +618,7 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-white/60 hover:text-white text-[11px] font-medium rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className="px-4 py-2 text-white/60 hover:text-white text-xs font-medium rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer"
           >
             Cancelar
           </button>
@@ -639,13 +627,13 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({
             type="button"
             onClick={handleApplyAndSave}
             disabled={!activeImageSrc}
-            className={`px-4 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+            className={`px-5 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 active:scale-95 ${
               activeImageSrc
-                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-black shadow-[0_0_18px_rgba(0,242,254,0.35)] cursor-pointer'
+                ? 'bg-white text-black hover:bg-white/90 shadow-sm cursor-pointer'
                 : 'bg-white/10 text-white/30 cursor-not-allowed border border-white/5'
             }`}
           >
-            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Check className="w-4 h-4" />
             <span>Guardar y Aplicar</span>
           </button>
         </div>

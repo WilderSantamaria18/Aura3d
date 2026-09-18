@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { Activity, Zap, Radio } from 'lucide-react';
 
 interface StudioOscilloscopeProps {
   color?: string;
@@ -8,9 +9,11 @@ type WaveformMode = 'harmonic' | 'sine' | 'pulse';
 
 /**
  * StudioOscilloscope
- * Osciloscopio de fósforo CRT analógico de alta precisión (Canal 01).
- * Grilla vectorial analógica, barrido de haz de fósforo verde y cian en tiempo real a 60 FPS,
- * y micro-lecturas de telemetría de laboratorio.
+ * Osciloscopio analógico CRT de fósforo de alta precisión (Canal 01).
+ * Rediseñado con la auténtica fórmula Apple visionOS Liquid Glass:
+ * - Bisel especular superior de luz incidente
+ * - Resina translúcida ahumada con difracción de 52px
+ * - Retícula analógica con haz dual verde fósforo / cian cuántico a 60 FPS
  */
 export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
   color = '#00ff9d',
@@ -26,7 +29,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
     if (!ctx) return;
 
     let animId: number;
-    let start = performance.now();
+    const start = performance.now();
 
     const render = (now: number) => {
       const elapsed = (now - start) * 0.001;
@@ -47,7 +50,6 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
           const raw = Math.sin(nx * Math.PI * 6 + elapsed * 2.5);
           yOffset = (raw > 0 ? 14 : -14) * Math.sin(nx * Math.PI);
         } else {
-          // Harmonic dual-tone
           const w1 = Math.sin(nx * Math.PI * 4 + elapsed * 3.5) * 16;
           const w2 = Math.cos(nx * Math.PI * 8 - elapsed * 2) * 6;
           yOffset = w1 + w2;
@@ -88,7 +90,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
       ctx.lineWidth = 4.5;
       ctx.globalAlpha = 0.35;
       ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.stroke();
       ctx.restore();
 
@@ -108,10 +110,10 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
       ctx.fillStyle = '#00ff9d';
       ctx.globalAlpha = 0.9;
       ctx.shadowColor = '#00ff9d';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fill();
 
-      const sweepX2 = ((elapsed * 75) + 120) % w;
+      const sweepX2 = (elapsed * 75 + 120) % w;
       const sweepNx2 = sweepX2 / w;
       const sweepY2 = cy + Math.sin(sweepNx2 * Math.PI * 4 + elapsed * 3) * 22;
 
@@ -135,19 +137,22 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md p-4 rounded-3xl bg-[#1a1b21]/80 border border-white/[0.08] backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] select-none">
+    <div className="w-full max-w-md p-5 liquid-glass-card border border-white/10 border-t-white/30 shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)] select-none transition-all duration-300">
       {/* Bezel Header */}
-      <div className="flex items-center justify-between pb-3 px-1 text-[11px] font-mono text-[#849495]">
-        <span className="flex items-center gap-1.5 text-[#00ff9d] font-semibold">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00ff9d] animate-pulse" />
+      <div className="flex items-center justify-between pb-3 px-1 text-[11px] font-mono text-white/70">
+        <span className="flex items-center gap-1.5 text-emerald-400 font-semibold tracking-wide">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+          <Activity className="w-3.5 h-3.5 text-emerald-400" />
           CRT // CH1 SIG-IN
         </span>
-        <span className="text-white/60">128 BPM / 440.0 Hz</span>
-        <span className="text-[#00f0ff] font-medium">OSC-TRIG: AUTO</span>
+        <span className="text-white/50 text-[10px]">128 BPM / 440.0 Hz</span>
+        <span className="text-cyan-300 font-medium text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-400/20">
+          OSC-TRIG: AUTO
+        </span>
       </div>
 
       {/* CRT Screen Container */}
-      <div className="relative w-full h-48 sm:h-52 rounded-2xl bg-[#03070b] overflow-hidden shadow-[inset_0_2px_14px_rgba(0,0,0,0.95)] flex items-center justify-center border border-white/[0.06]">
+      <div className="relative w-full h-48 sm:h-52 rounded-2xl bg-black/80 overflow-hidden shadow-[inset_0_2px_16px_rgba(0,0,0,0.95)] flex items-center justify-center border border-white/10">
         {/* Analog Sub-Grid (SVG) */}
         <svg
           className="absolute inset-0 w-full h-full opacity-20 text-[#00ff9d] pointer-events-none"
@@ -201,7 +206,7 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
         />
 
         {/* CRT Vignette & Specular Lens Curve */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#03070b]/60 via-transparent to-[#03070b]/60" />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/60 via-transparent to-black/60" />
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_35px_rgba(0,255,157,0.12)]" />
       </div>
 
@@ -210,33 +215,33 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
         <button
           type="button"
           onClick={toggleWaveMode}
-          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          className="p-2 rounded-xl liquid-glass-pill border border-white/10 hover:border-cyan-400/40 hover:bg-white/10 active:scale-[0.97] transition-all cursor-pointer text-left sm:text-center"
           title="Alternar forma de onda"
         >
-          <span className="block font-mono text-[9px] text-[#849495]">VOLT/DIV</span>
-          <span className="font-mono text-[11px] text-[#dbfcff] font-semibold">50 mV</span>
+          <span className="block font-mono text-[9px] text-white/50">VOLT/DIV</span>
+          <span className="font-mono text-[11px] text-cyan-200 font-semibold">50 mV</span>
         </button>
 
         <button
           type="button"
           onClick={toggleWaveMode}
-          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          className="p-2 rounded-xl liquid-glass-pill border border-white/10 hover:border-cyan-400/40 hover:bg-white/10 active:scale-[0.97] transition-all cursor-pointer text-left sm:text-center"
           title="Alternar base de tiempo"
         >
-          <span className="block font-mono text-[9px] text-[#849495]">TIME/DIV</span>
-          <span className="font-mono text-[11px] text-[#dbfcff] font-semibold">1.2 ms</span>
+          <span className="block font-mono text-[9px] text-white/50">TIME/DIV</span>
+          <span className="font-mono text-[11px] text-cyan-200 font-semibold">1.2 ms</span>
         </button>
 
         <button
           type="button"
           onClick={() => setIsCalibrated((prev) => !prev)}
-          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          className="p-2 rounded-xl liquid-glass-pill border border-white/10 hover:border-emerald-400/40 hover:bg-white/10 active:scale-[0.97] transition-all cursor-pointer text-left sm:text-center"
           title="Alternar calibración de fase"
         >
-          <span className="block font-mono text-[9px] text-[#849495]">CALIBR</span>
+          <span className="block font-mono text-[9px] text-white/50">CALIBR</span>
           <span
             className={`font-mono text-[11px] font-semibold ${
-              isCalibrated ? 'text-[#00ff9d]' : 'text-[#ffb4ab]'
+              isCalibrated ? 'text-emerald-300' : 'text-rose-300'
             }`}
           >
             {isCalibrated ? 'PHASE-OK' : 'OFFSET'}
@@ -246,11 +251,11 @@ export const StudioOscilloscope: React.FC<StudioOscilloscopeProps> = ({
         <button
           type="button"
           onClick={toggleWaveMode}
-          className="p-1.5 rounded-xl bg-[#1e1f25]/80 hover:bg-[#292a2f] border border-white/[0.04] transition-colors cursor-pointer text-left sm:text-center"
+          className="p-2 rounded-xl liquid-glass-pill border border-white/10 hover:border-purple-400/40 hover:bg-white/10 active:scale-[0.97] transition-all cursor-pointer text-left sm:text-center"
           title="Alternar modo espectral"
         >
-          <span className="block font-mono text-[9px] text-[#849495]">SPECTR</span>
-          <span className="font-mono text-[11px] text-[#8c38ff] font-semibold uppercase">
+          <span className="block font-mono text-[9px] text-white/50">SPECTR</span>
+          <span className="font-mono text-[11px] text-purple-300 font-semibold uppercase">
             {waveMode === 'harmonic' ? 'STEREO' : waveMode}
           </span>
         </button>

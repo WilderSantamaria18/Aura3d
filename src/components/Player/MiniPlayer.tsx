@@ -769,15 +769,19 @@ export const MiniPlayer: React.FC = () => {
                     <Mic className="w-3.5 h-3.5" />
                   </button>
 
-                  {/* Studio Tools Drawer Toggle */}
+                  {/* Equalizer Modal Toggle */}
                   <button
-                    onClick={() => setShowToolsDrawer(!showToolsDrawer)}
+                    onClick={() => {
+                      const { isEqualizerOpen, setEqualizerOpen } = usePlayerStore.getState();
+                      setEqualizerOpen(!isEqualizerOpen);
+                    }}
                     className={`p-1.5 rounded-full transition-colors ${
-                      showToolsDrawer
+                      usePlayerStore.getState().isEqualizerOpen
                         ? 'bg-white/20 text-white'
                         : 'text-white/50 hover:text-white hover:bg-white/10'
                     }`}
-                    title="Ajustes de estudio (EQ, Temporizador, Respaldo)"
+                    aria-label="Abrir Ecualizador"
+                    title="Ecualizador Avanzado"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                   </button>

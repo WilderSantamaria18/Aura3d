@@ -51,9 +51,10 @@ interface PlayerState {
   leftHandPos: { x: number; y: number; z: number } | null;
   headPos: { x: number; y: number; z: number } | null;
 
-  // 3D Air Virtual Instruments
+  // 3D Air Virtual Instruments & Spatial Camera Studio
+  isCameraStudioOpen: boolean;
   isAirInstrumentsActive: boolean;
-  airInstrumentType: 'synth' | 'drums' | 'theremin';
+  airInstrumentType: 'synth' | 'drums' | 'theremin' | 'pads' | 'pose';
   airSynthScale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese';
   lastTriggeredNote: string | null;
   multiHandLandmarks: HandLandmark[][] | null;
@@ -273,10 +274,12 @@ interface PlayerState {
   setHandSensitivity: (sensitivity: number) => void;
   setPoseLandmarks: (landmarks: PoseLandmark[] | null) => void;
   setPoseVelocity: (velocity: number) => void;
-  setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number } | null; leftHand?: { x: number; y: number; z: number } | null; head?: { x: number; y: number; z: number } | null; velocity?: number }) => void;
+  setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number }; leftHand?: { x: number; y: number; z: number }; head?: { x: number; y: number; z: number }; velocity?: number }) => void;
+  setCameraStudioOpen: (open: boolean) => void;
+  toggleCameraStudio: () => void;
   setAirInstrumentsActive: (active: boolean) => void;
   toggleAirInstruments: () => void;
-  setAirInstrumentType: (type: 'synth' | 'drums' | 'theremin') => void;
+  setAirInstrumentType: (type: 'synth' | 'drums' | 'theremin' | 'pads' | 'pose') => void;
   setAirSynthScale: (scale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese') => void;
   setLastTriggeredNote: (note: string | null) => void;
   setMultiHandLandmarks: (multiHands: HandLandmark[][] | null) => void;
@@ -436,7 +439,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   leftHandPos: null,
   headPos: null,
 
-  // 3D Air Virtual Instruments
+  // 3D Air Virtual Instruments & Spatial Camera Studio
+  isCameraStudioOpen: false,
   isAirInstrumentsActive: false,
   airInstrumentType: 'synth',
   airSynthScale: 'pentatonic_minor',
@@ -681,7 +685,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setHandSensitivity: (handSensitivity) => set({ handSensitivity }),
   setPoseLandmarks: (poseLandmarks) => set({ poseLandmarks }),
   setPoseVelocity: (poseVelocity) => set({ poseVelocity }),
-  setPoseKeypoints: (data) =>
+  setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number }; leftHand?: { x: number; y: number; z: number }; head?: { x: number; y: number; z: number }; velocity?: number }) =>
     set((state) => ({
       rightHandPos: data.rightHand !== undefined ? data.rightHand : state.rightHandPos,
       leftHandPos: data.leftHand !== undefined ? data.leftHand : state.leftHandPos,
@@ -689,6 +693,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       poseVelocity: data.velocity !== undefined ? data.velocity : state.poseVelocity,
     })),
 
+  setCameraStudioOpen: (isCameraStudioOpen) => set({ isCameraStudioOpen }),
+  toggleCameraStudio: () => set((state) => ({ isCameraStudioOpen: !state.isCameraStudioOpen })),
   setAirInstrumentsActive: (isAirInstrumentsActive) => set({ isAirInstrumentsActive }),
   toggleAirInstruments: () => set((state) => ({ isAirInstrumentsActive: !state.isAirInstrumentsActive })),
   setAirInstrumentType: (airInstrumentType) => set({ airInstrumentType }),
