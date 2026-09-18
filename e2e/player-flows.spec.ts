@@ -5,10 +5,35 @@ test.describe('Aura3D Critical User Flows', () => {
     await page.goto('/');
     // Wait for the app shell to hydrate
     await page.waitForLoadState('domcontentloaded');
+
+    const dismissOnboardingButton = page
+      .getByRole('button', { name: /Omitir introducción|Cerrar modal|Skip introduction|Close modal/i })
+      .first();
+    if (await dismissOnboardingButton.isVisible().catch(() => false)) {
+      await dismissOnboardingButton.click();
+      await page.waitForTimeout(200);
+    }
+
+    const enterVisualizerButton = page
+      .getByRole('button', { name: /Entrar al Visualizador Aura3D|Enter Aura3D Visualizer/i })
+      .first();
+    if (await enterVisualizerButton.isVisible().catch(() => false)) {
+      await enterVisualizerButton.click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(300);
+    }
+
+    if (await dismissOnboardingButton.isVisible().catch(() => false)) {
+      await dismissOnboardingButton.click();
+      await page.waitForTimeout(200);
+    }
   });
 
   test('Audio Controls: Toggle Play, Pause, Next, and Previous', async ({ page }) => {
-    const playButton = page.locator('button[aria-label*="reproducción"]');
+    const playButton = page
+      .locator(
+        'button[aria-label*="reproducción"], button[aria-label*="playback"], button[title*="Reproducir"], button[title*="Pausar"], button[title*="Play"], button[title*="Pause"]'
+      )
+      .first();
     await expect(playButton).toBeVisible();
 
     // Toggle Play
@@ -19,14 +44,22 @@ test.describe('Aura3D Critical User Flows', () => {
     await expect(playButton).toBeVisible();
 
     // Next Track
-    const nextButton = page.locator('button[aria-label*="Siguiente canción"]');
+    const nextButton = page
+      .locator(
+        'button[aria-label*="Siguiente canción"], button[aria-label*="Siguiente pista"], button[aria-label*="Next"], button[title*="Siguiente canción"], button[title*="Siguiente pista"], button[title*="Next"]'
+      )
+      .first();
     if (await nextButton.isVisible()) {
       await nextButton.click();
       await page.waitForTimeout(200);
     }
 
     // Previous Track
-    const prevButton = page.locator('button[aria-label*="Canción anterior"]');
+    const prevButton = page
+      .locator(
+        'button[aria-label*="Canción anterior"], button[aria-label*="Pista anterior"], button[aria-label*="Previous"], button[title*="Canción anterior"], button[title*="Pista anterior"], button[title*="Previous"]'
+      )
+      .first();
     if (await prevButton.isVisible()) {
       await prevButton.click();
       await page.waitForTimeout(200);
