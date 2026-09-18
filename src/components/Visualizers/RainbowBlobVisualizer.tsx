@@ -102,6 +102,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
+  const [openedFromSettings, setOpenedFromSettings] = useState(false);
   const [savedPresetSuccess, setSavedPresetSuccess] = useState(false);
   const [calibTab, setCalibTab] = useState<'shapes' | 'kick' | 'style' | 'atmosphere'>('shapes');
 
@@ -966,6 +967,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       reader.onload = (ev) => {
         const result = ev.target?.result as string;
         setTempImageForCrop(result);
+        setOpenedFromSettings(false);
         setIsCropModalOpen(true);
       };
       reader.readAsDataURL(file);
@@ -1052,6 +1054,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           <div
             onClick={() => {
               setTempImageForCrop(activeImage);
+              setOpenedFromSettings(false);
               setIsCropModalOpen(true);
             }}
             style={{
@@ -1102,7 +1105,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
             ? `0 0 22px rgba(0,0,0,0.8), inset 0 0 16px ${lucidTheme.glow}`
             : '0 0 22px rgba(0,0,0,0.85), inset 0 0 16px rgba(255, 255, 255, 0.04)',
         }}
-        className="rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] border flex items-center justify-center transform hover:scale-105 transition-transform z-10 backdrop-blur-md"
+        className="rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] border flex items-center justify-center transform hover:scale-105 transition-transform z-10 backdrop-blur-md cursor-pointer"
+        onClick={() => {
+          setTempImageForCrop(currentTrack?.coverUrl || null);
+          setOpenedFromSettings(false);
+          setIsCropModalOpen(true);
+        }}
+        title="Haz clic para personalizar el logo o aplicar filtros (iOS Card)"
       >
         <IconComponent
           style={{
@@ -2054,6 +2063,22 @@ export const RainbowBlobVisualizer: React.FC = () => {
                         </button>
                       )}
                     </div>
+
+                    {/* Botón de acceso directo al Card de Edición & Filtros iOS desde Ajustes */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetImg = blobSettings.customLogoUrl || currentTrack?.coverUrl || null;
+                        setTempImageForCrop(targetImg);
+                        setOpenedFromSettings(true);
+                        setBlobPanelOpen(false);
+                        setIsCropModalOpen(true);
+                      }}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 hover:from-cyan-500/25 hover:via-indigo-500/25 hover:to-purple-500/25 border border-cyan-400/30 rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 text-[10px] font-mono text-cyan-200 font-semibold shadow-sm active:scale-95"
+                    >
+                      <Palette className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Editar Logo & Filtros Neón (iOS Card)</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -2243,11 +2268,17 @@ export const RainbowBlobVisualizer: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Editor de Recorte Circular y Filtros de Logo */}
+      {/* Card Flotante iOS: Editor de Recorte Circular y Filtros de Logo */}
       <LogoCropFilterModal
         isOpen={isCropModalOpen}
-        onClose={() => setIsCropModalOpen(false)}
-        imageSrc={tempImageForCrop}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          if (openedFromSettings) {
+            setBlobPanelOpen(true);
+            setOpenedFromSettings(false);
+          }
+        }}
+        imageSrc={tempImageForCrop || blobSettings.customLogoUrl || currentTrack?.coverUrl || null}
       />
     </div>
   );
