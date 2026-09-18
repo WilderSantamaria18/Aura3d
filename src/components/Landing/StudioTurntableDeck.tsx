@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Disc, Play, Pause, Flame } from 'lucide-react';
+import { Disc, Play, Pause, Flame, ArrowRight } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { VisualizerShape } from '../../types/audio';
 
@@ -15,6 +15,10 @@ const SHAPE_PRESETS: ShapePreset[] = [
   { id: 'cat_ears', label: 'Cat-Ears Spectrum' },
 ];
 
+interface StudioTurntableDeckProps {
+  onStartExperience?: () => void;
+}
+
 /**
  * StudioTurntableDeck
  * Tornamesa Virtual Rainbow Void de alta fricción con tracción directa (Canal 03).
@@ -23,7 +27,7 @@ const SHAPE_PRESETS: ShapePreset[] = [
  * - Disco de vinilo a 33⅓ RPM con micro-surcos y dispersión cónica cromática
  * - Controles de pitch DJ y deformador espectral en cápsulas de vidrio
  */
-export const StudioTurntableDeck: React.FC = () => {
+export const StudioTurntableDeck: React.FC<StudioTurntableDeckProps> = ({ onStartExperience }) => {
   const { blobShape, setBlobShape } = usePlayerStore();
   const [bpm, setBpm] = useState<number>(128.0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -211,6 +215,19 @@ export const StudioTurntableDeck: React.FC = () => {
               );
             })}
           </div>
+
+          {onStartExperience && (
+            <div className="pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={onStartExperience}
+                className="w-full py-2.5 px-4 rounded-full bg-white text-black font-mono text-xs font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.01] active:scale-[0.97] transition-all cursor-pointer"
+              >
+                <span>Entrar al Visualizador 3D</span>
+                <ArrowRight className="w-3.5 h-3.5 text-black" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

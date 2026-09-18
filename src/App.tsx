@@ -253,20 +253,20 @@ export const App: React.FC = () => {
       {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
       {showLanding && (
         <div
-          className={`absolute inset-0 z-50 transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`absolute inset-0 z-50 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             hasStarted
-              ? '-translate-y-full opacity-0 pointer-events-none scale-[0.98] blur-[2px]'
-              : 'translate-y-0 opacity-100 pointer-events-auto scale-100 blur-0'
+              ? '-translate-y-full opacity-0 pointer-events-none'
+              : 'translate-y-0 opacity-100 pointer-events-auto'
           }`}
         >
           <LandingScreen />
         </div>
       )}
 
-      {/* 2. Visualizer in Fullscreen Center (Mounts only when user enters to preserve 100% GPU for landing) */}
+      {/* 2. Visualizer in Fullscreen Center (Mounts smoothly when user enters) */}
       <div
-        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          hasStarted ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-opacity duration-700 ease-out ${
+          hasStarted ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
         {hasStarted && (

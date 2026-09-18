@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sliders, Volume2, Zap } from 'lucide-react';
+import { Sliders, Volume2, Zap, ArrowRight } from 'lucide-react';
 
 interface BandConfig {
   freq: string;
@@ -19,13 +19,17 @@ const BANDS: BandConfig[] = [
   { freq: '16kHz', type: 'AIR', defaultVal: 78, color: '#8c38ff' },
 ];
 
+interface StudioMixerDeckProps {
+  onStartExperience?: () => void;
+}
+
 /**
  * StudioMixerDeck
  * Consola masterizadora de 8 bandas con medidores VU analógicos de vidrio ahumado (Canal 02).
  * Refactorizada con auténtica resina Apple visionOS Liquid Glass, bisel de luz superior
  * y deslizadores hápticos táctiles.
  */
-export const StudioMixerDeck: React.FC = () => {
+export const StudioMixerDeck: React.FC<StudioMixerDeckProps> = ({ onStartExperience }) => {
   const [faderValues, setFaderValues] = useState<number[]>(
     BANDS.map((b) => b.defaultVal)
   );
@@ -317,23 +321,36 @@ export const StudioMixerDeck: React.FC = () => {
             </div>
           </div>
 
-          {/* Master Bypass Switch Button */}
-          <button
-            type="button"
-            onClick={() => setIsBypassActive((prev) => !prev)}
-            className="flex items-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
-          >
-            <span className="font-mono text-[10px] text-white/50">DSP ENGINE:</span>
-            <span
-              className={`px-3 py-1 liquid-glass-pill font-mono text-[10px] font-semibold border transition-all ${
-                !isBypassActive
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                  : 'bg-rose-500/20 text-rose-300 border-rose-400/40'
-              }`}
+          <div className="flex items-center gap-3">
+            {onStartExperience && (
+              <button
+                type="button"
+                onClick={onStartExperience}
+                className="px-4 py-1.5 rounded-full bg-white text-black font-mono text-xs font-bold flex items-center gap-1.5 shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] active:scale-[0.97] transition-all cursor-pointer"
+              >
+                <span>Ir a Consola 3D</span>
+                <ArrowRight className="w-3.5 h-3.5 text-black" />
+              </button>
+            )}
+
+            {/* Master Bypass Switch Button */}
+            <button
+              type="button"
+              onClick={() => setIsBypassActive((prev) => !prev)}
+              className="flex items-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
             >
-              {!isBypassActive ? 'ACTIVE BYPASS: OFF' : 'BYPASS: ON'}
-            </span>
-          </button>
+              <span className="font-mono text-[10px] text-white/50">DSP ENGINE:</span>
+              <span
+                className={`px-3 py-1 liquid-glass-pill font-mono text-[10px] font-semibold border transition-all ${
+                  !isBypassActive
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                    : 'bg-rose-500/20 text-rose-300 border-rose-400/40'
+                }`}
+              >
+                {!isBypassActive ? 'ACTIVE BYPASS: OFF' : 'BYPASS: ON'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

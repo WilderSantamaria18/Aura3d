@@ -333,6 +333,8 @@ interface PlayerState {
   playTrack: (track: Track) => void;
   setQueue: (tracks: Track[], startIndex?: number) => void;
   addToQueue: (track: Track) => void;
+  playNext: (track: Track) => void;
+  clearQueue: () => void;
   removeFromQueue: (index: number) => void;
   nextTrack: () => Track | null;
   previousTrack: () => Track | null;
@@ -1060,6 +1062,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   addToQueue: (track) => {
     const queue = [...get().queue, track];
     set({ queue });
+  },
+
+  playNext: (track) => {
+    const { queue, queueIndex } = get();
+    if (queue.length === 0) {
+      set({ queue: [track], queueIndex: 0, currentTrack: track, isPlaying: true, hasStarted: true });
+      return;
+    }
+    // Remove duplicates ahead in queue to avoid repetition
+    const filteredQueue = queue.filter((t, i) => i <= queueIndex || t.id !== track.id);
+    const insertIndex = Math.min(queueIndex + 1, filteredQueue.length);
+    const newQueue = [
+      ...filteredQueue.slice(0, insertIndex),
+      track,
+      ...filteredQueue.slice(insertIndex),
+    ];
+    set({ queue: newQueue });
+  },
+
+  clearQueue: () => {
+    const { currentTrack } = get();
+    set({
+      queue: currentTrack ? [currentTrack] : [],
+      queueIndex: 0,
+    });
   },
 
   removeFromQueue: (index) => {

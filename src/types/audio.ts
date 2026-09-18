@@ -390,6 +390,10 @@ export interface Track {
   lrcContent?: string;
   addedAt: number;
   isFavorite?: boolean;
+  format?: string;
+  bpm?: number;
+  camelotKey?: string;
+  genre?: string;
 }
 
 export interface Playlist {

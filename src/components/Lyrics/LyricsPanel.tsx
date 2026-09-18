@@ -197,9 +197,12 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[80px] saturate-[200%] flex flex-col justify-between p-5 sm:p-8 md:p-12 overflow-hidden select-none"
-        style={{ fontFamily: currentFontFamily }}
+        className="fixed inset-0 z-50 bg-black/25 flex flex-col justify-between p-5 sm:p-8 md:p-12 overflow-hidden select-none"
+        style={{
+          fontFamily: currentFontFamily,
+          backdropFilter: 'blur(1px)',
+          WebkitBackdropFilter: 'blur(1px)',
+        }}
       >
         {/* Eliminamos los orbes palpitantes para un estilo cristal iOS limpio */}
         {/* Top iOS Header Navigation Bar */}

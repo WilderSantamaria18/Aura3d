@@ -12,8 +12,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
-import { useMousePosition } from '../../hooks/useMousePosition';
-import { QuantumCoreShader } from './QuantumCoreShader';
+import { CosmicStarfield } from './CosmicStarfield';
 import { StudioOscilloscope } from './StudioOscilloscope';
 import { StudioMixerDeck } from './StudioMixerDeck';
 import { StudioTurntableDeck } from './StudioTurntableDeck';
@@ -25,13 +24,12 @@ import { StudioLaunchDeck } from './StudioLaunchDeck';
  * - 4 Canales con scroll-snap fluido y scrollbars en cápsula de cristal líquido
  * - Header flotante "Dynamic Island" con telemetría de audio en vivo
  * - Dock lateral derecho en cápsula de cristal
- * - Iluminación ambiental cáustica reactiva a la posición del cursor
+ * - Fondo cósmico de partículas estelares ultrarrealista con centelleo y meteoros (CosmicStarfield)
  * - Cortina de transición con física elástica (cubic-bezier(0.16, 1, 0.3, 1))
  */
 export const LandingScreen: React.FC = () => {
   const { setHasStarted } = usePlayerStore();
   const { unlockAudio, loadFile, toggleMicrophone } = useAudioEngine();
-  const mousePos = useMousePosition();
 
   const [activeChannel, setActiveChannel] = useState<number>(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState<boolean>(false);
@@ -42,30 +40,33 @@ export const LandingScreen: React.FC = () => {
   const fileInputHeroRef = useRef<HTMLInputElement>(null);
 
   const handleStartExperience = useCallback(async () => {
+    if (isTransitioningOut) return;
     setIsTransitioningOut(true);
-    await unlockAudio();
+    unlockAudio();
     setTimeout(() => {
       setHasStarted(true);
-    }, 550);
-  }, [unlockAudio, setHasStarted]);
+    }, 600);
+  }, [unlockAudio, setHasStarted, isTransitioningOut]);
 
   const handleMicStart = useCallback(async () => {
+    if (isTransitioningOut) return;
     setIsTransitioningOut(true);
-    await toggleMicrophone();
+    toggleMicrophone();
     setTimeout(() => {
       setHasStarted(true);
-    }, 550);
-  }, [toggleMicrophone, setHasStarted]);
+    }, 600);
+  }, [toggleMicrophone, setHasStarted, isTransitioningOut]);
 
   const handleFileLoaded = useCallback(
     (file: File) => {
+      if (isTransitioningOut) return;
       setIsTransitioningOut(true);
       loadFile(file);
       setTimeout(() => {
         setHasStarted(true);
-      }, 550);
+      }, 600);
     },
-    [loadFile, setHasStarted]
+    [loadFile, setHasStarted, isTransitioningOut]
   );
 
   const scrollToCanal = (index: number) => {
@@ -133,17 +134,29 @@ export const LandingScreen: React.FC = () => {
   ];
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-[#03050c] text-white select-none overflow-hidden font-sans">
-      {/* Dynamic WebGL Ambient Shader Layer */}
-      <QuantumCoreShader />
+    <motion.div
+      initial={{ y: 0, opacity: 1 }}
+      animate={
+        isTransitioningOut
+          ? {
+              y: '-100%',
+              opacity: 0.85,
+              transition: {
+                duration: 0.65,
+                ease: [0.22, 1, 0.36, 1],
+              },
+            }
+          : { y: 0, opacity: 1 }
+      }
+      className="fixed inset-0 w-full h-full bg-[#03050c] text-white select-none overflow-hidden font-sans pointer-events-auto"
+    >
+      {/* Specular Liquid Glass Edge Rim that follows the bottom as it lifts */}
+      {isTransitioningOut && (
+        <div className="absolute bottom-0 inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_30px_rgba(0,229,255,0.9),0_0_60px_rgba(140,56,255,0.6)] z-[100] pointer-events-none" />
+      )}
 
-      {/* Reactive Mouse Caustic Light Follower */}
-      <div
-        className="pointer-events-none fixed inset-0 z-[5] transition-opacity duration-500"
-        style={{
-          background: `radial-gradient(700px circle at ${mousePos.clientX}px ${mousePos.clientY}px, rgba(0, 229, 255, 0.07), rgba(140, 56, 255, 0.03) 40%, transparent 80%)`,
-        }}
-      />
+      {/* High-Performance Cosmic Starfield Particle Field Layer */}
+      <CosmicStarfield />
 
       {/* [Z-100] Global Scroll Dynamic Progress Bar */}
       <div
@@ -368,7 +381,7 @@ export const LandingScreen: React.FC = () => {
           id="canal-1"
           className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
-          <StudioMixerDeck />
+          <StudioMixerDeck onStartExperience={handleStartExperience} />
         </section>
 
         {/* =============================================================== */}
@@ -378,9 +391,7 @@ export const LandingScreen: React.FC = () => {
           id="canal-2"
           className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
         >
-          {/* Violet Backdrop Bloom */}
-          <div className="absolute w-[600px] h-[600px] rounded-full bg-purple-500/10 blur-[150px] pointer-events-none -bottom-20 -right-20" />
-          <StudioTurntableDeck />
+          <StudioTurntableDeck onStartExperience={handleStartExperience} />
         </section>
 
         {/* =============================================================== */}
@@ -399,23 +410,7 @@ export const LandingScreen: React.FC = () => {
           />
         </section>
       </div>
-
-      {/* Elastic Physics Transition Curtain */}
-      <AnimatePresence>
-        {isTransitioningOut && (
-          <motion.div
-            initial={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-            animate={{ y: '-100%', opacity: 0, filter: 'blur(20px)' }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: 0.9,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-            className="fixed inset-0 z-[100] pointer-events-none bg-gradient-to-b from-black via-black/95 to-black/80"
-          />
-        )}
-      </AnimatePresence>
-    </div>
+    </motion.div>
   );
 };
 

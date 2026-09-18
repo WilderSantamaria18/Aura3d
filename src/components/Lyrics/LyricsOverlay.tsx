@@ -166,7 +166,11 @@ export const LyricsOverlay: React.FC = () => {
   let containerStyle: React.CSSProperties = {};
 
   if (isFullscreenActive) {
-    containerClasses = 'fixed inset-0 z-50 pointer-events-auto';
+    containerClasses = 'fixed inset-0 z-50 pointer-events-auto bg-black/25';
+    containerStyle = {
+      backdropFilter: 'blur(1px)',
+      WebkitBackdropFilter: 'blur(1px)',
+    };
   } else if (position === 'custom' && coords) {
     containerStyle = {
       left: `${coords.x}px`,
@@ -276,10 +280,10 @@ export const LyricsOverlay: React.FC = () => {
         {(!isZenMode || isFullscreenActive) && (
           <motion.div
             ref={panelRef}
-            initial={{ opacity: 0, scale: 0.94, filter: 'blur(16px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, scale: 0.94, filter: 'blur(12px)' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            initial={isFullscreenActive ? { opacity: 0 } : { opacity: 0, scale: 0.94, filter: 'blur(16px)' }}
+            animate={isFullscreenActive ? { opacity: 1 } : { opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={isFullscreenActive ? { opacity: 0 } : { opacity: 0, scale: 0.94, filter: 'blur(12px)' }}
+            transition={isFullscreenActive ? { duration: 0.25, ease: 'easeOut' } : { type: 'spring', damping: 28, stiffness: 300 }}
             className={containerClasses}
             style={containerStyle}
           >
