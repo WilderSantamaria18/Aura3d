@@ -206,6 +206,7 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
   return (
     <div className="relative w-full h-full min-h-[360px] bg-[#060814] rounded-3xl overflow-hidden shadow-2xl border border-white/10">
       <Canvas
+        data-visualizer="true"
         camera={{ position: [0, 1.2, 4.5], fov: 55 }}
         gl={{
           antialias: true,
@@ -217,6 +218,7 @@ export const Visualizer3D: React.FC<Visualizer3DProps> = React.memo(({
         }}
         dpr={[0.8, 1.5]}
         onCreated={({ gl }) => {
+          gl.domElement.dataset.visualizer = 'true';
           gl.setClearColor(new THREE.Color(0x060814), 1.0);
           gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;

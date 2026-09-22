@@ -1135,6 +1135,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* Dynamic Canvas for 3D Shapes & Wave Effects in Rainbow Void */}
         <canvas
           id="rainbow-void-canvas"
+          data-visualizer="true"
           ref={canvasRef}
           className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2"
           style={{ width: `${Math.round(700 * scaleU)}px`, height: `${Math.round(700 * scaleU)}px` }}

@@ -1,5 +1,6 @@
 import { audioEngine } from './audioEngine';
 import type { CaptureSource } from '../store/recorderStore';
+import { findVisualizerCanvas } from '../utils/visualizerCanvas';
 
 export interface StartRecordingOptions {
   source: CaptureSource;
@@ -36,25 +37,7 @@ export class ScreenRecorderService {
   }
 
   private findTargetCanvas(): HTMLCanvasElement | null {
-    // 1. Direct priority to Rainbow Void canvas
-    const rainbowCanvas = document.querySelector('#rainbow-void-canvas') as HTMLCanvasElement;
-    if (rainbowCanvas && rainbowCanvas.width > 0) return rainbowCanvas;
-
-    // 2. Query all canvases and select the largest active one (WebGL / Three.js)
-    const canvases = Array.from(document.querySelectorAll('canvas'));
-    if (canvases.length === 0) return null;
-
-    let best: HTMLCanvasElement | null = null;
-    let maxArea = 0;
-    for (const c of canvases) {
-      const rect = c.getBoundingClientRect();
-      const area = rect.width * rect.height;
-      if (area > maxArea && rect.width > 120 && rect.height > 120) {
-        maxArea = area;
-        best = c;
-      }
-    }
-    return best || canvases[0];
+    return findVisualizerCanvas();
   }
 
   public async start(options: StartRecordingOptions): Promise<void> {

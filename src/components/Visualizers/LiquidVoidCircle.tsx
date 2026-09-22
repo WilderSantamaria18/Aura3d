@@ -433,6 +433,7 @@ export const LiquidVoidCircle: React.FC<LiquidVoidCircleProps> = ({
       {/* 1. Optional Peripheral Shapes Canvas (Z-Index: 5, perfectly centered) */}
       {showPeripheral && (
         <canvas
+          data-visualizer="true"
           ref={canvasRef}
           width={Math.round(520 * scaleFactor * (window.devicePixelRatio || 1))}
           height={Math.round(520 * scaleFactor * (window.devicePixelRatio || 1))}

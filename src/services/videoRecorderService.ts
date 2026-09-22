@@ -1,5 +1,6 @@
 import { AudioEngine } from './audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
+import { findVisualizerCanvas } from '../utils/visualizerCanvas';
 
 export type VideoAspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '4:3';
 export type VideoQuality = '1080p' | '4k';
@@ -74,28 +75,10 @@ class VideoRecorderService {
   }
 
   /**
-   * Finds the best active WebGL canvas currently on screen
+   * Finds the active visualizer canvas currently on screen
    */
   public findActiveCanvas(): HTMLCanvasElement | null {
-    const canvases = Array.from(document.querySelectorAll('canvas'));
-    if (canvases.length === 0) return null;
-
-    let bestCanvas: HTMLCanvasElement | null = null;
-    let maxArea = 0;
-
-    for (const canvas of canvases) {
-      const rect = canvas.getBoundingClientRect();
-      const area = rect.width * rect.height;
-      const isWebGL = canvas.getContext('webgl2') || canvas.getContext('webgl');
-      if (area > maxArea && rect.width > 200 && rect.height > 200) {
-        maxArea = area;
-        bestCanvas = canvas;
-      } else if (!bestCanvas && isWebGL) {
-        bestCanvas = canvas;
-      }
-    }
-
-    return bestCanvas || canvases[0] || null;
+    return findVisualizerCanvas();
   }
 
   /**

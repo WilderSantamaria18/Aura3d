@@ -303,6 +303,7 @@ export const WarpTunnelVisualizer: React.FC = () => {
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-black pointer-events-auto select-none">
       {/* 3D Canvas Scene */}
       <Canvas
+        data-visualizer="true"
         camera={{ position: [0, 0, 2.5], fov: 60, near: 0.1, far: 200 }}
         dpr={dpr}
         gl={{
@@ -312,6 +313,7 @@ export const WarpTunnelVisualizer: React.FC = () => {
           preserveDrawingBuffer: true,
         }}
         onCreated={({ gl }) => {
+          gl.domElement.dataset.visualizer = 'true';
           gl.setClearColor(0x020308, 1);
         }}
       >

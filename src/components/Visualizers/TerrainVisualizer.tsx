@@ -272,6 +272,7 @@ export const TerrainVisualizer: React.FC = () => {
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden bg-[#03050d] pointer-events-auto select-none">
       <Canvas
+        data-visualizer="true"
         camera={{ position: [0, 1.6, 3.5], fov: 65, near: 0.1, far: 180 }}
         dpr={dpr}
         gl={{
@@ -281,6 +282,7 @@ export const TerrainVisualizer: React.FC = () => {
           preserveDrawingBuffer: true,
         }}
         onCreated={({ gl, scene }) => {
+          gl.domElement.dataset.visualizer = 'true';
           gl.setClearColor(0x03050d, 1);
           scene.fog = new THREE.FogExp2(0x03050d, 0.024);
         }}

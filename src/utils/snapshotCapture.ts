@@ -1,11 +1,12 @@
 /**
  * Snapshot Capture Utility for Aura3D
- * Captures clean WebGL canvas frames and exports them as wallpapers (Full HD up to 4K resolution)
+ * Captures clean visualizer canvas frames and exports them as wallpapers (Full HD up to 4K resolution)
  * with precise aspect ratio framing (16:9, 9:16, 1:1, 4:5, or native viewport)
  * without any UI elements obscuring the visualizer.
  */
 
 import { usePlayerStore } from '../stores/playerStore';
+import { findVisualizerCanvas } from './visualizerCanvas';
 
 export type SnapshotAspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | 'viewport';
 
@@ -42,6 +43,87 @@ export function getDimensionsForAspect(
   }
 }
 
+/**
+ * Fast content bounding-box detection via downsampling (< 1ms).
+ * Trims excess empty border space for centered circular visualizers (e.g. Rainbow Void)
+ * while preserving full frame coverage for 3D worlds.
+ */
+function getContentBoundingBox(
+  sourceCanvas: HTMLCanvasElement
+): { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number } | null {
+  try {
+    const w = sourceCanvas.width;
+    const h = sourceCanvas.height;
+    if (w <= 0 || h <= 0) return null;
+
+    const sampleW = Math.min(120, w);
+    const sampleH = Math.min(120, h);
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = sampleW;
+    tempCanvas.height = sampleH;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+    if (!tempCtx) return null;
+
+    tempCtx.drawImage(sourceCanvas, 0, 0, sampleW, sampleH);
+    const imgData = tempCtx.getImageData(0, 0, sampleW, sampleH).data;
+
+    let minX = sampleW;
+    let minY = sampleH;
+    let maxX = 0;
+    let maxY = 0;
+    let foundContent = false;
+
+    for (let y = 0; y < sampleH; y++) {
+      for (let x = 0; x < sampleW; x++) {
+        const idx = (y * sampleW + x) * 4;
+        const r = imgData[idx];
+        const g = imgData[idx + 1];
+        const b = imgData[idx + 2];
+        const a = imgData[idx + 3];
+
+        if (a > 20 && (r > 8 || g > 8 || b > 8)) {
+          foundContent = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (!foundContent || maxX < minX || maxY < minY) return null;
+
+    const scaleX = w / sampleW;
+    const scaleY = h / sampleH;
+
+    const rawMinX = minX * scaleX;
+    const rawMaxX = (maxX + 1) * scaleX;
+    const rawMinY = minY * scaleY;
+    const rawMaxY = (maxY + 1) * scaleY;
+
+    const boxW = rawMaxX - rawMinX;
+    const boxH = rawMaxY - rawMinY;
+    const padX = boxW * 0.08;
+    const padY = boxH * 0.08;
+
+    const clampedMinX = Math.max(0, rawMinX - padX);
+    const clampedMinY = Math.max(0, rawMinY - padY);
+    const clampedMaxX = Math.min(w, rawMaxX + padX);
+    const clampedMaxY = Math.min(h, rawMaxY + padY);
+
+    return {
+      minX: clampedMinX,
+      minY: clampedMinY,
+      maxX: clampedMaxX,
+      maxY: clampedMaxY,
+      width: clampedMaxX - clampedMinX,
+      height: clampedMaxY - clampedMinY,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function captureVisualizerSnapshot(options: CaptureOptions = {}): Promise<boolean> {
   const {
     resolution = '4k',
@@ -52,29 +134,26 @@ export async function captureVisualizerSnapshot(options: CaptureOptions = {}): P
   } = options;
 
   try {
-    // 1. Locate the WebGL Canvas (SceneContainer, WarpTunnel, Terrain, BlackHole, Visualizer3D)
-    const canvases = Array.from(document.querySelectorAll('canvas'));
-    const webglCanvas =
-      canvases.find((c) => {
-        const isWebGL = c.getContext('webgl2') || c.getContext('webgl');
-        const rect = c.getBoundingClientRect();
-        return isWebGL && rect.width > 200 && rect.height > 200;
-      }) || canvases[0];
+    // 1. Locate the active visualizer canvas with centralized finder
+    const targetCanvas = findVisualizerCanvas();
 
-    if (!webglCanvas) {
-      console.warn('[SnapshotCapture] No se encontró ningún canvas WebGL para capturar.');
+    if (!targetCanvas) {
+      console.warn('[SnapshotCapture] No se encontró ningún canvas visualizador activo para capturar.');
       return false;
     }
 
-    const srcW = webglCanvas.width;
-    const srcH = webglCanvas.height;
+    const bbox = getContentBoundingBox(targetCanvas);
+    const srcX = bbox ? bbox.minX : 0;
+    const srcY = bbox ? bbox.minY : 0;
+    const srcW = bbox ? bbox.width : targetCanvas.width;
+    const srcH = bbox ? bbox.height : targetCanvas.height;
 
     // 2. Calculate target dimensions based on requested aspect ratio & resolution
     const { targetW, targetH } = getDimensionsForAspect(
       aspectRatio,
       resolution,
-      srcW,
-      srcH
+      targetCanvas.width,
+      targetCanvas.height
     );
 
     const hiResCanvas = document.createElement('canvas');
@@ -95,37 +174,34 @@ export async function captureVisualizerSnapshot(options: CaptureOptions = {}): P
     ctx.fillStyle = '#03050d';
     ctx.fillRect(0, 0, targetW, targetH);
 
-    // 3. Compute precise center-crop from source WebGL canvas (NO distortion / stretching)
+    // 3. Compute precise center-crop from visualizer canvas (NO distortion / stretching)
     const srcAspect = srcW / srcH;
     const targetAspect = targetW / targetH;
 
     let cropW = srcW;
     let cropH = srcH;
-    let cropX = 0;
-    let cropY = 0;
+    let cropX = srcX;
+    let cropY = srcY;
 
     if (srcAspect > targetAspect) {
-      // Source canvas is wider than target: crop sides
       cropW = srcH * targetAspect;
-      cropX = (srcW - cropW) / 2;
+      cropX = srcX + (srcW - cropW) / 2;
     } else {
-      // Source canvas is taller than target: crop top and bottom
       cropH = srcW / targetAspect;
-      cropY = (srcH - cropH) / 2;
+      cropY = srcY + (srcH - cropH) / 2;
     }
 
     // Draw pristine undistorted frame
-    ctx.drawImage(webglCanvas, cropX, cropY, cropW, cropH, 0, 0, targetW, targetH);
+    ctx.drawImage(targetCanvas, cropX, cropY, cropW, cropH, 0, 0, targetW, targetH);
 
     // 4. Optional subtle watermark pill
     if (includeWatermark) {
       drawAuraWatermark(ctx, targetW, targetH, aspectRatio);
     }
 
-    // 5. Export and trigger download
+    // 5. Non-blocking asynchronous Blob export (avoids main thread freeze in 4K)
     const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
     const quality = format === 'jpeg' ? 0.98 : undefined;
-    const dataUrl = hiResCanvas.toDataURL(mimeType, quality);
 
     const cleanTitle = (trackTitle || 'Visualizer')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -134,12 +210,26 @@ export async function captureVisualizerSnapshot(options: CaptureOptions = {}): P
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const filename = `Aura3D_${resolution.toUpperCase()}_${ratioTag}_${cleanTitle}_${timestamp}.${format}`;
 
+    const blob = await new Promise<Blob | null>((resolve) =>
+      hiResCanvas.toBlob(resolve, mimeType, quality)
+    );
+
+    if (!blob) {
+      console.error('[SnapshotCapture] Error al generar blob de la imagen.');
+      return false;
+    }
+
+    const blobUrl = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
-    anchor.href = dataUrl;
+    anchor.href = blobUrl;
     anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
-    document.body.removeChild(anchor);
+
+    setTimeout(() => {
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(blobUrl);
+    }, 1000);
 
     return true;
   } catch (err) {

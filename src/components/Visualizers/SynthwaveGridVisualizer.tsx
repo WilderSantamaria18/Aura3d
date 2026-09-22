@@ -465,7 +465,7 @@ export const SynthwaveGridVisualizer: React.FC = () => {
       className="relative w-full h-full overflow-hidden select-none pointer-events-auto"
       style={{ backgroundColor: hasAtmosphere ? 'transparent' : '#000000' }}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" />
+      <canvas ref={canvasRef} data-visualizer="true" className="absolute inset-0 w-full h-full block" />
 
       {/* Cyberpunk Scanlines Retro Filter */}
       <div

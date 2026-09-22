@@ -4,6 +4,8 @@
  * allowing uninterrupted visualizer experience while multi-tasking across apps.
  */
 
+import { findVisualizerCanvas } from '../utils/visualizerCanvas';
+
 class PictureInPictureService {
   private static instance: PictureInPictureService | null = null;
   private hiddenVideo: HTMLVideoElement | null = null;
@@ -48,14 +50,8 @@ class PictureInPictureService {
     }
 
     try {
-      // 1. Locate the active WebGL canvas
-      const canvases = Array.from(document.querySelectorAll('canvas'));
-      const activeCanvas =
-        canvases.find((c) => {
-          const isWebGL = c.getContext('webgl2') || c.getContext('webgl');
-          const rect = c.getBoundingClientRect();
-          return isWebGL && rect.width > 200 && rect.height > 200;
-        }) || canvases[0];
+      // 1. Locate the active visualizer canvas
+      const activeCanvas = findVisualizerCanvas();
 
       if (!activeCanvas) {
         console.warn('[PiP] No active visualizer canvas found.');

@@ -1,5 +1,6 @@
 import type { CardConfig } from '../store/recorderStore';
 import type { Track } from '../types/audio';
+import { findVisualizerCanvas } from '../utils/visualizerCanvas';
 
 export interface CardTrackInfo {
   title: string;
@@ -28,9 +29,7 @@ export async function generateStoryCard(
   }
 
   // 1. Capture Active Visualizer Canvas snapshot
-  const visualizerCanvas =
-    (document.querySelector('#rainbow-void-canvas') as HTMLCanvasElement) ||
-    document.querySelector('canvas');
+  const visualizerCanvas = findVisualizerCanvas();
 
   // 2. Render Template Background & Aesthetics
   await renderTemplate(ctx, config, track, width, height, visualizerCanvas);

@@ -123,6 +123,7 @@ export const SceneContainer: React.FC = React.memo(() => {
       {/* Clean backdrop without artificial halos */}
 
       <Canvas
+        data-visualizer="true"
         camera={{ position: [0, 0.35, 6.2], fov: 50 }}
         gl={{
           antialias: performanceTier !== 'eco',
@@ -135,6 +136,7 @@ export const SceneContainer: React.FC = React.memo(() => {
         dpr={effectiveDpr}
         resize={{ debounce: 0, scroll: false }}
         onCreated={({ gl }) => {
+          gl.domElement.dataset.visualizer = 'true';
           gl.setClearColor(0x000000, 0);
           gl.toneMapping = THREE.NoToneMapping;
           gl.toneMappingExposure = 1.0;
