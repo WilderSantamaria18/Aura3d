@@ -3,7 +3,6 @@ import { usePlayerStore } from '../stores/playerStore';
 import { useRecorderStore } from '../store/recorderStore';
 import { useAudioEngine } from './useAudioEngine';
 import { useSpotifyPlayer } from './useSpotifyPlayer';
-import { KEYBOARD_SHORTCUTS } from '../config/keyboardShortcuts';
 
 export const useKeyboardShortcuts = () => {
   const {
@@ -52,9 +51,10 @@ export const useKeyboardShortcuts = () => {
           break;
 
         case 'SEEK_FORWARD': {
-          const nextTime = Math.min(duration || 0, currentTime + 5);
-          if (isSpotifyConnected) spotifySeek(nextTime);
-          else {
+          const nextTime = Math.min(duration || 300, currentTime + 5);
+          if (isSpotifyConnected) {
+            spotifySeek(nextTime * 1000);
+          } else {
             engineSeek(nextTime);
             setCurrentTime(nextTime);
           }
@@ -63,11 +63,26 @@ export const useKeyboardShortcuts = () => {
 
         case 'SEEK_BACKWARD': {
           const prevTime = Math.max(0, currentTime - 5);
-          if (isSpotifyConnected) spotifySeek(prevTime);
-          else {
+          if (isSpotifyConnected) {
+            spotifySeek(prevTime * 1000);
+          } else {
             engineSeek(prevTime);
             setCurrentTime(prevTime);
           }
+          break;
+        }
+
+        case 'VOLUME_UP': {
+          const currentVol = usePlayerStore.getState().volume;
+          const newVol = Math.max(0, Math.min(1, Math.round((currentVol + 0.05) * 100) / 100));
+          usePlayerStore.getState().setVolume(newVol);
+          break;
+        }
+
+        case 'VOLUME_DOWN': {
+          const currentVol = usePlayerStore.getState().volume;
+          const newVol = Math.max(0, Math.min(1, Math.round((currentVol - 0.05) * 100) / 100));
+          usePlayerStore.getState().setVolume(newVol);
           break;
         }
 
@@ -107,11 +122,27 @@ export const useKeyboardShortcuts = () => {
           toggleShortcutsModal();
           break;
 
+        case 'TOGGLE_AIR_INSTRUMENTS': {
+          const store = usePlayerStore.getState();
+          const next = !store.isAirInstrumentsActive;
+          store.setAirInstrumentsActive(next);
+          if (next && !store.vrMode) {
+            store.setVrTrackingMode('hands');
+            store.setVrMode(true);
+          }
+          break;
+        }
+
         case 'CLOSE_MODAL':
           setShortcutsModalOpen(false);
           useRecorderStore.getState().closeModal();
           setEqualizerOpen(false);
           setCommandPaletteOpen(false);
+          setLyricsOpen(false);
+          usePlayerStore.getState().setVisualizerSettingsOpen?.(false);
+          usePlayerStore.getState().setBlobPanelOpen?.(false);
+          usePlayerStore.getState().setAdminModalOpen?.(false);
+          usePlayerStore.getState().setSidebarOpen?.(false);
           break;
 
         case 'OPEN_RECORDER':
@@ -172,27 +203,36 @@ export const useKeyboardShortcuts = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Strict guard: never trigger shortcuts while focused on inputs or text fields
+      // 0. Avoid responding if another event handler already consumed it
+      if (e.defaultPrevented) return;
+
       const target = e.target as HTMLElement | null;
-      if (
+      const isInput =
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.tagName === 'SELECT' ||
-          target.isContentEditable)
-      ) {
+          target.isContentEditable);
+
+      // 1. Escape: MUST close active modal even if focus is currently in an input (e.g. Help search)
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isInput) {
+          target.blur();
+        }
+        dispatchAction('CLOSE_MODAL');
         return;
       }
 
-      // 2. Special single-key shortcuts
+      // 2. Strict input guard: NEVER trigger studio shortcuts when typing in inputs/textareas
+      if (isInput) {
+        return;
+      }
+
+      // 3. Special single-key shortcuts
       if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
         e.preventDefault();
         dispatchAction('OPEN_HELP');
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        dispatchAction('CLOSE_MODAL');
         return;
       }
 
@@ -202,7 +242,7 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
-      // 3. Modifier combinations
+      // 4. Modifier combinations
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
       if (isCmdOrCtrl && e.key.toLowerCase() === 'k') {
@@ -235,21 +275,44 @@ export const useKeyboardShortcuts = () => {
         return;
       }
 
-      if (e.shiftKey && e.key === 'ArrowRight') {
-        e.preventDefault();
-        dispatchAction('SEEK_FORWARD');
-        return;
+      // 5. Arrow navigation & volume without Cmd/Ctrl
+      if (!isCmdOrCtrl && !e.altKey) {
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          dispatchAction('SEEK_FORWARD');
+          return;
+        }
+
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          dispatchAction('SEEK_BACKWARD');
+          return;
+        }
+
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          dispatchAction('VOLUME_UP');
+          return;
+        }
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          dispatchAction('VOLUME_DOWN');
+          return;
+        }
       }
 
-      if (e.shiftKey && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        dispatchAction('SEEK_BACKWARD');
-        return;
-      }
-
-      // 4. Single letter hotkeys (without modifiers)
+      // 6. Single letter hotkeys (without modifiers)
       if (!isCmdOrCtrl && !e.altKey && !e.shiftKey) {
         switch (e.key.toLowerCase()) {
+          case 'h':
+            e.preventDefault();
+            dispatchAction('OPEN_HELP');
+            break;
+          case 'i':
+            e.preventDefault();
+            dispatchAction('TOGGLE_AIR_INSTRUMENTS');
+            break;
           case 'b':
             e.preventDefault();
             dispatchAction('TOGGLE_SIDEBAR');

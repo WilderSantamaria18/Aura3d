@@ -94,6 +94,14 @@ export const HelpModal: React.FC = () => {
                 placeholder="Buscar atajo por acción o tecla (ej. 'reproducir', 'Cmd', 'v')..."
                 className="w-full bg-transparent text-xs text-white placeholder-white/40 focus:outline-none"
                 autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e.target as HTMLElement)?.blur();
+                    setShortcutsModalOpen(false);
+                  }
+                }}
               />
               {search && (
                 <button

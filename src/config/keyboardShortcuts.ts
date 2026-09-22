@@ -30,7 +30,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   {
     id: 'open-help',
     category: 'Navegación',
-    keys: ['?'],
+    keys: ['?', 'H'],
     description: 'Mostrar Ayuda y Atajos de Teclado',
     action: 'OPEN_HELP',
     context: 'global',
@@ -72,7 +72,7 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   {
     id: 'seek-fwd',
     category: 'Reproducción',
-    keys: ['Shift', '→'],
+    keys: ['→'],
     description: 'Avanzar 5 segundos',
     action: 'SEEK_FORWARD',
     context: 'global',
@@ -80,9 +80,25 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   {
     id: 'seek-back',
     category: 'Reproducción',
-    keys: ['Shift', '←'],
+    keys: ['←'],
     description: 'Retroceder 5 segundos',
     action: 'SEEK_BACKWARD',
+    context: 'global',
+  },
+  {
+    id: 'volume-up',
+    category: 'Reproducción',
+    keys: ['↑'],
+    description: 'Subir volumen (+5%)',
+    action: 'VOLUME_UP',
+    context: 'global',
+  },
+  {
+    id: 'volume-down',
+    category: 'Reproducción',
+    keys: ['↓'],
+    description: 'Bajar volumen (-5%)',
+    action: 'VOLUME_DOWN',
     context: 'global',
   },
   {
@@ -125,6 +141,14 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
     keys: ['Cmd', 'S'],
     description: 'Capturar Wallpaper Full HD / 4K del visualizador',
     action: 'CAPTURE_SCREENSHOT',
+    context: 'visualizer',
+  },
+  {
+    id: 'air-instruments',
+    category: 'Visualizadores',
+    keys: ['I'],
+    description: 'Alternar Instrumentos de Aire 3D & VR Tracking',
+    action: 'TOGGLE_AIR_INSTRUMENTS',
     context: 'visualizer',
   },
 

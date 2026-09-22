@@ -15,7 +15,6 @@ import { hexToRgba } from './types/audio';
 import { AlertCircle, Play, Pause } from 'lucide-react';
 import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
-import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
@@ -59,7 +58,6 @@ export const App: React.FC = () => {
   useSpotifyPlayer();
   useAnalytics();
   useAutoPalette();
-  useStudioKeyboardShortcuts();
   useKeyboardShortcuts();
   const hasStarted = usePlayerStore((s) => s.hasStarted);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
@@ -88,6 +86,10 @@ export const App: React.FC = () => {
   // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCommandPaletteOpen(true);
@@ -174,12 +176,15 @@ export const App: React.FC = () => {
   // Global shortcut 'G' to toggle Gallery Mode (pure 3D immersion)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
       if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
         updateBlobSettings({ isUiHidden: !isUiHidden });
       } else if (e.key === 'Escape' && isUiHidden) {
+        e.preventDefault();
         updateBlobSettings({ isUiHidden: false });
       }
     };
