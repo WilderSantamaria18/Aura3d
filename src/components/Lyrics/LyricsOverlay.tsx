@@ -6,6 +6,9 @@ import { useLyrics } from '../../hooks/useLyrics';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
+import { KawarpBackground } from './KawarpBackground';
+import { CollapsedLyricsPill } from './CollapsedLyricsPill';
+import { extractDominantColor } from '../../services/colorExtractor';
 
 export type LyricsPosition = 'dock-right' | 'dock-left' | 'bottom-right' | 'center' | 'custom';
 export type LyricsSize = 'compact' | 'standard' | 'lateral' | 'fullscreen';
@@ -22,6 +25,9 @@ export const LyricsOverlay: React.FC = () => {
     isSpotifyConnected,
     isLucid,
     lucidTheme,
+    togglePlayPause,
+    playNext,
+    playPrev,
   } = usePlayerStore();
 
   const { lyricsData, activeLineIndex, loadLrcFile } = useLyrics();
@@ -29,6 +35,19 @@ export const LyricsOverlay: React.FC = () => {
   const { seek: spotifySeek } = useSpotifyPlayer();
 
   const activeColor = isLucid ? (lucidTheme?.primary || '#00f0ff') : '#00f0ff';
+
+  // ── Dynamic accent color from cover art ─────────────────────────────────
+  const [kawarpColors, setKawarpColors] = useState({ primary: activeColor, secondary: '#a855f7' });
+  const lastCoverRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const cover = currentTrack?.coverUrl || currentTrack?.thumbnail;
+    if (!cover || cover === lastCoverRef.current) return;
+    lastCoverRef.current = cover;
+    extractDominantColor(cover).then((colors) => {
+      setKawarpColors(colors);
+    });
+  }, [currentTrack?.coverUrl, currentTrack?.thumbnail]);
 
   // Position & Size state with localStorage persistence
   const [position, setPosition] = useState<LyricsPosition>(() => {
@@ -224,7 +243,25 @@ export const LyricsOverlay: React.FC = () => {
 
   return (
     <>
-      {/* ── Zen Micro-Pill Floating Anchor (Rendered when minimized) ── */}
+      {/* ── KawarpBackground — fullscreen mode only ── */}
+      <AnimatePresence>
+        {isFullscreenActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <KawarpBackground
+              primaryColor={kawarpColors.primary}
+              secondaryColor={kawarpColors.secondary}
+              visible={isFullscreenActive}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Zen Micro-Pill Floating Anchor (rendered when minimized) ── */}
       <AnimatePresence>
         {isZenMode && !isFullscreenActive && (
           <motion.div
@@ -319,6 +356,11 @@ export const LyricsOverlay: React.FC = () => {
                 if (isKaraokeFullscreen) toggleKaraokeFullscreen();
               }}
               onUploadLRC={loadLrcFile}
+              coverUrl={currentTrack?.coverUrl || currentTrack?.thumbnail}
+              accentColor={kawarpColors.primary !== '#00f0ff' ? kawarpColors.primary : undefined}
+              onPlayPause={togglePlayPause}
+              onSkipBack={playPrev}
+              onSkipForward={playNext}
             />
           </motion.div>
         )}

@@ -22,6 +22,8 @@ import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackgro
 import { RgbGlitchOverlay } from './components/Visualizers/RgbGlitchOverlay';
 import { RetroCrtOverlay } from './components/UI/RetroCrtOverlay';
 import { AmbientGlow } from './components/UI/AmbientGlow';
+import { AmbientGlowLayer } from './components/Effects/AmbientGlowLayer';
+import { CausticsOverlay } from './components/Effects/CausticsOverlay';
 import { CameraPresetBar } from './components/UI/CameraPresetBar';
 import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer';
 import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
@@ -249,6 +251,10 @@ export const App: React.FC = () => {
       {/* 0. Full-Screen Atmosphere Canvas Background (only for visualizers, not on landing index) */}
       {hasStarted && <AtmosphereBackground />}
 
+      {/* 0.05 Apple Liquid Glass Master Overlays: Ambient Glow & Caustics */}
+      <AmbientGlowLayer />
+      <CausticsOverlay />
+
       {/* 0.1 Botón flotante para restaurar interfaz cuando está oculta en Modo Puro / Galería */}
       {isUiHidden && hasStarted && (
         <button
@@ -323,7 +329,7 @@ export const App: React.FC = () => {
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 p-1.5 sm:p-2.5 pb-2 transition-all duration-500 pointer-events-none flex flex-col items-center ${
+          className={`fixed bottom-3 sm:bottom-6 left-0 right-0 z-50 p-1.5 sm:p-2 transition-all duration-500 pointer-events-none flex flex-col items-center ${
             shouldHideUI || isZenGhostMode
               ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
               : 'opacity-100 translate-y-0 pointer-events-auto scale-100'

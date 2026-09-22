@@ -41,7 +41,13 @@ export type PeripheralShapeType =
   | 'fox_ears'
   | 'cyber_horns'
   | 'valkyrie_wings'
-  | 'laser_crown';
+  | 'laser_crown'
+  | 'cyber_hexagon'
+  | 'octagram_star'
+  | 'phoenix_wings'
+  | 'quantum_gyro'
+  | 'lotus_mandala'
+  | 'radar_heartbeat';
 
 export type SacredPaletteType = 'neon' | 'gold' | 'crystal' | 'lucid';
 
@@ -61,6 +67,12 @@ const PERIPHERAL_SHAPES: { id: PeripheralShapeType; name: string; desc: string }
   { id: 'laser_needles', name: 'Agujas Láser Hairline', desc: 'Líneas ultrafinas de 0.75px con destello' },
   { id: 'fractal', name: 'Mándala Sagrada', desc: 'Geometría fractal de pétalos armónicos' },
   { id: 'wave_peaks', name: 'Halo de Ondas Reactivas', desc: 'Halo orbital con picos ondulantes que viajan con el ritmo' },
+  { id: 'cyber_hexagon', name: 'Hexágono Cyber', desc: 'Polígono hex con cada lado reactivo a una banda FFT' },
+  { id: 'octagram_star', name: 'Estrella 8 Puntas', desc: 'Estrella con alternancia sinusoidal interior/exterior' },
+  { id: 'phoenix_wings', name: 'Alas Fénix', desc: 'Perfil Joukowski asimétrico que se abre con la energía' },
+  { id: 'quantum_gyro', name: 'Giroscopio Cuántico', desc: 'Lissajous polar a=3 b=2 con interferencia Moiré' },
+  { id: 'lotus_mandala', name: 'Mandala Loto', desc: 'Curva rosa k=5: 10 pétalos reactivos a bajos/mids' },
+  { id: 'radar_heartbeat', name: 'Radar EKG', desc: 'Barrido de radar con pulso cardíaco QRS' },
 ];
 
 export const LiquidVoidCircle: React.FC<LiquidVoidCircleProps> = ({

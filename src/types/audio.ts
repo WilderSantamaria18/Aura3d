@@ -30,7 +30,13 @@ export type VisualizerShape =
   | 'harmonic_crown'
   | 'hyperbolic_arcs'
   | 'laser_needles'
-  | 'wave_peaks';
+  | 'wave_peaks'
+  | 'cyber_hexagon'
+  | 'octagram_star'
+  | 'phoenix_wings'
+  | 'quantum_gyro'
+  | 'lotus_mandala'
+  | 'radar_heartbeat';
 export type WaveEffectMode = 'concentric' | 'sinusoidal' | 'spiral' | 'void' | 'off';
 
 
@@ -358,7 +364,13 @@ export interface BlobCustomSettings {
     | 'hyperbolic_arcs'
     | 'laser_needles'
     | 'fractal'
-    | 'wave_peaks';
+    | 'wave_peaks'
+    | 'cyber_hexagon'
+    | 'octagram_star'
+    | 'phoenix_wings'
+    | 'quantum_gyro'
+    | 'lotus_mandala'
+    | 'radar_heartbeat';
   peripheralShapeCount?: 2 | 4;
   strokeHairline?: 0.75 | 1.0 | 1.5;
   kickIntensity?: number;
@@ -372,7 +384,29 @@ export interface BlobCustomSettings {
   chromaticAberration?: number;
   audioSmoothingMode?: 'fast' | 'balanced' | 'smooth';
   frequencyFocus?: 'full' | 'bass' | 'mids' | 'highs';
+  // 10 Pro Visual Effects (VisionOS / Liquid Glass layers)
+  shockwaveEnabled?: boolean;
+  shockwaveIntensity?: number;
+  chromaticRingEnabled?: boolean;
+  chromaticRingIntensity?: number;
+  pulseGridEnabled?: boolean;
+  pulseGridIntensity?: number;
+  mercuryTrailsEnabled?: boolean;
+  mercuryTrailsIntensity?: number;
+  constellationEnabled?: boolean;
+  constellationIntensity?: number;
+  plasmaVortexEnabled?: boolean;
+  plasmaVortexIntensity?: number;
+  gravitationalLensEnabled?: boolean;
+  gravitationalLensIntensity?: number;
+  auroraRibbonsEnabled?: boolean;
+  auroraRibbonsIntensity?: number;
+  crystalShardsEnabled?: boolean;
+  crystalShardsIntensity?: number;
+  holographicScanlinesEnabled?: boolean;
+  holographicScanlinesIntensity?: number;
 }
+export const BlobCustomSettings = {} as any;
 
 export interface Track {
   id: string;

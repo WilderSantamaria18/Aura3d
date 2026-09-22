@@ -112,7 +112,7 @@ export const ProgressBar: React.FC = React.memo(() => {
       style={{ color: isLucid ? lucidTheme.primary : 'rgba(255, 255, 255, 0.45)' }}
     >
       {/* Current Time Display */}
-      <span className="w-7 sm:w-8 text-right font-display font-tabular text-[9px] text-white/60 tracking-wide shrink-0">
+      <span className="w-7 sm:w-8 text-right font-mono tabular-nums text-[9.5px] text-white/60 tracking-wider shrink-0">
         {formatTime(isDragging ? dragTime : currentTime)}
       </span>
 
@@ -237,19 +237,21 @@ export const ProgressBar: React.FC = React.memo(() => {
 
         {/* Precision Hairline Scrubber Thumb */}
         <div
-          className={`absolute w-1.5 h-1.5 rounded-full -translate-x-1/2 transition-transform pointer-events-none shadow-[0_2px_6px_rgba(0,0,0,0.9)] border border-white/60 z-20 ${
-            isDragging ? 'scale-150' : 'scale-100 group-hover:scale-125'
+          className={`absolute rounded-full -translate-x-1/2 transition-all pointer-events-none border border-white/80 z-20 ${
+            isDragging
+              ? 'w-3 h-3 shadow-[0_0_12px_rgba(255,255,255,0.7)]'
+              : 'w-2 h-2 group-hover:w-2.5 group-hover:h-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.8)]'
           }`}
           style={{
             left: `${progressPct}%`,
             backgroundColor: activeColor,
-            boxShadow: `0 0 6px ${activeColor}`,
+            boxShadow: `0 0 8px ${activeColor}`,
           }}
         />
       </div>
 
       {/* Duration Display */}
-      <span className="w-7 sm:w-8 text-left font-display font-tabular text-[9px] text-white/50 tracking-wide shrink-0">
+      <span className="w-7 sm:w-8 text-left font-mono tabular-nums text-[9.5px] text-white/45 tracking-wider shrink-0">
         {formatTime(duration)}
       </span>
     </div>

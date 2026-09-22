@@ -845,9 +845,9 @@ export const HeaderBar: React.FC = () => {
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
-        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.05] border border-white/10 border-t-white/20 backdrop-blur-md shadow-sm">
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-sm">
           <BpmMeter />
-          <div className="w-px h-3 bg-white/[0.08] mx-0.5 hidden sm:block" />
+          <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block" />
           <VideoRecorderButton
             isOpen={activeMenu === 'recorder'}
             onToggle={() => handleToggleMenu('recorder')}
@@ -1404,7 +1404,7 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 4. Pod Final Compacto: Lúcido & Pantalla Completa */}
-        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.05] border border-white/10 border-t-white/20 backdrop-blur-md shadow-sm">
+        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-sm">
           <LucidToggle
             isOpen={activeMenu === 'lucid'}
             onToggle={() => handleToggleMenu('lucid')}

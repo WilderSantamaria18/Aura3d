@@ -62,34 +62,81 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
       audioEngine.audioContext.resume().catch(() => {});
     }
 
-    // Silent state decay or rhythmic procedural pulse if playing
+    // Silent state decay or rhythmic procedural pulse if playing (e.g. Spotify remote playback)
     if (sum === 0) {
       if (playerState.isPlaying) {
-        const timeSec = playerState.currentTime > 0 ? playerState.currentTime : performance.now() * 0.001;
-        // 116 BPM tempo (~1.93 beats per second) with strong transient sub-bass punch
-        const beatPhase = (timeSec * 1.93) % 1.0;
-        // Sharp kick attack envelope (exponential decay from 1.0 down to 0)
-        const kickEnv = Math.pow(Math.max(0, 1.0 - beatPhase * 3.2), 2.5);
-        const breath = (Math.sin(timeSec * 3.0) + 1) * 0.5;
+        const now = performance.now();
+        // Continuous sub-millisecond timeline interpolated from last sync
+        let timeSec: number;
+        if (playerState.isSpotifyConnected && playerState.spotifySyncTimestamp > 0) {
+          const elapsedSec = (now - playerState.spotifySyncTimestamp) * 0.001;
+          timeSec = (playerState.spotifyProgressMs * 0.001) + elapsedSec;
+        } else if (playerState.currentTime > 0) {
+          timeSec = playerState.currentTime + ((now % 1000) * 0.001);
+        } else {
+          timeSec = now * 0.001;
+        }
 
-        const dynamicBass = 0.22 + kickEnv * 0.55 + breath * 0.08;
-        const dynamicMids = 0.18 + Math.sin(timeSec * 4.5) * 0.08 + kickEnv * 0.15;
-        const dynamicHighs = 0.14 + Math.cos(timeSec * 6.0) * 0.06 + (beatPhase > 0.45 && beatPhase < 0.55 ? 0.25 : 0);
-        const dynamicEnergy = 0.25 + kickEnv * 0.40;
+        const bpm = playerState.spotifyBpm || 124;
+        const bps = bpm / 60; // Beats per second
+        const currentBeat = timeSec * bps;
+        const beatNumber = Math.floor(currentBeat);
+        const beatPhase = currentBeat % 1.0; // 0.0 to 1.0 within current beat
+
+        const energyMultiplier = Math.max(0.65, playerState.spotifyEnergy || 0.85);
+        const danceMultiplier = Math.max(0.65, playerState.spotifyDanceability || 0.75);
+
+        // Downbeat accent (beat 1 of measure in 4/4 time)
+        const isDownbeat = (beatNumber % 4) === 0;
+        const isBackbeat = (beatNumber % 2) === 1; // Beats 2 & 4: Snare / Clap
+
+        // 1. Kick drum attack with exponential release curve
+        const kickPunch = Math.pow(Math.max(0, 1.0 - beatPhase * 3.6), 2.2);
+        const subBassDrop = isDownbeat ? Math.pow(Math.max(0, 1.0 - beatPhase * 2.0), 1.6) * 0.42 : 0;
+
+        // 2. Snare / Clap transient on beats 2 & 4
+        const snarePunch = isBackbeat ? Math.pow(Math.max(0, 1.0 - beatPhase * 4.2), 2.0) : 0;
+
+        // 3. 8th-note Hi-hat tick
+        const eighthPhase = (currentBeat * 2) % 1.0;
+        const hiHatTick = Math.pow(Math.max(0, 1.0 - eighthPhase * 5.0), 3.0);
+
+        // 4. Harmonic synth modulation & chord breathing
+        const chordBreathing = (Math.sin(timeSec * (bps * 0.5) * Math.PI) + 1) * 0.5;
+        const arpWave = Math.sin(timeSec * (bps * 4) * Math.PI);
+
+        // Dynamic frequency levels
+        const dynamicBass = Math.min(1.0, 0.22 + (kickPunch * 0.58 + subBassDrop) * energyMultiplier + chordBreathing * 0.06);
+        const dynamicMids = Math.min(1.0, 0.18 + (snarePunch * 0.45 + chordBreathing * 0.20) * danceMultiplier + (arpWave > 0 ? arpWave * 0.10 : 0));
+        const dynamicHighs = Math.min(1.0, 0.15 + (hiHatTick * 0.40 + snarePunch * 0.22) * energyMultiplier);
+        const dynamicEnergy = Math.min(1.0, 0.24 + (kickPunch * 0.42 + snarePunch * 0.20 + chordBreathing * 0.14) * energyMultiplier);
 
         smoothedRef.current.bass = dynamicBass;
         smoothedRef.current.mids = dynamicMids;
         smoothedRef.current.highs = dynamicHighs;
         smoothedRef.current.energy = dynamicEnergy;
 
-        // Populate raw FFT buffer so particle shaders and radial spikes dance to the beat
+        // Populate raw FFT buffer with realistic acoustic harmonics so all visualizers dance to the real beat
         for (let i = 0; i < total; i++) {
           if (i < 8) {
-            raw[i] = Math.min(255, Math.floor((dynamicBass * 220) * (1 - i / 10)));
-          } else if (i < 40) {
-            raw[i] = Math.min(255, Math.floor(dynamicMids * 160 * (1 - (i - 8) / 35)));
+            // Sub-bass & Kick frequencies (20Hz - 150Hz)
+            const kickHarmonic = Math.cos((i / 8) * (Math.PI / 2));
+            raw[i] = Math.min(255, Math.floor(dynamicBass * 255 * kickHarmonic));
+          } else if (i < 64) {
+            // Melodic & Harmonics range (150Hz - 2500Hz)
+            const binNoteMod = Math.sin((i - 8) * 0.38 + timeSec * (bps * 2));
+            const notePunch = (binNoteMod > 0 ? binNoteMod : 0) * (0.5 + 0.5 * arpWave);
+            const val = (dynamicMids * 180 + notePunch * 70 * danceMultiplier) * (1 - (i - 8) / 70);
+            raw[i] = Math.min(255, Math.max(0, Math.floor(val)));
+          } else if (i < 128) {
+            // High mids & snare transients (2.5kHz - 6kHz)
+            const snareSpike = snarePunch * 160 * (1 - Math.abs((i - 90) / 40));
+            raw[i] = Math.min(255, Math.max(0, Math.floor(dynamicMids * 90 + snareSpike)));
           } else {
-            raw[i] = Math.min(255, Math.floor(dynamicHighs * 100 * Math.random()));
+            // Air & Treble (6kHz - 20kHz): Hi-hats & shimmer
+            const hiHatSpike = hiHatTick * 140 * Math.random();
+            const shimmer = Math.sin(i * 0.5 + timeSec * 12) * 15;
+            raw[i] = Math.min(255, Math.max(0, Math.floor(dynamicHighs * 80 + hiHatSpike + shimmer)));
           }
         }
       } else {

@@ -2,8 +2,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 
 const SERVER_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:4000'
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:4000`
     : 'http://localhost:4000';
 
 let guestTokenPromise: Promise<string> | null = null;
@@ -13,12 +13,16 @@ let isCheckingInitialStatus = false;
 /**
  * Helper to get or acquire an authenticated JWT token from the server
  */
-async function getAuthToken(): Promise<string> {
+async function getAuthToken(forceRefresh = false): Promise<string> {
+  if (forceRefresh) {
+    localStorage.removeItem('auralis_jwt_token');
+    guestTokenPromise = null;
+  }
   const token =
     localStorage.getItem('auralis_jwt_token') ||
     localStorage.getItem('auralis_admin_jwt_token');
 
-  if (token) return token;
+  if (token && !forceRefresh) return token;
   if (guestTokenPromise) return guestTokenPromise;
 
   // Request an instant guest session token with in-flight deduplication
@@ -34,7 +38,7 @@ async function getAuthToken(): Promise<string> {
       }
     } catch {
       console.warn(
-        '[useSpotifyPlayer] Servidor backend no disponible en http://localhost:4000. Inícialo con "npm run server".'
+        `[useSpotifyPlayer] Servidor backend no disponible en ${SERVER_URL}. Inícialo con "npm run server".`
       );
     } finally {
       guestTokenPromise = null;
@@ -45,11 +49,16 @@ async function getAuthToken(): Promise<string> {
   return guestTokenPromise;
 }
 
+// Module-level singleton polling state (shared across all components)
+let isPollingInFlight = false;
+let sharedPollTimer: ReturnType<typeof setInterval> | null = null;
+let lastPollTimestamp = 0;
+
 /**
  * useSpotifyPlayer
  * Hook principal para la integración de Spotify:
  * - Inicia el flujo OAuth 2.0 PKCE en el backend
- * - Detección y sondeo en tiempo real cada 1.5s
+ * - Detección y sondeo en tiempo real cada 2s
  * - Control de transporte (Play, Pause, Next, Previous, Seek)
  * - Zero-token: Ningún token de Spotify se almacena en el cliente
  */
@@ -72,15 +81,30 @@ export const useSpotifyPlayer = () => {
    */
   const spotifyFetch = useCallback(
     async (endpoint: string, options: RequestInit = {}) => {
-      const token = await getAuthToken();
+      let token = await getAuthToken();
       const headers = new Headers(options.headers || {});
       if (token) {
         headers.set('Authorization', `Bearer ${token}`);
       }
-      return fetch(`${SERVER_URL}/api/spotify${endpoint}`, {
+      let res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, {
         ...options,
         headers,
       });
+
+      // If 401 (token expired or invalidated by server restart), refresh guest token and retry once
+      if (res.status === 401 && endpoint !== '/disconnect') {
+        token = await getAuthToken(true);
+        if (token) {
+          const retryHeaders = new Headers(options.headers || {});
+          retryHeaders.set('Authorization', `Bearer ${token}`);
+          res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, {
+            ...options,
+            headers: retryHeaders,
+          });
+        }
+      }
+
+      return res;
     },
     []
   );
@@ -101,7 +125,7 @@ export const useSpotifyPlayer = () => {
           setIsLoading(false);
           return;
         }
-        throw new Error(rawMsg || 'No se pudo iniciar autorización con Spotify');
+        throw new Error(rawMsg || `Error del servidor HTTP ${res.status}`);
       }
 
       const { authUrl, state } = await res.json();
@@ -110,15 +134,18 @@ export const useSpotifyPlayer = () => {
       }
       if (authUrl) {
         window.location.href = authUrl;
+      } else {
+        alert('El servidor no devolvió una URL de autenticación válida para Spotify.');
       }
     } catch (err: unknown) {
       let msg = err instanceof Error ? err.message : 'Error al conectar con Spotify';
       if (msg === 'Failed to fetch') {
-        msg = 'El servidor backend no está encendido en http://localhost:4000. Abre otra terminal y ejecuta: npm run server';
+        msg = `El servidor backend no está encendido en ${SERVER_URL}. Inícialo con: npm run server`;
       }
-      console.warn('[Spotify Connect]', msg);
+      console.error('[Spotify Connect]', err);
       setError(msg);
       setIsLoading(false);
+      alert(`No se pudo conectar con Spotify:\n\n${msg}`);
     }
   }, [spotifyFetch]);
 
@@ -138,10 +165,14 @@ export const useSpotifyPlayer = () => {
   }, [spotifyFetch, setSpotifyConnected]);
 
   /**
-   * Poll currently playing track from Spotify
+   * Poll currently playing track from Spotify (singleton in-flight protected)
    */
   const pollCurrentTrack = useCallback(async () => {
-    if (!isSpotifyConnected) return;
+    if (!isSpotifyConnected || isPollingInFlight) return;
+    const now = Date.now();
+    if (now - lastPollTimestamp < 1800) return; // Strict throttle
+    lastPollTimestamp = now;
+    isPollingInFlight = true;
 
     try {
       const res = await spotifyFetch('/current');
@@ -172,10 +203,17 @@ export const useSpotifyPlayer = () => {
           spotifyUri: data.spotifyUri,
           currentTime: Math.round((data.progressMs || data.progress_ms || 0) / 1000),
           isPlaying: !!(data.isPlaying ?? data.is_playing),
+          progressMs: data.progressMs || data.progress_ms || 0,
+          tempo: data.tempo || data.bpm,
+          bpm: data.bpm || data.tempo,
+          energy: data.energy,
+          danceability: data.danceability,
         });
       }
     } catch (err) {
       console.debug('[Spotify Polling]', err);
+    } finally {
+      isPollingInFlight = false;
     }
   }, [isSpotifyConnected, spotifyFetch, setSpotifyConnected, updateFromSpotify]);
 
@@ -219,29 +257,21 @@ export const useSpotifyPlayer = () => {
   }, [setSpotifyConnected, spotifyFetch]);
 
   /**
-   * Dynamic 1500ms polling loop when Spotify is connected
+   * Shared singleton 2000ms polling loop when Spotify is connected
    */
   useEffect(() => {
     if (!isSpotifyConnected) {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
+      if (sharedPollTimer) {
+        clearInterval(sharedPollTimer);
+        sharedPollTimer = null;
       }
       return;
     }
 
-    // Immediate initial check
-    pollCurrentTrack();
-
-    // Poll every 1.5 seconds (1500ms)
-    pollTimerRef.current = setInterval(pollCurrentTrack, 1500);
-
-    return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
+    if (!sharedPollTimer) {
+      pollCurrentTrack();
+      sharedPollTimer = setInterval(pollCurrentTrack, 2000);
+    }
   }, [isSpotifyConnected, pollCurrentTrack]);
 
   // ── Transport Control Actions ──────────────────────────────────────────────

@@ -19,6 +19,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useLiquidGlassScrollbar } from '../../hooks/useLiquidGlassScrollbar';
 import { RADIO_STATIONS } from '../../config/radioStations';
 import { PresetService } from '../../services/presetService';
 import { EmptyState } from '../Common/EmptyState';
@@ -71,6 +72,8 @@ export const PlaylistSidebar: React.FC = () => {
 
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useLiquidGlassScrollbar(scrollContainerRef);
 
   // Close on Escape key
   useEffect(() => {
@@ -358,6 +361,7 @@ export const PlaylistSidebar: React.FC = () => {
 
             {/* Scrollable Track Content List */}
             <div
+              ref={scrollContainerRef}
               id={`tabpanel-${activeTab}`}
               role="tabpanel"
               aria-labelledby={`tab-${activeTab}`}

@@ -276,6 +276,45 @@ html, body, #root {
   box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
 }
 
+.liquid-glass-scrollbar.is-scrolling::-webkit-scrollbar-thumb,
+.custom-scrollbar.is-scrolling::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 240, 255, 0.6) 0%,
+    rgba(140, 56, 255, 0.5) 100%
+  );
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.7);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   CAUSTICS — Refracción de cristal sobre la UI (visionOS)
+   ────────────────────────────────────────────────────────────────── */
+.liquid-caustics-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: overlay;
+  opacity: 0.03;
+  background-image: 
+    repeating-linear-gradient(45deg, transparent 0, rgba(255,255,255,0.5) 1px, transparent 2px),
+    repeating-linear-gradient(-45deg, transparent 0, rgba(0,229,255,0.3) 1px, transparent 2px);
+  filter: blur(0.5px);
+  will-change: transform;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   AMBIENT GLOW — Resplandor reactivo del cursor
+   ────────────────────────────────────────────────────────────────── */
+.liquid-ambient-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
 /* Light mode adjustments for Liquid Glass */
 [data-theme="light"] .liquid-glass {
   background: linear-gradient(
@@ -1254,3 +1293,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LYRICS PANEL — Liquid Glass Karaoke Layer
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.lyrics-mask {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+.lyrics-active-glow {
+  text-shadow:
+    0 0 24px var(--accent-color, #00f0ff),
+    0 0 48px var(--accent-color-dim, rgba(0, 240, 255, 0.4));
+}

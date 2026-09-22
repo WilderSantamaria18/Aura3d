@@ -409,6 +409,11 @@ interface PlayerState {
   setUserInteracting: (interacting: boolean) => void;
   isSpotifyConnected: boolean;
   setSpotifyConnected: (connected: boolean) => void;
+  spotifyBpm: number;
+  spotifyEnergy: number;
+  spotifyDanceability: number;
+  spotifySyncTimestamp: number;
+  spotifyProgressMs: number;
   updateFromSpotify: (trackData: {
     title: string;
     artist: string;
@@ -418,6 +423,11 @@ interface PlayerState {
     spotifyUri: string;
     currentTime: number;
     isPlaying: boolean;
+    progressMs?: number;
+    tempo?: number;
+    bpm?: number;
+    energy?: number;
+    danceability?: number;
   }) => void;
 }
 
@@ -431,6 +441,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   hasStarted: false,
   isSpotifyConnected: false,
+  spotifyBpm: 124,
+  spotifyEnergy: 0.85,
+  spotifyDanceability: 0.75,
+  spotifySyncTimestamp: 0,
+  spotifyProgressMs: 0,
 
   isLucid: false,
   lucidPrimaryColor: StorageService.getLucidPrimaryColor(),
@@ -1461,12 +1476,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             addedAt: Date.now(),
           };
 
+      const rawProgressMs = data.progressMs !== undefined ? data.progressMs : data.currentTime * 1000;
+      const bpm = data.bpm || data.tempo || state.spotifyBpm || 124;
+      const energy = data.energy !== undefined ? data.energy : (state.spotifyEnergy || 0.85);
+      const danceability = data.danceability !== undefined ? data.danceability : (state.spotifyDanceability || 0.75);
+
       return {
         currentTrack: track,
         currentTime: data.currentTime,
         duration: data.duration || state.duration,
         isPlaying: data.isPlaying,
         isSpotifyConnected: true,
+        spotifyBpm: bpm,
+        spotifyEnergy: energy,
+        spotifyDanceability: danceability,
+        spotifySyncTimestamp: performance.now(),
+        spotifyProgressMs: rawProgressMs,
       };
     });
   },

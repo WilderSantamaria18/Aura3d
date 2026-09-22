@@ -186,7 +186,7 @@ export const Controls: React.FC = React.memo(() => {
 
         <button
           onClick={handlePlayPause}
-          className="w-8 h-8 sm:w-8.5 sm:h-8.5 rounded-full flex items-center justify-center btn-spring shadow-[0_4px_12px_rgba(0,0,0,0.4)] border border-white/20 flex-shrink-0 group cursor-pointer"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center btn-spring shadow-[0_4px_16px_rgba(0,0,0,0.5)] border border-white/25 flex-shrink-0 group cursor-pointer hover:scale-105 active:scale-95 transition-transform"
           style={
             autoMode
               ? {
@@ -207,9 +207,9 @@ export const Controls: React.FC = React.memo(() => {
           aria-label={isPlaying ? 'Pausar reproducción' : 'Iniciar reproducción'}
         >
           {isPlaying ? (
-            <Pause className="w-3.5 h-3.5 fill-current" />
+            <Pause className="w-4 h-4 fill-current" />
           ) : (
-            <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />
+            <Play className="w-4 h-4 fill-current translate-x-0.5" />
           )}
         </button>
 

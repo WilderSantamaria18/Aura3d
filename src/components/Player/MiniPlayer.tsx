@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
+import { useSystemAudio } from '../../hooks/useSystemAudio';
 import { GlobalYouTubePlayer } from './GlobalYouTubePlayer';
 import { audioEngine } from '../../services/audioEngine';
 import { StorageService } from '../../services/storageService';
@@ -208,6 +209,10 @@ export const MiniPlayer: React.FC = () => {
   const setLyricsOpen = usePlayerStore((s) => s.setLyricsOpen);
   const isBlobPanelOpen = usePlayerStore((s) => s.isBlobPanelOpen);
   const setBlobPanelOpen = usePlayerStore((s) => s.setBlobPanelOpen);
+  const isSpotifyConnected = usePlayerStore((s) => s.isSpotifyConnected);
+  const spotifyBpm = usePlayerStore((s) => s.spotifyBpm);
+
+  const { isCapturing: isSystemCapturing, toggleCapture: toggleSystemAudio } = useSystemAudio();
 
   const handleToggleLyrics = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -807,12 +812,12 @@ export const MiniPlayer: React.FC = () => {
               </div>
 
               {/* iOS Segmented Control (Tabs) */}
-              <div className="px-4 py-1">
-                <div className="relative flex items-center p-1 rounded-full bg-black/40 border border-white/[0.08] backdrop-blur-xl">
+              <div className="px-3.5 py-1">
+                <div className="relative flex items-center p-1 rounded-full bg-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                   {(
                     [
                       { id: 'player', label: 'PISTA', icon: Disc3 },
-                      { id: 'search', label: 'BUSCADOR', icon: Search },
+                      { id: 'search', label: 'BUSCAR', icon: Search },
                       { id: 'queue', label: `COLA (${queue.length})`, icon: ListMusic },
                       { id: 'favorites', label: `FAVS (${favorites.length})`, icon: Heart },
                     ] as const
@@ -828,15 +833,17 @@ export const MiniPlayer: React.FC = () => {
                             setTimeout(() => searchInputRef.current?.focus(), 120);
                           }
                         }}
-                        className={`relative flex-1 py-1.5 text-[10px] font-semibold tracking-tight transition-colors flex items-center justify-center gap-1 rounded-full z-10 ${
-                          isActive ? 'text-white' : 'text-white/50 hover:text-white/80'
+                        className={`relative flex-1 py-1.5 text-[10px] tracking-tight transition-colors flex items-center justify-center gap-1 rounded-full z-10 ${
+                          isActive
+                            ? 'text-white font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
+                            : 'text-white/50 font-medium hover:text-white/90'
                         }`}
                       >
                         {isActive && (
                           <motion.div
-                            layoutId="activeSegmentedPill"
-                            className="absolute inset-0 rounded-full bg-white/20 backdrop-blur-md border border-white/25 shadow-sm"
-                            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                            layoutId="miniplayer-tab"
+                            className="absolute inset-0 rounded-full bg-white/15 border border-white/25 shadow-[0_2px_10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           />
                         )}
                         <Icon className="w-3 h-3 relative z-10" />
@@ -1095,6 +1102,32 @@ export const MiniPlayer: React.FC = () => {
                         <span>{formatTime(duration)}</span>
                       </div>
                     </div>
+
+                    {/* Spotify Real-Time Sync & Live Audio Loopback Pill */}
+                    {isSpotifyConnected && (
+                      <div className="flex flex-col gap-1 p-2 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/25 text-left">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono font-bold text-[#1DB954] flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-ping" />
+                            Spotify Sync ({spotifyBpm || 124} BPM)
+                          </span>
+                          <span className="text-[8.5px] font-mono text-white/50">Reactivo 60FPS</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleSystemAudio()}
+                          className={`mt-0.5 py-1 px-2 rounded-lg text-[9.5px] font-mono transition-all flex items-center justify-center gap-1.5 border cursor-pointer active:scale-95 ${
+                            isSystemCapturing
+                              ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                              : 'bg-white/[0.06] hover:bg-white/10 text-white/80 hover:text-white border-white/10'
+                          }`}
+                          title="Captura el audio real que suena en tu computadora para los visualizadores 3D"
+                        >
+                          <Radio className="w-3 h-3 text-[#1DB954]" />
+                          <span>{isSystemCapturing ? 'Onda acústica de altavoces activa' : 'Capturar audio real de altavoces / PC'}</span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Primary Hero Transport Controls */}
                     <div className="flex items-center justify-between px-2 pt-1">

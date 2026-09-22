@@ -768,8 +768,60 @@ export class AudioEngine {
     return [...this.bands];
   }
 
+  private generateSyntheticBeat(nowMs: number): FrequencyData {
+    if (!this.frequencyBuffer) {
+      this.frequencyBuffer = new Uint8Array(256);
+    }
+    const t = nowMs * 0.001; // seconds
+    // 124 BPM rhythm (~2.066 Hz)
+    const bpmFreq = 124 / 60;
+    const beatPhase = (t * bpmFreq) % 1;
+    // Kick punch (sharp decay)
+    const kick = Math.pow(Math.max(0, 1 - beatPhase * 2.8), 3);
+    // Snare on beat 2 & 4
+    const snarePhase = (t * bpmFreq + 0.5) % 1;
+    const snare = Math.pow(Math.max(0, 1 - snarePhase * 3.5), 2.5);
+    // Hi-hat 16th groove
+    const hihatPhase = (t * bpmFreq * 4) % 1;
+    const hihat = Math.pow(Math.max(0, 1 - hihatPhase * 4.5), 2) * 0.6;
+    // Rolling harmonic wave
+    const wave = Math.sin(t * 3.2) * 0.5 + 0.5;
+
+    const bass = Math.min(1.0, kick * 0.88 + 0.12);
+    const mids = Math.min(1.0, snare * 0.65 + wave * 0.35 + 0.1);
+    const highs = Math.min(1.0, hihat * 0.75 + snare * 0.3 + 0.15);
+    const energy = Math.min(1.0, (bass * 1.25 + mids + highs) / 3);
+
+    for (let i = 0; i < this.frequencyBuffer.length; i++) {
+      let val = 0;
+      if (i <= 14) {
+        val = kick * 240 + 25 + Math.random() * 15;
+      } else if (i <= 65) {
+        val = snare * 190 + wave * 110 + 20 + Math.random() * 15;
+      } else if (i <= 150) {
+        val = hihat * 170 + snare * 70 + 15 + Math.random() * 10;
+      } else {
+        val = hihat * 85 + Math.random() * 15;
+      }
+      this.frequencyBuffer[i] = Math.min(255, Math.floor(val));
+    }
+
+    return {
+      raw: this.frequencyBuffer,
+      bass,
+      mids,
+      highs,
+      energy,
+    };
+  }
+
   public getFrequencyData(): FrequencyData {
+    const isSpotifyPlaying = usePlayerStore.getState().isSpotifyConnected && usePlayerStore.getState().isPlaying;
+
     if (!this.analyser || !this.frequencyBuffer) {
+      if (isSpotifyPlaying) {
+        return this.generateSyntheticBeat(performance.now());
+      }
       return {
         raw: new Uint8Array(256),
         bass: 0,
@@ -818,29 +870,10 @@ export class AudioEngine {
     const highs = highsCount ? Math.min(1.0, (highsSum / (highsCount * 255)) * 1.2) : 0;
     const energy = this.frequencyBuffer.length ? Math.min(1.0, (totalSum / (this.frequencyBuffer.length * 255)) * 1.25) : 0;
 
-    // Si está reproduciendo vía iframe (ej. YouTube en Vercel sin CORS audio directo),
-    // simular ondas armónicas rítmicas para mantener vivo el visualizador 3D
-    if (this.isIframeMode && energy < 0.05) {
-      const now = performance.now() * 0.003;
-      const beat = Math.pow(Math.max(0, Math.sin(now * 4.0)), 4);
-      const wave = Math.sin(now * 2.5) * 0.5 + 0.5;
-      const simBass = Math.min(1.0, beat * 0.85 + 0.15);
-      const simMids = Math.min(1.0, wave * 0.55 + beat * 0.3);
-      const simHighs = Math.min(1.0, Math.sin(now * 5.5) * 0.3 + beat * 0.4 + 0.15);
-      const simEnergy = (simBass + simMids + simHighs) / 3;
-
-      for (let i = 0; i < this.frequencyBuffer.length; i++) {
-        const falloff = Math.exp(-i / 45);
-        this.frequencyBuffer[i] = Math.min(255, Math.floor((beat * falloff * 210) + (wave * 70) + Math.random() * 20));
-      }
-
-      return {
-        raw: this.frequencyBuffer,
-        bass: simBass,
-        mids: simMids,
-        highs: simHighs,
-        energy: simEnergy,
-      };
+    // Si está reproduciendo vía iframe (ej. YouTube en Vercel) o vía Spotify Connect sin captura directa activa,
+    // generar ondas armónicas rítmicas para mantener vivo y reactivo el visualizador 3D
+    if ((this.isIframeMode || isSpotifyPlaying) && energy < 0.05) {
+      return this.generateSyntheticBeat(performance.now());
     }
 
     return {

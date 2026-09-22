@@ -45,9 +45,8 @@ if (!JWT_SECRET) {
     console.error('[FATAL SECURITY ERROR] La variable de entorno JWT_SECRET es obligatoria en producción.');
     process.exit(1);
   } else {
-    // Generate secure unpredictable random secret for dev/staging
-    JWT_SECRET = crypto.randomBytes(32).toString('hex');
-    console.warn('[AVISO DE SEGURIDAD] JWT_SECRET no configurado en entorno de desarrollo. Se ha generado una clave efímera segura.');
+    JWT_SECRET = 'aura3d_dev_fallback_jwt_secret_2026';
+    console.log('[Info] Usando clave JWT de desarrollo persistente.');
   }
 }
 
@@ -174,9 +173,14 @@ const globalRequestCounts = new Map(); // ip -> { count, resetTime }
 
 const globalRateLimit = (req, res, next) => {
   const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  // Exonerar entorno de desarrollo y conexiones locales loopback
+  if (!IS_PROD || ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1') || ip === 'localhost') {
+    return next();
+  }
+
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 min
-  const maxRequests = 120;
+  const maxRequests = 300;
 
   const record = globalRequestCounts.get(ip) || { count: 0, resetTime: now + windowMs };
   if (now > record.resetTime) {
@@ -1000,7 +1004,7 @@ app.post(['/auth/session', '/api/auth/session'], (req, res) => {
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';
-const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:4000/api/spotify/callback';
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:4000/api/spotify/callback';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const SPOTIFY_SCOPES = [
   'user-read-playback-state',
@@ -1162,9 +1166,20 @@ app.post('/api/spotify/auth', authMiddleware, (req, res) => {
   const challenge = generateCodeChallenge(verifier);
   const state = crypto.randomBytes(16).toString('hex');
 
+  const originHeader = req.headers.origin || req.headers.referer;
+  let clientFrontendUrl = FRONTEND_URL;
+  if (originHeader) {
+    try {
+      clientFrontendUrl = new URL(originHeader).origin;
+    } catch {
+      // fallback
+    }
+  }
+
   spotifyAuthSessions.set(state, {
     userId,
     codeVerifier: verifier,
+    frontendUrl: clientFrontendUrl,
     createdAt: Date.now(),
   });
 
@@ -1190,18 +1205,20 @@ app.post('/api/spotify/auth', authMiddleware, (req, res) => {
 app.get('/api/spotify/callback', async (req, res) => {
   const { code, state, error } = req.query;
 
+  const session = state ? spotifyAuthSessions.get(String(state)) : null;
+  const targetFrontendUrl = session?.frontendUrl || FRONTEND_URL;
+
   if (error) {
     console.error('[Spotify Auth Callback Error]', error);
-    return res.redirect(`${FRONTEND_URL}/?spotify_error=${encodeURIComponent(String(error))}`);
+    return res.redirect(`${targetFrontendUrl}/?spotify_error=${encodeURIComponent(String(error))}`);
   }
 
   if (!code || !state) {
-    return res.redirect(`${FRONTEND_URL}/?spotify_error=missing_code_or_state`);
+    return res.redirect(`${targetFrontendUrl}/?spotify_error=missing_code_or_state`);
   }
 
-  const session = spotifyAuthSessions.get(String(state));
   if (!session) {
-    return res.redirect(`${FRONTEND_URL}/?spotify_error=invalid_or_expired_state`);
+    return res.redirect(`${targetFrontendUrl}/?spotify_error=invalid_or_expired_state`);
   }
 
   spotifyAuthSessions.delete(String(state));
@@ -1233,7 +1250,7 @@ app.get('/api/spotify/callback', async (req, res) => {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
       console.error('[Spotify Token Exchange Error]', tokenRes.status, errBody);
-      return res.redirect(`${FRONTEND_URL}/?spotify_error=token_exchange_failed`);
+      return res.redirect(`${targetFrontendUrl}/?spotify_error=token_exchange_failed`);
     }
 
     const tokenData = await tokenRes.json();
@@ -1246,10 +1263,10 @@ app.get('/api/spotify/callback', async (req, res) => {
     });
 
     console.log(`[Spotify] Usuario autenticado correctamente: ${session.userId}`);
-    res.redirect(`${FRONTEND_URL}/?spotify=connected`);
+    res.redirect(`${targetFrontendUrl}/?spotify=connected`);
   } catch (err) {
     console.error('[Spotify Callback Exception]', err);
-    res.redirect(`${FRONTEND_URL}/?spotify_error=server_exception`);
+    res.redirect(`${targetFrontendUrl}/?spotify_error=server_exception`);
   }
 });
 
@@ -1273,25 +1290,66 @@ app.get('/api/spotify/status', (req, res) => {
   }
 });
 
+// In-memory cache for currently playing track per user (avoids Spotify rate limits)
+const spotifyCurrentTrackCache = new Map();
+const spotifyAudioFeaturesCache = new Map(); // trackId -> { tempo, energy, danceability, loudness }
+
 /**
  * GET /api/spotify/current
- * Obtiene la pista actual en reproducción en Spotify
+ * Obtiene la pista actual en reproducción en Spotify con caché de 1.5s
  */
 app.get('/api/spotify/current', authMiddleware, async (req, res) => {
   const userId = req.user.userId || req.user.id;
+  const now = Date.now();
+  const cached = spotifyCurrentTrackCache.get(userId);
+
+  // Devolver respuesta en caché si tiene menos de 1.5s
+  if (cached && now - cached.timestamp < 1500) {
+    if (cached.status === 204) return res.status(204).end();
+    return res.status(cached.status || 200).json(cached.data);
+  }
+
   const result = await spotifyApiRequest(userId, '/me/player/currently-playing');
 
   if (result.status === 401) {
     return res.status(401).json({ error: 'Spotify no conectado o sesión expirada' });
   }
 
+  // Si Spotify responde con 429 (Too Many Requests) o 503, degradar suavemente con la última pista conocida
+  if (result.status === 429 || result.status === 503) {
+    if (cached && cached.data) {
+      return res.json(cached.data);
+    }
+    return res.status(204).end();
+  }
+
   if (result.status === 204 || !result.data || !result.data.item) {
+    spotifyCurrentTrackCache.set(userId, { status: 204, data: null, timestamp: now });
     return res.status(204).end();
   }
 
   const { is_playing, progress_ms, item } = result.data;
   const artistsStr = item.artists ? item.artists.map((a) => a.name).join(', ') : 'Spotify Artist';
   const cover = item.album?.images?.[0]?.url || '';
+
+  // Obtener características acústicas reales de Spotify (BPM, energía, bailabilidad)
+  let audioFeatures = item.id ? spotifyAudioFeaturesCache.get(item.id) : null;
+  if (!audioFeatures && item.id) {
+    try {
+      const featRes = await spotifyApiRequest(userId, `/audio-features/${item.id}`);
+      if (featRes.status === 200 && featRes.data) {
+        audioFeatures = {
+          tempo: Math.round(featRes.data.tempo || 124),
+          energy: featRes.data.energy !== undefined ? featRes.data.energy : 0.8,
+          danceability: featRes.data.danceability !== undefined ? featRes.data.danceability : 0.7,
+          loudness: featRes.data.loudness || -6,
+        };
+        spotifyAudioFeaturesCache.set(item.id, audioFeatures);
+      }
+    } catch {
+      // Ignorar errores en audio-features si la API está ocupada
+    }
+  }
 
   const trackInfo = {
     isPlaying: !!is_playing,
@@ -1310,8 +1368,13 @@ app.get('/api/spotify/current', authMiddleware, async (req, res) => {
     coverUrl: cover,
     spotifyUri: item.uri || '',
     spotify_uri: item.uri || '',
+    tempo: audioFeatures?.tempo || 124,
+    bpm: audioFeatures?.tempo || 124,
+    energy: audioFeatures?.energy !== undefined ? audioFeatures.energy : 0.8,
+    danceability: audioFeatures?.danceability !== undefined ? audioFeatures.danceability : 0.7,
   };
 
+  spotifyCurrentTrackCache.set(userId, { status: 200, data: trackInfo, timestamp: now });
   res.json(trackInfo);
 });
 

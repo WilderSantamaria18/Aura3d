@@ -1,4 +1,4 @@
-import type { LyricLine, LyricsData } from '../types/lyrics';
+import type { LyricLine, LyricsData, EnhancedLyricLine, EnhancedLyricsData, LyricWord } from '../types/lyrics';
 
 export class LyricsService {
   /**
@@ -219,6 +219,119 @@ export class LyricsService {
     } catch {
       return { synced: false, lines: [], source: 'none' };
     }
+  }
+  /**
+   * Wraps a plain LyricsData into EnhancedLyricsData (no word sync).
+   * Use this when only line-level timestamps are available.
+   */
+  public static wrapAsEnhanced(data: LyricsData): EnhancedLyricsData {
+    return {
+      ...data,
+      lines: data.lines as EnhancedLyricLine[],
+      isWordSynced: false,
+    };
+  }
+
+  /**
+   * Parses Enhanced LRC format with per-word timestamps.
+   *
+   * Standard LRC:    [01:23.45] Full line text
+   * Enhanced LRC:    [01:23.45] <01:23.45> word1 <01:24.10> word2 <01:24.80> word3
+   *
+   * If no word-level tags (<mm:ss.xx>) are detected, falls back to standard LRC parsing
+   * and returns `isWordSynced: false`.
+   */
+  public static parseEnhancedLRC(lrcText: string): EnhancedLyricsData {
+    if (!lrcText || typeof lrcText !== 'string') {
+      return { synced: false, lines: [], source: 'none', isWordSynced: false };
+    }
+
+    // Detect Enhanced LRC: presence of inline <mm:ss.xx> tags
+    const wordTagRegex = /<(\d{2}):(\d{2})(?:\.(\d{2,3}))?>/g;
+    const hasWordTags = wordTagRegex.test(lrcText);
+
+    if (!hasWordTags) {
+      // No word tags → standard parse, wrapped as Enhanced (no word sync)
+      return this.wrapAsEnhanced(this.parseLRC(lrcText));
+    }
+
+    // ── Enhanced parsing ───────────────────────────────────────────────
+    const lineTimeRegex = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+    const rawLines = lrcText.split('\n');
+    const enhancedLines: EnhancedLyricLine[] = [];
+    let autoId = 0;
+
+    const parseTimestamp = (m: string, s: string, ms?: string): number => {
+      const minutes = parseInt(m, 10);
+      const seconds = parseInt(s, 10);
+      const millis = ms ? parseInt(ms.padEnd(3, '0').slice(0, 3), 10) : 0;
+      return minutes * 60 + seconds + millis / 1000;
+    };
+
+    for (const rawLine of rawLines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      // Extract line-level timestamps [mm:ss.xx]
+      const lineMatches = [...line.matchAll(/\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g)];
+      if (lineMatches.length === 0) continue;
+
+      // Strip all line-level tags to get the content part
+      const contentPart = line.replace(/\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g, '').trim();
+      if (!contentPart) continue;
+
+      // Extract word-level tags from content: <mm:ss.xx> word ...
+      const wordTagPattern = /<(\d{2}):(\d{2})(?:\.(\d{2,3}))?>\s*([^<]*)/g;
+      const wordMatches = [...contentPart.matchAll(wordTagPattern)];
+
+      // Strip all word tags to get clean text
+      const cleanText = contentPart.replace(/<(\d{2}):(\d{2})(?:\.(\d{2,3}))?>/g, '').trim();
+
+      for (const lineMatch of lineMatches) {
+        const lineTime = parseTimestamp(lineMatch[1], lineMatch[2], lineMatch[3]);
+
+        let words: LyricWord[] | undefined;
+
+        if (wordMatches.length > 0) {
+          const parsed: LyricWord[] = wordMatches
+            .map((wm) => ({
+              text: wm[4].trim(),
+              startTime: parseTimestamp(wm[1], wm[2], wm[3]),
+              endTime: 0, // filled in next pass
+            }))
+            .filter((w) => w.text.length > 0);
+
+          // Calculate endTime for each word from next word's startTime
+          for (let i = 0; i < parsed.length; i++) {
+            parsed[i].endTime = i + 1 < parsed.length
+              ? parsed[i + 1].startTime
+              : lineTime + 4.5; // last word → line time + generous buffer
+          }
+
+          words = parsed;
+        }
+
+        enhancedLines.push({
+          id: ++autoId,
+          time: lineTime,
+          text: cleanText || '♪',
+          words,
+        });
+      }
+    }
+
+    if (enhancedLines.length === 0) {
+      return this.wrapAsEnhanced(this.parseLRC(lrcText));
+    }
+
+    enhancedLines.sort((a, b) => a.time - b.time);
+
+    return {
+      synced: true,
+      lines: enhancedLines,
+      source: 'lrc',
+      isWordSynced: true,
+    };
   }
 }
 
