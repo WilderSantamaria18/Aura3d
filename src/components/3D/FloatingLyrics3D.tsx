@@ -85,7 +85,7 @@ export const FloatingLyrics3D: React.FC = () => {
               outlineWidth={0.008}
               outlineColor="#000000"
             >
-              {currentTrack?.artist || 'Modo Inmersivo 3D'}
+              {currentTrack?.artist || 'Aura3D Soundscape'}
             </Text>
           </group>
         ) : (

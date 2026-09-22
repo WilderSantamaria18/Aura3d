@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { CircleDot, Sun, Bot, Shapes, Link2, Unlink, Zap, Lock } from 'lucide-react';
 import type { VisualizerShape } from '../../types/audio';
-import { SPHERE_3D_GEOMETRIES, RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
+import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { useAIDirectorPhase } from '../../services/aiSceneDirectorService';
 
 interface VisualizerQuickControlsProps {
@@ -13,8 +13,6 @@ interface VisualizerQuickControlsProps {
 export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = React.memo(({ className = '', embedded = false }) => {
   const {
     visualizerMode,
-    sphereShape,
-    setSphereShape,
     blobShape,
     setBlobShape,
     autoMode,
@@ -64,11 +62,11 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
       } ${className}`}
       style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
-      {/* ── 1. Selector de Geometría / Efecto (Esfera 3D vs Rainbow Void vs Warp vs Terrain) ── */}
+      {/* ── 1. Selector de Geometría / Efecto (Rainbow Void vs Warp vs Synthwave vs Terrain) ── */}
       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors border border-white/[0.04]">
         <Shapes className="w-3.5 h-3.5 text-white/40" />
         <span className="text-[9px] font-mono tracking-[0.16em] px-1 py-0.2 rounded bg-white/[0.04] text-white/60 font-medium uppercase">
-          {isBlob ? '2D VOID' : isWarp ? '3D WARP' : isSynthwave ? '3D ROAD' : isTerrain ? '3D TERRAIN' : '3D SPHERE'}
+          {isBlob ? '2D VOID' : isWarp ? '3D WARP' : isSynthwave ? '3D ROAD' : '3D TERRAIN'}
         </span>
         {isBlob ? (
           <select
@@ -84,18 +82,9 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
             ))}
           </select>
         ) : (
-          <select
-            value={sphereShape}
-            onChange={(e) => setSphereShape(e.target.value as VisualizerShape)}
-            className="bg-transparent text-white/90 font-medium text-[11px] focus:outline-none cursor-pointer"
-            title="Geometría activa de la Esfera 3D WebGL"
-          >
-            {SPHERE_3D_GEOMETRIES.map((geom) => (
-              <option key={geom.id} value={geom.id} className="bg-[#090d18] text-white">
-                {geom.name} // {geom.tag}
-              </option>
-            ))}
-          </select>
+          <span className="text-[11px] font-medium text-white/80 px-1">
+            {isWarp ? 'Túnel Hiperespacio' : isSynthwave ? 'Retrowave Grid' : 'Terreno Cyberpunk'}
+          </span>
         )}
       </div>
 

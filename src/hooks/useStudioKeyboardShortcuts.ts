@@ -2,18 +2,9 @@ import { useEffect, useCallback } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useAudioEngine } from './useAudioEngine';
 import { useSpotifyPlayer } from './useSpotifyPlayer';
-import type { VisualizerMode, VisualizerShape } from '../types/audio';
+import type { VisualizerMode } from '../types/audio';
 
-const SPHERE_SHAPES: VisualizerShape[] = [
-  'sphere',
-  'rings',
-  'torus',
-  'cloud',
-  'spikes',
-  'wave',
-];
-
-const VISUALIZER_MODES: VisualizerMode[] = ['sphere', 'blob', 'synthwave'];
+const VISUALIZER_MODES: VisualizerMode[] = ['blob', 'synthwave', 'warp', 'terrain'];
 
 /**
  * useStudioKeyboardShortcuts
@@ -24,7 +15,6 @@ export const useStudioKeyboardShortcuts = () => {
   const {
     visualizerMode,
     setVisualizerMode,
-    setSphereShape,
     isEqualizerOpen,
     setEqualizerOpen,
     isLyricsOpen,
@@ -234,24 +224,6 @@ export const useStudioKeyboardShortcuts = () => {
           handleVolumeDelta(-0.05);
           break;
 
-        // Numeric keys 1-6: Direct 3D geometry selection
-        case 'Digit1':
-        case 'Digit2':
-        case 'Digit3':
-        case 'Digit4':
-        case 'Digit5':
-        case 'Digit6': {
-          e.preventDefault();
-          const shapeIndex = parseInt(e.key, 10) - 1;
-          if (shapeIndex >= 0 && shapeIndex < SPHERE_SHAPES.length) {
-            setSphereShape(SPHERE_SHAPES[shapeIndex]);
-            if (visualizerMode !== 'sphere') {
-              setVisualizerMode('sphere');
-            }
-          }
-          break;
-        }
-
         default:
           break;
       }
@@ -279,7 +251,6 @@ export const useStudioKeyboardShortcuts = () => {
     isShortcutsModalOpen,
     setShortcutsModalOpen,
     toggleShortcutsModal,
-    setSphereShape,
     visualizerMode,
     setVisualizerMode,
     isAirInstrumentsActive,

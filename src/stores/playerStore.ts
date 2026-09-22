@@ -733,15 +733,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setVisualizerMode: (visualizerMode) => {
-    StorageService.saveVisualizerMode(visualizerMode);
+    const safeMode = visualizerMode === 'sphere' ? 'blob' : visualizerMode;
+    StorageService.saveVisualizerMode(safeMode);
     const state = get();
-    const activeShape = visualizerMode === 'blob' ? state.blobShape : state.sphereShape;
-    const activeWaveMode = visualizerMode === 'blob' ? state.blobWaveMode : state.sphereWaveMode;
-    const activeWaveIntensity = visualizerMode === 'blob' ? state.blobWaveIntensity : state.sphereWaveIntensity;
-    const activeBoomThreshold = visualizerMode === 'blob' ? state.blobBassBoomThreshold : state.sphereBassBoomThreshold;
-    const activeBoomIntensity = visualizerMode === 'blob' ? state.blobBassBoomIntensity : state.sphereBassBoomIntensity;
+    const activeShape = safeMode === 'blob' ? state.blobShape : state.sphereShape;
+    const activeWaveMode = safeMode === 'blob' ? state.blobWaveMode : state.sphereWaveMode;
+    const activeWaveIntensity = safeMode === 'blob' ? state.blobWaveIntensity : state.sphereWaveIntensity;
+    const activeBoomThreshold = safeMode === 'blob' ? state.blobBassBoomThreshold : state.sphereBassBoomThreshold;
+    const activeBoomIntensity = safeMode === 'blob' ? state.blobBassBoomIntensity : state.sphereBassBoomIntensity;
     set({
-      visualizerMode,
+      visualizerMode: safeMode,
       visualizerShape: activeShape,
       waveEffectMode: activeWaveMode,
       waveEffectIntensity: activeWaveIntensity,

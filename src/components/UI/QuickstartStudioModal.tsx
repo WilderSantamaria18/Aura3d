@@ -111,9 +111,9 @@ export const QuickstartStudioModal: React.FC = () => {
 
             <div className="grid grid-cols-3 gap-2.5">
               {[
-                { id: 'sphere', name: 'Escultura 3D', desc: 'Mallas geométricas & partículas fluidas' },
-                { id: 'synthwave', name: 'Synthwave 3D', desc: 'Carretera retro y atardecer neón' },
                 { id: 'blob', name: 'Rainbow Void', desc: 'Orgánico cromático con deformación FFT' },
+                { id: 'synthwave', name: 'Synthwave 3D', desc: 'Carretera retro y atardecer neón' },
+                { id: 'warp', name: 'Túnel Warp', desc: 'Túnel hipersónico 3D reactivo' },
               ].map((v) => (
                 <button
                   key={v.id}

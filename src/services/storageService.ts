@@ -281,7 +281,8 @@ export class StorageService {
 
   public static saveVisualizerMode(mode: VisualizerMode): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.VISUALIZER_MODE, mode);
+      const safe = mode === 'sphere' ? 'blob' : mode;
+      localStorage.setItem(STORAGE_KEYS.VISUALIZER_MODE, safe);
     } catch (e) {
       console.warn('Failed to save visualizer mode to LocalStorage', e);
     }

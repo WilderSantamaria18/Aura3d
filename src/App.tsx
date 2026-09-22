@@ -30,7 +30,6 @@ import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
-const SceneContainer = lazy(() => import('./components/3D/SceneContainer'));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
 const WarpTunnelVisualizer = lazy(() => import('./components/Visualizers/WarpTunnelVisualizer'));
@@ -280,16 +279,14 @@ export const App: React.FC = () => {
       >
         {hasStarted && (
           <Suspense fallback={<div className="w-full h-full" />}>
-            {visualizerMode === 'sphere' ? (
-              <SceneContainer />
-            ) : visualizerMode === 'blob' ? (
-              <RainbowBlobVisualizer />
-            ) : visualizerMode === 'synthwave' ? (
+            {visualizerMode === 'synthwave' ? (
               <SynthwaveGridVisualizer />
             ) : visualizerMode === 'warp' ? (
               <WarpTunnelVisualizer />
-            ) : (
+            ) : visualizerMode === 'terrain' ? (
               <TerrainVisualizer />
+            ) : (
+              <RainbowBlobVisualizer />
             )}
           </Suspense>
         )}

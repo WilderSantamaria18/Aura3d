@@ -15,15 +15,13 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES, LUCID_THEMES } from '../../types/audio';
-import { SPHERE_3D_GEOMETRIES, RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
+import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 
 export const VisualizerSettingsModal: React.FC = () => {
   const {
     isVisualizerSettingsOpen,
     setVisualizerSettingsOpen,
     visualizerMode,
-    sphereShape,
-    setSphereShape,
     blobShape,
     setBlobShape,
     sphereScale,
@@ -47,9 +45,6 @@ export const VisualizerSettingsModal: React.FC = () => {
   } = usePlayerStore();
 
   const [activeTab, setActiveTab] = useState<'shapes' | 'params' | 'colors'>('shapes');
-  const [shapeModeView, setShapeModeView] = useState<'sphere' | 'blob'>(
-    visualizerMode === 'blob' ? 'blob' : 'sphere'
-  );
 
   if (!isVisualizerSettingsOpen) return null;
 
@@ -73,7 +68,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 Calibración del Visualizador
               </h2>
               <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
-                {isBlob ? 'Modo Activo: Rainbow Void (Canvas 2D)' : 'Modo Activo: Esfera 3D (WebGL / Three.js)'}
+                Modo Activo: Rainbow Void (Canvas 2D Ultra HD)
               </p>
             </div>
           </div>
@@ -126,110 +121,42 @@ export const VisualizerSettingsModal: React.FC = () => {
 
         {/* ── Scrollable Tab Content ── */}
         <div className="flex-1 overflow-y-auto space-y-4 py-1 scrollbar-thin scrollbar-thumb-white/10 pr-1">
-          {/* TAB 1: GEOMETRÍAS Y EFECTOS SEPARADOS */}
+          {/* TAB 1: GEOMETRÍAS Y EFECTOS */}
           {activeTab === 'shapes' && (
             <div className="space-y-3">
-              {/* Sub-selector para alternar entre Esfera 3D y Rainbow Void */}
-              <div className="flex items-center p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                <button
-                  onClick={() => setShapeModeView('sphere')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
-                    shapeModeView === 'sphere'
-                      ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                      : 'text-white/50 hover:text-white/80 border border-transparent'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff]" />
-                  <span>Geometrías Esfera 3D</span>
-                  <span className="text-[10px] font-mono text-white/40 ml-1">({SPHERE_3D_GEOMETRIES.length})</span>
-                </button>
-                <button
-                  onClick={() => setShapeModeView('blob')}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
-                    shapeModeView === 'blob'
-                      ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                      : 'text-white/50 hover:text-white/80 border border-transparent'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00e5ff]" />
-                  <span>Efectos Rainbow Void</span>
-                  <span className="text-[10px] font-mono text-white/40 ml-1">({RAINBOW_VOID_EFFECTS.length})</span>
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {RAINBOW_VOID_EFFECTS.map((fx) => {
+                  const isSelected = blobShape === fx.id;
+                  return (
+                    <button
+                      key={fx.id}
+                      onClick={() => setBlobShape(fx.id)}
+                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                        isSelected
+                          ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
+                          : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                          <span className="text-xs font-medium text-white/90">{fx.name}</span>
+                        </div>
+                        <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
+                          {fx.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/40 leading-relaxed">{fx.desc}</p>
+                      <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
+                        <span>{fx.category}</span>
+                        <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
+                          {isSelected ? 'ACTIVO VOID' : 'SELECCIONAR'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* Vista 1: Geometrías Esfera 3D (Three.js / WebGL) */}
-              {shapeModeView === 'sphere' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {SPHERE_3D_GEOMETRIES.map((geom) => {
-                    const isSelected = sphereShape === geom.id;
-                    return (
-                      <button
-                        key={geom.id}
-                        onClick={() => setSphereShape(geom.id)}
-                        className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                          isSelected
-                            ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
-                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                            <span className="text-xs font-medium text-white/90">{geom.name}</span>
-                          </div>
-                          <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
-                            {geom.tag}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-white/40 leading-relaxed">{geom.desc}</p>
-                        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
-                          <span>{geom.category}</span>
-                          <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
-                            {isSelected ? 'ACTIVO 3D' : 'SELECCIONAR'}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Vista 2: Efectos Rainbow Void 2D (Canvas 2D) */}
-              {shapeModeView === 'blob' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {RAINBOW_VOID_EFFECTS.map((fx) => {
-                    const isSelected = blobShape === fx.id;
-                    return (
-                      <button
-                        key={fx.id}
-                        onClick={() => setBlobShape(fx.id)}
-                        className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                          isSelected
-                            ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
-                            : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5">
-                            {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                            <span className="text-xs font-medium text-white/90">{fx.name}</span>
-                          </div>
-                          <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
-                            {fx.tag}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-white/40 leading-relaxed">{fx.desc}</p>
-                        <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
-                          <span>{fx.category}</span>
-                          <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
-                            {isSelected ? 'ACTIVO VOID' : 'SELECCIONAR'}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 

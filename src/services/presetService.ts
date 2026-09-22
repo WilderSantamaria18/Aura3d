@@ -34,9 +34,9 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     author: 'Aura3D Studio',
     createdAt: 1700000000001,
     isFactory: true,
-    tags: ['3D Sphere', 'Ambient', 'Chill', 'Cosmic'],
-    visualizerMode: 'sphere',
-    visualizerShape: 'octahedron',
+    tags: ['Cosmic', 'Ambient', 'Chill'],
+    visualizerMode: 'blob',
+    visualizerShape: 'nebula',
     waveEffectMode: 'spiral',
     waveEffectIntensity: 0.85,
     bassBoomThreshold: 0.78,
@@ -79,9 +79,9 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     author: 'Aura3D Studio',
     createdAt: 1700000000003,
     isFactory: true,
-    tags: ['3D Sphere', 'Nature', 'Lo-Fi', 'Green'],
-    visualizerMode: 'sphere',
-    visualizerShape: 'sphere',
+    tags: ['Aurora', 'Nature', 'Lo-Fi', 'Green'],
+    visualizerMode: 'blob',
+    visualizerShape: 'wave',
     waveEffectMode: 'concentric',
     waveEffectIntensity: 0.65,
     bassBoomThreshold: 0.82,
@@ -277,9 +277,9 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     author: 'Aura3D Studio',
     createdAt: 1700000000011,
     isFactory: true,
-    tags: ['Cosmic Voyager', '3D Sphere', 'Luna', 'Deep Space'],
-    visualizerMode: 'sphere',
-    visualizerShape: 'torus',
+    tags: ['Cosmic Voyager', 'Luna', 'Deep Space'],
+    visualizerMode: 'blob',
+    visualizerShape: 'vortex',
     waveEffectMode: 'spiral',
     waveEffectIntensity: 1.0,
     bassBoomThreshold: 0.72,
@@ -485,9 +485,9 @@ export const FACTORY_PRESETS: ScenePreset[] = [
     author: 'Aura3D Studio',
     createdAt: 1700000000016,
     isFactory: true,
-    tags: ['Ondas Agua', 'Zen', '3D Concentric', 'Esmeralda'],
-    visualizerMode: 'sphere',
-    visualizerShape: 'sphere',
+    tags: ['Ondas Agua', 'Zen', 'Esmeralda'],
+    visualizerMode: 'blob',
+    visualizerShape: 'wave',
     waveEffectMode: 'concentric',
     waveEffectIntensity: 0.85,
     bassBoomThreshold: 0.78,
@@ -571,13 +571,10 @@ export class PresetService {
     const store = usePlayerStore.getState();
 
     // 1. Set mode & geometry
-    store.setVisualizerMode(preset.visualizerMode);
+    const safeMode = preset.visualizerMode === 'sphere' ? 'blob' : preset.visualizerMode;
+    store.setVisualizerMode(safeMode);
     store.setVisualizerShape(preset.visualizerShape);
-    if (preset.visualizerMode === 'sphere') {
-      store.setSphereShape(preset.visualizerShape);
-    } else if (preset.visualizerMode === 'blob') {
-      store.setBlobShape(preset.visualizerShape);
-    }
+    store.setBlobShape(preset.visualizerShape);
 
     // 2. Wave & Bass boom
     store.setWaveEffectMode(preset.waveEffectMode);
