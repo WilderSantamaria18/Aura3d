@@ -45,7 +45,7 @@ export const LandingScreen: React.FC = () => {
     unlockAudio();
     setTimeout(() => {
       setHasStarted(true);
-    }, 600);
+    }, 450);
   }, [unlockAudio, setHasStarted, isTransitioningOut]);
 
   const handleMicStart = useCallback(async () => {
@@ -54,7 +54,7 @@ export const LandingScreen: React.FC = () => {
     toggleMicrophone();
     setTimeout(() => {
       setHasStarted(true);
-    }, 600);
+    }, 450);
   }, [toggleMicrophone, setHasStarted, isTransitioningOut]);
 
   const handleFileLoaded = useCallback(
@@ -64,7 +64,7 @@ export const LandingScreen: React.FC = () => {
       loadFile(file);
       setTimeout(() => {
         setHasStarted(true);
-      }, 600);
+      }, 450);
     },
     [loadFile, setHasStarted, isTransitioningOut]
   );
@@ -140,9 +140,9 @@ export const LandingScreen: React.FC = () => {
         isTransitioningOut
           ? {
               y: '-100%',
-              opacity: 0.85,
+              opacity: 0,
               transition: {
-                duration: 0.65,
+                duration: 0.45,
                 ease: [0.22, 1, 0.36, 1],
               },
             }
@@ -156,7 +156,7 @@ export const LandingScreen: React.FC = () => {
       )}
 
       {/* High-Performance Cosmic Starfield Particle Field Layer */}
-      <CosmicStarfield />
+      <CosmicStarfield isTransitioning={isTransitioningOut} />
 
       {/* [Z-100] Global Scroll Dynamic Progress Bar */}
       <div

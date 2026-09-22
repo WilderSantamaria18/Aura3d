@@ -160,7 +160,7 @@ export const LucidToggle: React.FC<LucidToggleProps> = ({
       {/* Floating Modal / Popover: Colores Lúcidos (iOS Liquid Glass Card) */}
       {isPaletteOpen && (
         <div
-          className="absolute top-full mt-2.5 right-0 z-50 w-84 max-w-[calc(100vw-2rem)] rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/95 backdrop-blur-3xl border border-white/15 border-t-white/30 p-4 shadow-[0_25px_60px_rgba(0,0,0,0.95)] space-y-3.5 animate-in fade-in zoom-in-95 duration-200 select-none text-white font-sans"
+          className="absolute top-full mt-2.5 right-0 z-50 w-84 max-w-[calc(100vw-2rem)] liquid-glass liquid-glass--card space-y-3.5 animate-in fade-in zoom-in-95 duration-200 select-none text-white font-sans"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header (Strict Title: "Colores Lúcidos") */}

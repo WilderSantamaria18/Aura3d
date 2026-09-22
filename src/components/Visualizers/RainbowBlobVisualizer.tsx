@@ -645,42 +645,27 @@ export const RainbowBlobVisualizer: React.FC = () => {
           // SHAPE 1: SPHERE (Núcleo Minimal Difuminado & Aura Cuántica Radiante)
           // ─────────────────────────────────────────────────────────────────
           if (blobShape === 'sphere') {
-            // Core breathing plasma halos
-            for (let sIdx = 0; sIdx < 5; sIdx++) {
-              const sRad = baseCircleRadius + (sIdx + 1) * 24 * u * (1 + sBass * 0.35);
-              const sGrad = ctx.createRadialGradient(cx, cy, baseCircleRadius * 0.82, cx, cy, sRad);
-              const sHue = isLucid ? sIdx * 45 : (timeSec * 30 + sIdx * 50) % 360;
-              const sAlpha = (0.55 - sIdx * 0.10) * (1 + sBass * 0.45);
-              sGrad.addColorStop(0, `hsla(${sHue}, 95%, 65%, ${Math.min(0.9, sAlpha)})`);
-              sGrad.addColorStop(0.7, `hsla(${(sHue + 40) % 360}, 90%, 55%, ${Math.min(0.5, sAlpha * 0.6)})`);
-              sGrad.addColorStop(1, 'transparent');
-              ctx.beginPath();
-              ctx.arc(cx, cy, sRad, 0, Math.PI * 2);
-              ctx.fillStyle = sGrad;
-              ctx.fill();
-            }
+            // Core breathing plasma halo (optimized 2-pass radial aura)
+            const sRadOuter = baseCircleRadius + 42 * u * (1 + sBass * 0.3);
+            const sGradOuter = ctx.createRadialGradient(cx, cy, baseCircleRadius * 0.9, cx, cy, sRadOuter);
+            const sHue = isLucid ? (timeSec * 20) % 360 : (timeSec * 30) % 360;
+            const sAlpha = Math.min(0.55, (0.35 + sBass * 0.25));
+            sGradOuter.addColorStop(0, isLucid ? `${lucidTheme.primary}40` : `hsla(${sHue}, 95%, 65%, ${sAlpha})`);
+            sGradOuter.addColorStop(0.65, isLucid ? `${lucidTheme.secondary}20` : `hsla(${(sHue + 40) % 360}, 90%, 55%, ${sAlpha * 0.5})`);
+            sGradOuter.addColorStop(1, 'transparent');
+            ctx.beginPath();
+            ctx.arc(cx, cy, sRadOuter, 0, Math.PI * 2);
+            ctx.fillStyle = sGradOuter;
+            ctx.fill();
 
             // Concentric laser-engraved hardware micro-grooves
-            for (let g = 0; g < 3; g++) {
-              const gR = baseCircleRadius + (g + 1) * 16 * u * (1 + sBass * 0.15);
+            for (let g = 0; g < 2; g++) {
+              const gR = baseCircleRadius + (g + 1) * 14 * u * (1 + sBass * 0.12);
               ctx.beginPath();
               ctx.arc(cx, cy, gR, 0, Math.PI * 2);
-              ctx.strokeStyle = isLucid ? `${lucidTheme.primary}70` : `hsla(${(timeSec * 25 + g * 80) % 360}, 90%, 65%, ${0.45 + sBass * 0.4})`;
-              ctx.lineWidth = Math.max(1.2, 1.8 * u);
+              ctx.strokeStyle = isLucid ? `${lucidTheme.primary}60` : `hsla(${(timeSec * 25 + g * 80) % 360}, 90%, 65%, ${0.35 + sBass * 0.3})`;
+              ctx.lineWidth = Math.max(1.0, 1.4 * u);
               ctx.stroke();
-            }
-
-            // High-voltage electric orbital sparks around perimeter
-            const sparkCount = 8;
-            for (let sp = 0; sp < sparkCount; sp++) {
-              const sAng = timeSec * 1.8 + (sp / sparkCount) * Math.PI * 2;
-              const sDist = baseCircleRadius + (32 + Math.sin(timeSec * 3 + sp) * 12 + sBass * 35) * u;
-              const sx = cx + Math.cos(sAng) * sDist;
-              const sy = cy + Math.sin(sAng) * sDist;
-              ctx.beginPath();
-              ctx.arc(sx, sy, Math.max(2, (2.8 + sBass * 2.2) * u), 0, Math.PI * 2);
-              ctx.fillStyle = '#ffffff';
-              ctx.fill();
             }
           }
 
@@ -1139,7 +1124,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       {/* Contenedor Principal Circular (Z-Index: 10) */}
       <div
         ref={containerRef}
-        className="absolute flex justify-center items-center pointer-events-auto transition-all duration-75 ease-out"
+        className="absolute flex justify-center items-center pointer-events-auto transform-gpu"
         style={{
           left: `${containerPosX}%`,
           top: `${containerPosY}%`,
@@ -1149,6 +1134,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       >
         {/* Dynamic Canvas for 3D Shapes & Wave Effects in Rainbow Void */}
         <canvas
+          id="rainbow-void-canvas"
           ref={canvasRef}
           className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2"
           style={{ width: `${Math.round(700 * scaleU)}px`, height: `${Math.round(700 * scaleU)}px` }}
@@ -1157,7 +1143,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* Halo Glow Diffusion */}
         <div
           ref={haloGlowRef}
-          className="absolute rounded-full pointer-events-none mix-blend-screen transition-all duration-75"
+          className="absolute rounded-full pointer-events-none mix-blend-screen transform-gpu will-change-transform"
           style={{
             width: `${haloDimension * 1.15}px`,
             height: `${haloDimension * 1.15}px`,
@@ -1168,7 +1154,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* El Halo / Blob de Arcoíris Principal */}
         <div
           ref={haloRef}
-          className="absolute rounded-full pointer-events-none transition-all duration-75"
+          className="absolute rounded-full pointer-events-none transform-gpu will-change-transform"
           style={{
             width: `${haloDimension}px`,
             height: `${haloDimension}px`,
@@ -1183,7 +1169,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* El Círculo Interior (The Void) */}
         <div
           ref={circleRef}
-          className={`relative z-10 rounded-full flex items-center justify-center transition-all duration-75 ease-out overflow-hidden ${
+          className={`relative z-10 rounded-full flex items-center justify-center transform-gpu will-change-transform overflow-hidden ${
             isLucid
               ? 'border'
               : 'border border-white/[0.12] shadow-[0_0_50px_rgba(0,0,0,0.95),inset_0_0_35px_rgba(0,0,0,0.95)]'
@@ -1221,7 +1207,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           {!isSunset && (
             <div
               ref={auroraRef}
-              className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transition-opacity duration-300"
+              className="absolute inset-0 rounded-full pointer-events-none mix-blend-screen transform-gpu will-change-transform"
               style={{
                 background: isLucid
                   ? `radial-gradient(circle at 35% 35%, ${lucidTheme.primary}40 0%, ${lucidTheme.secondary}20 45%, transparent 80%)`

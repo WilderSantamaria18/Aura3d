@@ -16,6 +16,7 @@ import { AlertCircle, Play, Pause } from 'lucide-react';
 import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { useStudioKeyboardShortcuts } from './hooks/useStudioKeyboardShortcuts';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
 import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackground';
@@ -50,6 +51,9 @@ const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal')
 const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
 const CaptureFramingOverlay = lazy(() => import('./components/UI/CaptureFramingOverlay'));
 const StudioCaptureCard = lazy(() => import('./components/UI/StudioCaptureCard'));
+const RecorderPanel = lazy(() =>
+  import('./components/Recorder/RecorderPanel').then((m) => ({ default: m.RecorderPanel }))
+);
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -57,6 +61,7 @@ export const App: React.FC = () => {
   useAnalytics();
   useAutoPalette();
   useStudioKeyboardShortcuts();
+  useKeyboardShortcuts();
   const hasStarted = usePlayerStore((s) => s.hasStarted);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
@@ -125,7 +130,7 @@ export const App: React.FC = () => {
   // Lazy unmount landing screen after exit transition to free GPU memory
   useEffect(() => {
     if (hasStarted) {
-      const timer = window.setTimeout(() => setShowLanding(false), 1100);
+      const timer = window.setTimeout(() => setShowLanding(false), 500);
       return () => clearTimeout(timer);
     }
   }, [hasStarted]);
@@ -419,6 +424,7 @@ export const App: React.FC = () => {
       {/* Auralis Story Card 9:16 Social Export Modal */}
       <Suspense fallback={null}>
         <AuralisStoryCardModal />
+        <RecorderPanel />
       </Suspense>
 
       {/* 3D Air Virtual Instruments Controls HUD */}

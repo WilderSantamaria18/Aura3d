@@ -277,6 +277,16 @@ export const AtmosphereBackground: React.FC = () => {
 
   // Main Render Loop
   useEffect(() => {
+    // If Zen Clean mode and no custom background, keep canvas clear and do not run rAF loop
+    if (atmosphere === 'none' && !customBg) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+
     let animId: number;
 
     const render = (timeMs: number) => {

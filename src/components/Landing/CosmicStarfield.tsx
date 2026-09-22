@@ -31,10 +31,15 @@ interface ShootingStar {
  * - Sin movimiento brusco con el ratón: deriva cósmica suave, orgánica y constante
  * - Auto-pausa cuando la pestaña está oculta para conservar 100% de GPU
  */
-export const CosmicStarfield: React.FC = () => {
+interface CosmicStarfieldProps {
+  isTransitioning?: boolean;
+}
+
+export const CosmicStarfield: React.FC<CosmicStarfieldProps> = ({ isTransitioning = false }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (isTransitioning) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: true });
@@ -221,7 +226,7 @@ export const CosmicStarfield: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [isTransitioning]);
 
   return (
     <div className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-[#03050c]">

@@ -62,7 +62,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
       aria-describedby={subtitle ? 'studio-modal-desc' : undefined}
     >
       <div
-        className={`w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} border border-white/[0.12] rounded-[20px] p-4 sm:p-6 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-in zoom-in-95 duration-150 ${className}`}
+        className={`liquid-glass liquid-glass--modal w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} relative flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-150 ${className}`}
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* Header */}

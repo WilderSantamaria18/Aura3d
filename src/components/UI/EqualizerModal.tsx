@@ -459,11 +459,7 @@ export const EqualizerModal: React.FC = () => {
       aria-labelledby="eq-dialog-title"
     >
       <div
-        className={`w-full max-w-3xl rounded-[28px] p-4 sm:p-6 relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300 animate-aura-modal ${
-          isLucid
-            ? 'backdrop-blur-[64px] saturate-[190%]'
-            : 'liquid-glass-modal'
-        }`}
+        className={`w-full max-w-3xl liquid-glass liquid-glass--modal relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300 animate-aura-modal`}
         style={{
           fontFeatureSettings: "'ss01', 'cv01'",
           ...(isLucid

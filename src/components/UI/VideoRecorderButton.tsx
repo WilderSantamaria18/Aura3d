@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Video, Square, ChevronDown, Download, Sparkles, Smartphone, Monitor, Check, Sliders } from 'lucide-react';
 import { videoRecorder, type VideoAspectRatio } from '../../services/videoRecorderService';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useRecorderStore } from '../../store/recorderStore';
 
 export interface VideoRecorderButtonProps {
   isOpen?: boolean;
@@ -171,6 +172,30 @@ export const VideoRecorderButton: React.FC<VideoRecorderButtonProps> = ({
               {aspectRatio}
             </span>
           </div>
+
+          {/* Aura3D Social Suite Pro Action */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeMenu();
+              useRecorderStore.getState().openModal('record');
+            }}
+            className="w-full mb-3 p-2 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 border border-purple-500/40 hover:border-purple-400 text-white flex items-center justify-between transition-all group cursor-pointer shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center text-white shadow-md">
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-bold text-white group-hover:text-purple-200">Social Content Studio</div>
+                <div className="text-[9px] text-white/60">Captura 9:16, Recorte y Story Cards</div>
+              </div>
+            </div>
+            <span className="text-[9px] font-bold text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded-md border border-purple-400/30">
+              ABRIR
+            </span>
+          </button>
 
           {/* Aspect Ratio Selector (Apple Segmented Control) */}
           <div className="space-y-1.5 mb-3">

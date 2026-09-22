@@ -413,7 +413,7 @@ export const UniversalCommandPalette: React.FC = () => {
       aria-label="Paleta universal de comandos Aura3D"
     >
       <div
-        className="w-full max-w-xl rounded-[20px] bg-[#0c101a]/95 backdrop-blur-3xl border border-white/[0.12] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.15)] overflow-hidden flex flex-col font-mono text-xs z-10 animate-in zoom-in-95 duration-150"
+        className="liquid-glass liquid-glass--modal w-full max-w-xl overflow-hidden flex flex-col font-mono text-xs z-10 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

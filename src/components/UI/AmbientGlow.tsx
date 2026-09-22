@@ -29,6 +29,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary || '#00f2fe');
   const mouseEffectsEnabled = usePlayerStore((s) => s.mouseEffectsEnabled);
+  const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const { beatPulse, primaryColor: aiColor } = useAIAudioEngine();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -143,29 +144,29 @@ export const AmbientGlow: React.FC = React.memo(() => {
         mouseRef.current.prevY = curY;
       }
 
-      // ── Draw Ambient Floating Space Dust ──
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
+      // ── Draw Ambient Floating Space Dust (Only in 3D scenes, disabled in 2D Rainbow Void) ──
+      if (visualizerMode !== 'blob') {
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
 
-        // Wrap around
-        if (p.y < -10) p.y = height + 10;
-        if (p.x < -10) p.x = width + 10;
-        if (p.x > width + 10) p.x = -10;
+          // Wrap around
+          if (p.y < -10) p.y = height + 10;
+          if (p.x < -10) p.x = width + 10;
+          if (p.x > width + 10) p.x = -10;
 
-        const drawX = p.x + (mouseEffectsEnabled ? mouseRef.current.x * (p.size * 0.4) : 0);
-        const drawY = p.y + (mouseEffectsEnabled ? mouseRef.current.y * (p.size * 0.4) : 0);
+          const drawX = p.x + (mouseEffectsEnabled ? mouseRef.current.x * (p.size * 0.4) : 0);
+          const drawY = p.y + (mouseEffectsEnabled ? mouseRef.current.y * (p.size * 0.4) : 0);
 
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(drawX, drawY, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.alpha * (0.6 + beatPulse * 0.4);
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = p.size * 3;
-        ctx.fill();
-        ctx.restore();
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha * (0.6 + beatPulse * 0.4);
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       // ── Draw Cursor Stardust Fluid Trail (only if active) ──
@@ -189,8 +190,6 @@ export const AmbientGlow: React.FC = React.memo(() => {
           ctx.arc(tp.x, tp.y, tp.size * tp.life, 0, Math.PI * 2);
           ctx.fillStyle = tp.color;
           ctx.globalAlpha = Math.max(0, tp.alpha);
-          ctx.shadowColor = tp.color;
-          ctx.shadowBlur = tp.size * 4;
           ctx.fill();
           ctx.restore();
         }
@@ -205,7 +204,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [activeColor, beatPulse, mouseEffectsEnabled]);
+  }, [activeColor, beatPulse, mouseEffectsEnabled, visualizerMode]);
 
   const pulseScale = 1.0 + beatPulse * 0.12;
 

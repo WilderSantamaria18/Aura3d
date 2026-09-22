@@ -356,6 +356,16 @@ export class AudioEngine {
   }
 
   /**
+   * Returns a live MediaStream containing all mixed audio tracks
+   * (master player music + microphone + system audio) routed through the analyser,
+   * without routing microphone or system loopback into speakers (zero acoustic feedback).
+   */
+  public getRecordingStream(): MediaStream | null {
+    const dest = this.getAudioStreamDestination();
+    return dest ? dest.stream : null;
+  }
+
+  /**
    * Connect any external sound generator (e.g. 3D Air Synthesizer / Cyber Drums)
    * into the master EQ and Analyser chain so visualizers react in real-time.
    */
@@ -560,16 +570,16 @@ export class AudioEngine {
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         },
         video: false,
       });
 
       this.micSourceNode = this.audioContext.createMediaStreamSource(this.micStream);
       this.micGain = this.audioContext.createGain();
-      this.micGain.gain.setValueAtTime(1.2, this.audioContext.currentTime);
+      this.micGain.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
       // Connect mic to Analyser only (NOT to destination to avoid feedback loop)
       this.micSourceNode.connect(this.micGain);
@@ -583,6 +593,12 @@ export class AudioEngine {
     } catch (err) {
       console.error('Microphone access denied or error:', err);
       throw err;
+    }
+  }
+
+  public setMicGain(gain: number): void {
+    if (this.micGain && this.audioContext) {
+      this.micGain.gain.setValueAtTime(Math.max(0, Math.min(3.0, gain)), this.audioContext.currentTime);
     }
   }
 

@@ -14,6 +14,7 @@ import {
   Camera,
   Shield,
   Keyboard,
+  HelpCircle,
   Piano,
   User,
   Gauge,
@@ -53,6 +54,7 @@ import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { LucidToggle } from './LucidToggle';
 import { BackgroundAtmospherePopover } from './BackgroundAtmospherePopover';
 import { VideoRecorderButton } from './VideoRecorderButton';
+import { useRecorderStore } from '../../store/recorderStore';
 import { BpmMeter } from './BpmMeter';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { AuraMindRadar } from './AuraMindRadar';
@@ -381,7 +383,7 @@ export const HeaderBar: React.FC = () => {
       ref={menuRef}
       className="w-full flex items-center justify-start px-3 sm:px-6 md:px-8 pt-2 sm:pt-3 pointer-events-none select-none font-sans"
     >
-      <div className="w-auto liquid-glass liquid-glass-pill flex items-center px-2.5 sm:px-3.5 py-1 pointer-events-auto gap-1.5 sm:gap-2 shadow-[0_16px_40px_rgba(0,0,0,0.65)] border border-white/15 backdrop-blur-3xl bg-[#080c18]/90">
+      <div className="w-auto liquid-glass liquid-glass--pill flex items-center px-2.5 sm:px-3.5 py-1 pointer-events-auto gap-1.5 sm:gap-2">
         {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
         <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
           <div
@@ -456,7 +458,7 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Modos de visualización interactivos"
-              className="fixed inset-x-3 top-14 max-w-[290px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-72 p-2.5 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 select-none text-white font-sans"
+              className="fixed inset-x-3 top-14 max-w-[290px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 select-none text-white font-sans"
             >
               <div className="flex items-center justify-between px-2 pt-0.5 pb-1.5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
@@ -574,7 +576,7 @@ export const HeaderBar: React.FC = () => {
 
           {/* Popover Unificado del Hub de Inteligencia */}
           {activeMenu === 'intel_hub' && (
-            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[400px] max-h-[75vh] overflow-y-auto custom-scrollbar p-3.5 rounded-[24px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_28px_70px_rgba(0,0,0,0.9)] z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 select-none text-white font-sans">
+            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[400px] max-h-[75vh] overflow-y-auto liquid-glass-scrollbar liquid-glass liquid-glass--card z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 select-none text-white font-sans">
               {/* Header */}
               <div className="flex items-center justify-between pb-1 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
@@ -883,14 +885,24 @@ export const HeaderBar: React.FC = () => {
             <Sliders className="w-3 h-3 text-cyan-400" />
           </button>
 
-          {/* Auralis Story Card 9:16 Social Export */}
+          {/* Auralis Story Card 9:16 Social Export & Studio */}
           <button
-            onClick={() => setStoryCardOpen(true)}
+            onClick={() => useRecorderStore.getState().openModal('cards')}
             className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
-            title="Crear Tarjeta Estética para Historias (9:16 para Instagram Stories y TikTok)"
-            aria-label="Tarjeta 9:16 para Historias"
+            title="Aura3D Social Content Studio (Grabación 9:16 y Story Cards para Instagram/TikTok)"
+            aria-label="Aura3D Social Studio"
           >
             <Sparkles className="w-3 h-3 text-purple-400" />
+          </button>
+
+          {/* Ayuda & Atajos de Teclado (?) */}
+          <button
+            onClick={() => toggleShortcutsModal()}
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
+            title="Ayuda y Atajos de Teclado (?)"
+            aria-label="Ayuda y Atajos de Teclado"
+          >
+            <HelpCircle className="w-3 h-3 text-cyan-400" />
           </button>
         </div>
 
@@ -914,7 +926,7 @@ export const HeaderBar: React.FC = () => {
           </button>
 
           {activeMenu === 'studio' && (
-            <div className="fixed inset-x-3 top-14 max-w-[290px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 p-3 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans">
+            <div className="fixed inset-x-3 top-14 max-w-[290px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans">
               {/* Header */}
               <div className="flex items-center justify-between px-1 pb-1.5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
@@ -1154,7 +1166,7 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Ajustes de Sistema"
-              className="fixed inset-x-3 top-14 max-w-[300px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 p-3 rounded-[22px] liquid-glass liquid-glass-card bg-[#0a0f1d]/92 backdrop-blur-3xl border border-white/15 border-t-white/30 shadow-[0_24px_60px_rgba(0,0,0,0.85)] z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans max-h-[85vh] overflow-y-auto custom-scrollbar"
+              className="fixed inset-x-3 top-14 max-w-[300px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans max-h-[85vh] overflow-y-auto liquid-glass-scrollbar"
             >
               {/* Sección Vistas & Utilidades */}
               <div>
