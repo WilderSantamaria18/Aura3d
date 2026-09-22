@@ -49,6 +49,7 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
 import { useThemeManager } from '../../services/themeService';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { LucidToggle } from './LucidToggle';
@@ -883,6 +884,16 @@ export const HeaderBar: React.FC = () => {
             aria-label="Ajustar Encuadre de Grabación"
           >
             <Sliders className="w-3 h-3 text-cyan-400" />
+          </button>
+
+          {/* Aura Wallpapers AI (4K Minimalist & Ghibli) */}
+          <button
+            onClick={() => useWallpaperStore.getState().togglePanel()}
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
+            title="Aura Wallpapers AI (Fondos 4K y presets cinemáticos - Atajo: W)"
+            aria-label="Fondos de Pantalla con IA"
+          >
+            <Image className="w-3.5 h-3.5 text-cyan-400" />
           </button>
 
           {/* Auralis Story Card 9:16 Social Export & Studio */}

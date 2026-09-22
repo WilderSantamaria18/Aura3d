@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useRecorderStore } from '../store/recorderStore';
+import { useWallpaperStore } from '../stores/wallpaperStore';
 import { useAudioEngine } from './useAudioEngine';
 import { useSpotifyPlayer } from './useSpotifyPlayer';
 
@@ -139,10 +140,15 @@ export const useKeyboardShortcuts = () => {
           setEqualizerOpen(false);
           setCommandPaletteOpen(false);
           setLyricsOpen(false);
+          useWallpaperStore.getState().setPanelOpen(false);
           usePlayerStore.getState().setVisualizerSettingsOpen?.(false);
           usePlayerStore.getState().setBlobPanelOpen?.(false);
           usePlayerStore.getState().setAdminModalOpen?.(false);
           usePlayerStore.getState().setSidebarOpen?.(false);
+          break;
+
+        case 'OPEN_WALLPAPERS':
+          useWallpaperStore.getState().togglePanel();
           break;
 
         case 'OPEN_RECORDER':
@@ -344,6 +350,10 @@ export const useKeyboardShortcuts = () => {
           case 'u':
             e.preventDefault();
             dispatchAction('TOGGLE_LUCID');
+            break;
+          case 'w':
+            e.preventDefault();
+            dispatchAction('OPEN_WALLPAPERS');
             break;
           default:
             break;

@@ -10,31 +10,47 @@ export interface LyricsData {
   source?: 'lrc' | 'api' | 'none';
 }
 
-// ── Enhanced LRC types (word-by-word karaoke sync) ──────────────────────────
+export type LyricsFontType = 'modern' | 'serif' | 'mono' | 'cursive' | 'display';
+export type LyricsPosition = 'dock-right' | 'dock-left' | 'bottom-right' | 'center' | 'custom';
+export type LyricsSize = 'compact' | 'standard' | 'lateral' | 'fullscreen';
 
-/**
- * Represents a single word with start/end timestamps.
- * `endTime` is calculated from the next word's startTime (or line end).
- */
+// ─── Word-by-word sync ───
 export interface LyricWord {
   text: string;
-  startTime: number; // seconds
-  endTime: number;   // seconds
+  startTime: number; // segundos
+  endTime: number;   // segundos
 }
 
-/**
- * Extends LyricLine with optional per-word timestamps.
- * If `words` is undefined, the component falls back to line-level sync.
- */
 export interface EnhancedLyricLine extends LyricLine {
-  words?: LyricWord[];
+  words?: LyricWord[]; // undefined si no hay sync por palabra
 }
 
-/**
- * Enhanced lyrics dataset — superset of LyricsData.
- * `isWordSynced = true` when at least one line has `words[]`.
- */
 export interface EnhancedLyricsData extends LyricsData {
   lines: EnhancedLyricLine[];
   isWordSynced: boolean;
+  language?: 'ja' | 'ko' | 'zh' | 'en' | 'es' | 'unknown';
+}
+
+// ─── Panel State ───
+export type LyricsPanelState = 'hidden' | 'collapsed' | 'expanded';
+
+// ─── Romanization ───
+export type RomanizationMode = 'off' | 'romaji' | 'furigana';
+
+// ─── Kawarp Settings ───
+export interface KawarpSettings {
+  enabled: boolean;
+  warpIntensity: number;  // 0-1
+  blurPasses: number;     // 1-40
+  motionSpeed: number;    // 0.01-4
+  saturation: number;     // 0.5-2
+  brightness: number;     // 0.5-2
+}
+
+// ─── Lenis Settings ───
+export interface LenisSettings {
+  enabled: boolean;
+  duration: number;       // 0.5-2.5
+  smoothWheel: boolean;
+  wheelMultiplier: number; // 0.5-2
 }

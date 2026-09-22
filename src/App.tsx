@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
+import { LandingScreenV2 } from './components/Landing/LandingScreenV2';
+import { FEATURES } from './constants/features';
 import { HeaderBar } from './components/UI/HeaderBar';
 import { Controls } from './components/Player/Controls';
 import { ProgressBar } from './components/Player/ProgressBar';
@@ -29,6 +31,8 @@ import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer
 import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
+import { WallpaperBackground } from './components/Wallpapers/WallpaperBackground';
+import { WallpaperPanel } from './components/Wallpapers/WallpaperPanel';
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
@@ -128,13 +132,16 @@ export const App: React.FC = () => {
   const shouldHideUI = isUiHidden;
 
   const [showLanding, setShowLanding] = useState(!hasStarted);
+  const isTransitioning = usePlayerStore((s) => s.isTransitioning);
   const idleTimerRef = useRef<number | null>(null);
 
-  // Lazy unmount landing screen after exit transition to free GPU memory
+  // Hide landing screen after exit transition (900ms curtain duration) to free GPU memory
   useEffect(() => {
     if (hasStarted) {
-      const timer = window.setTimeout(() => setShowLanding(false), 500);
+      const timer = window.setTimeout(() => setShowLanding(false), 950);
       return () => clearTimeout(timer);
+    } else {
+      setShowLanding(true);
     }
   }, [hasStarted]);
 
@@ -248,7 +255,8 @@ export const App: React.FC = () => {
           : undefined,
       } as React.CSSProperties}
     >
-      {/* 0. Full-Screen Atmosphere Canvas Background (only for visualizers, not on landing index) */}
+      {/* 0. Aura Wallpapers AI & Full-Screen Atmosphere Canvas Background */}
+      <WallpaperBackground />
       {hasStarted && <AtmosphereBackground />}
 
       {/* 0.05 Apple Liquid Glass Master Overlays: Ambient Glow & Caustics */}
@@ -272,13 +280,14 @@ export const App: React.FC = () => {
       {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
       {showLanding && (
         <div
-          className={`absolute inset-0 z-50 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          className={`absolute inset-0 z-50 transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             hasStarted
               ? '-translate-y-full opacity-0 pointer-events-none'
               : 'translate-y-0 opacity-100 pointer-events-auto'
           }`}
+          style={{ display: hasStarted && !isTransitioning ? 'none' : 'block' }}
         >
-          <LandingScreen />
+          {FEATURES.LANDING_V2 ? <LandingScreenV2 /> : <LandingScreen />}
         </div>
       )}
 
@@ -437,6 +446,9 @@ export const App: React.FC = () => {
 
       {/* 3D Air Virtual Instruments Controls HUD */}
       {hasStarted && <AirInstrumentControls />}
+
+      {/* Aura Wallpapers AI (4K Minimalist & Ghibli) Modal Panel */}
+      <WallpaperPanel />
 
 
       {/* Global YouTube Player Controller — singleton, no DOM output here */}

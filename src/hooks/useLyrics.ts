@@ -1,38 +1,41 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { LyricsData, LyricLine } from '../types/lyrics';
-import { parseLRC } from '../utils/parseLRC';
+import type { EnhancedLyricsData, EnhancedLyricLine } from '../types/lyrics';
 import { LyricsService } from '../services/lyricsService';
 import { usePlayerStore } from '../stores/playerStore';
 
 export const useLyrics = () => {
-  const { currentTrack, currentTime } = usePlayerStore();
-  const [lyricsData, setLyricsData] = useState<LyricsData>({
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+  const [lyricsData, setLyricsData] = useState<EnhancedLyricsData>({
     synced: false,
     lines: [],
     source: 'none',
+    isWordSynced: false,
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Load lyrics when track changes
+  // Key tracking to prevent re-fetching on non-track state updates
+  const trackKey = currentTrack
+    ? `${currentTrack.id || ''}::${currentTrack.artist || ''}::${currentTrack.title || ''}::${currentTrack.lrcContent ? 'lrc' : 'api'}`
+    : '';
+
+  // Load lyrics when track identity genuinely changes
   useEffect(() => {
     if (!currentTrack) {
-      setLyricsData({ synced: false, lines: [], source: 'none' });
+      setLyricsData({ synced: false, lines: [], source: 'none', isWordSynced: false });
       return;
     }
 
     // 1. If track already contains custom LRC text
     if (currentTrack.lrcContent) {
-      const parsedLines = parseLRC(currentTrack.lrcContent);
-      setLyricsData({
-        synced: parsedLines.length > 0,
-        lines: parsedLines.map((l, i) => ({ id: i, time: l.time, text: l.text })),
-        source: 'lrc',
-      });
+      const parsed = LyricsService.parseEnhancedLRC(currentTrack.lrcContent);
+      setLyricsData(parsed);
       return;
     }
 
-    // 2. Otherwise fetch from LRCLIB synchronized lyrics API (with fallback)
-    if (currentTrack.artist && currentTrack.title && currentTrack.sourceType !== 'demo') {
+    // 2. Otherwise fetch from LRCLIB synchronized lyrics API (with smart fallback & caching)
+    if (currentTrack.artist && currentTrack.title) {
+      let isCancelled = false;
       setIsLoading(true);
       LyricsService.fetchFromLRCLIB(
         currentTrack.artist,
@@ -41,32 +44,46 @@ export const useLyrics = () => {
         currentTrack.duration
       )
         .then((res) => {
-          setLyricsData(res);
+          if (!isCancelled) {
+            setLyricsData(res);
+          }
         })
         .finally(() => {
-          setIsLoading(false);
+          if (!isCancelled) {
+            setIsLoading(false);
+          }
         });
+
+      return () => {
+        isCancelled = true;
+      };
     } else {
-      setLyricsData({ synced: false, lines: [], source: 'none' });
+      setLyricsData({ synced: false, lines: [], source: 'none', isWordSynced: false });
     }
-  }, [currentTrack]);
+  }, [trackKey]);
 
-  // Determine current active line index
+  // Determine current active line index via binary search O(log n)
   const activeLineIndex = useMemo(() => {
-    if (!lyricsData.lines.length) return -1;
+    const lines = lyricsData.lines;
+    if (!lines || lines.length === 0) return -1;
 
-    let active = -1;
-    for (let i = 0; i < lyricsData.lines.length; i++) {
-      if (currentTime >= lyricsData.lines[i].time) {
-        active = i;
+    let lo = 0;
+    let hi = lines.length - 1;
+    let result = -1;
+
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      if (lines[mid].time <= currentTime) {
+        result = mid;
+        lo = mid + 1;
       } else {
-        break;
+        hi = mid - 1;
       }
     }
-    return active;
+    return result;
   }, [lyricsData.lines, currentTime]);
 
-  const activeLine: LyricLine | null = useMemo(() => {
+  const activeLine: EnhancedLyricLine | null = useMemo(() => {
     if (activeLineIndex >= 0 && activeLineIndex < lyricsData.lines.length) {
       return lyricsData.lines[activeLineIndex];
     }
@@ -78,12 +95,8 @@ export const useLyrics = () => {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       if (text) {
-        const parsedLines = parseLRC(text);
-        setLyricsData({
-          synced: parsedLines.length > 0,
-          lines: parsedLines.map((l, i) => ({ id: i, time: l.time, text: l.text })),
-          source: 'lrc',
-        });
+        const parsed = LyricsService.parseEnhancedLRC(text);
+        setLyricsData(parsed);
       }
     };
     reader.readAsText(file);
@@ -98,3 +111,5 @@ export const useLyrics = () => {
     setLyricsData,
   };
 };
+
+export default useLyrics;

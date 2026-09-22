@@ -1,3 +1,16 @@
+/**
+ * LandingScreen — Apple visionOS Liquid Glass Index & Welcome Experience (Aura3D Studio)
+ *
+ * Architecture:
+ * - Vertical scroll-snap between 4 hardware channels
+ * - Dynamic Island floating header with live audio DSP telemetry
+ * - Floating lateral channel dock with active cyan LED indicators
+ * - Superior gradient progress bar (Cyan -> Violet -> Magenta)
+ * - Cosmic Starfield reactive particle engine with meteor bursts
+ * - Elastic curtain transition to 3D engine with cubic-bezier(0.16, 1, 0.3, 1)
+ * - Full responsive layout: 320px, 768px, 1024px, 1440px, 2560px and 80%-150% zoom
+ */
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,85 +19,78 @@ import {
   Mic,
   ArrowRight,
   ChevronDown,
-  Sparkles,
-  Sliders,
   Headphones,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useLandingScroll } from '../../hooks/useLandingScroll';
 import { CosmicStarfield } from './CosmicStarfield';
 import { StudioOscilloscope } from './StudioOscilloscope';
 import { StudioMixerDeck } from './StudioMixerDeck';
 import { StudioTurntableDeck } from './StudioTurntableDeck';
 import { StudioLaunchDeck } from './StudioLaunchDeck';
+import { FEATURES } from '../../constants/features';
 
-/**
- * LandingScreen
- * Adaptación arquitectónica de máxima fidelidad al lenguaje visual Apple iOS / visionOS Liquid Glass.
- * - 4 Canales con scroll-snap fluido y scrollbars en cápsula de cristal líquido
- * - Header flotante "Dynamic Island" con telemetría de audio en vivo
- * - Dock lateral derecho en cápsula de cristal
- * - Fondo cósmico de partículas estelares ultrarrealista con centelleo y meteoros (CosmicStarfield)
- * - Cortina de transición con física elástica (cubic-bezier(0.16, 1, 0.3, 1))
- */
 export const LandingScreen: React.FC = () => {
-  const { setHasStarted } = usePlayerStore();
+  const setHasStarted = usePlayerStore((s) => s.setHasStarted);
+  const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
   const { unlockAudio, loadFile, toggleMicrophone } = useAudioEngine();
 
-  const [activeChannel, setActiveChannel] = useState<number>(0);
   const [isTransitioningOut, setIsTransitioningOut] = useState<boolean>(false);
   const [isDraggingHero, setIsDraggingHero] = useState<boolean>(false);
 
   const viewportRef = useRef<HTMLDivElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
   const fileInputHeroRef = useRef<HTMLInputElement>(null);
 
+  // High-performance reactive scroll tracking
+  const { scrollProgress, activeChannel, scrollToChannel } = useLandingScroll(viewportRef);
+
+  // Transition to 3D engine with elastic curtain
   const handleStartExperience = useCallback(async () => {
     if (isTransitioningOut) return;
     setIsTransitioningOut(true);
+    setIsTransitioning(true);
     unlockAudio();
     setTimeout(() => {
       setHasStarted(true);
-    }, 450);
-  }, [unlockAudio, setHasStarted, isTransitioningOut]);
+      setIsTransitioning(false);
+    }, 900);
+  }, [unlockAudio, setHasStarted, setIsTransitioning, isTransitioningOut]);
 
   const handleMicStart = useCallback(async () => {
     if (isTransitioningOut) return;
     setIsTransitioningOut(true);
+    setIsTransitioning(true);
     toggleMicrophone();
     setTimeout(() => {
       setHasStarted(true);
-    }, 450);
-  }, [toggleMicrophone, setHasStarted, isTransitioningOut]);
+      setIsTransitioning(false);
+    }, 900);
+  }, [toggleMicrophone, setHasStarted, setIsTransitioning, isTransitioningOut]);
 
   const handleFileLoaded = useCallback(
     (file: File) => {
       if (isTransitioningOut) return;
       setIsTransitioningOut(true);
+      setIsTransitioning(true);
       loadFile(file);
       setTimeout(() => {
         setHasStarted(true);
-      }, 450);
+        setIsTransitioning(false);
+      }, 900);
     },
-    [loadFile, setHasStarted, isTransitioningOut]
+    [loadFile, setHasStarted, setIsTransitioning, isTransitioningOut]
   );
 
-  const scrollToCanal = (index: number) => {
-    const target = document.getElementById(`canal-${index}`);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  // Keyboard shortcut listener: Space to launch, M for mic, G to enter
+  // Keyboard shortcut listener: Enter / Space to launch, M for mic, G to enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea') return;
 
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        if (activeChannel === 3) {
+        if (activeChannel === 3 && e.code === 'Space') {
           // Channel 4 handles space for kick test
         } else {
           handleStartExperience();
@@ -98,25 +104,6 @@ export const LandingScreen: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleStartExperience, handleMicStart, activeChannel]);
-
-  // High-performance scroll tracking using transform scaleX (zero reflows)
-  const handleScroll = () => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const { scrollTop, scrollHeight, clientHeight } = viewport;
-    const maxScroll = scrollHeight - clientHeight;
-    const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollTop / maxScroll)) : 0;
-
-    if (progressBarRef.current) {
-      progressBarRef.current.style.transform = `scaleX(${progress})`;
-    }
-
-    const currentIndex = Math.min(3, Math.max(0, Math.round(scrollTop / clientHeight)));
-    if (currentIndex !== activeChannel) {
-      setActiveChannel(currentIndex);
-    }
-  };
 
   const handleHeroDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -134,59 +121,38 @@ export const LandingScreen: React.FC = () => {
   ];
 
   return (
-    <motion.div
-      initial={{ y: 0, opacity: 1 }}
-      animate={
-        isTransitioningOut
-          ? {
-              y: '-100%',
-              opacity: 0,
-              transition: {
-                duration: 0.45,
-                ease: [0.22, 1, 0.36, 1],
-              },
-            }
-          : { y: 0, opacity: 1 }
-      }
-      className="fixed inset-0 w-full h-full bg-[#03050c] text-white select-none overflow-hidden font-sans pointer-events-auto"
-    >
-      {/* Specular Liquid Glass Edge Rim that follows the bottom as it lifts */}
-      {isTransitioningOut && (
-        <div className="absolute bottom-0 inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_30px_rgba(0,229,255,0.9),0_0_60px_rgba(140,56,255,0.6)] z-[100] pointer-events-none" />
-      )}
-
-      {/* High-Performance Cosmic Starfield Particle Field Layer */}
+    <div className="relative w-full h-screen bg-[#03050c] text-white select-none overflow-hidden font-sans pointer-events-auto">
+      {/* ── 1. Cosmic Particle Field (Web Audio & Motion reactive) ── */}
       <CosmicStarfield isTransitioning={isTransitioningOut} />
 
-      {/* [Z-100] Global Scroll Dynamic Progress Bar */}
+      {/* ── 2. Superior Dynamic Gradient Progress Bar ── */}
       <div
-        ref={progressBarRef}
         className="landing-progress-bar"
-        style={{ transform: 'scaleX(0)' }}
+        style={{ transform: `scaleX(${scrollProgress})` }}
       />
 
-      {/* [Z-50] Floating Header "Dynamic Island" (Apple visionOS Liquid Glass Pill) */}
-      <header className="fixed top-4 left-1/2 -translate-x-1/2 w-[clamp(320px,92vw,1280px)] h-auto px-4 sm:px-6 py-2.5 liquid-glass-pill border border-white/15 border-t-white/30 shadow-[0_16px_48px_rgba(0,0,0,0.75),inset_0_1px_1.5px_rgba(255,255,255,0.28)] z-50 flex items-center justify-between gap-4 pointer-events-auto">
-        {/* Left: Animated Logo + Name */}
+      {/* ── 3. Floating Dynamic Island Header (Apple visionOS Pill) ── */}
+      <header className="landing-header">
+        {/* Left: Logo & Studio Identity */}
         <div
-          onClick={() => scrollToCanal(0)}
-          className="flex items-center gap-3 cursor-pointer group"
+          onClick={() => scrollToChannel(0)}
+          className="flex items-center gap-2.5 pr-3 border-r border-white/10 cursor-pointer group select-none"
         >
-          <div className="w-8 h-8 rounded-full border border-cyan-400/40 bg-white/[0.06] flex items-center justify-center animate-[spin_8s_linear_infinite] shadow-[0_0_12px_rgba(0,229,255,0.3)] group-hover:border-cyan-400 transition-colors">
-            <Disc3 className="w-4 h-4 text-cyan-400" />
+          <div className="w-7 h-7 rounded-full border border-cyan-400/40 bg-white/[0.06] flex items-center justify-center animate-[spin_8s_linear_infinite] shadow-[0_0_10px_rgba(0,229,255,0.3)] group-hover:border-cyan-400 transition-colors">
+            <Disc3 className="w-3.5 h-3.5 text-cyan-400" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-white font-bold tracking-tight text-sm leading-tight group-hover:text-cyan-200 transition-colors">
-              Aura3D Studio
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-white font-bold tracking-tight text-xs sm:text-sm group-hover:text-cyan-200 transition-colors">
+              AURA3D
             </span>
-            <span className="font-mono text-[9px] text-white/50 tracking-widest uppercase">
-              Hardware Core v4.2
+            <span className="font-mono text-[9px] text-white/40 tracking-widest uppercase hidden sm:inline">
+              STUDIO
             </span>
           </div>
         </div>
 
-        {/* Center: Hardware Telemetry Pill (hidden on small mobile) */}
-        <div className="hidden md:flex items-center gap-3 px-3.5 py-1 rounded-full bg-black/30 border border-white/10 font-mono text-[10px] text-white/70 tracking-wider">
+        {/* Center: Live DSP Hardware Telemetry (Hidden on small mobile) */}
+        <div className="hidden md:flex items-center gap-3 font-mono text-[10px] text-white/60 tracking-wider">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
             48.0 kHz
@@ -196,35 +162,35 @@ export const LandingScreen: React.FC = () => {
           <span className="text-white/20">|</span>
           <span className="text-cyan-300">DSP &lt;8ms</span>
           <span className="text-white/20">|</span>
-          <span>BUFFER 128</span>
+          <span className="hidden lg:inline">BUFFER 128</span>
         </div>
 
         {/* Right: Enter Quick Action Button */}
         <button
           type="button"
           onClick={handleStartExperience}
-          className="px-4 py-1.5 rounded-full liquid-glass-pill bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/20 active:scale-[0.97] transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm"
+          className="liquid-glass-pill px-4 py-1.5 text-xs font-semibold hover:bg-white/15 active:scale-95 transition-all text-white border border-white/20 flex items-center gap-1.5 shadow-sm cursor-pointer"
         >
           <span>Entrar</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </header>
 
-      {/* [Z-40] Floating Right Channel Strip Dock (Liquid Glass Dock) */}
-      <aside className="fixed right-4 top-1/2 -translate-y-1/2 liquid-glass-dock p-2 z-40 hidden lg:flex flex-col gap-1 pointer-events-auto border border-white/15 border-t-white/30 shadow-[0_28px_80px_rgba(0,0,0,0.85),inset_0_1px_1.5px_rgba(255,255,255,0.22)]">
+      {/* ── 4. Floating Lateral Channel Dock (Desktop / Tablet Large) ── */}
+      <aside className="landing-channel-dock hidden lg:flex">
         {channels.map((ch) => {
           const isActive = activeChannel === ch.id;
           return (
             <button
               key={ch.id}
               type="button"
-              onClick={() => scrollToCanal(ch.id)}
+              onClick={() => scrollToChannel(ch.id)}
               className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-2xl transition-all duration-300 cursor-pointer ${
                 isActive ? 'bg-white/15 shadow-sm' : 'hover:bg-white/5'
               }`}
               title={ch.label}
             >
-              {/* LED indicator */}
+              {/* Cyan Active LED */}
               <span
                 className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
                   isActive
@@ -232,7 +198,7 @@ export const LandingScreen: React.FC = () => {
                     : 'bg-white/20 group-hover:bg-white/50'
                 }`}
               />
-              {/* Label */}
+              {/* Channel Label */}
               <span
                 className={`font-mono text-[10px] tracking-wider transition-colors ${
                   isActive ? 'text-white font-semibold' : 'text-white/50 group-hover:text-white/80'
@@ -245,24 +211,20 @@ export const LandingScreen: React.FC = () => {
         })}
       </aside>
 
-      {/* Master Vertical Scroll-Snap Container */}
+      {/* ── 5. Master Vertical Scroll-Snap Container ── */}
       <div
         ref={viewportRef}
-        onScroll={handleScroll}
         id="studio-viewport"
-        className="landing-scroll-container relative z-10 w-full h-screen overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth liquid-glass-scrollbar"
+        className="landing-scroll-container"
       >
         {/* =============================================================== */}
         {/* CANAL 01: HERO CONSOLE & CRT OSCILLOSCOPE                       */}
         {/* =============================================================== */}
-        <section
-          id="canal-0"
-          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
-        >
-          {/* Ambient Glow */}
+        <section id="canal-0" className="landing-channel">
+          {/* Subtle Ambient Halo */}
           <div className="absolute w-[500px] h-[500px] rounded-full bg-cyan-500/10 blur-[130px] pointer-events-none -top-20 -left-20" />
 
-          <div className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="max-w-6xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center z-10">
             {/* Left: Textual Authority & Dropzone */}
             <div className="lg:col-span-7 flex flex-col items-start gap-4">
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full liquid-glass-pill border border-white/10 shadow-sm">
@@ -364,8 +326,8 @@ export const LandingScreen: React.FC = () => {
 
           {/* Bottom Bouncing Guidance Indicator */}
           <div
-            onClick={() => scrollToCanal(1)}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+            onClick={() => scrollToChannel(1)}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-opacity z-20"
           >
             <span className="font-mono text-[10px] tracking-widest text-cyan-300 uppercase">
               Explorar Consola DSP
@@ -377,31 +339,21 @@ export const LandingScreen: React.FC = () => {
         {/* =============================================================== */}
         {/* CANAL 02: HARDWARE MASTER MIXER & ANALOG VU METERS              */}
         {/* =============================================================== */}
-        <section
-          id="canal-1"
-          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
-        >
+        <section id="canal-1" className="landing-channel">
           <StudioMixerDeck onStartExperience={handleStartExperience} />
         </section>
 
         {/* =============================================================== */}
         {/* CANAL 03: RAINBOW VOID VIRTUAL TURNTABLE                        */}
         {/* =============================================================== */}
-        <section
-          id="canal-2"
-          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
-        >
+        <section id="canal-2" className="landing-channel">
           <StudioTurntableDeck onStartExperience={handleStartExperience} />
         </section>
 
         {/* =============================================================== */}
         {/* CANAL 04: LAUNCH PLATFORM & LIQUID VOID VISUALIZER              */}
         {/* =============================================================== */}
-        <section
-          id="canal-3"
-          className="landing-channel w-full h-screen min-h-[640px] snap-start shrink-0 flex flex-col justify-center items-center relative overflow-hidden"
-        >
-          {/* Magenta Ambient Halo */}
+        <section id="canal-3" className="landing-channel">
           <div className="absolute w-[500px] h-[500px] rounded-full bg-rose-500/10 blur-[140px] pointer-events-none -top-10 right-1/4" />
           <StudioLaunchDeck
             onStartExperience={handleStartExperience}
@@ -410,7 +362,23 @@ export const LandingScreen: React.FC = () => {
           />
         </section>
       </div>
-    </motion.div>
+
+      {/* ── 6. Elastic Transition Curtain to 3D Engine ── */}
+      <AnimatePresence>
+        {isTransitioningOut && (
+          <motion.div
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: '0%', opacity: 1 }}
+            exit={{ y: '-100%', opacity: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="landing-curtain"
+          >
+            {/* Specular Edge Glow on Curtain */}
+            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_rgba(0,229,255,0.9)]" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

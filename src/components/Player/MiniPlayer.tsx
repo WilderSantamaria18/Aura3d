@@ -44,6 +44,7 @@ import {
   Download,
   SlidersHorizontal,
   Mic,
+  AlignLeft,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
@@ -702,7 +703,7 @@ export const MiniPlayer: React.FC = () => {
                   title={isLyricsOpen ? 'Cerrar letras sincronizadas' : 'Ver letras sincronizadas'}
                   aria-label="Letras sincronizadas"
                 >
-                  <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <AlignLeft className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
 
                 {/* Expand Chevron */}
@@ -771,7 +772,7 @@ export const MiniPlayer: React.FC = () => {
                     }
                     title={isLyricsOpen ? 'Cerrar letras sincronizadas' : 'Ver letras sincronizadas'}
                   >
-                    <Mic className="w-3.5 h-3.5" />
+                    <AlignLeft className="w-3.5 h-3.5" />
                   </button>
 
                   {/* Equalizer Modal Toggle */}
@@ -812,14 +813,14 @@ export const MiniPlayer: React.FC = () => {
               </div>
 
               {/* iOS Segmented Control (Tabs) */}
-              <div className="px-3.5 py-1">
+              <div className="px-3 py-1.5">
                 <div className="relative flex items-center p-1 rounded-full bg-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
                   {(
                     [
-                      { id: 'player', label: 'PISTA', icon: Disc3 },
-                      { id: 'search', label: 'BUSCAR', icon: Search },
-                      { id: 'queue', label: `COLA (${queue.length})`, icon: ListMusic },
-                      { id: 'favorites', label: `FAVS (${favorites.length})`, icon: Heart },
+                      { id: 'player', label: 'Reproductor', icon: Disc3, badge: 0 },
+                      { id: 'search', label: 'Buscar canciones', icon: Search, badge: 0 },
+                      { id: 'queue', label: `Cola (${queue.length})`, icon: ListMusic, badge: queue.length },
+                      { id: 'favorites', label: `Favoritos (${favorites.length})`, icon: Heart, badge: favorites.length },
                     ] as const
                   ).map((tab) => {
                     const Icon = tab.icon;
@@ -827,16 +828,19 @@ export const MiniPlayer: React.FC = () => {
                     return (
                       <button
                         key={tab.id}
+                        type="button"
+                        aria-label={tab.label}
+                        title={tab.label}
                         onClick={() => {
                           setActiveTab(tab.id);
                           if (tab.id === 'search') {
                             setTimeout(() => searchInputRef.current?.focus(), 120);
                           }
                         }}
-                        className={`relative flex-1 py-1.5 text-[10px] tracking-tight transition-colors flex items-center justify-center gap-1 rounded-full z-10 ${
+                        className={`relative flex-1 py-2 transition-colors flex items-center justify-center rounded-full z-10 group ${
                           isActive
-                            ? 'text-white font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
-                            : 'text-white/50 font-medium hover:text-white/90'
+                            ? 'text-white'
+                            : 'text-white/45 hover:text-white/85'
                         }`}
                       >
                         {isActive && (
@@ -846,8 +850,24 @@ export const MiniPlayer: React.FC = () => {
                             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           />
                         )}
-                        <Icon className="w-3 h-3 relative z-10" />
-                        <span className="relative z-10 truncate">{tab.label}</span>
+                        <div className="relative flex items-center justify-center">
+                          <Icon
+                            className={`w-4 h-4 relative z-10 transition-transform duration-200 ${
+                              isActive ? 'scale-110 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]' : 'group-hover:scale-105'
+                            }`}
+                          />
+                          {tab.badge > 0 && (
+                            <span
+                              className={`absolute -top-1 -right-2 min-w-[13px] h-[13px] px-0.5 rounded-full text-[8.5px] font-mono font-bold flex items-center justify-center border z-20 pointer-events-none transition-colors ${
+                                isActive
+                                  ? 'bg-cyan-400 text-black border-cyan-300 shadow-[0_0_6px_rgba(0,229,255,0.6)]'
+                                  : 'bg-white/20 text-white/90 border-white/30'
+                              }`}
+                            >
+                              {tab.badge > 99 ? '99+' : tab.badge}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -1103,32 +1123,6 @@ export const MiniPlayer: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Spotify Real-Time Sync & Live Audio Loopback Pill */}
-                    {isSpotifyConnected && (
-                      <div className="flex flex-col gap-1 p-2 rounded-xl bg-[#1DB954]/10 border border-[#1DB954]/25 text-left">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono font-bold text-[#1DB954] flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-ping" />
-                            Spotify Sync ({spotifyBpm || 124} BPM)
-                          </span>
-                          <span className="text-[8.5px] font-mono text-white/50">Reactivo 60FPS</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleSystemAudio()}
-                          className={`mt-0.5 py-1 px-2 rounded-lg text-[9.5px] font-mono transition-all flex items-center justify-center gap-1.5 border cursor-pointer active:scale-95 ${
-                            isSystemCapturing
-                              ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
-                              : 'bg-white/[0.06] hover:bg-white/10 text-white/80 hover:text-white border-white/10'
-                          }`}
-                          title="Captura el audio real que suena en tu computadora para los visualizadores 3D"
-                        >
-                          <Radio className="w-3 h-3 text-[#1DB954]" />
-                          <span>{isSystemCapturing ? 'Onda acústica de altavoces activa' : 'Capturar audio real de altavoces / PC'}</span>
-                        </button>
-                      </div>
-                    )}
-
                     {/* Primary Hero Transport Controls */}
                     <div className="flex items-center justify-between px-2 pt-1">
                       {/* Shuffle */}
@@ -1192,32 +1186,38 @@ export const MiniPlayer: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Volume Slider (iOS Style) */}
-                    <div className="flex items-center gap-2.5 px-2 pt-2 border-t border-white/[0.06]">
+                    {/* Volume Control Capsule (Apple Liquid Glass) */}
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.25)] backdrop-blur-xl group/volume">
                       <button
                         onClick={toggleMute}
-                        className="text-white/50 hover:text-white transition-colors"
-                        title={isMuted ? 'Activar sonido' : 'Silenciar'}
+                        className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 active:scale-90 transition-all flex-shrink-0"
+                        title={isMuted ? 'Activar sonido (Desmutear)' : 'Silenciar'}
+                        aria-label={isMuted ? 'Desmutear' : 'Silenciar'}
                       >
                         {isMuted || volume === 0 ? (
-                          <VolumeX className="w-4 h-4 text-rose-400" />
+                          <VolumeX className="w-4 h-4 text-rose-400 drop-shadow-[0_0_6px_rgba(244,63,94,0.5)]" />
                         ) : volume < 0.5 ? (
-                          <Volume1 className="w-4 h-4" />
+                          <Volume1 className="w-4 h-4 text-white/80" />
                         ) : (
-                          <Volume2 className="w-4 h-4" />
+                          <Volume2 className="w-4 h-4 text-white" />
                         )}
                       </button>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={isMuted ? 0 : volume}
-                        onChange={handleVolumeChange}
-                        className="flex-1 h-1 hover:h-1.5 bg-white/15 rounded-full appearance-none accent-white cursor-pointer transition-all"
-                        title={`Volumen: ${Math.round(volume * 100)}%`}
-                      />
-                      <span className="text-[10px] font-mono text-white/50 w-7 text-right">
+                      <div className="flex-1 flex items-center relative py-1">
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={isMuted ? 0 : volume}
+                          onChange={handleVolumeChange}
+                          className="w-full h-1.5 group-hover/volume:h-2 rounded-full appearance-none cursor-pointer transition-all bg-white/15 accent-white"
+                          style={{
+                            background: `linear-gradient(to right, ${accentColor} ${Math.round((isMuted ? 0 : volume) * 100)}%, rgba(255,255,255,0.14) ${Math.round((isMuted ? 0 : volume) * 100)}%)`,
+                          }}
+                          title={`Volumen: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono font-medium tabular-nums text-white/60 w-8 text-right flex-shrink-0 select-none">
                         {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
                       </span>
                     </div>

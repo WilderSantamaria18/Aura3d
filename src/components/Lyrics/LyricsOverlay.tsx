@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlignLeft, Maximize2, Mic } from 'lucide-react';
 import { LyricsPanel } from './LyricsPanel';
 import { useLyrics } from '../../hooks/useLyrics';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
@@ -12,6 +11,7 @@ import { extractDominantColor } from '../../services/colorExtractor';
 
 export type LyricsPosition = 'dock-right' | 'dock-left' | 'bottom-right' | 'center' | 'custom';
 export type LyricsSize = 'compact' | 'standard' | 'lateral' | 'fullscreen';
+export type PanelState = 'hidden' | 'collapsed' | 'expanded';
 
 export const LyricsOverlay: React.FC = () => {
   const {
@@ -25,14 +25,47 @@ export const LyricsOverlay: React.FC = () => {
     isSpotifyConnected,
     isLucid,
     lucidTheme,
-    togglePlayPause,
-    playNext,
-    playPrev,
+    lyricsPanelState,
+    setLyricsPanelState,
   } = usePlayerStore();
 
-  const { lyricsData, activeLineIndex, loadLrcFile } = useLyrics();
-  const { seek } = useAudioEngine();
-  const { seek: spotifySeek } = useSpotifyPlayer();
+  const { lyricsData, loadLrcFile, isLoading } = useLyrics();
+  const {
+    seek,
+    togglePlayPause: engineTogglePlayPause,
+    playNext: enginePlayNext,
+    playPrevious: enginePlayPrevious,
+  } = useAudioEngine();
+  const {
+    seek: spotifySeek,
+    togglePlayPause: spotifyTogglePlayPause,
+    playNext: spotifyPlayNext,
+    playPrevious: spotifyPlayPrevious,
+  } = useSpotifyPlayer();
+
+  const handlePlayPause = useCallback(() => {
+    if (isSpotifyConnected) {
+      spotifyTogglePlayPause();
+    } else {
+      engineTogglePlayPause();
+    }
+  }, [isSpotifyConnected, spotifyTogglePlayPause, engineTogglePlayPause]);
+
+  const handleSkipNext = useCallback(() => {
+    if (isSpotifyConnected) {
+      spotifyPlayNext();
+    } else {
+      enginePlayNext();
+    }
+  }, [isSpotifyConnected, spotifyPlayNext, enginePlayNext]);
+
+  const handleSkipPrev = useCallback(() => {
+    if (isSpotifyConnected) {
+      spotifyPlayPrevious();
+    } else {
+      enginePlayPrevious();
+    }
+  }, [isSpotifyConnected, spotifyPlayPrevious, enginePlayPrevious]);
 
   const activeColor = isLucid ? (lucidTheme?.primary || '#00f0ff') : '#00f0ff';
 
@@ -41,13 +74,13 @@ export const LyricsOverlay: React.FC = () => {
   const lastCoverRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const cover = currentTrack?.coverUrl || currentTrack?.thumbnail;
+    const cover = currentTrack?.coverUrl;
     if (!cover || cover === lastCoverRef.current) return;
     lastCoverRef.current = cover;
     extractDominantColor(cover).then((colors) => {
       setKawarpColors(colors);
     });
-  }, [currentTrack?.coverUrl, currentTrack?.thumbnail]);
+  }, [currentTrack?.coverUrl]);
 
   // Position & Size state with localStorage persistence
   const [position, setPosition] = useState<LyricsPosition>(() => {
@@ -66,8 +99,9 @@ export const LyricsOverlay: React.FC = () => {
     }
   });
 
-  // Zen mode state for lyrics micro-pill
-  const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  // Panel state: 'hidden' | 'collapsed' | 'expanded'
+  const panelState = lyricsPanelState || (isLyricsOpen ? 'expanded' : 'hidden');
+  const setPanelState = setLyricsPanelState;
 
   // Custom mouse drag coordinates
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(() => {
@@ -171,13 +205,7 @@ export const LyricsOverlay: React.FC = () => {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  if (!isLyricsOpen && !isKaraokeFullscreen) return null;
-
-  // Active lyric line text snippet for the Zen Micro-Pill
-  const currentActiveLyricText =
-    activeLineIndex >= 0 && lyricsData.lines[activeLineIndex]
-      ? lyricsData.lines[activeLineIndex].text
-      : '';
+  if (panelState === 'hidden' && !isKaraokeFullscreen && !isLyricsOpen) return null;
 
   // Resolve layout classes and inline styles
   let containerClasses =
@@ -243,7 +271,7 @@ export const LyricsOverlay: React.FC = () => {
 
   return (
     <>
-      {/* ── KawarpBackground — fullscreen mode only ── */}
+      {/* ── KawarpBackground — dynamic reactive background in fullscreen ── */}
       <AnimatePresence>
         {isFullscreenActive && (
           <motion.div
@@ -261,71 +289,37 @@ export const LyricsOverlay: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Zen Micro-Pill Floating Anchor (rendered when minimized) ── */}
+      {/* ── Collapsed Lyrics Pill (rendered when minimized) ── */}
       <AnimatePresence>
-        {isZenMode && !isFullscreenActive && (
-          <motion.div
-            initial={{ opacity: 0, y: 25, scale: 0.9, filter: 'blur(12px)' }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: 20, scale: 0.9, filter: 'blur(8px)' }}
-            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-auto select-none"
-          >
-            <div
-              onClick={() => setIsZenMode(false)}
-              className="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-[#090a0f]/85 backdrop-blur-3xl saturate-[190%] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_24px_rgba(0,240,255,0.25)] hover:scale-105 cursor-pointer transition-all"
-            >
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center shadow-[0_0_10px_#00f0ff]"
-                style={{
-                  backgroundColor: `${activeColor}25`,
-                  color: activeColor,
-                }}
-              >
-                <AlignLeft className="w-3.5 h-3.5" />
-              </div>
-
-              <div className="flex flex-col min-w-0 max-w-[180px] sm:max-w-[260px]">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-white tracking-tight truncate">
-                    {currentTrack?.title || 'Resonance Wave'}
-                  </span>
-                  <span
-                    className="w-1.5 h-1.5 rounded-full animate-ping"
-                    style={{ backgroundColor: activeColor }}
-                  />
-                </div>
-                <span className="text-[11px] font-mono text-cyan-300 truncate">
-                  "{currentActiveLyricText || 'Sincronizando letra en vivo...'}"
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 pl-2 border-l border-white/15">
-                <span className="w-1 h-3 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="w-1 h-5 rounded-full bg-cyan-300 animate-pulse" />
-                <span className="w-1 h-2 rounded-full bg-purple-400 animate-pulse" />
-              </div>
-
-              <Maximize2 className="w-3.5 h-3.5 text-white/50 group-hover:text-white transition-colors" />
-            </div>
-          </motion.div>
+        {panelState === 'collapsed' && !isFullscreenActive && (
+          <CollapsedLyricsPill
+            title={currentTrack?.title || 'Sin título'}
+            isPlaying={isPlaying}
+            activeColor={activeColor}
+            onExpand={() => setPanelState('expanded')}
+          />
         )}
       </AnimatePresence>
 
       {/* ── Main Floating Liquid Glass Window & Fullscreen Portal ── */}
       <AnimatePresence>
-        {(!isZenMode || isFullscreenActive) && (
+        {(panelState === 'expanded' || isFullscreenActive) && (
           <motion.div
             ref={panelRef}
+            layoutId={isFullscreenActive ? undefined : 'lyrics-panel'}
             initial={isFullscreenActive ? { opacity: 0 } : { opacity: 0, scale: 0.94, filter: 'blur(16px)' }}
             animate={isFullscreenActive ? { opacity: 1 } : { opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={isFullscreenActive ? { opacity: 0 } : { opacity: 0, scale: 0.94, filter: 'blur(12px)' }}
-            transition={isFullscreenActive ? { duration: 0.25, ease: 'easeOut' } : { type: 'spring', damping: 28, stiffness: 300 }}
+            transition={
+              isFullscreenActive
+                ? { duration: 0.25, ease: 'easeOut' }
+                : { type: 'spring', damping: 28, stiffness: 260 }
+            }
             className={containerClasses}
             style={containerStyle}
           >
             <LyricsPanel
-              lyrics={lyricsData.lines.map((l) => ({ time: l.time, text: l.text }))}
+              lyrics={lyricsData.lines}
               currentTime={currentTime}
               isPlaying={isPlaying}
               title={currentTrack?.title || 'Sin título'}
@@ -343,7 +337,7 @@ export const LyricsOverlay: React.FC = () => {
                   handleSizeChange('fullscreen');
                 }
               }}
-              onToggleZenMode={() => setIsZenMode(true)}
+              onToggleZenMode={() => setPanelState('collapsed')}
               onSeek={(time) => {
                 if (isSpotifyConnected) {
                   spotifySeek(Math.round(time * 1000));
@@ -353,14 +347,16 @@ export const LyricsOverlay: React.FC = () => {
               }}
               onClose={() => {
                 setLyricsOpen(false);
+                setPanelState('hidden');
                 if (isKaraokeFullscreen) toggleKaraokeFullscreen();
               }}
               onUploadLRC={loadLrcFile}
-              coverUrl={currentTrack?.coverUrl || currentTrack?.thumbnail}
+              coverUrl={currentTrack?.coverUrl}
               accentColor={kawarpColors.primary !== '#00f0ff' ? kawarpColors.primary : undefined}
-              onPlayPause={togglePlayPause}
-              onSkipBack={playPrev}
-              onSkipForward={playNext}
+              onPlayPause={handlePlayPause}
+              onSkipBack={handleSkipPrev}
+              onSkipForward={handleSkipNext}
+              isLoading={isLoading}
             />
           </motion.div>
         )}

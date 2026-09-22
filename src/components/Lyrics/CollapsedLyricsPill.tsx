@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CollapsedLyricsPill — Minimized pill state for the Lyrics panel
  *
  * Uses Framer Motion layoutId="lyrics-panel" to morph seamlessly
@@ -54,13 +54,13 @@ export const CollapsedLyricsPill: React.FC<CollapsedLyricsPillProps> = ({
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border"
         style={{
-          backgroundColor: ${activeColor}22,
-          borderColor: ${activeColor}44,
+          backgroundColor: `${activeColor}22`,
+          borderColor: `${activeColor}44`,
           color: activeColor,
         }}
       >
         <Disc3
-          className={w-4 h-4 }
+          className={`w-4 h-4 ${isPlaying ? 'animate-spin' : ''}`}
           style={{ animationDuration: '3s' }}
         />
       </div>

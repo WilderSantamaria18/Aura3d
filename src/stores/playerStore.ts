@@ -1,5 +1,21 @@
 import { create } from 'zustand';
-import type { Track, Playlist, EqualizerBand, VisualizerMode, VisualizerShape, WaveEffectMode, BlobCustomSettings, LucidTheme, ReverbPreset, MasteringLimiterPreset, VocalMode } from '../types/audio';
+import type {
+  Track,
+  Playlist,
+  EqualizerBand,
+  VisualizerMode,
+  VisualizerShape,
+  WaveEffectMode,
+  BlobCustomSettings,
+  LucidTheme,
+  ReverbPreset,
+  MasteringLimiterPreset,
+  VocalMode,
+  LyricsPanelState,
+  RomanizationMode,
+  KawarpSettings,
+  LenisSettings,
+} from '../types/audio';
 import { LUCID_THEMES, PROFESSIONAL_PALETTES, createLucidTheme } from '../types/audio';
 import { StorageService, DEFAULT_BLOB_SETTINGS } from '../services/storageService';
 import { DEFAULT_EQ_BANDS, audioEngine } from '../services/audioEngine';
@@ -27,6 +43,22 @@ export interface AutoPalette {
 }
 
 export type CameraPreset = 'front' | 'orbit' | 'top' | 'driver' | 'drone';
+
+export const DEFAULT_KAWARP_SETTINGS: KawarpSettings = {
+  enabled: true,
+  warpIntensity: 0.5,
+  blurPasses: 16,
+  motionSpeed: 0.8,
+  saturation: 1.2,
+  brightness: 1.0,
+};
+
+export const DEFAULT_LENIS_SETTINGS: LenisSettings = {
+  enabled: true,
+  duration: 1.2,
+  smoothWheel: true,
+  wheelMultiplier: 1.0,
+};
 
 interface PlayerState {
   // App navigation state
@@ -228,6 +260,26 @@ interface PlayerState {
   isKaraokeFullscreen: boolean;
   isNowPlayingExpanded: boolean;
   isMiniPlayerOpen: boolean;
+  isTransitioning: boolean;
+  setIsTransitioning: (isTransitioning: boolean) => void;
+
+  // ─── Lyrics Evolution V2 ───
+  lyricsPanelState: LyricsPanelState;
+  setLyricsPanelState: (state: LyricsPanelState) => void;
+  isLyricsFullscreen: boolean;
+  setLyricsFullscreen: (v: boolean) => void;
+  romanizationMode: RomanizationMode;
+  setRomanizationMode: (m: RomanizationMode) => void;
+  kawarpSettings: KawarpSettings;
+  updateKawarpSettings: (s: Partial<KawarpSettings>) => void;
+  lenisSettings: LenisSettings;
+  updateLenisSettings: (s: Partial<LenisSettings>) => void;
+  dominantColors: { primary: string; secondary: string } | null;
+  setDominantColors: (c: { primary: string; secondary: string } | null) => void;
+  lyricsHideDelay: number;
+  setLyricsHideDelay: (ms: number) => void;
+  lyricsAutoScroll: boolean;
+  setLyricsAutoScroll: (v: boolean) => void;
 
   // Studio Capture & Framing Suite
   isCaptureStudioOpen: boolean;
@@ -440,6 +492,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   userInteracting: false,
 
   hasStarted: false,
+  isTransitioning: false,
   isSpotifyConnected: false,
   spotifyBpm: 124,
   spotifyEnergy: 0.85,
@@ -590,6 +643,50 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isNowPlayingExpanded: true,
   isMiniPlayerOpen: false,
 
+  // ─── Lyrics Evolution V2 Initial State ───
+  lyricsPanelState: 'expanded',
+  isLyricsFullscreen: false,
+  romanizationMode: (() => {
+    try {
+      return (localStorage.getItem('aura3d_romanization_mode') as RomanizationMode) || 'off';
+    } catch {
+      return 'off';
+    }
+  })(),
+  kawarpSettings: (() => {
+    try {
+      const saved = localStorage.getItem('aura3d_kawarp_settings');
+      return saved ? { ...DEFAULT_KAWARP_SETTINGS, ...JSON.parse(saved) } : DEFAULT_KAWARP_SETTINGS;
+    } catch {
+      return DEFAULT_KAWARP_SETTINGS;
+    }
+  })(),
+  lenisSettings: (() => {
+    try {
+      const saved = localStorage.getItem('aura3d_lenis_settings');
+      return saved ? { ...DEFAULT_LENIS_SETTINGS, ...JSON.parse(saved) } : DEFAULT_LENIS_SETTINGS;
+    } catch {
+      return DEFAULT_LENIS_SETTINGS;
+    }
+  })(),
+  dominantColors: null,
+  lyricsHideDelay: (() => {
+    try {
+      const saved = localStorage.getItem('aura3d_lyrics_hide_delay');
+      return saved ? parseInt(saved, 10) || 3000 : 3000;
+    } catch {
+      return 3000;
+    }
+  })(),
+  lyricsAutoScroll: (() => {
+    try {
+      const saved = localStorage.getItem('aura3d_lyrics_auto_scroll');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  })(),
+
   // Studio Capture & Framing Suite
   isCaptureStudioOpen: false,
   captureAspectRatio: '16:9',
@@ -654,6 +751,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setUserProfile: (userProfile) => set({ userProfile }),
 
   setHasStarted: (hasStarted) => set({ hasStarted }),
+  setIsTransitioning: (isTransitioning) => set({ isTransitioning }),
   setIsLucid: (isLucid) => set({ isLucid }),
   toggleLucidMode: () => set((state) => ({ isLucid: !state.isLucid })),
 
@@ -1315,11 +1413,40 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setEqualizerOpen: (isOpen) => set({ isEqualizerOpen: isOpen }),
-  setLyricsOpen: (isOpen) => set({ isLyricsOpen: isOpen }),
+  setLyricsOpen: (isOpen) => set({ isLyricsOpen: isOpen, lyricsPanelState: isOpen ? 'expanded' : 'hidden' }),
+  setLyricsPanelState: (state) => set({ lyricsPanelState: state, isLyricsOpen: state !== 'hidden' }),
+  setLyricsFullscreen: (v) => set({ isLyricsFullscreen: v, isKaraokeFullscreen: v }),
+  setKaraokeFullscreen: (isFullscreen) => set({ isKaraokeFullscreen: isFullscreen, isLyricsFullscreen: isFullscreen }),
+  toggleKaraokeFullscreen: () => set((s) => ({ isKaraokeFullscreen: !s.isKaraokeFullscreen, isLyricsFullscreen: !s.isKaraokeFullscreen })),
+  setRomanizationMode: (m) => {
+    try { localStorage.setItem('aura3d_romanization_mode', m); } catch {}
+    set({ romanizationMode: m });
+  },
+  updateKawarpSettings: (s) => {
+    set((prev) => {
+      const next = { ...prev.kawarpSettings, ...s };
+      try { localStorage.setItem('aura3d_kawarp_settings', JSON.stringify(next)); } catch {}
+      return { kawarpSettings: next };
+    });
+  },
+  updateLenisSettings: (s) => {
+    set((prev) => {
+      const next = { ...prev.lenisSettings, ...s };
+      try { localStorage.setItem('aura3d_lenis_settings', JSON.stringify(next)); } catch {}
+      return { lenisSettings: next };
+    });
+  },
+  setDominantColors: (c) => set({ dominantColors: c }),
+  setLyricsHideDelay: (ms) => {
+    try { localStorage.setItem('aura3d_lyrics_hide_delay', String(ms)); } catch {}
+    set({ lyricsHideDelay: ms });
+  },
+  setLyricsAutoScroll: (v) => {
+    try { localStorage.setItem('aura3d_lyrics_auto_scroll', String(v)); } catch {}
+    set({ lyricsAutoScroll: v });
+  },
   setImmersiveMode: (isImmersive) => set({ isImmersiveMode: isImmersive }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
-  setKaraokeFullscreen: (isFullscreen) => set({ isKaraokeFullscreen: isFullscreen }),
-  toggleKaraokeFullscreen: () => set((s) => ({ isKaraokeFullscreen: !s.isKaraokeFullscreen })),
   setNowPlayingExpanded: (isExpanded) => set({ isNowPlayingExpanded: isExpanded }),
   setMiniPlayerOpen: (isOpen) => set({ isMiniPlayerOpen: isOpen }),
   toggleMiniPlayer: () => set((s) => ({ isMiniPlayerOpen: !s.isMiniPlayerOpen })),

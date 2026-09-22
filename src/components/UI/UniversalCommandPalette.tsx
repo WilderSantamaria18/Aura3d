@@ -25,8 +25,10 @@ import {
   Volume2,
   VolumeX,
   Mic,
+  Image,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { AudioEngine } from '../../services/audioEngine';
 import { pictureInPictureService } from '../../services/pictureInPictureService';
 import { soundscapeEngine } from '../../services/soundscapeEngine';
@@ -210,6 +212,28 @@ export const UniversalCommandPalette: React.FC = () => {
     },
 
     // Herramientas & Paneles
+    {
+      id: 'tool_wallpapers',
+      title: 'Generar Fondo con IA (Aura Wallpapers 4K)',
+      category: 'Herramientas',
+      icon: Image,
+      shortcut: 'W',
+      action: () => {
+        useWallpaperStore.getState().setPanelOpen(true);
+        useWallpaperStore.getState().setActiveTab('generate');
+      },
+      badge: '4K AI',
+    },
+    {
+      id: 'tool_wallpapers_gallery',
+      title: 'Galería de Fondos de Pantalla Cinemáticos y Ghibli',
+      category: 'Herramientas',
+      icon: Image,
+      action: () => {
+        useWallpaperStore.getState().setPanelOpen(true);
+        useWallpaperStore.getState().setActiveTab('gallery');
+      },
+    },
     {
       id: 'tool_eq',
       title: 'Abrir Ecualizador Paramétrico FabFilter Pro-Q',

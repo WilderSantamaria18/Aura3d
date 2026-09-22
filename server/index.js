@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ytdl from '@distube/ytdl-core';
+import wallpapersRouter from './routes/wallpapers.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -53,6 +54,7 @@ if (!JWT_SECRET) {
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+app.use('/api/wallpapers', wallpapersRouter);
 
 const server = http.createServer(app);
 const io = new Server(server, {

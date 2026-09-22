@@ -1,4 +1,4 @@
-﻿/**
+/**
  * colorExtractor — Dominant color extraction from cover art
  *
  * Uses OffscreenCanvas (64x64 downsample) + simple frequency-based quantization
@@ -140,3 +140,5 @@ export async function extractDominantColor(imageUrl: string): Promise<ColorPair>
 export function clearColorCache(): void {
   cache.clear();
 }
+
+export const extractDominantColors = extractDominantColor;

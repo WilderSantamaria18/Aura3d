@@ -10,6 +10,17 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// Fade out and remove initial splash screen after first render
+requestAnimationFrame(() => {
+  const splash = document.getElementById('initial-splash');
+  if (splash) {
+    splash.classList.add('hidden');
+    setTimeout(() => {
+      splash.remove();
+    }, 500);
+  }
+});
+
 // Register Offline Service Worker with automatic updates in production
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

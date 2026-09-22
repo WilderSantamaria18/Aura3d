@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 import type { BackgroundAtmosphere } from '../../types/audio';
 import {
   Image,
@@ -270,8 +271,23 @@ export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverPr
                   >
                     <Upload className="w-3.5 h-3.5 text-cyan-400" />
                     <span className="truncate">
-                      {blobSettings.customBackgroundImage ? 'Cambiar Imagen' : 'Subir Imagen de Fondo'}
+                      {blobSettings.customBackgroundImage ? 'Cambiar Imagen' : 'Subir Imagen'}
                     </span>
+                  </button>
+
+                  {/* Botón Acceso Directo Generador Fondo IA */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      useWallpaperStore.getState().setPanelOpen(true);
+                      useWallpaperStore.getState().setActiveTab('generate');
+                    }}
+                    className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-xs font-mono font-bold transition-all hover:scale-105 active:scale-95"
+                    title="Generar fondo minimalista 4K con IA"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>Fondo IA</span>
                   </button>
 
                   {blobSettings.customBackgroundImage && (

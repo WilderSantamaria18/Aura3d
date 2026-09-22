@@ -1,4 +1,4 @@
-﻿/**
+/**
  * useWordSync — Word-by-word karaoke synchronization hook
  *
  * Uses binary search O(log n) for activeLineIndex, then linear scan within the
@@ -91,3 +91,6 @@ export const useWordSync = (
 
   return result;
 };
+
+export default useWordSync;
+

@@ -34,16 +34,22 @@ import {
   SkipForward,
   Play,
   Pause,
+  Settings,
 } from 'lucide-react';
+import Lenis from 'lenis';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { LyricsPosition, LyricsSize } from './LyricsOverlay';
-import type { EnhancedLyricLine } from '../../types/lyrics';
+import type { LyricLine, EnhancedLyricLine } from '../../types/lyrics';
 import { useWordSync } from '../../hooks/useWordSync';
+import { FullscreenControls } from './FullscreenControls';
+import { LyricsSettingsModal } from './LyricsSettingsModal';
+import { PlaceholderLines } from './PlaceholderLines';
+import { romanizeLine, type RomanizeResult } from '../../services/romanizationService';
 
 export type LyricsFontType = 'modern' | 'serif' | 'mono' | 'cursive' | 'display';
 
 interface LyricsPanelProps {
-  lyrics: LyricsLine[];
+  lyrics: (LyricsLine | LyricLine | EnhancedLyricLine)[];
   currentTime: number;
   isPlaying: boolean;
   title?: string;
@@ -69,6 +75,8 @@ interface LyricsPanelProps {
   onSkipBack?: () => void;
   /** Optional: skip forward for fullscreen pill */
   onSkipForward?: () => void;
+  /** Whether lyrics are currently loading from API */
+  isLoading?: boolean;
 }
 
 const FONT_OPTIONS: { id: LyricsFontType; label: string; shortLabel: string; fontFamily: string }[] = [
@@ -108,50 +116,80 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   onPlayPause,
   onSkipBack,
   onSkipForward,
+  isLoading = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  // Theme colors from store
+  // Theme colors and settings from playerStore
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidTheme = usePlayerStore((s) => s.lucidTheme);
-  const activeColor = accentColorProp || (isLucid ? (lucidTheme?.primary || '#00f0ff') : '#00f0ff');
-  const secondaryColor = isLucid ? (lucidTheme?.secondary || '#a855f7') : '#ddb7ff';
+  const autoMode = usePlayerStore((s) => s.autoMode);
+  const dynamicColor = usePlayerStore((s) => s.dynamicColor);
+  const dominantColors = usePlayerStore((s) => s.dominantColors);
 
-  // ── Fullscreen UI auto-hide (3s inactivity) ────────────────────────────────
+  const lenisSettings = usePlayerStore((s) => s.lenisSettings);
+  const lyricsHideDelay = usePlayerStore((s) => s.lyricsHideDelay);
+  const lyricsAutoScroll = usePlayerStore((s) => s.lyricsAutoScroll);
+  const romanizationMode = usePlayerStore((s) => s.romanizationMode);
+
+  const activeColor =
+    accentColorProp ||
+    (isLucid
+      ? lucidTheme?.primary || '#00f0ff'
+      : autoMode
+      ? dominantColors?.primary || dynamicColor || '#00f0ff'
+      : '#00f0ff');
+  const secondaryColor = isLucid
+    ? lucidTheme?.secondary || '#8c38ff'
+    : autoMode
+    ? dominantColors?.secondary || '#8c38ff'
+    : '#8c38ff';
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const isSeekingRef = useRef(false);
+  const lenisRef = useRef<Lenis | null>(null);
+
+  // ── Fullscreen UI auto-hide (configurable delay + cursor hide) ───────────
   const [isUiVisible, setIsUiVisible] = useState(true);
-  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!isFullscreen) {
       setIsUiVisible(true);
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
       return;
     }
     const showUi = () => {
       setIsUiVisible(true);
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
       clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = setTimeout(() => setIsUiVisible(false), 3000);
+      hideTimeoutRef.current = setTimeout(() => {
+        setIsUiVisible(false);
+        if (typeof document !== 'undefined') document.body.style.cursor = 'none';
+      }, lyricsHideDelay || 3000);
     };
     window.addEventListener('mousemove', showUi);
-    showUi(); // start the initial timeout
+    showUi();
     return () => {
       window.removeEventListener('mousemove', showUi);
       clearTimeout(hideTimeoutRef.current);
+      if (typeof document !== 'undefined') document.body.style.cursor = 'default';
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, lyricsHideDelay]);
 
   // ── Word-by-word sync ──────────────────────────────────────────────────────
-  // Cast lyrics as EnhancedLyricLine[] — safe because EnhancedLyricLine extends LyricsLine
   const enhancedLines = lyrics as unknown as EnhancedLyricLine[];
-  const { activeWordIndex, activeWordProgress, activeLineProgress } = useWordSync(
+  const { activeLineIndex, activeWordIndex, activeWordProgress, activeLineProgress } = useWordSync(
     enhancedLines,
     currentTime,
     isPlaying
   );
 
-  // Consolidated Settings Drawer (unclutters the main lyrics view)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const activeIndex = activeLineIndex >= 0 ? activeLineIndex : 0;
 
   // Font customization state with local persistence
   const [selectedFont, setSelectedFont] = useState<LyricsFontType>(() => {
@@ -191,32 +229,134 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
     return FONT_OPTIONS.find((f) => f.id === selectedFont)?.fontFamily || "'Inter', sans-serif";
   }, [selectedFont]);
 
-  // Find active line based on currentTime
+  // ── Lenis Smooth Scrolling Engine ─────────────────────────────────────────
   useEffect(() => {
-    if (!lyrics || lyrics.length === 0) return;
-    let index = 0;
-    for (let i = 0; i < lyrics.length; i++) {
-      if (currentTime >= lyrics[i].time) {
-        index = i;
-      } else {
-        break;
+    if (isFullscreen || !lenisSettings?.enabled || !containerRef.current) return;
+    const scrollContent = contentRef.current || containerRef.current;
+    const lenis = new Lenis({
+      wrapper: containerRef.current,
+      content: scrollContent,
+      duration: lenisSettings.duration || 1.0,
+      smoothWheel: lenisSettings.smoothWheel ?? true,
+      wheelMultiplier: lenisSettings.wheelMultiplier || 1.0,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    });
+    lenisRef.current = lenis;
+
+    let rafId: number;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+    rafId = requestAnimationFrame(raf);
+
+    // Initial resize to ensure limit is computed accurately
+    lenis.resize();
+    const resizeTimer = setTimeout(() => {
+      lenis.resize();
+    }, 80);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && scrollContent) {
+      ro = new ResizeObserver(() => {
+        lenis.resize();
+      });
+      ro.observe(scrollContent);
+    }
+
+    return () => {
+      clearTimeout(resizeTimer);
+      if (ro) ro.disconnect();
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, [lenisSettings, lyrics.length, isFullscreen]);
+
+  // Ensure Lenis resizes whenever activeIndex changes
+  useEffect(() => {
+    if (lenisRef.current) {
+      lenisRef.current.resize();
+    }
+  }, [activeIndex]);
+
+  // Fluid Auto-scroll to center active line (Lenis or smooth native fallback)
+  useEffect(() => {
+    if (!lyricsAutoScroll || isSeekingRef.current) return;
+    if (containerRef.current && lyrics.length > 0) {
+      const targetIdx = activeIndex >= 0 ? activeIndex : 0;
+      const targetEl =
+        (contentRef.current?.querySelector(`[data-line-index="${targetIdx}"]`) as HTMLElement) ||
+        (containerRef.current.querySelector(`[data-line-index="${targetIdx}"]`) as HTMLElement) ||
+        (contentRef.current?.children[activeLineIndex < 0 ? 0 : targetIdx] as HTMLElement) ||
+        (containerRef.current.children[targetIdx] as HTMLElement);
+
+      if (targetEl) {
+        if (lenisRef.current) {
+          lenisRef.current.resize();
+          lenisRef.current.scrollTo(targetEl, {
+            offset: -containerRef.current.clientHeight / 2 + targetEl.clientHeight / 2,
+            duration: lenisSettings?.duration || 0.8,
+            immediate: false,
+          });
+        } else {
+          targetEl.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }
       }
     }
-    setActiveIndex(index);
-  }, [currentTime, lyrics]);
+  }, [activeIndex, activeLineIndex, lyricsAutoScroll, lyrics.length, lenisSettings]);
 
-  // Fluid Auto-scroll to center active line
+  // Fluid Auto-scroll for Fullscreen Cinema Mode
   useEffect(() => {
-    if (containerRef.current && activeIndex >= 0) {
-      const activeElement = containerRef.current.children[activeIndex] as HTMLElement;
-      if (activeElement) {
-        activeElement.scrollIntoView({
+    if (!lyricsAutoScroll || isSeekingRef.current) return;
+    if (isFullscreen && fullscreenContainerRef.current && activeIndex >= 0) {
+      const activeEl = fullscreenContainerRef.current.children[activeIndex] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({
           behavior: 'smooth',
           block: 'center',
         });
       }
     }
-  }, [activeIndex]);
+  }, [activeIndex, lyricsAutoScroll, isFullscreen]);
+
+  const handleLineSeek = (time: number) => {
+    isSeekingRef.current = true;
+    setTimeout(() => {
+      isSeekingRef.current = false;
+    }, 500);
+    if (onSeek) onSeek(time);
+  };
+
+  // ── Romanization & Furigana Cache ────────────────────────────────────────
+  const [romanizedMap, setRomanizedMap] = useState<Record<number, RomanizeResult>>({});
+
+  useEffect(() => {
+    if (romanizationMode === 'off' || !lyrics.length) return;
+    let cancelled = false;
+
+    const start = Math.max(0, activeIndex - 4);
+    const end = Math.min(lyrics.length, activeIndex + 8);
+
+    for (let i = start; i < end; i++) {
+      const line = lyrics[i];
+      if (!line?.text || romanizedMap[i]) continue;
+
+      romanizeLine(line.text, romanizationMode, 'ja').then((res) => {
+        if (!cancelled && res) {
+          setRomanizedMap((prev) => ({ ...prev, [i]: res }));
+        }
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeIndex, romanizationMode, lyrics]);
+
 
   // Calculate live syllable / line completion progress (0% - 100%)
   const lineProgress = useMemo(() => {
@@ -227,6 +367,60 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
     const elapsed = currentTime - currentLineTime;
     return Math.min(100, Math.max(0, (elapsed / duration) * 100));
   }, [lyrics, activeIndex, currentTime]);
+
+  // ── Exact Blur Falloff style calculation per specification ──────────────
+  const getLineStyle = useCallback(
+    (distance: number, isActive: boolean, isIntro: boolean) => {
+      // Si la canción está en intro instrumental antes de empezar las letras
+      if (isIntro) {
+        return {
+          opacity: 0.75,
+          blur: 0,
+          scale: 1.0,
+          translateY: 0,
+          fontWeight: 600,
+          color: '#FFFFFF',
+          textShadow: 'none',
+        };
+      }
+      // Línea activa
+      if (isActive || distance === 0) {
+        return {
+          opacity: 1.0,
+          blur: 0,
+          scale: 1.03,
+          translateY: -2,
+          fontWeight: 800,
+          color: '#FFFFFF',
+          textShadow: `0 0 24px ${activeColor}, 0 0 48px ${activeColor}40`,
+        };
+      }
+      // Líneas adyacentes (1-2)
+      if (distance <= 2) {
+        const factor = 1 - distance * 0.15;
+        return {
+          opacity: Math.max(0.55, 0.7 * factor),
+          blur: 0.8 * distance,
+          scale: 1.0 - distance * 0.01,
+          translateY: 0,
+          fontWeight: 600,
+          color: '#FFFFFF',
+          textShadow: 'none',
+        };
+      }
+      // Líneas lejanas (> 2)
+      return {
+        opacity: 0.45,
+        blur: 1.2,
+        scale: 0.99,
+        translateY: 0,
+        fontWeight: 500,
+        color: '#FFFFFF',
+        textShadow: 'none',
+      };
+    },
+    [activeColor]
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -338,6 +532,15 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
               </button>
             </div>
 
+            {/* Settings Modal Button */}
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/80 hover:text-white flex items-center justify-center border border-white/15 border-t-white/30 backdrop-blur-xl transition-all shadow-lg active:scale-95"
+              title="Ajustes de Letras"
+            >
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
             {/* Exit Fullscreen Button (iOS Frosted Circle) */}
             <button
               onClick={onToggleFullscreen}
@@ -349,92 +552,147 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           </div>
         </div>
 
-        {/* Center Verses Stage */}
-        <div className="max-w-4xl w-full mx-auto text-center flex flex-col items-center justify-center gap-6 sm:gap-8 my-auto z-20 px-4 py-6">
-          {/* Timestamp live chip */}
-          <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.07] backdrop-blur-xl border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-            <span
-              className="w-2 h-2 rounded-full animate-ping"
-              style={{ backgroundColor: activeColor }}
-            />
-            <span className="font-mono text-xs sm:text-sm tracking-wider uppercase font-semibold text-white/90">
-              {formatTimestamp(currentTime)}
-            </span>
-          </div>
-
-          {activeLineItem ? (
-            <div className="flex flex-col items-center gap-4 sm:gap-6 w-full max-w-3xl">
-              {/* Previous line preview (blurred & soft) */}
-              {prevLineItem && (
-                <p
-                  onClick={() => onSeek && onSeek(prevLineItem.time)}
-                  className="text-lg sm:text-2xl text-white/30 hover:text-white/60 font-medium tracking-tight px-4 transition-all duration-300 cursor-pointer blur-[1.2px] hover:blur-none line-clamp-1"
-                >
-                  {prevLineItem.text}
-                </p>
-              )}
-
-              {/* Main Active Verse */}
-              <h1
-                className="text-3xl sm:text-5xl md:text-6xl font-black text-white leading-tight tracking-tight px-4 transition-all duration-300 select-text"
-                style={{
-                  textShadow: `0 0 40px ${activeColor}, 0 0 80px ${secondaryColor}60, 0 4px 14px rgba(0,0,0,0.9)`,
-                }}
-              >
-                {activeLineItem.text}
-              </h1>
-
-              {/* Syllable Fill Progress Bar */}
-              <div className="w-64 sm:w-80 md:w-96 h-1.5 sm:h-2 rounded-full bg-white/10 overflow-hidden shadow-inner my-1">
-                <div
-                  className="h-full rounded-full transition-all duration-150"
-                  style={{
-                    width: `${lineProgress}%`,
-                    background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
-                    boxShadow: `0 0 16px ${activeColor}`,
-                  }}
-                />
+        {/* Center Verses Stage (Full Scrollable Apple Music Cinema Stage) */}
+        <div
+          ref={fullscreenContainerRef}
+          role="list"
+          aria-label="Letras en pantalla completa"
+          className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto py-24 px-6 sm:px-12 space-y-8 scroll-smooth select-none custom-scrollbar lyrics-mask z-20 my-auto text-center"
+        >
+          {lyrics.length === 0 ? (
+            isLoading ? (
+              <div className="w-full max-w-lg mx-auto py-12">
+                <PlaceholderLines count={6} />
               </div>
-
-              {/* Next line preview */}
-              {nextLineItem && (
-                <p
-                  onClick={() => onSeek && onSeek(nextLineItem.time)}
-                  className="text-xl sm:text-3xl text-white/55 hover:text-white/80 font-medium tracking-tight px-4 transition-all duration-300 cursor-pointer blur-[0.8px] hover:blur-none line-clamp-1"
-                >
-                  {nextLineItem.text}
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 text-white/50 py-20">
+                <Music className="w-12 h-12 opacity-40 animate-pulse text-cyan-400" />
+                <p className="text-xl font-medium text-white/80">
+                  Sin letras sincronizadas disponibles
                 </p>
-              )}
-
-              {/* Second next line */}
-              {nextLine2Item && (
-                <p
-                  onClick={() => onSeek && onSeek(nextLine2Item.time)}
-                  className="hidden sm:block text-sm sm:text-lg text-white/25 hover:text-white/50 font-medium tracking-tight px-4 transition-all duration-300 cursor-pointer blur-[1.5px] hover:blur-none line-clamp-1"
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-2 px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-mono transition-all flex items-center gap-2 border border-white/15 shadow-lg active:scale-95"
                 >
-                  {nextLine2Item.text}
-                </p>
-              )}
-            </div>
+                  <Upload className="w-4 h-4 text-cyan-400" />
+                  <span>Cargar archivo .LRC</span>
+                </button>
+              </div>
+            )
           ) : (
-            <div className="flex flex-col items-center gap-3 text-white/50">
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center bg-white/[0.06] border border-white/10"
-                style={{ color: activeColor }}
-              >
-                <Music className="w-8 h-8 opacity-40 animate-pulse" />
-              </div>
-              <p className="text-lg sm:text-xl font-medium text-white/80">
-                Sin letras sincronizadas disponibles
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-mono transition-all flex items-center gap-2 border border-white/15 shadow-lg active:scale-95"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Cargar archivo .LRC</span>
-              </button>
-            </div>
+            <>
+              {/* Optional intro banner when song is in prelude before first verse */}
+              {activeLineIndex < 0 && (
+                <div className="flex items-center justify-center gap-2 py-6 text-cyan-300/80 font-mono text-sm animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                  <span>♪ Introducción Instrumental ♪</span>
+                </div>
+              )}
+
+              {lyrics.map((line, index) => {
+                const isActive = index === activeIndex && activeLineIndex >= 0;
+                const distance = activeLineIndex >= 0 ? Math.abs(index - activeIndex) : Math.abs(index);
+                const eLine = enhancedLines[index];
+                const hasWords = eLine?.words && eLine.words.length > 0;
+
+                return (
+                  <div
+                    key={index}
+                    role="listitem"
+                    aria-current={isActive ? 'true' : undefined}
+                    onClick={() => handleLineSeek(line.time)}
+                    className="group cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2"
+                    style={{
+                      opacity: isActive ? 1 : Math.max(0.2, 0.7 - distance * 0.15),
+                      filter: isActive ? 'none' : `blur(${Math.min(4.5, distance * 1.2)}px)`,
+                      transform: isActive ? 'scale(1.05) translateY(-2px)' : 'scale(1)',
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    {isActive && hasWords ? (
+                      // Word-by-word karaoke in Cinema Mode
+                      <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-2">
+                        {eLine.words!.map((word, wi) => {
+                          const isPast = wi < activeWordIndex;
+                          const isCurrent = wi === activeWordIndex;
+                          return (
+                            <span
+                              key={wi}
+                              className="relative inline-block text-3xl sm:text-5xl md:text-6xl font-black transition-all duration-100"
+                              style={{
+                                color: isPast || isCurrent ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                                textShadow: isPast || isCurrent
+                                  ? `0 0 32px ${activeColor}, 0 0 64px ${secondaryColor}60`
+                                  : 'none',
+                              }}
+                            >
+                              {word.text}
+                              {isCurrent && (
+                                <span
+                                  className="absolute bottom-0 left-0 h-[3px] rounded-full"
+                                  style={{
+                                    width: `${activeWordProgress * 100}%`,
+                                    background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
+                                    boxShadow: `0 0 10px ${activeColor}`,
+                                    transition: 'width 80ms linear',
+                                  }}
+                                />
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Line-level verse in Cinema Mode
+                      <h2
+                        className={`text-2xl sm:text-4xl md:text-5xl font-black text-center leading-tight tracking-tight transition-all duration-300 ${
+                          isActive ? 'text-white' : 'text-white/60 group-hover:text-white'
+                        }`}
+                        style={{
+                          textShadow: isActive
+                            ? `0 0 40px ${activeColor}, 0 0 80px ${secondaryColor}60`
+                            : 'none',
+                        }}
+                      >
+                        {romanizationMode === 'furigana' && romanizedMap[index]?.furigana ? (
+                          <ruby>
+                            {romanizedMap[index].furigana!.map((seg, si) => (
+                              <React.Fragment key={si}>
+                                {seg.kanji}
+                                <rt className="text-xs sm:text-sm text-cyan-300/80 font-normal select-none mx-0.5">{seg.reading}</rt>
+                              </React.Fragment>
+                            ))}
+                          </ruby>
+                        ) : (
+                          line.text
+                        )}
+                      </h2>
+                    )}
+
+                    {/* Romaji Subtitle if active */}
+                    {isActive && romanizationMode === 'romaji' && romanizedMap[index]?.romanized && (
+                      <p className="text-center text-sm sm:text-lg text-cyan-300/85 font-mono tracking-normal mt-2">
+                        {romanizedMap[index].romanized}
+                      </p>
+                    )}
+
+                    {/* Active line progress bar in Cinema mode */}
+                    {isActive && (
+                      <div className="w-48 sm:w-72 mx-auto h-1 rounded-full bg-white/10 overflow-hidden shadow-inner mt-4">
+                        <div
+                          className="h-full rounded-full transition-all duration-100"
+                          style={{
+                            width: `${activeLineProgress * 100}%`,
+                            background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
+                            boxShadow: `0 0 12px ${activeColor}`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
 
@@ -463,46 +721,25 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           </div>
         </div>
         {/* Floating Fullscreen Control Pill — auto-hides with UI */}
-        <div
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-2.5 rounded-full transition-all duration-300"
-          style={{
-            opacity: isUiVisible ? 1 : 0,
-            transform: `translateX(-50%) translateY(${isUiVisible ? 0 : 12}px)`,
-            pointerEvents: isUiVisible ? 'auto' : 'none',
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(32px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(32px) saturate(180%)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderTop: '1px solid rgba(255,255,255,0.25)',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.15)',
-          }}
-        >
-          {onSkipBack && (
-            <button
-              onClick={onSkipBack}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-            >
-              <SkipBack className="w-4 h-4" />
-            </button>
-          )}
-          {onPlayPause && (
-            <button
-              onClick={onPlayPause}
-              className="w-11 h-11 rounded-full flex items-center justify-center text-black font-bold transition-all active:scale-90 shadow-lg"
-              style={{ backgroundColor: activeColor }}
-            >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            </button>
-          )}
-          {onSkipForward && (
-            <button
-              onClick={onSkipForward}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-            >
-              <SkipForward className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        <FullscreenControls
+          isPlaying={isPlaying}
+          isUiVisible={isUiVisible}
+          activeColor={activeColor}
+          onPlayPause={onPlayPause}
+          onSkipBack={onSkipBack}
+          onSkipForward={onSkipForward}
+        />
+
+        {/* Settings Modal */}
+        <LyricsSettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
+          selectedFont={selectedFont}
+          onFontChange={handleFontChange}
+          fontSizeOffset={fontSizeOffset}
+          onFontSizeChange={handleFontSizeChange}
+          accentColor={activeColor}
+        />
       </motion.div>
     );
   }
@@ -605,6 +842,15 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 title="Ajustes de tipografía, tamaño y posición"
               >
                 <Type className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Settings Modal Button */}
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/15 border-t-white/25 transition-all active:scale-95 shadow-sm"
+                title="Ajustes de Letras (Kawarp, Lenis, Romanización)"
+              >
+                <Settings className="w-3.5 h-3.5" />
               </button>
 
               {/* Fullscreen Apple Music Karaoke Trigger */}
@@ -778,96 +1024,84 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           ref={containerRef}
           role="list"
           aria-label="Letras sincronizadas"
-          className="flex-1 overflow-y-auto py-6 px-5 space-y-4 scroll-smooth select-none custom-scrollbar relative z-10"
-          style={{
-            maskImage:
-              'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
-          }}
+          className="flex-1 overflow-y-auto px-5 scroll-smooth select-none custom-scrollbar lyrics-mask relative z-10"
         >
-          {lyrics.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/50">
-              <AlignLeft className="w-10 h-10 mb-3 opacity-30 animate-pulse text-cyan-400" />
-              <p className="text-sm font-semibold text-white/80 mb-1">
-                Sin letras sincronizadas disponibles
-              </p>
-              <p className="text-xs text-white/40 max-w-xs mb-4">
-                Reproduce una pista con soporte de sincronización o importa un archivo .LRC.
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-white/15 shadow-sm"
-              >
-                <Upload className="w-3.5 h-3.5 text-cyan-400" />
-                Cargar archivo .LRC
-              </button>
-            </div>
-          ) : (
-            lyrics.map((line, index) => {
-              const isActive = index === activeIndex;
-              const distance = Math.abs(index - activeIndex);
-              const eLine = enhancedLines[index];
-              const hasWords = eLine?.words && eLine.words.length > 0;
+          <div ref={contentRef} className="pt-20 pb-32 space-y-4 min-h-full">
+            {lyrics.length === 0 ? (
+              isLoading ? (
+                <div className="py-8">
+                  <PlaceholderLines count={8} />
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/50">
+                  <AlignLeft className="w-10 h-10 mb-3 opacity-30 animate-pulse text-cyan-400" />
+                  <p className="text-sm font-semibold text-white/80 mb-1">
+                    Sin letras sincronizadas disponibles
+                  </p>
+                  <p className="text-xs text-white/40 max-w-xs mb-4">
+                    Reproduce una pista con soporte de sincronización o importa un archivo .LRC.
+                  </p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-white/15 shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                    Cargar archivo .LRC
+                  </button>
+                </div>
+              )
+            ) : (
+              <>
+                {/* Intro instrumental banner when before first verse */}
+                {activeLineIndex < 0 && (
+                  <div className="flex items-center justify-center gap-2 py-4 text-cyan-300/80 font-mono text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                    <span>♪ Introducción Instrumental ♪</span>
+                  </div>
+                )}
+                {lyrics.map((line, index) => {
+                  const isActive = index === activeIndex && activeLineIndex >= 0;
+                  const isIntro = activeLineIndex < 0;
+                  const distance = activeLineIndex >= 0 ? Math.abs(index - activeIndex) : Math.min(3, index);
+                  const eLine = enhancedLines[index];
+                  const hasWords = eLine?.words && eLine.words.length > 0;
+                  const lineStyle = getLineStyle(distance, isActive, isIntro);
 
-              // ── Blur falloff per spec ────────────────────────────────────────
-              let lineOpacity: number;
-              let lineBlur: number;
-              let lineFontWeight: number;
-              let lineScale: number;
+                  // Responsive font size classes
+                  const baseSizeClass =
+                    fontSizeOffset === -2
+                      ? 'text-xs py-1.5 px-3'
+                      : fontSizeOffset === -1
+                      ? 'text-xs sm:text-sm py-2 px-3'
+                      : fontSizeOffset === 1
+                      ? 'text-base sm:text-lg py-3 px-3.5'
+                      : fontSizeOffset >= 2
+                      ? 'text-lg sm:text-xl py-3.5 px-4'
+                      : 'text-sm sm:text-base py-2.5 px-3';
 
-              if (distance === 0) {
-                lineOpacity = 1.0;
-                lineBlur = 0;
-                lineFontWeight = 800;
-                lineScale = 1.04;
-              } else if (distance <= 3) {
-                const factor = 1 - distance * 0.18;
-                lineOpacity = Math.max(0.15, 0.65 * factor);
-                lineBlur = Math.min(4.5, 1.2 * distance);
-                lineFontWeight = 600;
-                lineScale = Math.max(0.97, 1.0 - distance * 0.01);
-              } else {
-                lineOpacity = 0.25;
-                lineBlur = 4.5;
-                lineFontWeight = 500;
-                lineScale = 0.98;
-              }
-
-              // Responsive font size classes
-              const baseSizeClass =
-                fontSizeOffset === -2
-                  ? 'text-xs py-1.5 px-3'
-                  : fontSizeOffset === -1
-                  ? 'text-xs sm:text-sm py-2 px-3'
-                  : fontSizeOffset === 1
-                  ? 'text-base sm:text-lg py-3 px-3.5'
-                  : fontSizeOffset >= 2
-                  ? 'text-lg sm:text-xl py-3.5 px-4'
-                  : 'text-sm sm:text-base py-2.5 px-3';
-
-              return (
-                <div
-                  key={index}
-                  role="listitem"
-                  tabIndex={0}
-                  aria-current={isActive ? 'true' : undefined}
-                  onClick={() => onSeek && onSeek(line.time)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (onSeek) onSeek(line.time);
-                    }
-                  }}
-                  className={`group relative rounded-2xl cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass}`}
-                  style={{
-                    opacity: lineOpacity,
-                    filter: lineBlur > 0 ? `blur(${lineBlur}px)` : 'none',
-                    transform: `scale(${lineScale}) translateY(${isActive ? -2 : 0}px)`,
-                    transformOrigin: 'left center',
-                    willChange: distance <= 2 ? 'filter, opacity, transform' : 'auto',
-                  }}
-                >
+                  return (
+                    <div
+                      key={index}
+                      data-line-index={index}
+                      role="listitem"
+                      tabIndex={0}
+                      aria-current={isActive ? 'true' : undefined}
+                      onClick={() => handleLineSeek(line.time)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleLineSeek(line.time);
+                        }
+                      }}
+                      className={`group relative rounded-2xl cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass}`}
+                      style={{
+                        opacity: lineStyle.opacity,
+                        filter: lineStyle.blur > 0 ? `blur(${lineStyle.blur}px)` : 'none',
+                        transform: `scale(${lineStyle.scale}) translateY(${lineStyle.translateY}px)`,
+                        transformOrigin: 'left center',
+                        willChange: distance <= 2 ? 'filter, opacity, transform' : 'auto',
+                      }}
+                    >
                   {/* Active line: glass background + specular border */}
                   {isActive && (
                     <div className="absolute inset-0 rounded-xl bg-white/[0.04] border border-white/[0.06] pointer-events-none" />
@@ -891,7 +1125,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         // ── Word-by-word karaoke render ──
                         <p
                           className="transition-all duration-300 leading-snug flex-1 text-white tracking-tight"
-                          style={{ fontWeight: lineFontWeight }}
+                          style={{ fontWeight: lineStyle.fontWeight }}
                         >
                           {eLine!.words!.map((word, wi) => {
                             const isPast = wi < activeWordIndex;
@@ -926,20 +1160,53 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         </p>
                       ) : (
                         // ── Line-level render ──
-                        <p
-                          className={`transition-all duration-300 leading-snug flex-1 ${
-                            isActive
-                              ? 'text-white tracking-tight lyrics-active-glow'
-                              : 'text-white group-hover:text-white'
-                          }`}
-                          style={{
-                            fontWeight: lineFontWeight,
-                            ['--accent-color' as string]: activeColor,
-                            ['--accent-color-dim' as string]: `${activeColor}66`,
-                          }}
-                        >
-                          {line.text}
-                        </p>
+                        <div className="flex-1">
+                          {romanizationMode === 'furigana' && romanizedMap[index]?.furigana ? (
+                            <p
+                              className={`transition-all duration-300 leading-snug ${
+                                isActive
+                                  ? 'text-white tracking-tight lyrics-active-glow'
+                                  : 'text-white group-hover:text-white'
+                              }`}
+                              style={{
+                                fontWeight: lineStyle.fontWeight,
+                                textShadow: isActive ? lineStyle.textShadow : 'none',
+                                ['--accent-color' as string]: activeColor,
+                                ['--accent-color-dim' as string]: `${activeColor}66`,
+                              }}
+                            >
+                              <ruby>
+                                {romanizedMap[index].furigana!.map((seg, si) => (
+                                  <React.Fragment key={si}>
+                                    {seg.kanji}
+                                    <rt className="text-[10px] text-cyan-300/80 font-normal select-none mx-0.5">{seg.reading}</rt>
+                                  </React.Fragment>
+                                ))}
+                              </ruby>
+                            </p>
+                          ) : (
+                            <p
+                              className={`transition-all duration-300 leading-snug ${
+                                isActive
+                                  ? 'text-white tracking-tight lyrics-active-glow'
+                                  : 'text-white group-hover:text-white'
+                              }`}
+                              style={{
+                                fontWeight: lineStyle.fontWeight,
+                                textShadow: isActive ? lineStyle.textShadow : 'none',
+                                ['--accent-color' as string]: activeColor,
+                                ['--accent-color-dim' as string]: `${activeColor}66`,
+                              }}
+                            >
+                              {line.text}
+                            </p>
+                          )}
+                          {romanizationMode === 'romaji' && romanizedMap[index]?.romanized && (
+                            <span className="text-[11px] font-mono text-cyan-300/70 tracking-normal block mt-0.5">
+                              {romanizedMap[index].romanized}
+                            </span>
+                          )}
+                        </div>
                       )}
 
                       {/* Timestamp */}
@@ -971,8 +1238,10 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
+          </>
+        )}
+          </div>
         </div>
 
         {/* ── Apple iOS Glass Bottom Status Footer ── */}
@@ -1005,6 +1274,17 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           </div>
         </footer>
       </div>
+
+      {/* Settings Modal */}
+      <LyricsSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        selectedFont={selectedFont}
+        onFontChange={handleFontChange}
+        fontSizeOffset={fontSizeOffset}
+        onFontSizeChange={handleFontSizeChange}
+        accentColor={activeColor}
+      />
     </>
   );
 };

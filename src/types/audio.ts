@@ -470,3 +470,5 @@ export interface SessionStatsData {
   sessionStartTime: number;
 }
 
+export * from './lyrics';
+

@@ -67,157 +67,340 @@ export class LyricsService {
     };
   }
 
+  // In-memory cache for positive and negative (not found) lyrics lookups
+  private static lyricsCache = new Map<string, EnhancedLyricsData>();
+  private static inFlightRequests = new Map<string, Promise<EnhancedLyricsData>>();
+
   /**
-   * Fetches synchronized or plain lyrics from LRCLIB (https://lrclib.net/)
-   * With fallback to lyrics.ovh if LRCLIB returns no matches.
+   * Generates candidate variations for an artist name.
+   * Strips secondary qualifiers like "de Walther Lozada", "y su orquesta", "feat. X", etc.
+   */
+  public static getArtistCandidates(rawArtist: string): string[] {
+    const list: string[] = [];
+    const base = rawArtist.trim();
+    if (!base) return list;
+    list.push(base);
+
+    // Remove "de [Name]" suffix (e.g. "Armonía 10 de Walther Lozada" -> "Armonía 10")
+    const strippedDe = base.replace(/\s+de\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s.]+$/i, '').trim();
+    if (strippedDe && !list.includes(strippedDe)) {
+      list.push(strippedDe);
+    }
+
+    // Remove "y su / sus [Group/Orquesta]"
+    const strippedOrquesta = base.replace(/\s+y\s+(su\s+|sus\s+).+$/i, '').trim();
+    if (strippedOrquesta && !list.includes(strippedOrquesta)) {
+      list.push(strippedOrquesta);
+    }
+
+    // Remove featured artists: "feat.", "ft.", "featuring", "with", "con"
+    const strippedFeat = base.replace(/\s*(feat\.?|ft\.?|featuring|with|con)\s+.*$/i, '').trim();
+    if (strippedFeat && !list.includes(strippedFeat)) {
+      list.push(strippedFeat);
+    }
+
+    // Primary artist before comma/slash/semicolon
+    const primary = base.split(/[,;&/]/)[0].trim();
+    if (primary && !list.includes(primary)) {
+      list.push(primary);
+    }
+
+    // Add unaccented versions (normalize NFD)
+    for (const item of [...list]) {
+      const unacc = item.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (unacc && !list.includes(unacc)) {
+        list.push(unacc);
+      }
+    }
+
+    return list;
+  }
+
+  /**
+   * Generates candidate variations for a track title.
+   * Strips common YouTube video labels, brackets, and suffixes.
+   */
+  public static getTitleCandidates(rawTitle: string): string[] {
+    const list: string[] = [];
+    const base = rawTitle.trim();
+    if (!base) return list;
+    list.push(base);
+
+    let cleaned = base
+      .replace(/\s*[\(\[](official\s*video|video\s*oficial|audio\s*oficial|visualizer|lyric\s*video|audio|lyrics|hd|4k|remix|en\s*vivo|live|remaster(?:ed)?(?:\s*\d{4})?|video\s*con\s*letra|letra)[\)\]]/gi, '')
+      .replace(/\s*[-–—]\s*(official\s*video|video\s*oficial|audio\s*oficial|en\s*vivo|live|remaster(?:ed)?|lyrics|audio).*$/gi, '')
+      .replace(/\s*\(feat\.?.*?\)/gi, '')
+      .replace(/\s*\[feat\.?.*?\)/gi, '')
+      .replace(/\s*feat\.?.*$/gi, '')
+      .replace(/\s*ft\.?.*$/gi, '')
+      .replace(/\|.*$/, '')
+      .trim();
+
+    if (cleaned.includes(' - ')) {
+      const parts = cleaned.split(' - ');
+      if (parts.length >= 2) {
+        cleaned = parts.slice(1).join(' - ').trim();
+      }
+    }
+
+    if (cleaned && !list.includes(cleaned)) {
+      list.push(cleaned);
+    }
+
+    for (const item of [...list]) {
+      const unacc = item.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (unacc && !list.includes(unacc)) {
+        list.push(unacc);
+      }
+    }
+
+    return list;
+  }
+
+  /**
+   * Fetches lyrics from LRCLIB with intelligent fallback and deduplicated caching
    */
   public static async fetchFromLRCLIB(
     artist: string,
     title: string,
     album?: string,
     duration?: number
-  ): Promise<LyricsData> {
+  ): Promise<EnhancedLyricsData> {
     const cleanArtist = artist.trim();
     const cleanTitle = title.trim();
 
     if (!cleanArtist || !cleanTitle) {
-      return { synced: false, lines: [], source: 'none' };
+      return { synced: false, lines: [], source: 'none', isWordSynced: false };
     }
 
-    // 0. Si es un Mix, sesión de DJ, compilación o track largo (> 12 min), no consultar APIs de letras
-    const isMixOrLongSet =
-      (duration && duration > 720) ||
-      /\b(mix|dj set|session|vol\.\s*\d+|compilation|full album|podcast|sesi[oó]n)\b/i.test(cleanTitle) ||
-      cleanTitle.includes('|') ||
-      cleanTitle.split(',').length > 3;
-
-    if (isMixOrLongSet) {
-      return { synced: false, lines: [], source: 'none' };
+    // Check in-memory cache first
+    const cacheKey = `${cleanArtist.toLowerCase()}::${cleanTitle.toLowerCase()}`;
+    if (this.lyricsCache.has(cacheKey)) {
+      return this.lyricsCache.get(cacheKey)!;
     }
 
-    // Limpiar títulos de YouTube como "(Official Video)", "[4K]", etc.
-    let sanitizedTitle = cleanTitle
-      .replace(/\s*[\(\[](official\s*video|video\s*oficial|audio\s*oficial|visualizer|lyric\s*video|hd|4k|remix|en\s*vivo)[\)\]]/gi, '')
-      .replace(/\|.*$/, '')
-      .trim() || cleanTitle;
-
-    let effArtist = cleanArtist;
-    let effTitle = sanitizedTitle;
-
-    // Detect "Artist - Track" in title (very common in YouTube)
-    if (sanitizedTitle.includes(' - ')) {
-      const parts = sanitizedTitle.split(' - ');
-      if (parts.length >= 2) {
-        effArtist = parts[0].trim();
-        effTitle = parts.slice(1).join(' - ').trim();
-      }
+    // Deduplicate concurrent in-flight requests for the same track
+    if (this.inFlightRequests.has(cacheKey)) {
+      return await this.inFlightRequests.get(cacheKey)!;
     }
 
-    try {
-      // 1. Try exact match on LRCLIB /api/get
-      const params = new URLSearchParams({
-        track_name: effTitle,
-        artist_name: effArtist,
-      });
+    const fetchPromise = (async (): Promise<EnhancedLyricsData> => {
+      // 0. Si es un Mix, sesión de DJ, compilación o track largo (> 12 min), no consultar APIs
+      const isMixOrLongSet =
+        (duration && duration > 720) ||
+        /\b(mix|dj set|session|vol\.\s*\d+|compilation|full album|podcast|sesi[oó]n)\b/i.test(cleanTitle) ||
+        cleanTitle.includes('|') ||
+        cleanTitle.split(',').length > 3;
 
-      if (album && album.trim()) {
-        params.append('album_name', album.trim());
-      }
-      if (duration && duration > 0) {
-        params.append('duration', String(Math.round(duration)));
+      if (isMixOrLongSet) {
+        return { synced: false, lines: [], source: 'none', isWordSynced: false };
       }
 
-      let res = await fetch(`https://lrclib.net/api/get?${params.toString()}`).catch(() => null);
+      const artistCandidates = this.getArtistCandidates(cleanArtist);
+      const titleCandidates = this.getTitleCandidates(cleanTitle);
 
-      // If 404 with album/duration constraints, retry without album and duration for broader match
-      if ((!res || !res.ok) && (album || duration)) {
-        const relaxedParams = new URLSearchParams({
+      const effArtist = artistCandidates[1] || artistCandidates[0] || cleanArtist;
+      const effTitle = titleCandidates[1] || titleCandidates[0] || cleanTitle;
+
+      try {
+        // 1. Try exact match on LRCLIB /api/get with provided metadata
+        const params = new URLSearchParams({
           track_name: effTitle,
           artist_name: effArtist,
         });
-        res = await fetch(`https://lrclib.net/api/get?${relaxedParams.toString()}`).catch(() => null);
-      }
 
-      // If still not found, try search endpoint by query (q=) for maximal resilience
-      if (!res || !res.ok) {
-        const queryStr = `${effArtist} ${effTitle}`.trim();
-        const searchRes = await fetch(
-          `https://lrclib.net/api/search?q=${encodeURIComponent(queryStr)}`
-        ).catch(() => null);
+        if (album && album.trim()) {
+          params.append('album_name', album.trim());
+        }
+        if (duration && duration > 0) {
+          params.append('duration', String(Math.round(duration)));
+        }
 
-        if (searchRes && searchRes.ok) {
-          const list = await searchRes.json();
-          if (Array.isArray(list) && list.length > 0) {
-            const firstWithLyrics = list.find((item) => item.syncedLyrics || item.plainLyrics) || list[0];
-            if (firstWithLyrics?.syncedLyrics) {
-              const parsed = this.parseLRC(firstWithLyrics.syncedLyrics);
-              return { ...parsed, source: 'api' };
-            }
-            if (firstWithLyrics?.plainLyrics) {
-              const lines = firstWithLyrics.plainLyrics
-                .split('\n')
-                .filter((l: string) => l.trim().length > 0)
-                .map((text: string, idx: number) => ({
-                  id: idx + 1,
-                  time: idx * 4,
-                  text: text.trim(),
-                }));
-              return { synced: false, lines, source: 'api' };
+        let res = await fetch(`https://lrclib.net/api/get?${params.toString()}`).catch(() => null);
+
+        // If 404 with album/duration constraints, retry without them
+        if ((!res || !res.ok) && (album || duration)) {
+          const relaxedParams = new URLSearchParams({
+            track_name: effTitle,
+            artist_name: effArtist,
+          });
+          res = await fetch(`https://lrclib.net/api/get?${relaxedParams.toString()}`).catch(() => null);
+        }
+
+        // If still 404, try each artist candidate with the title
+        if (!res || !res.ok) {
+          for (const candArtist of artistCandidates) {
+            if (candArtist === effArtist) continue;
+            const candParams = new URLSearchParams({
+              track_name: effTitle,
+              artist_name: candArtist,
+            });
+            const candRes = await fetch(`https://lrclib.net/api/get?${candParams.toString()}`).catch(() => null);
+            if (candRes && candRes.ok) {
+              res = candRes;
+              break;
             }
           }
         }
-      }
 
-      if (res && res.ok) {
-        const data = await res.json();
-        // Prefer syncedLyrics with LRC timestamps
-        if (data.syncedLyrics) {
-          const parsed = this.parseLRC(data.syncedLyrics);
-          return { ...parsed, source: 'api' };
+        // 2. If /api/get didn't match, use LRCLIB /api/search with track_name and artist_name
+        if (!res || !res.ok) {
+          for (const candArtist of artistCandidates) {
+            const searchParams = new URLSearchParams({
+              track_name: effTitle,
+              artist_name: candArtist,
+            });
+            const searchRes = await fetch(`https://lrclib.net/api/search?${searchParams.toString()}`).catch(() => null);
+            if (searchRes && searchRes.ok) {
+              const list = await searchRes.json();
+              if (Array.isArray(list) && list.length > 0) {
+                const firstWithLyrics = list.find((item: any) => item.syncedLyrics || item.plainLyrics) || list[0];
+                if (firstWithLyrics?.syncedLyrics) {
+                  return { ...this.parseEnhancedLRC(firstWithLyrics.syncedLyrics), source: 'api' };
+                }
+                if (firstWithLyrics?.plainLyrics) {
+                  const lines = firstWithLyrics.plainLyrics
+                    .split('\n')
+                    .filter((l: string) => l.trim().length > 0)
+                    .map((text: string, idx: number) => ({
+                      id: idx + 1,
+                      time: idx * 4,
+                      text: text.trim(),
+                    }));
+                  return { synced: false, lines, source: 'api', isWordSynced: false };
+                }
+              }
+            }
+          }
         }
 
-        // Fallback to plainLyrics if synced not available
-        if (data.plainLyrics) {
-          const lines = data.plainLyrics
-            .split('\n')
-            .filter((l: string) => l.trim().length > 0)
-            .map((text: string, idx: number) => ({
-              id: idx + 1,
-              time: idx * 4,
-              text: text.trim(),
-            }));
-          return { synced: false, lines, source: 'api' };
-        }
-      }
+        // 3. If still not found, try search endpoint by query (q=)
+        if (!res || !res.ok) {
+          const queryStr = `${effArtist} ${effTitle}`.trim();
+          const searchRes = await fetch(
+            `https://lrclib.net/api/search?q=${encodeURIComponent(queryStr)}`
+          ).catch(() => null);
 
-      // 2. Fallback to lyrics.ovh if LRCLIB had no lyrics
-      return await this.fetchFromLyricsOvh(cleanArtist, sanitizedTitle);
-    } catch {
-      return await this.fetchFromLyricsOvh(cleanArtist, sanitizedTitle);
+          if (searchRes && searchRes.ok) {
+            const list = await searchRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              const firstWithLyrics = list.find((item: any) => item.syncedLyrics || item.plainLyrics) || list[0];
+              if (firstWithLyrics?.syncedLyrics) {
+                return { ...this.parseEnhancedLRC(firstWithLyrics.syncedLyrics), source: 'api' };
+              }
+              if (firstWithLyrics?.plainLyrics) {
+                const lines = firstWithLyrics.plainLyrics
+                  .split('\n')
+                  .filter((l: string) => l.trim().length > 0)
+                  .map((text: string, idx: number) => ({
+                    id: idx + 1,
+                    time: idx * 4,
+                    text: text.trim(),
+                  }));
+                return { synced: false, lines, source: 'api', isWordSynced: false };
+              }
+            }
+          }
+        }
+
+        // 4. If still not found, try search by title alone and match duration or artist substring
+        if (!res || !res.ok) {
+          const titleSearchRes = await fetch(
+            `https://lrclib.net/api/search?track_name=${encodeURIComponent(effTitle)}`
+          ).catch(() => null);
+
+          if (titleSearchRes && titleSearchRes.ok) {
+            const list = await titleSearchRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              // Try finding an item matching duration or artist candidate
+              const matchedItem = list.find((item: any) => {
+                const hasLyrics = item.syncedLyrics || item.plainLyrics;
+                if (!hasLyrics) return false;
+                const durMatch = duration && duration > 0 ? Math.abs(item.duration - duration) <= 4 : false;
+                const artMatch = artistCandidates.some((cand) =>
+                  item.artistName?.toLowerCase().includes(cand.toLowerCase())
+                );
+                return durMatch || artMatch;
+              });
+
+              if (matchedItem) {
+                if (matchedItem.syncedLyrics) {
+                  return { ...this.parseEnhancedLRC(matchedItem.syncedLyrics), source: 'api' };
+                }
+                if (matchedItem.plainLyrics) {
+                  const lines = matchedItem.plainLyrics
+                    .split('\n')
+                    .filter((l: string) => l.trim().length > 0)
+                    .map((text: string, idx: number) => ({
+                      id: idx + 1,
+                      time: idx * 4,
+                      text: text.trim(),
+                    }));
+                  return { synced: false, lines, source: 'api', isWordSynced: false };
+                }
+              }
+            }
+          }
+        }
+
+        // 5. Handle successful /api/get response
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data.syncedLyrics) {
+            return { ...this.parseEnhancedLRC(data.syncedLyrics), source: 'api' };
+          }
+          if (data.plainLyrics) {
+            const lines = data.plainLyrics
+              .split('\n')
+              .filter((l: string) => l.trim().length > 0)
+              .map((text: string, idx: number) => ({
+                id: idx + 1,
+                time: idx * 4,
+                text: text.trim(),
+              }));
+            return { synced: false, lines, source: 'api', isWordSynced: false };
+          }
+        }
+
+        // 6. Fallback to lyrics.ovh with primary cleaned artist and title
+        return await this.fetchFromLyricsOvh(effArtist, effTitle);
+      } catch {
+        return await this.fetchFromLyricsOvh(effArtist, effTitle);
+      }
+    })();
+
+    this.inFlightRequests.set(cacheKey, fetchPromise);
+    try {
+      const result = await fetchPromise;
+      this.lyricsCache.set(cacheKey, result);
+      return result;
+    } finally {
+      this.inFlightRequests.delete(cacheKey);
     }
   }
 
   /**
    * Fetches lyrics from lyrics.ovh public API (Fallback)
    */
-  public static async fetchFromLyricsOvh(artist: string, title: string): Promise<LyricsData> {
+  public static async fetchFromLyricsOvh(artist: string, title: string): Promise<EnhancedLyricsData> {
     try {
       const cleanArtist = encodeURIComponent(artist.trim());
       const cleanTitle = encodeURIComponent(title.trim());
       const response = await fetch(`https://api.lyrics.ovh/v1/${cleanArtist}/${cleanTitle}`).catch(() => null);
 
       if (!response || !response.ok) {
-        return { synced: false, lines: [], source: 'none' };
+        return { synced: false, lines: [], source: 'none', isWordSynced: false };
       }
 
       const data = await response.json();
       if (!data.lyrics) {
-        return { synced: false, lines: [], source: 'none' };
+        return { synced: false, lines: [], source: 'none', isWordSynced: false };
       }
 
-      return this.parseLRC(data.lyrics);
+      const parsed = this.parseEnhancedLRC(data.lyrics);
+      return { ...parsed, source: 'api' };
     } catch {
-      return { synced: false, lines: [], source: 'none' };
+      return { synced: false, lines: [], source: 'none', isWordSynced: false };
     }
   }
   /**
@@ -321,7 +504,9 @@ export class LyricsService {
     }
 
     if (enhancedLines.length === 0) {
-      return this.wrapAsEnhanced(this.parseLRC(lrcText));
+      const wrapped = this.wrapAsEnhanced(this.parseLRC(lrcText));
+      wrapped.language = detectLanguage(lrcText);
+      return wrapped;
     }
 
     enhancedLines.sort((a, b) => a.time - b.time);
@@ -331,7 +516,37 @@ export class LyricsService {
       lines: enhancedLines,
       source: 'lrc',
       isWordSynced: true,
+      language: detectLanguage(lrcText),
     };
   }
+}
+
+/**
+ * Detect language of lyrics for romanization and furigana rendering
+ */
+export function detectLanguage(text: string): 'ja' | 'ko' | 'zh' | 'en' | 'es' | 'unknown' {
+  if (!text) return 'unknown';
+
+  // Japanese: Hiragana (\u3040-\u309F) or Katakana (\u30A0-\u30FF)
+  const jaCount = (text.match(/[\u3040-\u309F\u30A0-\u30FF]/g) || []).length;
+
+  // Korean: Hangul Syllables (\uAC00-\uD7AF) or Jamo (\u1100-\u11FF)
+  const koCount = (text.match(/[\uAC00-\uD7AF\u1100-\u11FF]/g) || []).length;
+
+  // Chinese / CJK Ideographs (\u4E00-\u9FFF)
+  const cjkCount = (text.match(/[\u4E00-\u9FFF]/g) || []).length;
+
+  if (jaCount > 0) return 'ja';
+  if (koCount > 0) return 'ko';
+  if (cjkCount > 2) return 'zh';
+
+  // Spanish detection (common accents & inverted punctuation)
+  const esCount = (text.match(/[áéíóúüñ¿¡]/gi) || []).length;
+  if (esCount > 0) return 'es';
+
+  // Latin letters
+  if (/[a-zA-Z]/.test(text)) return 'en';
+
+  return 'unknown';
 }
 

@@ -1,0 +1,60 @@
+/* ──────────────────────────────────────────────────────────
+   WALLPAPERS AI — Apple Liquid Glass Module Styles
+   ────────────────────────────────────────────────────────── */
+
+.wallpaper-glass-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(20, 24, 36, 0.7) 50%,
+    rgba(10, 12, 18, 0.85) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wallpaper-glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 229, 255, 0.4);
+  box-shadow: 
+    0 20px 48px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(0, 229, 255, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.wallpaper-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  backdrop-filter: blur(20px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.wallpaper-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(0, 229, 255, 0.4);
+}
+
+.wallpaper-pill-btn.active {
+  background: #ffffff;
+  color: #03050c;
+  border-color: #ffffff;
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.35);
+}
