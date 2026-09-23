@@ -10,7 +10,10 @@ import {
   Maximize2,
   Volume2,
   VolumeX,
+  Crosshair,
 } from 'lucide-react';
+import { CalibrationModal } from '../../spatial/calibration/CalibrationModal';
+import { PerformanceManager, type PerformanceMetrics } from '../../spatial/performance/PerformanceManager';
 import {
   SpatialVisionService,
   type VisionTelemetry,
@@ -54,30 +57,48 @@ export const CameraStudioPanel: React.FC = () => {
   const [showTrails, setShowTrails] = useState(true);
   const [enablePose, setEnablePose] = useState(false);
   const [currentGesture, setCurrentGesture] = useState<string>('unknown');
+  const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
+  const [perfMetrics, setPerfMetrics] = useState<PerformanceMetrics>(() => PerformanceManager.getInstance().getMetrics());
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastGestureTimeRef = useRef(0);
+  const currentGestureRef = useRef('unknown');
   const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00e5ff';
 
-  // Suscripción a telemetría y gestos
+  // Suscripción a telemetría y gestos (Throttled para CERO re-renders a 60 FPS)
   useEffect(() => {
     if (!isCameraStudioOpen) return;
     const vision = SpatialVisionService.getInstance();
+
+    // Si la cámara ya estaba activa en segundo plano, reconectar el preview
+    if (vision.getStream() && videoRef.current) {
+      vision.attachPreview(videoRef.current);
+      setIsCameraActive(true);
+    }
 
     const unsubTelem = vision.subscribeTelemetry((stats) => {
       setTelemetry(stats);
     });
 
     const unsubHands = vision.subscribeHands((hands) => {
-      if (hands.length > 0) {
-        setCurrentGesture(hands[0].gesture);
-      } else {
-        setCurrentGesture('unknown');
+      const gesture = hands.length > 0 ? hands[0].gesture : 'unknown';
+      const now = performance.now();
+      // Throttle a 4 Hz y solo si hay cambio para evitar saturación del scheduler de React
+      if (gesture !== currentGestureRef.current && (now - lastGestureTimeRef.current >= 250)) {
+        currentGestureRef.current = gesture;
+        lastGestureTimeRef.current = now;
+        setCurrentGesture(gesture);
       }
+    });
+
+    const unsubPerf = PerformanceManager.getInstance().subscribe((m) => {
+      setPerfMetrics(m);
     });
 
     return () => {
       unsubTelem();
       unsubHands();
+      unsubPerf();
     };
   }, [isCameraStudioOpen]);
 
@@ -85,20 +106,26 @@ export const CameraStudioPanel: React.FC = () => {
   const handleToggleCamera = async () => {
     const vision = SpatialVisionService.getInstance();
     if (!isCameraActive) {
-      if (videoRef.current) {
-        try {
-          await vision.startCamera(videoRef.current);
-          setIsCameraActive(true);
-          setAirInstrumentsActive(true);
-        } catch (err) {
-          console.error('No se pudo activar la cámara:', err);
-        }
+      try {
+        await vision.startCamera(videoRef.current || undefined);
+        setIsCameraActive(true);
+        setAirInstrumentsActive(true);
+      } catch (err) {
+        console.error('No se pudo activar la cámara:', err);
       }
     } else {
       vision.stopCamera();
       setIsCameraActive(false);
       AirInstrumentsAudioEngine.getInstance().cleanup();
       setAirInstrumentsActive(false);
+    }
+  };
+
+  const handleTogglePose = (enabled: boolean) => {
+    setEnablePose(enabled);
+    PerformanceManager.getInstance().setPoseTracking(enabled);
+    if (enabled) {
+      SpatialVisionService.getInstance().loadPoseModel();
     }
   };
 
@@ -184,9 +211,17 @@ export const CameraStudioPanel: React.FC = () => {
           <div className="flex items-center gap-2">
             {/* Telemetry HUD Badge */}
             <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-black/40 border border-white/10 text-[10px] font-mono text-white/70">
-              <span className="text-white font-bold">{telemetry.videoFps || 60} FPS</span>
+              <span className="text-white font-bold">{telemetry.videoFps || perfMetrics.fps || 60} FPS</span>
               <span className="text-white/30">•</span>
-              <span className="text-cyan-300">{telemetry.latencyMs || 12}ms</span>
+              <span className="text-cyan-300">{perfMetrics.frameTimeMs || 16.6}ms</span>
+              <span className="text-white/30">•</span>
+              <span className={`px-1.5 py-0.2 rounded font-bold ${
+                perfMetrics.currentTier === 'HIGH' ? 'text-emerald-400 bg-emerald-500/15' :
+                perfMetrics.currentTier === 'MEDIUM' ? 'text-cyan-400 bg-cyan-500/15' :
+                'text-amber-400 bg-amber-500/15'
+              }`}>
+                {perfMetrics.currentTier}
+              </span>
             </div>
 
             {/* Close Button */}
@@ -375,6 +410,26 @@ export const CameraStudioPanel: React.FC = () => {
           )}
 
           {/* TAB 3: CALIBRAR & TAB 4: VISUAL */}
+          {activeTab === 'calibrate' && (
+            <div className="mb-3 p-3 rounded-2xl bg-gradient-to-r from-[#00e5ff]/10 via-[#ffbd00]/10 to-[#ff088a]/10 border border-[#00e5ff]/30 flex items-center justify-between backdrop-blur-md">
+              <div>
+                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Crosshair className="w-3.5 h-3.5 text-[#00e5ff] animate-spin-slow" />
+                  Calibración Espacial AURA (5 Pasos)
+                </h4>
+                <p className="text-[10px] text-white/60 mt-0.5">
+                  Mapea la profundidad neutra y los 4 bordes del frustum de interacción
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCalibrationOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-[#00e5ff] text-black font-bold text-xs hover:bg-[#00e5ff]/90 transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] active:scale-95 cursor-pointer"
+              >
+                Iniciar
+              </button>
+            </div>
+          )}
+
           {(activeTab === 'calibrate' || activeTab === 'visual') && (
             <CameraControls
               sensitivity={sensitivity}
@@ -388,12 +443,18 @@ export const CameraStudioPanel: React.FC = () => {
               showTrails={showTrails}
               onToggleTrails={setShowTrails}
               enablePose={enablePose}
-              onTogglePose={setEnablePose}
+              onTogglePose={handleTogglePose}
               accentColor={activeColor}
             />
           )}
         </div>
       </div>
+
+      {/* Modal de Calibración Espacial Guiada */}
+      <CalibrationModal
+        isOpen={isCalibrationOpen}
+        onClose={() => setIsCalibrationOpen(false)}
+      />
     </div>
   );
 };

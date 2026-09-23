@@ -60,6 +60,9 @@ const StudioCaptureCard = lazy(() => import('./components/UI/StudioCaptureCard')
 const RecorderPanel = lazy(() =>
   import('./components/Recorder/RecorderPanel').then((m) => ({ default: m.RecorderPanel }))
 );
+const SpatialHUD = lazy(() =>
+  import('./spatial/ui/SpatialHUD').then((m) => ({ default: m.SpatialHUD }))
+);
 
 export const App: React.FC = () => {
   const { loadAudioFiles, error } = useAudioEngine();
@@ -431,6 +434,13 @@ export const App: React.FC = () => {
       {isCameraStudioOpen && (
         <Suspense fallback={null}>
           <CameraStudioPanel />
+        </Suspense>
+      )}
+
+      {/* Floating Spatial HUD (Mode Selector, Zen Mode, WakeLock & Tier) */}
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <SpatialHUD />
         </Suspense>
       )}
 

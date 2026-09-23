@@ -6,6 +6,11 @@ import { SphereVisualizer } from './SphereVisualizer';
 import { AirInstruments3D } from './AirInstruments3D';
 import { AudioRibbons } from './AudioRibbons';
 import { FloatingLyrics3D } from './FloatingLyrics3D';
+import { SpatialCursor } from '../../spatial/interaction/SpatialCursor';
+import { SpatialInteractiveObjects } from '../../spatial/interaction/SpatialInteractiveObjects';
+import { SpatialInteractionFx } from '../../spatial/visuals/SpatialInteractionFx';
+import { CalibrationVisuals3D } from '../../spatial/calibration/CalibrationVisuals3D';
+import { PerformanceManager } from '../../spatial/performance/PerformanceManager';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 import { usePlayerStore } from '../../stores/playerStore';
 
@@ -30,6 +35,9 @@ const ResponsiveCameraController: React.FC = () => {
   }, [camera, size.width, size.height, vrMode]);
 
   useFrame((_, delta) => {
+    // Registro adaptativo de rendimiento (histéresis frameTime 12ms / 20ms)
+    PerformanceManager.getInstance().recordFrame(delta, performance.now());
+
     if (!camera || !(camera instanceof THREE.PerspectiveCamera)) return;
     const aspect = size.width / Math.max(1, size.height);
     if (Math.abs(camera.aspect - aspect) > 0.001) {
@@ -102,16 +110,25 @@ export const SceneContainer: React.FC = React.memo(() => {
   const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
   const performanceTier = usePlayerStore((s) => s.performanceTier);
 
-  // Dynamic particle count and DPR based on user 3-tier quality setting
-  const effectiveParticleCount =
+  // Suscripción adaptativa en tiempo real al gestor de rendimiento espacial
+  const [spatialMetrics, setSpatialMetrics] = React.useState(() =>
+    PerformanceManager.getInstance().getMetrics()
+  );
+
+  React.useEffect(() => {
+    return PerformanceManager.getInstance().subscribe(setSpatialMetrics);
+  }, []);
+
+  // Harmonización de partículas y DPR adaptativo (60 FPS target, degradación a 30 FPS floor)
+  const baseBudget =
     performanceTier === 'eco'
       ? 900
       : performanceTier === 'medium'
       ? 1600
       : Math.min(2400, Math.max(1800, device.particleCount));
 
-  const effectiveDpr: [number, number] | number =
-    performanceTier === 'eco' ? 0.85 : performanceTier === 'medium' ? 1.0 : [1.0, 1.5];
+  const effectiveParticleCount = Math.min(baseBudget, spatialMetrics.particleBudget);
+  const effectiveDpr = spatialMetrics.dpr;
 
   const blobSettings = usePlayerStore((s) => s.blobSettings);
   const hasAtmosphere = (blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none') || !!blobSettings.customBackgroundImage;
@@ -169,6 +186,18 @@ export const SceneContainer: React.FC = React.memo(() => {
 
         {/* 3D Air Virtual Instruments */}
         <AirInstruments3D />
+
+        {/* 3D Spatial Audio Reactive Interaction FX Layer (Sprint 7) */}
+        <SpatialInteractionFx />
+
+        {/* 3D Spatial Interactive Objects (Hover, Grab, Wrist Rotation, Inertia Damping 0.92) */}
+        <SpatialInteractiveObjects />
+
+        {/* 3D Finger Reticle & Energy Ray Cursor */}
+        <SpatialCursor accentColor={lucidPrimary || '#00e5ff'} />
+
+        {/* 3D Spatial Calibration Visual Targets */}
+        <CalibrationVisuals3D />
 
         {/* User Orbit Controls (Disabled during VR tracking or Air Instruments to prevent motion conflicts) */}
         <OrbitControls

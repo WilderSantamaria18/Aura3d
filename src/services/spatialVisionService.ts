@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { FilesetResolver, HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision';
 import { Point3DOneEuroFilter } from '../utils/oneEuroFilter';
+import { GestureEngine } from '../spatial/gestures/GestureEngine';
+import { SpatialState } from '../spatial/state/SpatialState';
+import { WakeLockController } from '../spatial/camera/WakeLockController';
+import { PerformanceManager } from '../spatial/performance/PerformanceManager';
 
 export interface SpatialLandmark {
   x: number;
@@ -41,7 +45,7 @@ export function projectLandmarkToWorld(
   _ndcVec.set(
     -(landmark.x * 2 - 1),
     -(landmark.y * 2 - 1),
-    0.5 // Profundidad proyectiva estándar NDC
+    0.5
   );
   _ndcVec.unproject(camera);
   _ndcVec.sub(camera.position).normalize();
@@ -54,14 +58,17 @@ export class SpatialVisionService {
 
   // WebCam Stream & Element
   private stream: MediaStream | null = null;
-  private videoElement: HTMLVideoElement | null = null;
+  private internalVideo: HTMLVideoElement | null = null;
+  private previewVideo: HTMLVideoElement | null = null;
   private isCameraActive = false;
 
   // MediaPipe Tasks-Vision
+  private visionResolver: any = null;
   private handLandmarker: HandLandmarker | null = null;
   private poseLandmarker: PoseLandmarker | null = null;
   private isModelLoading = false;
   private isReady = false;
+  private isInferenceRunning = false;
 
   // Smoothing & Filtering
   private handFilters: Map<string, Point3DOneEuroFilter[]> = new Map();
@@ -97,6 +104,20 @@ export class SpatialVisionService {
     for (let i = 0; i < 33; i++) {
       this.poseFilters.push(new Point3DOneEuroFilter(1.0, 0.007, 1.0));
     }
+
+    // Pausar/reanudar procesamiento según la visibilidad de la pestaña (ahorro de batería/GPU)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && this.isCameraActive) {
+          if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+          }
+        } else if (!document.hidden && this.isCameraActive) {
+          this.startDetectionLoop();
+        }
+      });
+    }
   }
 
   public static getInstance(): SpatialVisionService {
@@ -107,80 +128,174 @@ export class SpatialVisionService {
   }
 
   /**
-   * Carga perezosa (lazy load) de MediaPipe Tasks-Vision con aceleración GPU.
+   * Carga de MediaPipe Tasks-Vision con aceleración GPU y Fallback a CPU (WASM).
    */
   public async loadModels(): Promise<void> {
     if (this.isReady || this.isModelLoading) return;
     this.isModelLoading = true;
 
     try {
-      const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
-      );
+      if (!this.visionResolver) {
+        this.visionResolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
+        );
+      }
 
-      // 1. Hand Landmarker (Lite para máximo framerate)
-      this.handLandmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        numHands: 2,
-        minHandDetectionConfidence: 0.5,
-        minHandPresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+      const perfMetrics = PerformanceManager.getInstance().getMetrics();
+      const numHands = perfMetrics.maxTrackedHands;
 
-      // 2. Pose Landmarker (Lite)
-      this.poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        minPoseDetectionConfidence: 0.5,
-        minPosePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+      // 1. Intentar Hand Landmarker con acelerador GPU
+      try {
+        this.handLandmarker = await HandLandmarker.createFromOptions(this.visionResolver, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+          numHands,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+        this.currentTelemetry.isGpuAccelerated = true;
+      } catch (gpuErr) {
+        console.warn('[SpatialVisionService] Delegate GPU falló; reintentando con fallback CPU/WASM:', gpuErr);
+        // Fallback a CPU (WASM) para garantizar que SIEMPRE funcione
+        this.handLandmarker = await HandLandmarker.createFromOptions(this.visionResolver, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate: 'CPU',
+          },
+          runningMode: 'VIDEO',
+          numHands: 1, // CPU: optimizar a 1 mano para evitar caídas de FPS
+          minHandDetectionConfidence: 0.45,
+          minHandPresenceConfidence: 0.45,
+          minTrackingConfidence: 0.45,
+        });
+        this.currentTelemetry.isGpuAccelerated = false;
+      }
+
+      // 2. Pose Landmarker: Cargar perezosamente solo si está habilitado en PerformanceManager
+      if (perfMetrics.flags.enablePoseTracking) {
+        await this.loadPoseModel();
+      }
 
       this.isReady = true;
     } catch (err) {
-      console.warn('[SpatialVisionService] Error al cargar modelos MediaPipe GPU:', err);
-      // Fallback a WASM si GPU falla
-      this.currentTelemetry.isGpuAccelerated = false;
+      console.error('[SpatialVisionService] Error fatal al inicializar MediaPipe:', err);
+      this.isReady = false;
     } finally {
       this.isModelLoading = false;
     }
   }
 
   /**
-   * Inicia la captura de video 640x480 con MediaStream.
+   * Carga de Pose Landmarker bajo demanda para evitar descargas pesadas innecesarias
    */
-  public async startCamera(videoElement: HTMLVideoElement): Promise<void> {
-    this.videoElement = videoElement;
+  public async loadPoseModel(): Promise<void> {
+    if (this.poseLandmarker || !this.visionResolver) return;
+
+    try {
+      this.poseLandmarker = await PoseLandmarker.createFromOptions(this.visionResolver, {
+        baseOptions: {
+          modelAssetPath:
+            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate: this.currentTelemetry.isGpuAccelerated ? 'GPU' : 'CPU',
+        },
+        runningMode: 'VIDEO',
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+    } catch (err) {
+      console.warn('[SpatialVisionService] No se pudo cargar PoseLandmarker opcional:', err);
+    }
+  }
+
+  /**
+   * Obtiene el stream activo de la cámara
+   */
+  public getStream(): MediaStream | null {
+    return this.stream;
+  }
+
+  /**
+   * Enlaza un elemento HTMLVideoElement de preview (como el de CameraStudioPanel)
+   */
+  public attachPreview(videoElement: HTMLVideoElement | null): void {
+    this.previewVideo = videoElement;
+    if (videoElement && this.stream) {
+      videoElement.srcObject = this.stream;
+      videoElement.play().catch(() => {});
+    }
+  }
+
+  /**
+   * Inicia la captura de video y tracking espacial.
+   */
+  public async startCamera(previewElement?: HTMLVideoElement): Promise<void> {
+    if (previewElement) {
+      this.previewVideo = previewElement;
+    }
+
+    if (!this.internalVideo && typeof document !== 'undefined') {
+      const v = document.createElement('video');
+      v.setAttribute('playsinline', 'true');
+      v.setAttribute('webkit-playsinline', 'true');
+      v.muted = true;
+      v.autoplay = true;
+      v.style.display = 'none';
+      v.style.position = 'fixed';
+      v.style.pointerEvents = 'none';
+      document.body.appendChild(v);
+      this.internalVideo = v;
+    }
 
     if (!this.stream) {
+      const perfTier = PerformanceManager.getInstance().getTier();
+      const res = perfTier === 'LOW' ? { width: 480, height: 360 } : { width: 640, height: 480 };
+
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: { ideal: res.width },
+          height: { ideal: res.height },
           frameRate: { ideal: 30, max: 60 },
           facingMode: 'user',
         },
         audio: false,
       });
 
-      videoElement.srcObject = this.stream;
-      await new Promise<void>((resolve) => {
-        videoElement.onloadedmetadata = () => {
-          videoElement.play().then(resolve).catch(resolve);
-        };
-      });
+      if (this.internalVideo) {
+        this.internalVideo.srcObject = this.stream;
+        if (this.internalVideo.readyState >= 1) {
+          await this.internalVideo.play().catch(() => {});
+        } else {
+          await new Promise<void>((resolve) => {
+            let done = false;
+            const onReady = () => {
+              if (done) return;
+              done = true;
+              this.internalVideo?.play().then(resolve).catch(resolve);
+            };
+            this.internalVideo!.onloadedmetadata = onReady;
+            this.internalVideo!.oncanplay = onReady;
+            setTimeout(onReady, 2500);
+          });
+        }
+      }
+
+      if (this.previewVideo) {
+        this.previewVideo.srcObject = this.stream;
+        this.previewVideo.play().catch(() => {});
+      }
     }
 
     this.isCameraActive = true;
+    SpatialState.getInstance().setCameraRunning(true);
+    WakeLockController.getInstance().requestLock();
+
     if (!this.isReady) {
       await this.loadModels();
     }
@@ -189,21 +304,21 @@ export class SpatialVisionService {
   }
 
   /**
-   * Bucle unificado con alternancia de frames (frameCounter % 2 === 0).
+   * Bucle unificado con inferencia adaptativa regulada por PerformanceManager.
    */
   private startDetectionLoop(): void {
     if (this.animationFrameId !== null) return;
 
     const processFrame = () => {
-      if (!this.isCameraActive || !this.videoElement) {
+      if (!this.isCameraActive || !this.internalVideo) {
         this.animationFrameId = null;
         return;
       }
 
-      const video = this.videoElement;
+      const video = this.internalVideo;
       const now = performance.now();
 
-      // Métricas de FPS
+      // Métricas de FPS del video
       this.fpsCounter++;
       if (now - this.lastFpsUpdate >= 1000) {
         this.currentTelemetry.videoFps = this.fpsCounter;
@@ -214,15 +329,21 @@ export class SpatialVisionService {
         this.notifyTelemetry();
       }
 
-      if (video.readyState >= 2 && video.currentTime !== this.lastVideoTime) {
+      const isFrameNew = video.readyState >= 2 && video.currentTime !== this.lastVideoTime;
+      if (isFrameNew) {
         this.lastVideoTime = video.currentTime;
         this.frameCount++;
 
-        // ── Alternancia: Inferencia cada 2 frames para estabilidad a 60 FPS ──
-        if (this.frameCount % 2 === 0 && this.isReady) {
+        const perfMetrics = PerformanceManager.getInstance().getMetrics();
+        const minInterval = perfMetrics.minInferenceIntervalMs;
+        const timeSinceLastInference = now - this.lastInferenceTime;
+
+        // Inferencia throttled según el tier de rendimiento
+        if (timeSinceLastInference >= minInterval && this.isReady && !this.isInferenceRunning) {
+          this.lastInferenceTime = now;
           this.runInference(video, now);
         } else if (this.previousHands.length > 0 || this.previousPose) {
-          // Frame intermedio: emitir datos previos suavizados con interpolación
+          // Frame intermedio: emitir predicciones suavizadas a 60 FPS sin esperar a MediaPipe
           this.notifyHands(this.previousHands);
           if (this.previousPose) {
             this.notifyPose(this.previousPose, 0);
@@ -237,9 +358,12 @@ export class SpatialVisionService {
   }
 
   /**
-   * Ejecuta MediaPipe Tasks-Vision para manos y pose.
+   * Ejecuta MediaPipe Tasks-Vision para manos y opcionalmente pose.
    */
   private runInference(video: HTMLVideoElement, timestamp: number): void {
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+    this.isInferenceRunning = true;
     const tStart = performance.now();
 
     try {
@@ -262,7 +386,7 @@ export class SpatialVisionService {
 
             // Filtrado One-Euro
             const smoothed: SpatialLandmark[] = rawPoints.map((pt, i) => {
-              const f = filters[i] || new Point3DOneEuroFilter(1.0, 0.007, 1.0);
+              const f = filters![i] || new Point3DOneEuroFilter(1.0, 0.007, 1.0);
               return f.filter({ x: pt.x, y: pt.y, z: pt.z }, timestamp);
             });
 
@@ -293,7 +417,6 @@ export class SpatialVisionService {
             if (pinchDist < 0.045) {
               gesture = 'pinch';
             } else {
-              // Comprobación de puño vs mano abierta
               const dIndexWrist = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
               const dMiddleWrist = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
               if (dIndexWrist < 0.22 && dMiddleWrist < 0.22) {
@@ -322,8 +445,9 @@ export class SpatialVisionService {
         this.notifyHands(hands);
       }
 
-      // 2. Detección de Pose
-      if (this.poseLandmarker) {
+      // 2. Detección de Pose (Solo si está habilitado expresamente)
+      const enablePose = PerformanceManager.getInstance().getFeatureFlags().enablePoseTracking;
+      if (enablePose && this.poseLandmarker) {
         const poseResults = this.poseLandmarker.detectForVideo(video, timestamp);
         if (poseResults.landmarks && poseResults.landmarks.length > 0) {
           const rawPose = poseResults.landmarks[0];
@@ -332,7 +456,6 @@ export class SpatialVisionService {
             return f.filter({ x: pt.x, y: pt.y, z: pt.z }, timestamp);
           });
 
-          // Energía cinética corporal (velocidad de muñecas y tobillos)
           let kineticEnergy = 0;
           if (this.previousPose) {
             const indicesToCheck = [15, 16, 27, 28]; // Muñecas y tobillos
@@ -359,6 +482,8 @@ export class SpatialVisionService {
       this.currentTelemetry.latencyMs = Math.round(performance.now() - tStart);
     } catch {
       // Frame omitido sin bloquear el hilo principal
+    } finally {
+      this.isInferenceRunning = false;
     }
   }
 
@@ -379,6 +504,8 @@ export class SpatialVisionService {
   }
 
   private notifyHands(hands: HandTrackingResult[]): void {
+    // Pipeline Desacoplado: Tracker -> GestureEngine -> SpatialState
+    GestureEngine.getInstance().processTracking(hands, performance.now());
     this.handListeners.forEach((fn) => fn(hands));
   }
 
@@ -391,10 +518,13 @@ export class SpatialVisionService {
   }
 
   /**
-   * Cleanup estricto: detiene la cámara y libera todos los recursos.
+   * Detiene la cámara y libera todos los recursos de stream y video.
    */
   public stopCamera(): void {
     this.isCameraActive = false;
+    SpatialState.getInstance().setCameraRunning(false);
+    SpatialState.getInstance().resetHands();
+    WakeLockController.getInstance().releaseLock();
 
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
@@ -406,8 +536,17 @@ export class SpatialVisionService {
       this.stream = null;
     }
 
-    if (this.videoElement) {
-      this.videoElement.srcObject = null;
+    if (this.internalVideo) {
+      this.internalVideo.srcObject = null;
+      if (this.internalVideo.parentNode) {
+        this.internalVideo.parentNode.removeChild(this.internalVideo);
+      }
+      this.internalVideo = null;
+    }
+
+    if (this.previewVideo) {
+      this.previewVideo.srcObject = null;
+      this.previewVideo = null;
     }
 
     this.previousHands = [];

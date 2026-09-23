@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -7,10 +7,9 @@ import {
   AirInstrumentsAudioEngine,
   SYNTH_SCALES,
 } from '../../services/airInstrumentsAudioEngine';
-import {
-  SpatialVisionService,
-  projectLandmarkToWorld,
-} from '../../services/spatialVisionService';
+import { SpatialState } from '../../spatial/state/SpatialState';
+import { GestureEngine } from '../../spatial/gestures/GestureEngine';
+import { SpatialInstrumentEngine } from '../../spatial/instruments/SpatialInstrumentEngine';
 
 // ── Reutilización de vectores para 0 Garbage Collection ───────────────────────
 const _tmpVec = new THREE.Vector3();
@@ -51,9 +50,6 @@ export const AirInstruments3D: React.FC = () => {
 
   // Estados visuales de las 7 teclas del sintetizador
   const keyStatesRef = useRef<KeyVisualState[]>(
-    Array(7).fill({ pressAmount: 0, glowIntensity: 0 })
-  );
-  const [keyStates, setKeyStates] = useState<KeyVisualState[]>(() =>
     Array(7).fill({ pressAmount: 0, glowIntensity: 0 })
   );
 
@@ -146,48 +142,51 @@ export const AirInstruments3D: React.FC = () => {
     return pos;
   }, []);
 
-  // ── Frame Loop Principal (Three.js rAF) ────────────────────────────────────
+  // ── Frame Loop Principal (Three.js rAF - 60 FPS) ──────────────────────────
   useFrame((_, delta) => {
     if (!isAirInstrumentsActive) return;
 
-    const vision = SpatialVisionService.getInstance();
-    const audioEngine = AirInstrumentsAudioEngine.getInstance();
+    const spatialState = SpatialState.getInstance();
+    const gestureEngine = GestureEngine.getInstance();
+    const spatialInstruments = SpatialInstrumentEngine.getInstance();
     const perspCamera = camera as THREE.PerspectiveCamera;
+    gestureEngine.setCamera(perspCamera);
 
-    // 1. Obtener manos y proyectar fingertips al espacio 3D
+    // Sincronizar tipo de instrumento respetando la selección activa de SpatialInstrumentEngine
+    if (airInstrumentType === 'synth' && !spatialInstruments.getInstrument()) {
+      spatialInstruments.setInstrument('piano');
+    }
+
+    // 1. Obtener manos desde SpatialState (Zero Allocations, Zero React overhead)
+    const domHand = spatialState.getDominantHand();
+    const secHand = spatialState.getSecondaryHand();
+
     let handCount = 0;
-
-    // Proyección con cero allocations
-    const hands = (vision as any).previousHands || [];
-    if (hands.length > 0) {
-      hands.forEach((hand: any, hIdx: number) => {
-        const tipLandmark = hand.landmarks[8]; // Punta del índice
-        if (tipLandmark) {
-          projectLandmarkToWorld(tipLandmark, perspCamera, 2.8, _targetVec);
-          const worldPos = worldFingertipsRef.current[hIdx * 5];
-          if (worldPos) {
-            worldPos.copy(_targetVec);
-
-            // Actualizar visualizador de punta de dedo
-            const tipMesh = tipMeshesRef.current[hIdx];
-            if (tipMesh) {
-              tipMesh.visible = true;
-              tipMesh.position.copy(worldPos);
-            }
-          }
-        }
-        handCount++;
-      });
-    }
-
-    const primaryTip: THREE.Vector3 | null = handCount > 0 ? worldFingertipsRef.current[0] : null;
-
-    // Ocultar mallas de dedos no detectados
-    for (let i = handCount; i < 2; i++) {
-      if (tipMeshesRef.current[i]) {
-        tipMeshesRef.current[i]!.visible = false;
+    if (domHand.isPresent && domHand.confidenceTier !== 'untrusted') {
+      const tipMesh0 = tipMeshesRef.current[0];
+      if (tipMesh0) {
+        tipMesh0.visible = true;
+        tipMesh0.position.copy(domHand.worldIndexTip);
       }
+      handCount++;
+    } else if (tipMeshesRef.current[0]) {
+      tipMeshesRef.current[0]!.visible = false;
     }
+
+    if (secHand.isPresent && secHand.confidenceTier !== 'untrusted') {
+      const tipMesh1 = tipMeshesRef.current[1];
+      if (tipMesh1) {
+        tipMesh1.visible = true;
+        tipMesh1.position.copy(secHand.worldIndexTip);
+      }
+      handCount++;
+    } else if (tipMeshesRef.current[1]) {
+      tipMeshesRef.current[1]!.visible = false;
+    }
+
+    const primaryTip = domHand.isPresent && domHand.confidenceTier !== 'untrusted'
+      ? domHand.worldIndexTip
+      : null;
 
     // 2. Lógica de Colisión según el Instrumento Activo
     if (airInstrumentType === 'synth' && primaryTip) {
@@ -202,7 +201,7 @@ export const AirInstruments3D: React.FC = () => {
         ) {
           // Si entra al plano de la tecla
           if (keyStatesRef.current[idx].pressAmount < 0.1) {
-            audioEngine.triggerNoteOn(idx, 0.9);
+            spatialInstruments.triggerNoteOn(idx, key.freq, 0.9);
             keyStatesRef.current[idx].pressAmount = 1.0;
             keyStatesRef.current[idx].glowIntensity = 1.0;
 
@@ -218,7 +217,7 @@ export const AirInstruments3D: React.FC = () => {
           }
         } else {
           if (keyStatesRef.current[idx].pressAmount > 0.5) {
-            audioEngine.triggerNoteOff(idx);
+            spatialInstruments.triggerNoteOff(idx);
           }
         }
       });
@@ -226,7 +225,7 @@ export const AirInstruments3D: React.FC = () => {
       drumPads.forEach((pad) => {
         const dist = Math.hypot(primaryTip.x - pad.pos[0], primaryTip.y - pad.pos[1]);
         if (dist < 0.28) {
-          audioEngine.triggerDrum(pad.id as any, 0.95);
+          spatialInstruments.triggerDrum(pad.id as any, 0.95);
           shockwavesRef.current.push({
             x: pad.pos[0],
             y: pad.pos[1],
@@ -239,17 +238,17 @@ export const AirInstruments3D: React.FC = () => {
       });
     } else if (airInstrumentType === 'theremin') {
       if (primaryTip) {
-        audioEngine.startTheremin();
+        spatialInstruments.startTheremin();
         const normX = Math.max(0, Math.min(1, (primaryTip.x + 1.5) / 3.0));
         const normY = Math.max(0, Math.min(1, (primaryTip.y + 1.0) / 2.0));
-        audioEngine.updateTheremin(normX, normY, primaryTip.z);
+        spatialInstruments.updateTheremin(normX, normY, primaryTip.z);
 
         if (thereminOrbRef.current) {
           thereminOrbRef.current.visible = true;
           thereminOrbRef.current.position.copy(primaryTip);
         }
       } else {
-        audioEngine.stopTheremin();
+        spatialInstruments.stopTheremin();
         if (thereminOrbRef.current) {
           thereminOrbRef.current.visible = false;
         }

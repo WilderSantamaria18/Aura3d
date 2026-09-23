@@ -1,4 +1,5 @@
 import { AudioEngine } from './audioEngine';
+import { SpatialAudioEngine } from '../spatial/audio/SpatialAudioEngine';
 
 export type InstrumentMode = 'synth' | 'drums' | 'theremin' | 'pads' | 'pose';
 export type OscillatorWaveform = 'sawtooth' | 'sine' | 'square' | 'triangle';
@@ -111,13 +112,22 @@ export class AirInstrumentsAudioEngine {
       this.masterGain = ctx.createGain();
       this.masterGain.gain.setValueAtTime(0.8, ctx.currentTime);
 
-      // ── Enrutado crítico: Conexión simultánea a altavoces y AnalyserNode central ──
-      // De esta forma los visualizadores 3D de Aura3D reaccionan lumínicamente al sintetizador
-      const analyser = mainEngine.analyser;
-      if (analyser) {
-        this.masterGain.connect(analyser);
+      // ── Enrutado Aislado V2: Conexión al InstrumentBus dedicado ──
+      // Nunca contamina el AnalyserNode central de la música.
+      // Pasa por RoomReverb procedural -> InstrumentAnalyser -> BrickwallLimiter
+      try {
+        const spatialAudio = SpatialAudioEngine.getInstance();
+        await spatialAudio.init();
+        const bus = spatialAudio.getInstrumentBus();
+        if (bus) {
+          this.masterGain.connect(bus.getInputNode());
+        } else {
+          this.masterGain.connect(ctx.destination);
+        }
+      } catch (e) {
+        console.warn('[AirInstrumentsAudioEngine] Usando fallback de salida:', e);
+        this.masterGain.connect(ctx.destination);
       }
-      this.masterGain.connect(ctx.destination);
     }
 
     if (!this.noiseBuffer) {
@@ -192,6 +202,9 @@ export class AirInstrumentsAudioEngine {
     voiceGain.connect(this.masterGain);
     osc.start(now);
 
+    // Auto-ducking en el canal de música principal (-2.5 dB, 220ms)
+    SpatialAudioEngine.getInstance().triggerDucking(2.5, 220);
+
     this.activeVoices.set(noteIndex, {
       osc,
       gain: voiceGain,
@@ -233,6 +246,9 @@ export class AirInstrumentsAudioEngine {
 
     const now = ctx.currentTime;
     const vol = Math.min(1.0, Math.max(0.2, velocity));
+
+    // Auto-ducking en el canal de música principal (-3.0 dB, 180ms)
+    SpatialAudioEngine.getInstance().triggerDucking(3.0, 180);
 
     if (padType === 'kick') {
       // 808 Sub-kick sintetizado

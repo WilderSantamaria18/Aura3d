@@ -96,12 +96,18 @@ export const LandmarkOverlay: React.FC<LandmarkOverlayProps> = ({
             continue;
           }
 
+          // Glow exterior ligero sin shadowBlur
           ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 4 * pt.alpha, 0, Math.PI * 2);
+          ctx.arc(pt.x, pt.y, 6 * pt.alpha, 0, Math.PI * 2);
           ctx.fillStyle = accentColor;
-          ctx.globalAlpha = pt.alpha * 0.6;
-          ctx.shadowColor = accentColor;
-          ctx.shadowBlur = 8;
+          ctx.globalAlpha = pt.alpha * 0.2;
+          ctx.fill();
+
+          // Núcleo brillante
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 3 * pt.alpha, 0, Math.PI * 2);
+          ctx.fillStyle = accentColor;
+          ctx.globalAlpha = pt.alpha * 0.7;
           ctx.fill();
         }
         ctx.restore();
@@ -148,7 +154,7 @@ export const LandmarkOverlay: React.FC<LandmarkOverlayProps> = ({
           ctx.save();
 
           // A. Conexiones (Bisel de cristal ultrafino 0.75px)
-          ctx.strokeStyle = 'rgba(0, 229, 255, 0.4)';
+          ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
           ctx.lineWidth = 0.75;
           HAND_BONES.forEach(([i, j]) => {
             const p1 = points[i];
@@ -159,30 +165,33 @@ export const LandmarkOverlay: React.FC<LandmarkOverlayProps> = ({
             ctx.stroke();
           });
 
-          // B. Puntos de landmarks (Círculos con drop-shadow cian)
+          // B. Puntos de landmarks (Círculos sin shadowBlur para 60 FPS fijos)
           points.forEach((pt, idx) => {
             const px = (1.0 - pt.x) * width;
             const py = pt.y * height;
             const isFingertip = [4, 8, 12, 16, 20].includes(idx);
             const isIndexTip = idx === 8;
 
-            ctx.beginPath();
-            ctx.arc(px, py, isIndexTip ? 4 : isFingertip ? 3 : 2, 0, Math.PI * 2);
+            const pointColor = isIndexTip
+              ? (hand.gesture === 'pinch' ? '#ff088a' : accentColor)
+              : isFingertip
+              ? '#ffffff'
+              : 'rgba(0, 229, 255, 0.85)';
 
-            if (isIndexTip) {
-              // Índice activo: brillo reforzado
-              ctx.fillStyle = hand.gesture === 'pinch' ? '#ff088a' : accentColor;
-              ctx.shadowColor = hand.gesture === 'pinch' ? '#ff088a' : accentColor;
-              ctx.shadowBlur = 10;
-            } else if (isFingertip) {
-              ctx.fillStyle = '#ffffff';
-              ctx.shadowColor = accentColor;
-              ctx.shadowBlur = 6;
-            } else {
-              ctx.fillStyle = 'rgba(0, 229, 255, 0.85)';
-              ctx.shadowBlur = 0;
+            // Halo suave para yemas
+            if (isIndexTip || isFingertip) {
+              ctx.beginPath();
+              ctx.arc(px, py, isIndexTip ? 8 : 5, 0, Math.PI * 2);
+              ctx.fillStyle = pointColor;
+              ctx.globalAlpha = 0.25;
+              ctx.fill();
             }
 
+            // Núcleo sólido
+            ctx.beginPath();
+            ctx.arc(px, py, isIndexTip ? 4 : isFingertip ? 3 : 2, 0, Math.PI * 2);
+            ctx.fillStyle = pointColor;
+            ctx.globalAlpha = 1.0;
             ctx.fill();
           });
 
