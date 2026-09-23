@@ -102,11 +102,8 @@ export const AtmosphereBackground: React.FC = () => {
 
   // Custom background image & wallpaper synchronization
   const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
-  const wallpaperBgMode = useWallpaperStore((s) => s.backgroundMode);
-  const hasActiveWallpaper = wallpaperBgMode === 'wallpaper' && Boolean(currentWallpaper?.url);
   const customBg = blobSettings.customBackgroundImage;
-  const effectiveCustomBg = !hasActiveWallpaper ? customBg : null;
-  const hasAnyBackground = Boolean(customBg || hasActiveWallpaper);
+  const hasAnyBackground = Boolean(customBg || currentWallpaper?.url);
 
   const bgOpacity = blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85;
   const bgBlur = blobSettings.backgroundBlur !== undefined ? blobSettings.backgroundBlur : 0;
@@ -836,44 +833,6 @@ export const AtmosphereBackground: React.FC = () => {
 
   return (
     <div className="fixed inset-0 w-full h-full pointer-events-none select-none z-[2] overflow-hidden" aria-hidden="true">
-      {/* Proportional Custom Background Image Layer */}
-      {effectiveCustomBg && (
-        <div
-          className="absolute inset-0 w-full h-full pointer-events-none transition-all duration-300 overflow-hidden flex items-center justify-center"
-          style={{
-            opacity: bgOpacity,
-            filter: effectiveBgBlur > 0 ? `blur(${effectiveBgBlur}px)` : undefined,
-          }}
-        >
-          <img
-            src={effectiveCustomBg}
-            alt="Fondo Personalizado"
-            className="w-full h-full transition-transform duration-300"
-            style={{
-              objectFit: bgFit,
-              transform: `scale(${bgScale})`,
-              transformOrigin: 'center center',
-            }}
-          />
-
-          {/* Adaptive Text Contrast & Lucid Color Fusion Scrim Layer */}
-          {bgContrastMode !== 'none' && (
-            <div
-              className="absolute inset-0 pointer-events-none transition-all duration-300"
-              style={{
-                background:
-                  bgContrastMode === 'deep_cinema'
-                    ? `radial-gradient(ellipse at 50% 50%, rgba(3, 5, 12, ${textScrim * 0.75}) 0%, rgba(1, 2, 6, ${Math.min(1, textScrim * 1.15)}) 100%)`
-                    : bgContrastMode === 'lucid_tint'
-                    ? `radial-gradient(ellipse at 50% 40%, ${hexToRgba(primaryColor, themeTint * 0.35)} 0%, rgba(4, 6, 14, ${textScrim}) 85%), linear-gradient(180deg, rgba(3, 5, 12, ${textScrim * 0.8}) 0%, ${hexToRgba(secondaryColor, themeTint * 0.25)} 50%, rgba(1, 2, 6, ${textScrim * 1.05}) 100%)`
-                    : /* text_clarity (default) */
-                      `radial-gradient(ellipse at 50% 50%, rgba(3, 6, 14, ${textScrim * 0.65}) 0%, rgba(1, 3, 8, ${Math.min(0.98, textScrim * 1.1)}) 100%), linear-gradient(180deg, rgba(2, 4, 10, ${textScrim * 0.7}) 0%, transparent 40%, transparent 60%, rgba(2, 4, 10, ${textScrim * 0.85}) 100%)`,
-              }}
-            />
-          )}
-        </div>
-      )}
-
       {/* Atmospheric Canvas Animation Layer */}
       <canvas
         ref={canvasRef}

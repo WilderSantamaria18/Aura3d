@@ -886,12 +886,12 @@ export const HeaderBar: React.FC = () => {
             <Sliders className="w-3 h-3 text-cyan-400" />
           </button>
 
-          {/* Aura Wallpapers AI (4K Minimalist & Ghibli) */}
+          {/* Aura Wallpaper & Atmosphere Studio */}
           <button
             onClick={() => useWallpaperStore.getState().togglePanel()}
             className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
-            title="Aura Wallpapers AI (Fondos 4K y presets cinemáticos - Atajo: W)"
-            aria-label="Fondos de Pantalla con IA"
+            title="Aura Wallpaper Studio (Fondos 4K, Subir Foto, IA y Atmósferas - Atajo: W)"
+            aria-label="Estudio de Fondos y Atmósfera"
           >
             <Image className="w-3.5 h-3.5 text-cyan-400" />
           </button>
@@ -1294,7 +1294,7 @@ export const HeaderBar: React.FC = () => {
                 <div className="mt-1">
                   <button
                     onClick={() => {
-                      setIsAtmosphereOpen(true);
+                      useWallpaperStore.getState().setPanelOpen(true);
                       setActiveMenu(null);
                     }}
                     className="w-full flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all text-white/80 hover:text-white hover:bg-white/5 border border-white/[0.04] bg-white/[0.02] cursor-pointer group"

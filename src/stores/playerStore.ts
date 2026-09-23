@@ -19,6 +19,7 @@ import type {
 import { LUCID_THEMES, PROFESSIONAL_PALETTES, createLucidTheme } from '../types/audio';
 import { StorageService, DEFAULT_BLOB_SETTINGS } from '../services/storageService';
 import { DEFAULT_EQ_BANDS, audioEngine } from '../services/audioEngine';
+import { combineColorsFromWallpaper } from '../services/wallpaperColorService';
 
 export interface HandLandmark {
   x: number;
@@ -67,6 +68,7 @@ interface PlayerState {
   // Lucid Mode (Modo Lúcido) & Color Customization
   isLucid: boolean;
   lucidTheme: LucidTheme;
+  customLucidThemes: LucidTheme[];
   lucidPrimaryColor: string;
   lucidSecondaryColor: string;
 
@@ -331,6 +333,9 @@ interface PlayerState {
   setLucidPrimaryColor: (color: string) => void;
   setLucidSecondaryColor: (color: string) => void;
   cycleLucidTheme: () => void;
+  saveCustomLucidTheme: (name?: string, primary?: string, secondary?: string) => LucidTheme;
+  deleteCustomLucidTheme: (id: string) => void;
+  combineWithWallpaper: (targetUrl?: string, targetTitle?: string) => Promise<boolean>;
   setVrMode: (vrMode: boolean) => void;
   toggleVrMode: () => void;
   setVrTrackingMode: (mode: 'body' | 'hands') => void;
@@ -503,6 +508,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLucid: true,
   lucidPrimaryColor: StorageService.getLucidPrimaryColor(),
   lucidSecondaryColor: StorageService.getLucidSecondaryColor(),
+  customLucidThemes: StorageService.getCustomLucidThemes(),
   lucidTheme: (() => {
     const p = StorageService.getLucidPrimaryColor();
     const s = StorageService.getLucidSecondaryColor();
@@ -810,6 +816,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       lucidSecondaryColor: nextTheme.secondary,
       isLucid: true,
     });
+  },
+  saveCustomLucidTheme: (name?: string, primary?: string, secondary?: string) => {
+    const { lucidPrimaryColor, lucidSecondaryColor, customLucidThemes } = get();
+    const p = primary || lucidPrimaryColor;
+    const s = secondary || lucidSecondaryColor;
+    const themeName = name?.trim() || `Mi Tema ${customLucidThemes.length + 1}`;
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const newTheme = createLucidTheme(p, s, themeName, id);
+    const updated = [newTheme, ...customLucidThemes.filter((t) => t.id !== id)];
+    StorageService.saveCustomLucidThemes(updated);
+    set({
+      customLucidThemes: updated,
+      lucidTheme: newTheme,
+      lucidPrimaryColor: p,
+      lucidSecondaryColor: s,
+      isLucid: true,
+    });
+    StorageService.saveLucidPrimaryColor(p);
+    StorageService.saveLucidSecondaryColor(s);
+    return newTheme;
+  },
+  deleteCustomLucidTheme: (id: string) => {
+    const { customLucidThemes, lucidTheme } = get();
+    const updated = customLucidThemes.filter((t) => t.id !== id);
+    StorageService.saveCustomLucidThemes(updated);
+    if (lucidTheme.id === id) {
+      const fallback = LUCID_THEMES[0];
+      set({
+        customLucidThemes: updated,
+        lucidTheme: fallback,
+        lucidPrimaryColor: fallback.primary,
+        lucidSecondaryColor: fallback.secondary,
+      });
+      StorageService.saveLucidPrimaryColor(fallback.primary);
+      StorageService.saveLucidSecondaryColor(fallback.secondary);
+    } else {
+      set({ customLucidThemes: updated });
+    }
+  },
+  combineWithWallpaper: async (targetUrl?: string, targetTitle?: string) => {
+    const result = await combineColorsFromWallpaper(targetUrl, targetTitle);
+    if (!result) return false;
+    const { theme } = result;
+    get().setLucidTheme(theme);
+    return true;
   },
 
   setVrMode: (vrMode) => set({ vrMode }),

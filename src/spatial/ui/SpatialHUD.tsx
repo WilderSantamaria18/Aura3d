@@ -17,6 +17,7 @@ import { WakeLockController } from '../camera/WakeLockController';
 import { SpatialVisionService } from '../../services/spatialVisionService';
 import { SpatialInstrumentEngine } from '../instruments/SpatialInstrumentEngine';
 import type { InstrumentId } from '../instruments/types';
+import { usePlayerStore } from '../../stores/playerStore';
 
 interface SpatialHUDProps {
   onOpenCalibration?: () => void;
@@ -64,9 +65,12 @@ export const SpatialHUD: React.FC<SpatialHUDProps> = ({ onOpenCalibration, onExi
   }, []);
 
   const handleCleanExit = () => {
-    SpatialVisionService.getInstance().stopCamera();
+    SpatialVisionService.getInstance().destroy();
     SpatialState.getInstance().setCameraRunning(false);
     SpatialState.getInstance().resetHands();
+    usePlayerStore.getState().setCameraStudioOpen(false);
+    usePlayerStore.getState().setAirInstrumentsActive(false);
+    SpatialInstrumentEngine.getInstance().cleanup();
     onExit?.();
   };
 

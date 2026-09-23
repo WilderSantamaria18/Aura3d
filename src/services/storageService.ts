@@ -1,4 +1,4 @@
-import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode, VisualizerMode } from '../types/audio';
+import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode, VisualizerMode, LucidTheme } from '../types/audio';
 
 const STORAGE_KEYS = {
   PLAYLISTS: 'auralis_playlists_v1',
@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   HIGH_SCORE: 'auralis_high_score_v1',
   LUCID_PRIMARY_COLOR: 'auralis_lucid_primary_color_v1',
   LUCID_SECONDARY_COLOR: 'auralis_lucid_secondary_color_v1',
+  CUSTOM_LUCID_THEMES: 'auralis_custom_lucid_themes_v1',
   MUSIC_SENSITIVITY: 'auralis_music_sensitivity_v1',
   SPHERE_SHAPE: 'auralis_sphere_shape_v1',
   SPHERE_WAVE_MODE: 'auralis_sphere_wave_mode_v1',
@@ -138,6 +139,23 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.LUCID_SECONDARY_COLOR, color);
     } catch (e) {
       console.warn('Failed to save lucid secondary color to LocalStorage', e);
+    }
+  }
+
+  public static getCustomLucidThemes(): LucidTheme[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CUSTOM_LUCID_THEMES);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public static saveCustomLucidThemes(themes: LucidTheme[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_LUCID_THEMES, JSON.stringify(themes));
+    } catch (e) {
+      console.warn('Failed to save custom lucid themes to LocalStorage', e);
     }
   }
 

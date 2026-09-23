@@ -92,6 +92,7 @@ export const App: React.FC = () => {
   const decrementSleepTimer = usePlayerStore((s) => s.decrementSleepTimer);
   const setCommandPaletteOpen = usePlayerStore((s) => s.setCommandPaletteOpen);
   const isCameraStudioOpen = usePlayerStore((s) => s.isCameraStudioOpen);
+  const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
   const isCaptureStudioOpen = usePlayerStore((s) => s.isCaptureStudioOpen);
 
   // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
@@ -437,8 +438,8 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Floating Spatial HUD (Mode Selector, Zen Mode, WakeLock & Tier) */}
-      {hasStarted && (
+      {/* Floating Spatial HUD (Mode Selector, Zen Mode, WakeLock & Tier) - Apartado exclusivo AURA Spatial */}
+      {hasStarted && (isCameraStudioOpen || isAirInstrumentsActive) && (
         <Suspense fallback={null}>
           <SpatialHUD />
         </Suspense>

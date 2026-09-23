@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, Ban, Sparkles, Check } from 'lucide-react';
 import { useWallpaperPresets } from '../../hooks/useWallpaperPresets';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { WallpaperCard } from './WallpaperCard';
 import type { WallpaperPreset, WallpaperStyle } from '../../types/wallpaper';
 
@@ -10,11 +11,11 @@ interface WallpaperGalleryProps {
 }
 
 const CATEGORY_CHIPS: { id: WallpaperStyle | 'all'; label: string }[] = [
-  { id: 'all', label: 'Todo' },
+  { id: 'all', label: 'Todos' },
   { id: 'cinematic', label: 'Cinemático' },
   { id: 'ethereal', label: 'Etéreo' },
-  { id: 'ghibli', label: 'Ghibli' },
-  { id: 'minimal', label: 'Minimal' },
+  { id: 'ghibli', label: 'Studio Ghibli' },
+  { id: 'minimal', label: 'Minimalista' },
   { id: 'cyberpunk', label: 'Cyberpunk' },
   { id: 'synthwave', label: 'Synthwave' },
   { id: 'nature', label: 'Naturaleza' },
@@ -26,18 +27,36 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
   const { presets, selectedStyle, setSelectedStyle, searchQuery, setSearchQuery } =
     useWallpaperPresets();
 
+  const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
+  const clearWallpaper = useWallpaperStore((s) => s.clearWallpaper);
+  const hasActiveWallpaper = Boolean(currentWallpaper?.url);
+
   return (
-    <div className="flex flex-col gap-4">
-      {/* Search Input */}
-      <div className="relative flex items-center">
-        <Search className="absolute left-3.5 w-3.5 h-3.5 text-white/40 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar presets (Porsche, lago, Ghibli, cyberpunk...)"
-          className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] focus:border-cyan-400/50 text-xs text-white placeholder-white/40 outline-none transition-colors"
-        />
+    <div className="flex flex-col gap-3.5">
+      {/* Search Input & Reset Action */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 flex items-center">
+          <Search className="absolute left-3.5 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar presets (Porsche, lago, Ghibli, cyberpunk, espacio...)"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] focus:border-cyan-400/50 text-xs text-white placeholder-white/40 outline-none transition-colors"
+          />
+        </div>
+
+        {hasActiveWallpaper && (
+          <button
+            type="button"
+            onClick={clearWallpaper}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-mono transition-all flex-shrink-0 cursor-pointer active:scale-95"
+            title="Quitar el fondo actual y volver al modo limpio"
+          >
+            <Ban className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Quitar Fondo</span>
+          </button>
+        )}
       </div>
 
       {/* Filter Chips Horizontal Scroll */}
@@ -62,7 +81,7 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
       </div>
 
       {/* Presets Grid: 2 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[52vh] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
         {presets.map((preset) => (
           <WallpaperCard
             key={preset.id}
@@ -91,3 +110,5 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
     </div>
   );
 };
+
+export default WallpaperGallery;

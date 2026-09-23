@@ -213,26 +213,66 @@ export const UniversalCommandPalette: React.FC = () => {
 
     // Herramientas & Paneles
     {
-      id: 'tool_wallpapers',
-      title: 'Generar Fondo con IA (Aura Wallpapers 4K)',
+      id: 'tool_wallpapers_studio',
+      title: 'Aura Wallpaper & Atmosphere Studio (Fondos 4K y Shaders)',
       category: 'Herramientas',
       icon: Image,
       shortcut: 'W',
       action: () => {
         useWallpaperStore.getState().setPanelOpen(true);
-        useWallpaperStore.getState().setActiveTab('generate');
+        useWallpaperStore.getState().setActiveTab('gallery');
       },
-      badge: '4K AI',
+      badge: '4K HDR',
     },
     {
-      id: 'tool_wallpapers_gallery',
-      title: 'Galería de Fondos de Pantalla Cinemáticos y Ghibli',
+      id: 'tool_wallpapers_upload',
+      title: 'Subir Mi Propia Imagen / Foto de Fondo',
       category: 'Herramientas',
       icon: Image,
       action: () => {
         useWallpaperStore.getState().setPanelOpen(true);
-        useWallpaperStore.getState().setActiveTab('gallery');
+        useWallpaperStore.getState().setActiveTab('upload');
       },
+    },
+    {
+      id: 'tool_wallpapers_ai',
+      title: 'Generar Fondo con IA (Minimalista, Ghibli, Synthwave)',
+      category: 'Herramientas',
+      icon: Image,
+      action: () => {
+        useWallpaperStore.getState().setPanelOpen(true);
+        useWallpaperStore.getState().setActiveTab('generate');
+      },
+      badge: 'IA',
+    },
+    {
+      id: 'tool_wallpapers_atmospheres',
+      title: 'Efectos Atmosféricos (Lluvia, Estrellas, Atardecer, Ondas)',
+      category: 'Herramientas',
+      icon: Image,
+      action: () => {
+        useWallpaperStore.getState().setPanelOpen(true);
+        useWallpaperStore.getState().setActiveTab('atmosphere');
+      },
+    },
+    {
+      id: 'tool_wallpapers_clear',
+      title: 'Quitar Fondo / Restablecer Fondo Predeterminado',
+      category: 'Herramientas',
+      icon: Image,
+      action: () => {
+        useWallpaperStore.getState().clearWallpaper();
+      },
+    },
+    {
+      id: 'tool_lucid_wallpaper_sync',
+      title: 'Combinar Colores Lúcidos con Fondo de Pantalla (Armonía Neón)',
+      category: 'Herramientas',
+      icon: Sparkles,
+      action: () => {
+        usePlayerStore.getState().combineWithWallpaper();
+      },
+      badge: 'Neón 4K',
     },
     {
       id: 'tool_eq',

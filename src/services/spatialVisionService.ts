@@ -558,13 +558,18 @@ export class SpatialVisionService {
   public destroy(): void {
     this.stopCamera();
     if (this.handLandmarker) {
-      this.handLandmarker.close();
+      try {
+        this.handLandmarker.close();
+      } catch {}
       this.handLandmarker = null;
     }
     if (this.poseLandmarker) {
-      this.poseLandmarker.close();
+      try {
+        this.poseLandmarker.close();
+      } catch {}
       this.poseLandmarker = null;
     }
+    this.visionResolver = null;
     this.isReady = false;
   }
 }

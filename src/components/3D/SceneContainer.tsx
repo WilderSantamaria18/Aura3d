@@ -3,13 +3,9 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { SphereVisualizer } from './SphereVisualizer';
-import { AirInstruments3D } from './AirInstruments3D';
 import { AudioRibbons } from './AudioRibbons';
 import { FloatingLyrics3D } from './FloatingLyrics3D';
-import { SpatialCursor } from '../../spatial/interaction/SpatialCursor';
-import { SpatialInteractiveObjects } from '../../spatial/interaction/SpatialInteractiveObjects';
-import { SpatialInteractionFx } from '../../spatial/visuals/SpatialInteractionFx';
-import { CalibrationVisuals3D } from '../../spatial/calibration/CalibrationVisuals3D';
+import { SpatialSceneLayer } from '../../spatial/SpatialSceneLayer';
 import { PerformanceManager } from '../../spatial/performance/PerformanceManager';
 import { useDeviceCapabilities } from '../../hooks/useDeviceCapabilities';
 import { usePlayerStore } from '../../stores/playerStore';
@@ -105,6 +101,8 @@ export const SceneContainer: React.FC = React.memo(() => {
   const device = useDeviceCapabilities();
   const vrMode = usePlayerStore((s) => s.vrMode);
   const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
+  const isCameraStudioOpen = usePlayerStore((s) => s.isCameraStudioOpen);
+  const isSpatialActive = isAirInstrumentsActive || isCameraStudioOpen;
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidPrimary = usePlayerStore((s) => s.lucidPrimaryColor || s.lucidTheme.primary);
   const lucidSecondary = usePlayerStore((s) => s.lucidSecondaryColor || s.lucidTheme.secondary);
@@ -184,20 +182,10 @@ export const SceneContainer: React.FC = React.memo(() => {
         {/* 3D Floating Karaoke Lyrics */}
         <FloatingLyrics3D />
 
-        {/* 3D Air Virtual Instruments */}
-        <AirInstruments3D />
-
-        {/* 3D Spatial Audio Reactive Interaction FX Layer (Sprint 7) */}
-        <SpatialInteractionFx />
-
-        {/* 3D Spatial Interactive Objects (Hover, Grab, Wrist Rotation, Inertia Damping 0.92) */}
-        <SpatialInteractiveObjects />
-
-        {/* 3D Finger Reticle & Energy Ray Cursor */}
-        <SpatialCursor accentColor={lucidPrimary || '#00e5ff'} />
-
-        {/* 3D Spatial Calibration Visual Targets */}
-        <CalibrationVisuals3D />
+        {/* Apartado Aislado: Modo Espacial 3D (Montado EXCLUSIVAMENTE bajo demanda) */}
+        {isSpatialActive && (
+          <SpatialSceneLayer accentColor={lucidPrimary || '#00e5ff'} />
+        )}
 
         {/* User Orbit Controls (Disabled during VR tracking or Air Instruments to prevent motion conflicts) */}
         <OrbitControls

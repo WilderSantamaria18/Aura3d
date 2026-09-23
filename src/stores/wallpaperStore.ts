@@ -15,12 +15,13 @@ interface WallpaperState {
   isPanelOpen: boolean;
   setPanelOpen: (isOpen: boolean) => void;
   togglePanel: () => void;
-  activeTab: 'gallery' | 'generate' | 'history' | 'settings';
-  setActiveTab: (tab: 'gallery' | 'generate' | 'history' | 'settings') => void;
+  activeTab: 'gallery' | 'upload' | 'generate' | 'atmosphere' | 'history' | 'settings';
+  setActiveTab: (tab: 'gallery' | 'upload' | 'generate' | 'atmosphere' | 'history' | 'settings') => void;
 
   // Wallpaper actual aplicado
   currentWallpaper: WallpaperGenerationResult | null;
   setCurrentWallpaper: (w: WallpaperGenerationResult | null) => void;
+  clearWallpaper: () => void;
 
   // Configuración de aplicación del wallpaper
   applicationSettings: WallpaperApplicationSettings;
@@ -93,14 +94,40 @@ export const useWallpaperStore = create<WallpaperState>()(
           } catch {
             // Ignore if store not yet ready
           }
+        } else {
+          set({ backgroundMode: 'atmosphere' });
+          try {
+            usePlayerStore.getState().updateBlobSettings({ customBackgroundImage: null });
+          } catch {
+            // Ignore if store not yet ready
+          }
+        }
+      },
+      clearWallpaper: () => {
+        set({ currentWallpaper: null, backgroundMode: 'atmosphere' });
+        try {
+          usePlayerStore.getState().updateBlobSettings({ customBackgroundImage: null });
+        } catch {
+          // Ignore if store not yet ready
         }
       },
 
       applicationSettings: DEFAULT_SETTINGS,
-      updateApplicationSettings: (settings) =>
+      updateApplicationSettings: (settings) => {
         set((state) => ({
           applicationSettings: { ...state.applicationSettings, ...settings },
-        })),
+        }));
+        try {
+          const syncBlob: Record<string, any> = {};
+          if (settings.opacity !== undefined) syncBlob.backgroundOpacity = settings.opacity;
+          if (settings.blur !== undefined) syncBlob.backgroundBlur = settings.blur;
+          if (Object.keys(syncBlob).length > 0) {
+            usePlayerStore.getState().updateBlobSettings(syncBlob);
+          }
+        } catch {
+          // Ignore
+        }
+      },
       resetApplicationSettings: () => set({ applicationSettings: DEFAULT_SETTINGS }),
 
       backgroundMode: 'atmosphere',

@@ -23,9 +23,20 @@ import {
   type InstrumentMode,
   type OscillatorWaveform,
 } from '../../services/airInstrumentsAudioEngine';
+import { SpatialInstrumentEngine } from '../../spatial/instruments/SpatialInstrumentEngine';
 import { LandmarkOverlay } from './LandmarkOverlay';
 import { CameraControls } from './CameraControls';
 import { usePlayerStore } from '../../stores/playerStore';
+
+const AR_KEYS = [
+  { name: 'C4', freq: 261.63 },
+  { name: 'D4', freq: 293.66 },
+  { name: 'Eb4', freq: 311.13 },
+  { name: 'G4', freq: 392.00 },
+  { name: 'Ab4', freq: 415.30 },
+  { name: 'C5', freq: 523.25 },
+  { name: 'D5', freq: 587.33 },
+];
 
 export const CameraStudioPanel: React.FC = () => {
   const {
@@ -63,6 +74,7 @@ export const CameraStudioPanel: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastGestureTimeRef = useRef(0);
   const currentGestureRef = useRef('unknown');
+  const activeKeysRef = useRef<Set<number>>(new Set());
   const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00e5ff';
 
   // Suscripción a telemetría y gestos (Throttled para CERO re-renders a 60 FPS)
@@ -89,6 +101,49 @@ export const CameraStudioPanel: React.FC = () => {
         lastGestureTimeRef.current = now;
         setCurrentGesture(gesture);
       }
+
+      // ── Detección de Colisión AR sobre las 7 Teclas del Panel (Zero Allocations) ──
+      const currentActive = new Set<number>();
+      hands.forEach((hand) => {
+        const tip = hand.landmarks[8]; // Punta del índice
+        const thumb = hand.landmarks[4]; // Pulgar
+        [tip, thumb].forEach((pt) => {
+          if (!pt) return;
+          const mirrorX = 1.0 - pt.x;
+          const y = pt.y;
+          // Zona interactiva: tercio inferior del video (Y >= 0.58 && Y <= 0.98)
+          if (y >= 0.58 && y <= 0.98 && mirrorX >= 0.02 && mirrorX <= 0.98) {
+            const keyIdx = Math.min(6, Math.max(0, Math.floor((mirrorX - 0.02) / (0.96 / 7))));
+            currentActive.add(keyIdx);
+          }
+        });
+      });
+
+      const engine = SpatialInstrumentEngine.getInstance();
+      AR_KEYS.forEach((key, idx) => {
+        const wasActive = activeKeysRef.current.has(idx);
+        const isActive = currentActive.has(idx);
+        if (isActive && !wasActive) {
+          engine.triggerNoteOn(idx, key.freq, 0.9);
+          const el = document.getElementById(`ar-key-${idx}`);
+          if (el) {
+            el.style.backgroundColor = 'rgba(0, 229, 255, 0.6)';
+            el.style.borderColor = '#00e5ff';
+            el.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.6)';
+            el.style.transform = 'translateY(4px)';
+          }
+        } else if (!isActive && wasActive) {
+          engine.triggerNoteOff(idx);
+          const el = document.getElementById(`ar-key-${idx}`);
+          if (el) {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+            el.style.boxShadow = 'none';
+            el.style.transform = 'none';
+          }
+        }
+      });
+      activeKeysRef.current = currentActive;
     });
 
     const unsubPerf = PerformanceManager.getInstance().subscribe((m) => {
@@ -114,9 +169,10 @@ export const CameraStudioPanel: React.FC = () => {
         console.error('No se pudo activar la cámara:', err);
       }
     } else {
-      vision.stopCamera();
+      vision.destroy();
       setIsCameraActive(false);
       AirInstrumentsAudioEngine.getInstance().cleanup();
+      SpatialInstrumentEngine.getInstance().cleanup();
       setAirInstrumentsActive(false);
     }
   };
@@ -276,19 +332,19 @@ export const CameraStudioPanel: React.FC = () => {
           {/* TAB 1: CÁMARA */}
           {activeTab === 'camera' && (
             <div className="space-y-3">
-              {/* Webcam Mirror Preview Frame */}
-              <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black/60 border border-white/10 shadow-2xl flex items-center justify-center">
+              {/* Webcam Mirror Preview Frame con proporción 4:3 nativa (640x480) */}
+              <div className="relative w-full aspect-[4/3] max-h-[380px] rounded-2xl overflow-hidden bg-black/85 border border-white/15 shadow-2xl flex items-center justify-center">
                 <video
                   ref={videoRef}
                   playsInline
                   muted
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${
-                    isCameraActive ? 'opacity-90' : 'opacity-0'
+                  className={`w-full h-full object-cover transition-opacity duration-200 ${
+                    isCameraActive ? 'opacity-100' : 'opacity-0'
                   }`}
                   style={{ transform: 'scaleX(-1)' }}
                 />
 
-                {/* 2D Landmark Overlay */}
+                {/* 2D Landmark Overlay alineado 1:1 con las manos */}
                 {isCameraActive && (
                   <LandmarkOverlay
                     width={640}
@@ -296,6 +352,57 @@ export const CameraStudioPanel: React.FC = () => {
                     accentColor={activeColor}
                     showTrails={showTrails}
                   />
+                )}
+
+                {/* ── AR Virtual Instrument Keyboard Overlay (Teclas Táctiles Aéreas) ── */}
+                {isCameraActive && (
+                  <div className="absolute bottom-12 inset-x-2 h-20 z-20 flex gap-1 pointer-events-auto">
+                    {AR_KEYS.map((k, idx) => (
+                      <div
+                        key={k.name}
+                        id={`ar-key-${idx}`}
+                        onPointerDown={() => {
+                          SpatialInstrumentEngine.getInstance().triggerNoteOn(idx, k.freq, 0.9);
+                          const el = document.getElementById(`ar-key-${idx}`);
+                          if (el) {
+                            el.style.backgroundColor = 'rgba(0, 229, 255, 0.6)';
+                            el.style.borderColor = '#00e5ff';
+                            el.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.6)';
+                            el.style.transform = 'translateY(4px)';
+                          }
+                        }}
+                        onPointerUp={() => {
+                          SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
+                          const el = document.getElementById(`ar-key-${idx}`);
+                          if (el) {
+                            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                            el.style.boxShadow = 'none';
+                            el.style.transform = 'none';
+                          }
+                        }}
+                        onPointerLeave={() => {
+                          SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
+                          const el = document.getElementById(`ar-key-${idx}`);
+                          if (el) {
+                            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                            el.style.boxShadow = 'none';
+                            el.style.transform = 'none';
+                          }
+                        }}
+                        className="flex-1 h-full rounded-xl bg-white/[0.12] border border-white/25 backdrop-blur-md flex flex-col justify-between p-1.5 select-none cursor-pointer transition-all duration-75"
+                        style={{
+                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                        }}
+                      >
+                        <div className="w-2 h-2 rounded-full bg-white/40 mx-auto" />
+                        <span className="text-[11px] font-mono font-bold text-center text-white/90 drop-shadow">
+                          {k.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
 
                 {/* Placeholder cuando la cámara está apagada */}
@@ -307,7 +414,7 @@ export const CameraStudioPanel: React.FC = () => {
                     <div>
                       <p className="text-sm font-semibold text-white">Cámara Espacial Desactivada</p>
                       <p className="text-xs text-white/50 max-w-xs mt-0.5">
-                        Activa la cámara para tocar sintetizadores, batería y theremin en el aire con tus manos.
+                        Activa la cámara para tocar sintetizadores, piano y theremin en el aire con tus manos.
                       </p>
                     </div>
                     <button
@@ -322,18 +429,32 @@ export const CameraStudioPanel: React.FC = () => {
 
                 {/* HUD Overlay cuando está activa */}
                 {isCameraActive && (
-                  <div className="absolute bottom-3 inset-x-3 flex items-center justify-between pointer-events-none z-20">
-                    <div className="px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/15 text-[10px] font-mono text-white/90 shadow-lg flex items-center gap-2">
+                  <div className="absolute bottom-2 inset-x-2 flex items-center justify-between pointer-events-none z-30">
+                    <div className="px-2.5 py-1 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 text-[10px] font-mono text-white/90 shadow-lg flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       <span>Gesto: {currentGesture.toUpperCase()}</span>
                     </div>
 
-                    <button
-                      onClick={handleToggleCamera}
-                      className="pointer-events-auto px-3 py-1 rounded-xl bg-black/70 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-white/15 backdrop-blur-md text-[11px] font-bold transition-all cursor-pointer"
-                    >
-                      Detener
-                    </button>
+                    <div className="flex items-center gap-1.5 pointer-events-auto">
+                      <button
+                        onClick={() => {
+                          setAirInstrumentsActive(true);
+                          setCameraStudioOpen(false);
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-300 border border-cyan-400/30 backdrop-blur-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                        title="Jugar en el espacio 3D a pantalla completa"
+                      >
+                        <Maximize2 className="w-3 h-3" />
+                        <span>Espacio 3D</span>
+                      </button>
+
+                      <button
+                        onClick={handleToggleCamera}
+                        className="px-2.5 py-1 rounded-xl bg-black/70 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-white/15 backdrop-blur-md text-[10px] font-bold transition-all cursor-pointer"
+                      >
+                        Detener
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

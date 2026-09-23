@@ -72,23 +72,24 @@ export const AirInstruments3D: React.FC = () => {
     const count = 7;
     const spacing = 0.46;
     const startX = -((count - 1) * spacing) / 2;
-    const baseZ = -2.8;
-    const baseY = -0.5;
+    // Cámara en Z=6.2 con targetDistance=2.8 => plano de interacción en Z=3.4
+    const baseZ = 3.4;
+    const baseY = -0.05;
 
     return scaleNotes.map((note, i) => {
       const x = startX + i * spacing;
-      // Curvatura convexa natural
+      // Curvatura convexa ergonómica
       const curveOffset = Math.sin((i / (count - 1)) * Math.PI) * 0.18;
       const z = baseZ + curveOffset;
-      const y = baseY + curveOffset * 0.3;
+      const y = baseY + curveOffset * 0.2;
 
       return {
         ...note,
         index: i,
         position: [x, y, z] as [number, number, number],
         bounds: {
-          minX: x - 0.2,
-          maxX: x + 0.2,
+          minX: x - 0.22,
+          maxX: x + 0.22,
           minY: y - 0.45,
           maxY: y + 0.45,
           z,
@@ -97,18 +98,18 @@ export const AirInstruments3D: React.FC = () => {
     });
   }, [scaleNotes]);
 
-  // Disposición de los 4 pads de percusión gestual
+  // Disposición de los 4 pads de percusión gestual en Z=3.45
   const drumPads = useMemo(
     () => [
-      { id: 'kick', name: 'KICK 808', pos: [-0.65, -0.75, -2.6] as [number, number, number], color: '#ff088a' },
-      { id: 'snare', name: 'SNARE', pos: [0.65, -0.75, -2.6] as [number, number, number], color: '#00e5ff' },
-      { id: 'hihat', name: 'HI-HAT', pos: [-0.65, 0.05, -2.6] as [number, number, number], color: '#ffbd00' },
-      { id: 'clap', name: 'CLAP', pos: [0.65, 0.05, -2.6] as [number, number, number], color: '#34c759' },
+      { id: 'kick', name: 'KICK 808', pos: [-0.65, -0.15, 3.45] as [number, number, number], color: '#ff088a' },
+      { id: 'snare', name: 'SNARE', pos: [0.65, -0.15, 3.45] as [number, number, number], color: '#00e5ff' },
+      { id: 'hihat', name: 'HI-HAT', pos: [-0.65, 0.45, 3.45] as [number, number, number], color: '#ffbd00' },
+      { id: 'clap', name: 'CLAP', pos: [0.65, 0.45, 3.45] as [number, number, number], color: '#34c759' },
     ],
     []
   );
 
-  // Cuadrícula 4x4 de pads melódicos tipo Launchpad
+  // Cuadrícula 4x4 de pads melódicos en Z=3.45
   const gridPads = useMemo(() => {
     const pads = [];
     const size = 0.22;
@@ -118,11 +119,11 @@ export const AirInstruments3D: React.FC = () => {
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
         const x = c * (size + gap) - offset;
-        const y = -(r * (size + gap) - offset) - 0.3;
+        const y = -(r * (size + gap) - offset) + 0.2;
         pads.push({
           id: r * 4 + c,
           noteIdx: (r * 4 + c) % scaleNotes.length,
-          pos: [x, y, -2.65] as [number, number, number],
+          pos: [x, y, 3.45] as [number, number, number],
           size,
         });
       }
