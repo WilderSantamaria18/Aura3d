@@ -1,0 +1,137 @@
+/* =========================================================
+   Aura3D — Estación de audio reactiva & Landing Multi-Section
+   ========================================================= */
+
+:root {
+  --bg: #050710;
+  --white: #ffffff;
+  --cyan: #00e5ff;
+  --presence-cyan: #00dcff;
+  --air-pink: #ff2d92;
+  --muted: rgba(255, 255, 255, 0.45);
+  --faint: rgba(255, 255, 255, 0.28);
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+}
+
+/* Color utility classes for Aura3D theme */
+.bg-auraBg { background-color: #050710; }
+.bg-auraDark { background-color: #04060e; }
+.bg-auraDeep { background-color: #07091a; }
+.text-auraCyan { color: #00e5ff; }
+.text-auraViolet { color: #a078ff; }
+.text-auraPink { color: #ff2d92; }
+.border-auraCyan { border-color: #00e5ff; }
+.border-auraViolet { border-color: #a078ff; }
+.border-auraPink { border-color: #ff2d92; }
+.bg-auraCyan { background-color: #00e5ff; }
+.bg-auraViolet { background-color: #a078ff; }
+.bg-auraPink { background-color: #ff2d92; }
+
+/* Status dot pulse */
+.status-dot-pulse {
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.92); }
+}
+
+/* Sticky scrubber container for Section 3: Signal Path */
+.signal-sticky-wrapper {
+  height: 250vh;
+  position: relative;
+}
+
+.signal-sticky-box {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Step indicator transition */
+.step-item {
+  transition: opacity 0.3s ease, transform 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+}
+
+/* Vertical Scroll Progress Bar */
+#scroll-rail {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 180px;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 60;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#scroll-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  transition: top 0.08s linear;
+  pointer-events: none;
+}
+
+/* Word clip reveal */
+.word-span {
+  display: inline-block;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.word-hidden {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.word-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Metronome tick sync line */
+.sync-char-track {
+  transition: color 0.15s ease, text-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.sync-char-track.active-beat {
+  color: #ffffff;
+  text-shadow: 0 0 16px rgba(0, 229, 255, 0.85);
+  transform: translateY(-2px);
+}
+
+/* Fixed Canvas Layer for Hero */
+#hero-canvas-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#visualizer-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-pulse {
+    animation: none;
+    opacity: 0.9;
+  }
+}

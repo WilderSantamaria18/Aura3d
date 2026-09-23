@@ -1,35 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore, useEffect } from 'react';
 import { aiAudioAnalysis } from '../services/aiAudioAnalysisService';
-import type { AIAudioFeatures, AIDynamicPalette } from '../services/aiAudioAnalysisService';
 
 export const useAIAudioEngine = () => {
-  const [features, setFeatures] = useState<AIAudioFeatures>(() => aiAudioAnalysis.getFeatures());
-  const [palette, setPalette] = useState<AIDynamicPalette>(() => aiAudioAnalysis.getPalette());
-
   useEffect(() => {
     aiAudioAnalysis.start();
-    const unsubscribe = aiAudioAnalysis.subscribe((newFeatures, newPalette) => {
-      setFeatures(newFeatures);
-      setPalette(newPalette);
-    });
-
-    return () => {
-      unsubscribe();
-    };
   }, []);
 
+  const data = useSyncExternalStore(
+    aiAudioAnalysis.subscribe,
+    aiAudioAnalysis.getSnapshot,
+    aiAudioAnalysis.getSnapshot
+  );
+
   return {
-    features,
-    palette,
-    mood: features.mood,
-    dominantPitch: features.dominantPitch,
-    isBeat: features.isBeat,
-    beatPulse: palette.beatPulse,
-    bloomModulation: features.bloomModulation,
-    primaryColor: palette.primary,
-    secondaryColor: palette.secondary,
-    accentColor: palette.accent,
-    glowColor: palette.glow,
+    features: data.features,
+    palette: data.palette,
+    mood: data.features.mood,
+    dominantPitch: data.features.dominantPitch,
+    isBeat: data.features.isBeat,
+    beatPulse: data.palette.beatPulse,
+    bloomModulation: data.features.bloomModulation,
+    primaryColor: data.palette.primary,
+    secondaryColor: data.palette.secondary,
+    accentColor: data.palette.accent,
+    glowColor: data.palette.glow,
   };
 };
 

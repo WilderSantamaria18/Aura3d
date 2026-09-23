@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { usePlayerStore } from './playerStore';
+import { LUCID_THEMES } from '../types/audio';
+import { getLucidThemeForWallpaper } from '../services/wallpaperPresetsService';
 import type {
   WallpaperGenerationResult,
   WallpaperApplicationSettings,
@@ -75,6 +78,21 @@ export const useWallpaperStore = create<WallpaperState>()(
         set({ currentWallpaper });
         if (currentWallpaper) {
           set({ backgroundMode: 'wallpaper' });
+          // Sincronizar automáticamente con el motor general de Aura3D y activar Modo Lucid
+          try {
+            const playerStore = usePlayerStore.getState();
+            playerStore.setIsLucid(true);
+            playerStore.updateBlobSettings({ customBackgroundImage: currentWallpaper.url });
+
+            // Armonizar el ecosistema Lúcido con el fondo
+            const themeId = getLucidThemeForWallpaper(currentWallpaper.palette, currentWallpaper.style);
+            const matchedTheme = LUCID_THEMES.find((t) => t.id === themeId);
+            if (matchedTheme) {
+              playerStore.setLucidTheme(matchedTheme);
+            }
+          } catch {
+            // Ignore if store not yet ready
+          }
         }
       },
 
@@ -86,7 +104,16 @@ export const useWallpaperStore = create<WallpaperState>()(
       resetApplicationSettings: () => set({ applicationSettings: DEFAULT_SETTINGS }),
 
       backgroundMode: 'atmosphere',
-      setBackgroundMode: (backgroundMode) => set({ backgroundMode }),
+      setBackgroundMode: (backgroundMode) => {
+        set({ backgroundMode });
+        if (backgroundMode !== 'wallpaper') {
+          try {
+            usePlayerStore.getState().updateBlobSettings({ customBackgroundImage: null });
+          } catch {
+            // Ignore if store not yet ready
+          }
+        }
+      },
 
       isGenerating: false,
       setIsGenerating: (isGenerating) => set({ isGenerating }),
@@ -127,8 +154,14 @@ export const useWallpaperStore = create<WallpaperState>()(
       partialize: (state) => ({
         applicationSettings: state.applicationSettings,
         backgroundMode: state.backgroundMode,
-        history: state.history.slice(0, 20),
-        currentWallpaper: state.currentWallpaper,
+        // Proteger localStorage de cadenas gigantes Base64 que causan lag
+        history: state.history
+          .filter((h) => !h.url.startsWith('data:') || h.url.length < 5000)
+          .slice(0, 15),
+        currentWallpaper:
+          state.currentWallpaper && state.currentWallpaper.url.length < 500000
+            ? state.currentWallpaper
+            : null,
       }),
     }
   )

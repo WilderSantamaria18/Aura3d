@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingScreen } from './components/Landing/LandingScreen';
 import { LandingScreenV2 } from './components/Landing/LandingScreenV2';
+import { LandingScreenV3 } from './components/Landing/LandingScreenV3';
+import { LandingMinimal } from './components/Landing/LandingMinimal';
 import { FEATURES } from './constants/features';
 import { HeaderBar } from './components/UI/HeaderBar';
 import { Controls } from './components/Player/Controls';
@@ -135,8 +137,10 @@ export const App: React.FC = () => {
   const isTransitioning = usePlayerStore((s) => s.isTransitioning);
   const idleTimerRef = useRef<number | null>(null);
 
-  // Hide landing screen after exit transition (900ms curtain duration) to free GPU memory
+  // Toggle in-player mode class on html/body and hide landing after exit transition
   useEffect(() => {
+    document.body.classList.toggle('in-player', hasStarted);
+    document.documentElement.classList.toggle('in-player', hasStarted);
     if (hasStarted) {
       const timer = window.setTimeout(() => setShowLanding(false), 950);
       return () => clearTimeout(timer);
@@ -181,6 +185,13 @@ export const App: React.FC = () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
   }, [resetIdleTimer]);
+
+  // Garantizar que Modo Lucid siempre esté activo como el ecosistema base de diseño de Aura3D
+  useEffect(() => {
+    if (!isLucid) {
+      usePlayerStore.getState().setIsLucid(true);
+    }
+  }, [isLucid]);
 
   // Global shortcut 'G' to toggle Gallery Mode (pure 3D immersion)
   useEffect(() => {
@@ -236,7 +247,9 @@ export const App: React.FC = () => {
   return (
     <div
       ref={rootRef}
-      className={`relative w-full h-[100dvh] overflow-hidden select-none font-sans transition-colors duration-700 ${
+      className={`relative w-full ${
+        hasStarted ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'
+      } select-none font-sans transition-colors duration-700 ${
         isLucid ? `lucid-${lucidTheme.id}` : ''
       }`}
       style={{
@@ -280,20 +293,28 @@ export const App: React.FC = () => {
       {/* 1. Initial Landing Screen (Smooth vertical scroll curtain transition) */}
       {showLanding && (
         <div
-          className={`absolute inset-0 z-50 transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+          className={`w-full z-50 transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             hasStarted
-              ? '-translate-y-full opacity-0 pointer-events-none'
-              : 'translate-y-0 opacity-100 pointer-events-auto'
+              ? 'fixed inset-0 -translate-y-full opacity-0 pointer-events-none'
+              : 'relative min-h-[100dvh] translate-y-0 opacity-100 pointer-events-auto'
           }`}
           style={{ display: hasStarted && !isTransitioning ? 'none' : 'block' }}
         >
-          {FEATURES.LANDING_V2 ? <LandingScreenV2 /> : <LandingScreen />}
+          {FEATURES.LANDING_MINIMAL ? (
+            <LandingMinimal />
+          ) : FEATURES.LANDING_V3 ? (
+            <LandingScreenV3 />
+          ) : FEATURES.LANDING_V2 ? (
+            <LandingScreenV2 />
+          ) : (
+            <LandingScreen />
+          )}
         </div>
       )}
 
       {/* 2. Visualizer in Fullscreen Center (Mounts smoothly when user enters) */}
       <div
-        className={`absolute inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-opacity duration-700 ease-out ${
+        className={`fixed inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-opacity duration-700 ease-out ${
           hasStarted ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >

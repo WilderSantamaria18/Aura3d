@@ -185,14 +185,18 @@ export class LyricsService {
     }
 
     const fetchPromise = (async (): Promise<EnhancedLyricsData> => {
-      // 0. Si es un Mix, sesión de DJ, compilación o track largo (> 12 min), no consultar APIs
+      // 0. Si es un Mix, sesión de DJ, compilación o track instrumental/phonk/slowed sin vocales
       const isMixOrLongSet =
         (duration && duration > 720) ||
         /\b(mix|dj set|session|vol\.\s*\d+|compilation|full album|podcast|sesi[oó]n)\b/i.test(cleanTitle) ||
         cleanTitle.includes('|') ||
         cleanTitle.split(',').length > 3;
 
-      if (isMixOrLongSet) {
+      const isInstrumentalOrPhonk =
+        /\b(montagem|phonk|slowed|instrumental|karaoke|type beat|bass boosted|drift phonk|sped up)\b/i.test(cleanTitle) ||
+        /\b(slowed|reverb)\b/i.test(cleanArtist);
+
+      if (isMixOrLongSet || isInstrumentalOrPhonk) {
         return { synced: false, lines: [], source: 'none', isWordSynced: false };
       }
 

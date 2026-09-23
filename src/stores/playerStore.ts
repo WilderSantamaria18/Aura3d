@@ -500,7 +500,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   spotifySyncTimestamp: 0,
   spotifyProgressMs: 0,
 
-  isLucid: false,
+  isLucid: true,
   lucidPrimaryColor: StorageService.getLucidPrimaryColor(),
   lucidSecondaryColor: StorageService.getLucidSecondaryColor(),
   lucidTheme: (() => {

@@ -96,11 +96,16 @@ class AIAudioAnalysisService {
     beatPulse: 0.0,
   };
 
-  private listeners = new Set<(features: AIAudioFeatures, palette: AIDynamicPalette) => void>();
+  private listeners = new Set<() => void>();
+  private snapshot = {
+    features: this.currentFeatures,
+    palette: this.currentPalette,
+  };
+  private lastSyncedHue = 190;
   private cssUpdateCounter = 0;
   private fftBuffer: Uint8Array | null = null;
   private lastBroadcastTime = 0;
-  private readonly BROADCAST_INTERVAL_MS = 33; // ~30 fps cap for React tree re-renders
+  private readonly BROADCAST_INTERVAL_MS = 40; // ~25 fps smooth cap for React tree subscriptions
 
   constructor() {
     if (typeof document !== 'undefined') {
@@ -139,13 +144,16 @@ class AIAudioAnalysisService {
     return this.currentPalette;
   }
 
-  public subscribe(fn: (features: AIAudioFeatures, palette: AIDynamicPalette) => void): () => void {
+  public getSnapshot = (): { features: AIAudioFeatures; palette: AIDynamicPalette } => {
+    return this.snapshot;
+  };
+
+  public subscribe = (fn: () => void): (() => void) => {
     this.listeners.add(fn);
-    fn(this.currentFeatures, this.currentPalette);
     return () => {
       this.listeners.delete(fn);
     };
-  }
+  };
 
   private loop = (): void => {
     if (!this.isRunning) return;
@@ -366,15 +374,20 @@ class AIAudioAnalysisService {
         this.injectCssVariables();
       }
 
-      // Sync with PlayerStore dynamicColor
-      if (state.autoMode && primaryHex !== state.dynamicColor) {
+      // Sync with PlayerStore dynamicColor (dampened to avoid React state thrashing)
+      if (state.autoMode && Math.abs(this.currentPrimaryHue - this.lastSyncedHue) > 8) {
+        this.lastSyncedHue = this.currentPrimaryHue;
         state.setDynamicColor(primaryHex);
       }
 
-      // Broadcast to listeners with ~30fps throttle to eliminate React 60fps churn
+      // Broadcast to external store subscribers with ~25fps throttle
       if (now - this.lastBroadcastTime >= this.BROADCAST_INTERVAL_MS) {
         this.lastBroadcastTime = now;
-        this.listeners.forEach((fn) => fn(this.currentFeatures, this.currentPalette));
+        this.snapshot = {
+          features: this.currentFeatures,
+          palette: this.currentPalette,
+        };
+        this.listeners.forEach((fn) => fn());
       }
     }
 

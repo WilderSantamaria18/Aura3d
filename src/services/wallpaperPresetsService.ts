@@ -346,3 +346,28 @@ export const PROMPT_SUGGESTIONS = [
   'Ondas de cristal líquido fluido con refracciones de prisma Apple visionOS',
   'Nebulosa cósmica púrpura y dorada con cúmulos de estrellas James Webb',
 ];
+
+/**
+ * Mapea armoniosamente el fondo con el tema de Modo Lucid
+ * para que todo el ecosistema (paneles, luces, partículas 3D) converja.
+ */
+export function getLucidThemeForWallpaper(palette?: WallpaperPalette, style?: WallpaperStyle): string {
+  if (style === 'ghibli') return 'glacier-emerald';
+  if (style === 'cyberpunk') return 'tokyo-twilight';
+  if (style === 'cosmic') return 'cosmic-cyan-gold';
+  switch (palette) {
+    case 'warm-sunset':
+      return 'electric-lavender';
+    case 'cool-night':
+      return 'glacier-emerald';
+    case 'pastel-dream':
+      return 'electric-lavender';
+    case 'monochrome':
+      return 'cosmic-cyan-gold';
+    case 'vibrant':
+      return 'tokyo-twilight';
+    default:
+      return 'cosmic-cyan-gold';
+  }
+}
+

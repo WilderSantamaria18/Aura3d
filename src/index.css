@@ -138,12 +138,12 @@
   color-scheme: dark;
 }
 
-html, body, #root {
-  width: 100vw;
-  height: 100vh;
+html, body {
+  width: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow-x: clip;
   background-color: var(--surface-base);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", 'Outfit', 'Inter', "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: -0.015em;
@@ -153,6 +153,18 @@ html, body, #root {
   text-rendering: optimizeLegibility;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   caret-color: var(--accent-cyan);
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+html.in-player,
+body.in-player,
+body.in-player #root {
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .font-display {
@@ -1739,5 +1751,182 @@ input[type="range"]::-webkit-slider-thumb:hover {
     #0a0e1a 50%,
     #03050c 100%
   );
+}
+
+/* ───────────────────────────────────────────────────
+   LANDING MINIMAL — Apple-inspired
+   ─────────────────────────────────────────────────── */
+.landing-root {
+  width: 100%;
+  min-height: 100dvh;
+  background: #03050c;
+  color: #ffffff;
+  overflow-x: clip;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing-section {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(40px, 8vh, 120px) clamp(24px, 6vw, 96px);
+  position: relative;
+}
+
+.landing-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Tipografía */
+.landing-hero-title {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #ffffff;
+  margin: 0;
+}
+
+.landing-title-large {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: #ffffff;
+  margin: 0;
+}
+
+.landing-text-body {
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 45ch;
+  margin: 0;
+}
+
+.landing-text-small {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0;
+}
+
+.landing-label-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.2);
+  margin: 0;
+}
+
+/* Logo puntual */
+.landing-logo-dot {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    #ffffff 0%,
+    #00e5ff 40%,
+    rgba(0, 229, 255, 0.2) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.5);
+  animation: landing-pulse 4s ease-in-out infinite;
+}
+
+@keyframes landing-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+/* Indicador scroll */
+.landing-scroll-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.2);
+  animation: landing-scroll-bounce 3s ease-in-out infinite;
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@keyframes landing-scroll-bounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(6px);
+  }
+}
+
+/* Botón Iniciar */
+.landing-enter-button {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  padding: 16px 32px;
+  transition: all 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+}
+
+.landing-enter-button:hover {
+  color: #00e5ff;
+  letter-spacing: 0.05em;
+}
+
+.landing-enter-button:active {
+  transform: scale(0.97);
+}
+
+/* Grid de experiencia */
+.landing-experience-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .landing-experience-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+}
+
+/* Aspecto asimétrico para la sección Idea */
+.landing-idea-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 64px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .landing-idea-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 96px;
+  }
 }
 

@@ -128,7 +128,12 @@ export const WallpaperPanel: React.FC = () => {
                   onApply={handleApply}
                 />
               )}
-              {activeTab === 'generate' && <WallpaperGenerator />}
+              {activeTab === 'generate' && (
+                <WallpaperGenerator
+                  onPreview={(item) => setPreviewItem(item)}
+                  onApply={handleApply}
+                />
+              )}
               {activeTab === 'history' && (
                 <WallpaperHistory
                   onPreview={(item) => setPreviewItem(item)}

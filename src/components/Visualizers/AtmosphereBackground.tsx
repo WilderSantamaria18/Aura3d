@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
 import { hexToRgba } from '../../types/audio';
 
@@ -99,8 +100,14 @@ export const AtmosphereBackground: React.FC = () => {
   const atmosphere = blobSettings.backgroundAtmosphere || 'none';
   const atmosphereBlend = blobSettings.atmosphereBlend || 'none';
 
-  // Custom background image settings
+  // Custom background image & wallpaper synchronization
+  const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
+  const wallpaperBgMode = useWallpaperStore((s) => s.backgroundMode);
+  const hasActiveWallpaper = wallpaperBgMode === 'wallpaper' && Boolean(currentWallpaper?.url);
   const customBg = blobSettings.customBackgroundImage;
+  const effectiveCustomBg = !hasActiveWallpaper ? customBg : null;
+  const hasAnyBackground = Boolean(customBg || hasActiveWallpaper);
+
   const bgOpacity = blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85;
   const bgBlur = blobSettings.backgroundBlur !== undefined ? blobSettings.backgroundBlur : 0;
   const effectiveBgBlur = bgBlur;
@@ -352,7 +359,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: sunset (Atardecer Épico DHONKIO & Silueta en Acantilado) ──
         else if (mode === 'sunset') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const sky = ctx.createLinearGradient(0, 0, 0, height);
             if (isLucid) {
               sky.addColorStop(0, '#06020c');
@@ -474,7 +481,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: rain (Lluvia Neón Estelar) ────────────────────────────────
         else if (mode === 'rain') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const sky = ctx.createLinearGradient(0, 0, 0, height);
             sky.addColorStop(0, '#030712');
             sky.addColorStop(0.5, isLucid ? `${secondaryColor}10` : '#081122');
@@ -507,7 +514,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: sand (Mareas de Arena Sub & Partículas Fluidas) ───────────
         else if (mode === 'sand') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const sky = ctx.createLinearGradient(0, 0, 0, height);
             sky.addColorStop(0, '#080812');
             sky.addColorStop(0.6, isLucid ? `${secondaryColor}12` : '#18120c');
@@ -591,7 +598,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: radial_burst (NUEVO: Partículas que salen del centro del círculo en 360°) ──
         else if (mode === 'radial_burst') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const deepSpace = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxDim * 0.95);
             deepSpace.addColorStop(0, isLucid ? `${primaryColor}18` : '#070c20');
             deepSpace.addColorStop(0.5, isLucid ? `${secondaryColor}0c` : '#030510');
@@ -661,7 +668,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: stardust_drift (NUEVO: Polvo Cósmico & Bruma Estelar Zen) ───
         else if (mode === 'stardust_drift') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, maxDim * 0.95);
             grad.addColorStop(0, isLucid ? `${secondaryColor}14` : '#08081a');
             grad.addColorStop(0.6, isLucid ? `${primaryColor}0a` : '#03040c');
@@ -695,7 +702,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: light_beams (NUEVO: Haces de Luz Radiante Etereos desde el Centro) ─
         else if (mode === 'light_beams') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxDim);
             grad.addColorStop(0, isLucid ? `${primaryColor}18` : '#050a18');
             grad.addColorStop(0.7, '#02040a');
@@ -741,7 +748,7 @@ export const AtmosphereBackground: React.FC = () => {
 
         // ── Mode: quantum_waves (NUEVO: Ondas Cuánticas Concéntricas desde el Centro) ─
         else if (mode === 'quantum_waves') {
-          if (!customBg) {
+          if (!hasAnyBackground) {
             const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxDim);
             grad.addColorStop(0, isLucid ? `${primaryColor}14` : '#040b18');
             grad.addColorStop(0.6, isLucid ? `${secondaryColor}0a` : '#02050c');
@@ -828,9 +835,9 @@ export const AtmosphereBackground: React.FC = () => {
   ]);
 
   return (
-    <div className="fixed inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden" aria-hidden="true">
+    <div className="fixed inset-0 w-full h-full pointer-events-none select-none z-[2] overflow-hidden" aria-hidden="true">
       {/* Proportional Custom Background Image Layer */}
-      {customBg && (
+      {effectiveCustomBg && (
         <div
           className="absolute inset-0 w-full h-full pointer-events-none transition-all duration-300 overflow-hidden flex items-center justify-center"
           style={{
@@ -839,7 +846,7 @@ export const AtmosphereBackground: React.FC = () => {
           }}
         >
           <img
-            src={customBg}
+            src={effectiveCustomBg}
             alt="Fondo Personalizado"
             className="w-full h-full transition-transform duration-300"
             style={{
