@@ -4,6 +4,7 @@ import { useWallpaperGenerator } from '../../hooks/useWallpaperGenerator';
 import { StyleSelector } from './shared/StyleSelector';
 import { AspectRatioPicker } from './shared/AspectRatioPicker';
 import { PaletteSelector } from './shared/PaletteSelector';
+import { QualityPicker } from './shared/QualityPicker';
 import { PROMPT_SUGGESTIONS } from '../../services/wallpaperPresetsService';
 import type { WallpaperGenerationResult } from '../../types/wallpaper';
 
@@ -25,6 +26,8 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
     setAspectRatio,
     palette,
     setPalette,
+    quality,
+    setQuality,
     generate,
     isGenerating,
     generationProgress,
@@ -51,7 +54,7 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
   };
 
   return (
-    <div className="flex flex-col gap-4 max-h-[56vh] overflow-y-auto pr-1 custom-scrollbar">
+    <div className="flex flex-col gap-4">
       {/* Prompt Textarea */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-[11px] font-mono text-white/50">
@@ -64,7 +67,7 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
           placeholder="Ej: Un Porsche 911 clásico en un campo de lavanda al atardecer, cinematográfico..."
           rows={3}
           disabled={isGenerating}
-          className="w-full p-3 rounded-2xl bg-white/[0.04] border border-white/[0.1] focus:border-cyan-400/50 text-xs text-white placeholder-white/40 outline-none resize-none transition-colors"
+          className="glass-input !rounded-2xl w-full p-3.5 text-xs text-white placeholder-white/45 outline-none resize-none"
         />
       </div>
 
@@ -80,7 +83,7 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
               type="button"
               onClick={() => handleSuggestionClick(sug)}
               disabled={isGenerating}
-              className="text-left px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] text-[10px] text-white/70 hover:text-white transition-colors truncate max-w-full"
+              className="glass-btn !rounded-xl text-left px-3 py-1 text-[10px] text-white/75 hover:text-white truncate max-w-full"
             >
               {sug}
             </button>
@@ -93,6 +96,9 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
 
       {/* Aspect Ratio Picker */}
       <AspectRatioPicker selected={aspectRatio} onSelect={setAspectRatio} />
+
+      {/* Resolución */}
+      <QualityPicker selected={quality} aspectRatio={aspectRatio} onSelect={setQuality} disabled={isGenerating} />
 
       {/* Palette Selector */}
       <PaletteSelector selected={palette} onSelect={setPalette} />
@@ -110,7 +116,7 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
         <div className="flex flex-col gap-1.5 py-1">
           <div className="flex justify-between text-[10px] font-mono text-cyan-300">
             <span className="flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" /> Renderizando con IA...
+              <Loader2 className="w-3 h-3 animate-spin" />{generationProgress < 65 ? " Generando con IA..." : generationProgress < 85 ? " Reescalando y afinando..." : " Guardando..."}
             </span>
             <span>{generationProgress}%</span>
           </div>
@@ -137,7 +143,7 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
         {isGenerating ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin text-black" />
-            <span>Generando Imagen 4K...</span>
+            <span>Generando {quality === "4k" ? "4K" : quality === "fhd" ? "Full HD" : "HD"}…</span>
           </>
         ) : (
           <>
@@ -149,14 +155,14 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
 
       {/* Generated Result Success Card */}
       {lastGenerated && (
-        <div className="p-3 rounded-2xl bg-white/[0.04] border border-cyan-400/30 flex flex-col gap-3 shadow-xl">
+        <div className="glass-card !p-3.5 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono text-cyan-300 font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               ¡Fondo generado con éxito!
             </span>
             <span className="text-[10px] font-mono text-white/40 uppercase">
-              {lastGenerated.aspectRatio} • {lastGenerated.style}
+              {lastGenerated.width}×{lastGenerated.height} • {lastGenerated.style}
             </span>
           </div>
 
@@ -186,8 +192,8 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
                 onClick={() => handleApplyClick(lastGenerated)}
                 className={`flex-1 py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
                   isAppliedJustNow
-                    ? 'bg-emerald-400 text-black shadow-[0_0_12px_rgba(52,211,153,0.5)]'
-                    : 'bg-cyan-400 hover:bg-cyan-300 text-black shadow-[0_0_14px_rgba(0,229,255,0.4)] hover:scale-105 active:scale-95'
+                    ? 'bg-emerald-400 text-black'
+                    : 'bg-cyan-400 hover:bg-cyan-300 text-black hover:scale-105 active:scale-95'
                 }`}
               >
                 {isAppliedJustNow ? (

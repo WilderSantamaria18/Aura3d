@@ -15,6 +15,7 @@ import { useAnalytics } from './hooks/useAnalytics';
 import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
+import { useCaptureStore } from './capture/store/captureStore';
 import { hexToRgba } from './types/audio';
 import { AlertCircle, Play, Pause } from 'lucide-react';
 import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
@@ -55,11 +56,7 @@ const SystemRequirementsModal = lazy(() => import('./components/UI/SystemRequire
 const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalCommandPalette'));
 const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
 const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
-const CaptureFramingOverlay = lazy(() => import('./components/UI/CaptureFramingOverlay'));
-const StudioCaptureCard = lazy(() => import('./components/UI/StudioCaptureCard'));
-const RecorderPanel = lazy(() =>
-  import('./components/Recorder/RecorderPanel').then((m) => ({ default: m.RecorderPanel }))
-);
+const CaptureStudio = lazy(() => import('./capture/components/CaptureStudio'));
 const SpatialHUD = lazy(() =>
   import('./spatial/ui/SpatialHUD').then((m) => ({ default: m.SpatialHUD }))
 );
@@ -93,7 +90,7 @@ export const App: React.FC = () => {
   const setCommandPaletteOpen = usePlayerStore((s) => s.setCommandPaletteOpen);
   const isCameraStudioOpen = usePlayerStore((s) => s.isCameraStudioOpen);
   const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
-  const isCaptureStudioOpen = usePlayerStore((s) => s.isCaptureStudioOpen);
+  const isCaptureStudioOpen = useCaptureStore((s) => s.isStudioOpen);
 
   // Global Universal Command Palette Shortcut (Ctrl+K / Cmd+K)
   useEffect(() => {
@@ -300,7 +297,7 @@ export const App: React.FC = () => {
           className={`w-full z-50 transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             hasStarted
               ? 'fixed inset-0 -translate-y-full opacity-0 pointer-events-none'
-              : 'relative min-h-[100dvh] translate-y-0 opacity-100 pointer-events-auto'
+              : 'relative min-h-[100dvh] opacity-100 pointer-events-auto'
           }`}
           style={{ display: hasStarted && !isTransitioning ? 'none' : 'block' }}
         >
@@ -363,7 +360,7 @@ export const App: React.FC = () => {
       {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
       {hasStarted && (
         <div
-          className={`fixed bottom-3 sm:bottom-6 left-0 right-0 z-50 p-1.5 sm:p-2 transition-all duration-500 pointer-events-none flex flex-col items-center ${
+          className={`fixed bottom-3 sm:bottom-6 left-0 right-0 z-50 p-1.5 sm:p-2 transition-[opacity,transform] duration-500 pointer-events-none flex flex-col items-center ${
             shouldHideUI || isZenGhostMode
               ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
               : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
@@ -372,24 +369,20 @@ export const App: React.FC = () => {
           onMouseLeave={() => setIsDockHovered(false)}
         >
           <div
-            className={`w-[clamp(280px,72vw,530px)] rounded-[var(--radius-dock)] px-2.5 py-1.5 flex flex-col gap-0.5 sm:gap-1 pointer-events-auto transition-all duration-300 group/capsule ${
-              isLucid
-                ? 'lucid-panel opacity-90 hover:opacity-100'
-                : 'liquid-glass liquid-glass-dock opacity-95 hover:opacity-100'
-            }`}
+            className="w-[clamp(300px,78vw,640px)] px-3.5 py-2.5 flex flex-col gap-1.5 pointer-events-auto aura-dock group/capsule"
             style={
               isLucid
                 ? {
                     backgroundColor: lucidTheme.glassColor,
                     borderColor: lucidTheme.borderColor,
-                    boxShadow: '0 24px 60px rgba(0,0,0,0.85), 0 1px 0 rgba(255,255,255,0.12) inset',
+                    boxShadow: `0 18px 44px -14px rgba(0,0,0,0.8), 0 0 28px ${lucidTheme.glow}, inset 0 1px 0 rgba(255,255,255,0.14)`,
                   }
                 : undefined
             }
           >
             {/* Main Player Transport & Progress */}
-            <ProgressBar />
             <Controls />
+            <ProgressBar />
           </div>
         </div>
       )}
@@ -445,10 +438,9 @@ export const App: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Studio Capture Suite & On-Screen Framing Overlay */}
+      {/* Unified Capture Studio (Foto 4K, Video REC & Framing Overlay) */}
       <Suspense fallback={null}>
-        <CaptureFramingOverlay />
-        {isCaptureStudioOpen && <StudioCaptureCard />}
+        <CaptureStudio />
       </Suspense>
 
       {/* Mini Player — panel flotante con visualización de video de YouTube integrada */}
@@ -473,7 +465,6 @@ export const App: React.FC = () => {
       {/* Auralis Story Card 9:16 Social Export Modal */}
       <Suspense fallback={null}>
         <AuralisStoryCardModal />
-        <RecorderPanel />
       </Suspense>
 
       {/* 3D Air Virtual Instruments Controls HUD */}

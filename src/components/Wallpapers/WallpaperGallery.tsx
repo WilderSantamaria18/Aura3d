@@ -42,7 +42,7 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar presets (Porsche, lago, Ghibli, cyberpunk, espacio...)"
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] focus:border-cyan-400/50 text-xs text-white placeholder-white/40 outline-none transition-colors"
+            className="glass-input w-full pl-9 pr-4 py-2.5 text-xs text-white placeholder-white/45 outline-none"
           />
         </div>
 
@@ -50,7 +50,7 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
           <button
             type="button"
             onClick={clearWallpaper}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-mono transition-all flex-shrink-0 cursor-pointer active:scale-95"
+            className="glass-btn is-danger flex items-center gap-1.5 px-4 py-2 text-rose-200 text-xs font-mono flex-shrink-0"
             title="Quitar el fondo actual y volver al modo limpio"
           >
             <Ban className="w-3.5 h-3.5" />
@@ -68,10 +68,8 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
               key={cat.id}
               type="button"
               onClick={() => setSelectedStyle(cat.id)}
-              className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-tight whitespace-nowrap transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-white text-black shadow-[0_2px_8px_rgba(255,255,255,0.4)]'
-                  : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08] border border-white/[0.06]'
+              className={`glass-btn px-3.5 py-1 min-h-[30px] text-[11px] font-semibold tracking-tight whitespace-nowrap ${
+                isActive ? 'is-active text-white' : 'text-white/70 hover:text-white'
               }`}
             >
               {cat.label}
@@ -81,7 +79,7 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
       </div>
 
       {/* Presets Grid: 2 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {presets.map((preset) => (
           <WallpaperCard
             key={preset.id}
@@ -100,7 +98,7 @@ export const WallpaperGallery: React.FC<WallpaperGalleryProps> = ({ onPreview, o
                 setSearchQuery('');
                 setSelectedStyle('all');
               }}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] transition-colors"
+              className="glass-btn px-4 py-1 text-white text-[11px]"
             >
               Restablecer filtros
             </button>

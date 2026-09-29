@@ -1,5 +1,5 @@
-import type { VisualizerShape, IVisualShapeConfig } from '../types';
-import type { BackgroundAtmosphere } from '../types/audio';
+import type { VisualizerShape, IVisualShapeConfig, BlobShape, VoidFxSettings, VoidFxParams } from '../types';
+import type { BackgroundAtmosphere, KickFormStyle } from '../types/audio';
 
 /**
  * Centralized Visualizer Presets Configuration
@@ -387,11 +387,13 @@ export const getVisualShapeConfig = (shape: VisualizerShape): IVisualShapeConfig
 };
 
 export interface EffectOption {
-  id: VisualizerShape;
+  id: BlobShape;
   name: string;
   desc: string;
   tag: string;
   category: string;
+  /** Parámetro propio del efecto (cantidad de elementos), si tiene */
+  param?: { label: string; min: number; max: number; step: number; def: number };
 }
 
 /**
@@ -457,123 +459,162 @@ export const SPHERE_3D_GEOMETRIES: EffectOption[] = [
 ];
 
 /**
- * Catálogo exclusivo de Efectos Cinéticos 2D para Rainbow Void (Canvas 2D)
- * Diseños abstractos de Minimalismo Sagrado basados en crestas, agujas y geometría polar:
+ * Catálogo de efectos 2D de Rainbow Void.
+ * Minimalistas, de trazo fino y una sola paleta: cada uno responde a una parte
+ * distinta del audio (graves, medios, agudos o espectro completo).
  */
 export const RAINBOW_VOID_EFFECTS: EffectOption[] = [
   {
-    id: 'dual_crest',
-    name: 'Cresta Dual (Minimal visionOS)',
-    desc: '2 crestas afiladas simétricas en ángulo cónico de precisión, líneas hairline y rebote elástico Kick.',
-    tag: 'CRESTA DUAL',
-    category: 'Minimalismo Sagrado',
+    id: 'cat',
+    name: 'Orejas de gato',
+    desc: 'Con cada nota de bajo el contorno se eleva y forma dos orejas; el interior brilla con los medios.',
+    tag: 'GATO',
+    category: 'Contorno del kick',
   },
   {
-    id: 'vector_spires',
-    name: 'Agujas Vectoriales',
-    desc: 'Picos afilados de alta tensión polar con micro-nodos radiantes en ápices.',
-    tag: 'AGUJAS 2D',
-    category: 'Minimalismo Sagrado',
+    id: 'bunny',
+    name: 'Orejas de conejo',
+    desc: 'Dos orejas largas y redondeadas que se estiran con cada golpe.',
+    tag: 'CONEJO',
+    category: 'Contorno del kick',
   },
   {
-    id: 'pulse_antennas',
-    name: 'Antenas de Pulso',
-    desc: 'Doble contorno armónico con resonancia vocal en frecuencias medias.',
-    tag: 'ANTENAS',
-    category: 'Minimalismo Sagrado',
+    id: 'horns',
+    name: 'Cuernos',
+    desc: 'Cuernos curvados hacia adentro que crecen con la energía del bajo.',
+    tag: 'CUERNOS',
+    category: 'Contorno del kick',
   },
   {
-    id: 'aero_fins',
-    name: 'Aletas Aerodinámicas',
-    desc: 'Aletas laterales escalonadas en los flancos con curvatura tangencial.',
-    tag: 'ALETAS 2D',
-    category: 'Minimalismo Sagrado',
+    id: 'crown',
+    name: 'Corona',
+    desc: 'Una diadema de picos; cada pico escucha un grupo de notas.',
+    tag: 'CORONA',
+    category: 'Contorno del kick',
+    param: { label: 'Picos', min: 3, max: 9, step: 1, def: 5 },
   },
   {
-    id: 'apex_prism',
-    name: 'Prisma de Ápice',
-    desc: 'Crestas triangulares puras con aristas de difracción óptica reflectante.',
-    tag: 'PRISMA',
-    category: 'Minimalismo Sagrado',
+    id: 'flame',
+    name: 'Flama',
+    desc: 'Lenguas de fuego que se inclinan hacia arriba; cada una sigue una zona del espectro.',
+    tag: 'FLAMA',
+    category: 'Contorno del kick',
+    param: { label: 'Lenguas', min: 6, max: 24, step: 1, def: 12 },
   },
   {
-    id: 'harmonic_crown',
-    name: 'Corona Armónica',
-    desc: 'Cruz simétrica de 4 crestas perpendiculares con precisión matemática.',
-    tag: 'CORONA 4C',
-    category: 'Minimalismo Sagrado',
+    id: 'wings',
+    name: 'Alas',
+    desc: 'Plumas que se abren a los lados con el ritmo del bombo.',
+    tag: 'ALAS',
+    category: 'Contorno del kick',
   },
   {
-    id: 'hyperbolic_arcs',
-    name: 'Arcos Hiperbólicos',
-    desc: 'Arcos curvados con deflexión tangencial y tensión de resorte.',
-    tag: 'ARCOS 2D',
-    category: 'Minimalismo Sagrado',
-  },
-  {
-    id: 'laser_needles',
-    name: 'Agujas Láser Hairline',
-    desc: 'Trazos ultrafinos de 0.75px con micro-destellos en percusión.',
-    tag: 'LÁSER 2D',
-    category: 'Minimalismo Sagrado',
-  },
-  {
-    id: 'sphere',
-    name: 'Núcleo Minimal Difuminado',
-    desc: 'Aura de resplandor suave con capas de degradado radiante fluido y micro-surcos de vinilo.',
-    tag: 'SPHERE 2D',
-    category: 'Núcleo Minimal',
+    id: 'notes',
+    name: 'Reloj de Notas',
+    desc: 'El contorno se hincha en el ángulo de cada una de las 12 notas.',
+    tag: 'NOTAS',
+    category: 'Contorno del kick',
   },
   {
     id: 'spikes',
-    name: 'Corona de Picos FFT Reactiva',
-    desc: '48 agujas cristalinas radiales con micro-partículas brillantes disparadas por percusión.',
-    tag: 'CORONA 48',
-    category: 'Frecuencias & Picos',
+    name: 'Púas',
+    desc: 'Cuarenta púas simétricas que siguen el espectro del audio.',
+    tag: 'PÚAS',
+    category: 'Contorno del kick',
   },
   {
     id: 'fractal',
-    name: 'Mándala Sagrada Multicapa',
-    desc: 'Mándala de 4 capas con pétalos oscilantes y vibración armónica reactiva.',
-    tag: 'MÁNDALA 4L',
-    category: 'Geometría Sagrada',
-  },
-  {
-    id: 'wave_peaks',
-    name: 'Halo de Ondas Reactivas',
-    desc: 'Halo orbital alrededor del círculo con picos ondulantes que viajan con el ritmo y reaccionan al kick.',
-    tag: 'HALO ONDAS',
-    category: 'Crestas & Ondas',
-  },
-  {
-    id: 'wave',
-    name: 'Ondas de Frecuencia Líquida',
-    desc: 'Cintas de ondas radiales moduladas fluidamente por el espectro de frecuencia.',
-    tag: 'ONDAS LÍQUIDAS',
-    category: 'Cintas & Ondas',
-  },
-  {
-    id: 'torus',
-    name: 'Anillo Neón Orbital',
-    desc: 'Banda elíptica neón en rotación dual modulada por los tonos bajos.',
-    tag: 'TOROIDE DUAL',
-    category: 'Órbitas & Anillos',
-  },
-  {
-    id: 'nebula',
-    name: 'Nebulosa / Aurora Líquida',
-    desc: '16 auroras de gas cósmico cromático con flujo turbulento y dispersión atmosférica.',
-    tag: 'AURORA 2D',
-    category: 'Efectos Atmosféricos',
-  },
-  {
-    id: 'cloud',
-    name: 'Nube Efervescente',
-    desc: 'Partículas flotantes que emergen del núcleo hacia el halo exterior.',
-    tag: 'ENJAMBRE 2D',
-    category: 'Efectos Atmosféricos',
+    name: 'Solo mándala',
+    desc: 'La Mándala Sagrada sin contorno: anillos de pétalos que escuchan cada banda.',
+    tag: 'MÁNDALA',
+    category: 'Base',
+    param: { label: 'Anillos', min: 2, max: 6, step: 1, def: 4 },
   },
 ];
+
+/** Acabado del contorno: neón (trazo + brillo), cristal (translúcido) o tinta (sólido) */
+export const KICK_FORM_STYLES: Array<{ id: KickFormStyle; name: string; desc: string }> = [
+  { id: 'neon', name: 'Neón', desc: 'Trazo brillante' },
+  { id: 'glass', name: 'Cristal', desc: 'Translúcido' },
+  { id: 'ink', name: 'Tinta', desc: 'Sólido' },
+];
+
+export const DEFAULT_VOID_EFFECT: BlobShape = 'cat';
+
+/** Valores por defecto de la personalización de efectos */
+export const DEFAULT_VOID_FX_SETTINGS: VoidFxSettings = {
+  intensity: 1,
+  reach: 1,
+  glow: 1,
+  inner: true,
+  mandala: true,
+  shockwave: false,
+  colorMode: 'palette',
+  counts: {},
+  formStyle: 'neon',
+  formScale: 1.15,
+};
+
+/** Combina la personalización guardada con los valores por defecto para un efecto concreto */
+export const resolveVoidFx = (settings: Partial<VoidFxSettings> | undefined, id: BlobShape): VoidFxParams => {
+  const merged = { ...DEFAULT_VOID_FX_SETTINGS, ...settings };
+  const meta = RAINBOW_VOID_EFFECTS.find((fx) => fx.id === id)?.param;
+  const raw = merged.counts?.[id as string] ?? meta?.def ?? 1;
+  const count = meta ? Math.max(meta.min, Math.min(meta.max, raw)) : raw;
+  return {
+    intensity: merged.intensity,
+    reach: merged.reach,
+    glow: merged.glow,
+    inner: merged.inner,
+    boom: merged.shockwave,
+    colorMode: merged.colorMode,
+    count,
+    mandala: merged.mandala !== false,
+    formStyle: merged.formStyle,
+    formScale: merged.formScale,
+  };
+};
+
+/**
+ * Los presets antiguos guardan formas que ya no existen en Rainbow Void.
+ * Cada una se traduce al efecto nuevo más parecido en carácter.
+ */
+const LEGACY_SHAPE_TO_VOID: Record<string, BlobShape> = {
+  icosahedron: 'crown',
+  octahedron: 'horns',
+  nebula: 'wings',
+  wave: 'notes',
+  rings: 'notes',
+  torus: 'notes',
+  cloud: 'wings',
+  spikes: 'spikes',
+  bars: 'spikes',
+  laser: 'spikes',
+  sphere: 'cat',
+  vortex: 'flame',
+  kaleidoscope: 'flame',
+};
+
+/** Presets de fábrica cuyo nombre pide un contorno concreto */
+const PRESET_EFFECT_OVERRIDES: Record<string, BlobShape> = {
+  factory_ethereal_aurora: 'wings',
+  factory_zenith_tidal_ripples: 'notes',
+  factory_retro_synthwave: 'crown',
+  factory_crimson_blood_horizon: 'flame',
+  factory_midnight_cyber_rain: 'horns',
+  factory_rainbow_void: 'cat',
+};
+
+/** Efecto de Rainbow Void que corresponde a un preset (propio o guardado por el usuario) */
+export const voidEffectForPreset = (preset: { id?: string; visualizerShape: string }): BlobShape => {
+  if (preset.id && PRESET_EFFECT_OVERRIDES[preset.id]) return PRESET_EFFECT_OVERRIDES[preset.id];
+  if (isVoidEffectId(preset.visualizerShape)) return preset.visualizerShape;
+  return LEGACY_SHAPE_TO_VOID[preset.visualizerShape] ?? DEFAULT_VOID_EFFECT;
+};
+
+/** true si el id pertenece al catálogo actual de Rainbow Void (descarta ids antiguos guardados) */
+export const isVoidEffectId = (id: unknown): id is BlobShape =>
+  typeof id === 'string' && RAINBOW_VOID_EFFECTS.some((fx) => fx.id === id);
 
 export interface AtmosphereOption {
   id: BackgroundAtmosphere;

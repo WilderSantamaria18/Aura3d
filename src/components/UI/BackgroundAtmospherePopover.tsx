@@ -78,7 +78,7 @@ export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverPr
 
   const handleResetDefaults = () => {
     updateBlobSettings({
-      backgroundOpacity: 0.85,
+      backgroundOpacity: 1,
       backgroundFit: 'cover',
       backgroundScale: 1.0,
       backgroundBlur: 0,
@@ -361,7 +361,7 @@ export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverPr
                   <div className="flex justify-between text-[11px] font-mono text-white/70">
                     <span>Opacidad del Fondo</span>
                     <span className="text-white font-mono">
-                      {Math.round((blobSettings.backgroundOpacity ?? 0.85) * 100)}%
+                      {Math.round((blobSettings.backgroundOpacity ?? 1) * 100)}%
                     </span>
                   </div>
                   <input
@@ -369,7 +369,7 @@ export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverPr
                     min="0.05"
                     max="1"
                     step="0.05"
-                    value={blobSettings.backgroundOpacity ?? 0.85}
+                    value={blobSettings.backgroundOpacity ?? 1}
                     onChange={(e) => updateBlobSettings({ backgroundOpacity: parseFloat(e.target.value) })}
                     className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
                   />

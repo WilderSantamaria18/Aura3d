@@ -57,12 +57,12 @@ interface WallpaperState {
 }
 
 const DEFAULT_SETTINGS: WallpaperApplicationSettings = {
-  opacity: 0.85,
+  opacity: 1,
   blur: 0,
   brightness: 1.0,
   saturation: 1.0,
   blendMode: 'normal',
-  vignette: true,
+  vignette: false,
 };
 
 export const useWallpaperStore = create<WallpaperState>()(
@@ -128,7 +128,22 @@ export const useWallpaperStore = create<WallpaperState>()(
           // Ignore
         }
       },
-      resetApplicationSettings: () => set({ applicationSettings: DEFAULT_SETTINGS }),
+      resetApplicationSettings: () => {
+        set({ applicationSettings: DEFAULT_SETTINGS });
+        try {
+          usePlayerStore.getState().updateBlobSettings({
+            backgroundOpacity: DEFAULT_SETTINGS.opacity,
+            backgroundBlur: DEFAULT_SETTINGS.blur,
+            backgroundFit: 'cover',
+            backgroundScale: 1,
+            backgroundContrastMode: 'text_clarity',
+            backgroundTextScrim: 0.35,
+            backgroundThemeTint: 0.35,
+          });
+        } catch {
+          // Ignore
+        }
+      },
 
       backgroundMode: 'atmosphere',
       setBackgroundMode: (backgroundMode) => {

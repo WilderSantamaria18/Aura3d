@@ -37,6 +37,45 @@ export type VisualizerShape =
   | 'quantum_gyro'
   | 'lotus_mandala'
   | 'radar_heartbeat';
+/** Efectos 2D minimalistas de Rainbow Void */
+/** La Mándala Sagrada es siempre la base; cada efecto es un contorno del kick que reacciona a la música ('fractal' = solo la mándala) */
+export type VoidEffectId = 'fractal' | 'cat' | 'bunny' | 'horns' | 'crown' | 'flame' | 'wings' | 'notes' | 'spikes';
+export type VoidColorMode = 'palette' | 'spectrum' | 'mono';
+/** Acabado de la forma: neón (trazo + brillo), cristal (translúcido) o tinta (sólido) */
+export type KickFormStyle = 'neon' | 'glass' | 'ink';
+
+/** Personalización guardada de los efectos de Rainbow Void */
+export interface VoidFxSettings {
+  intensity: number;
+  reach: number;
+  glow: number;
+  inner: boolean;
+  /** Dibuja la Mándala Sagrada bajo el contorno (apagado = solo el contorno) */
+  mandala: boolean;
+  /** Ondas de choque del bombo (apagadas por defecto; se activan en Ajustes) */
+  shockwave: boolean;
+  colorMode: VoidColorMode;
+  /** Cantidad de elementos por efecto (anillos, picos, lenguas…) */
+  counts: Record<string, number>;
+  formStyle: KickFormStyle;
+  /** Tamaño de la forma respecto al disco */
+  formScale: number;
+}
+
+/** Parámetros ya resueltos que recibe el dibujo de un efecto */
+export interface VoidFxParams {
+  intensity: number;
+  reach: number;
+  glow: number;
+  inner: boolean;
+  boom: boolean;
+  colorMode: VoidColorMode;
+  count: number;
+  mandala: boolean;
+  formStyle: KickFormStyle;
+  formScale: number;
+}
+export type BlobShape = VisualizerShape | VoidEffectId;
 export type WaveEffectMode = 'concentric' | 'sinusoidal' | 'spiral' | 'void' | 'off';
 
 
@@ -374,6 +413,8 @@ export interface BlobCustomSettings {
   peripheralShapeCount?: 2 | 4;
   strokeHairline?: 0.75 | 1.0 | 1.5;
   kickIntensity?: number;
+  /** Personalización de los efectos 2D de Rainbow Void */
+  voidFx?: VoidFxSettings;
   crestStretch?: number;
   crestBassBoost?: number;
   crestNoteMovement?: number;

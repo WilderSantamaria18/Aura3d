@@ -1,4 +1,5 @@
-import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, WaveEffectMode, VisualizerMode, LucidTheme } from '../types/audio';
+import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, BlobShape, WaveEffectMode, VisualizerMode, LucidTheme } from '../types/audio';
+import { DEFAULT_VOID_EFFECT, DEFAULT_VOID_FX_SETTINGS, isVoidEffectId } from '../config/visualPresets';
 
 const STORAGE_KEYS = {
   PLAYLISTS: 'auralis_playlists_v1',
@@ -37,8 +38,8 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   haloColor1: '#ff088a',
   haloColor2: '#00f2fe',
   isRainbowMode: true,
-  circleSize: 179, // Diámetro Núcleo (Void): 179px
-  haloSize: 202,   // Diámetro Halo Exterior: 202px
+  circleSize: 340, // Diámetro Núcleo (Void): 340px
+  haloSize: 382,   // Diámetro Halo Exterior: 382px
   posX: 50,
   posY: 50,
   bassBoost: 2.8,  // Reacción al Bajo (Bass): Multiplicador de 2.8x
@@ -47,11 +48,11 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   customLogoUrl: null,
   scaleSensitivity: 1.40, // Sensibilidad de Escala: 1.40x
   customBackgroundImage: null,
-  backgroundOpacity: 0.85,
+  backgroundOpacity: 1,
   backgroundFit: 'cover',
   backgroundScale: 1.0,
   backgroundContrastMode: 'text_clarity',
-  backgroundTextScrim: 0.65,
+  backgroundTextScrim: 0.35,
   backgroundThemeTint: 0.35,
   backgroundAtmosphere: 'none', // Por defecto desactivado (fondo limpio etéreo)
   atmosphereSpeed: 1.0,
@@ -83,6 +84,7 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   peripheralShapeCount: 2,
   strokeHairline: 0.75,
   kickIntensity: 1.0,
+  voidFx: DEFAULT_VOID_FX_SETTINGS,
   crestStretch: 1.0,
   crestBassBoost: 1.6,
   crestNoteMovement: 1.0,
@@ -346,7 +348,16 @@ export class StorageService {
   public static getBlobSettings(): BlobCustomSettings {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.BLOB_SETTINGS);
-      return data ? { ...DEFAULT_BLOB_SETTINGS, ...JSON.parse(data) } : DEFAULT_BLOB_SETTINGS;
+      if (!data) return DEFAULT_BLOB_SETTINGS;
+      const merged = { ...DEFAULT_BLOB_SETTINGS, ...JSON.parse(data) };
+      // Migración única: el núcleo antiguo (≤ 220 px) se veía diminuto; se pasa al nuevo tamaño estándar
+      if (localStorage.getItem('aura_void_core_v3') !== '1') {
+        if (!merged.circleSize || merged.circleSize < 330) merged.circleSize = DEFAULT_BLOB_SETTINGS.circleSize;
+        if (!merged.haloSize || merged.haloSize < merged.circleSize + 20) merged.haloSize = DEFAULT_BLOB_SETTINGS.haloSize;
+        localStorage.setItem(STORAGE_KEYS.BLOB_SETTINGS, JSON.stringify(merged));
+        localStorage.setItem('aura_void_core_v3', '1');
+      }
+      return merged;
     } catch {
       return DEFAULT_BLOB_SETTINGS;
     }
@@ -479,15 +490,17 @@ export class StorageService {
   }
 
   // ── RainbowBlob 2D Isolated Config Persistence ───────────────────
-  public static getBlobShape(): VisualizerShape {
+  public static getBlobShape(): BlobShape {
     try {
-      return (localStorage.getItem(STORAGE_KEYS.BLOB_SHAPE) as VisualizerShape) || 'sphere';
+      const stored = localStorage.getItem(STORAGE_KEYS.BLOB_SHAPE);
+      // Los efectos antiguos ya no existen: se migran a la Mándala Sagrada
+      return isVoidEffectId(stored) ? stored : DEFAULT_VOID_EFFECT;
     } catch {
-      return 'sphere';
+      return DEFAULT_VOID_EFFECT;
     }
   }
 
-  public static saveBlobShape(shape: VisualizerShape): void {
+  public static saveBlobShape(shape: BlobShape): void {
     try {
       localStorage.setItem(STORAGE_KEYS.BLOB_SHAPE, shape);
     } catch (e) {

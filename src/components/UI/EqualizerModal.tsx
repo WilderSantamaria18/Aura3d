@@ -491,7 +491,7 @@ export const EqualizerModal: React.FC = () => {
         <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
             <div
-              className="w-8 h-8 rounded-[10px] bg-white/[0.08] border border-white/[0.12] flex items-center justify-center transition-colors shadow-sm"
+              className="glass-item !rounded-2xl w-9 h-9 flex items-center justify-center"
               style={{ color: isLucid ? activeColor : '#ffffff' }}
             >
               <Sliders className="w-4 h-4" aria-hidden="true" />
@@ -525,10 +525,10 @@ export const EqualizerModal: React.FC = () => {
               onClick={handleToggleBypass}
               aria-pressed={isBypassed}
               aria-label={isBypassed ? 'Desactivar modo Bypass' : 'Activar modo Bypass a 0dB'}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-display font-tabular font-bold tracking-wider uppercase border btn-spring flex items-center gap-2 cursor-pointer transition-all ${
+              className={`glass-btn px-4 py-1.5 min-h-[36px] text-[11px] font-display font-tabular font-bold tracking-wider uppercase flex items-center gap-2 ${
                 isBypassed
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/35 shadow-[0_0_14px_rgba(245,158,11,0.25)]'
-                  : 'bg-white/[0.06] text-white/90 border-white/[0.12] hover:bg-white/[0.12] hover:text-white shadow-sm'
+                  ? 'is-active text-amber-100 [--glass-accent:245,158,11]'
+                  : 'text-white/90 hover:text-white'
               }`}
               title="Alternar entre Ecualizador Activo y Bypass 0dB (A/B Test)"
             >
@@ -545,7 +545,7 @@ export const EqualizerModal: React.FC = () => {
             {/* iOS Circle Close Button */}
             <button
               onClick={() => setEqualizerOpen(false)}
-              className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/10 active:scale-95 transition-all cursor-pointer"
+              className="glass-btn w-9 h-9 text-white/75 hover:text-white flex items-center justify-center"
               aria-label="Cerrar ecualizador"
             >
               <X className="w-4 h-4" />
@@ -567,7 +567,7 @@ export const EqualizerModal: React.FC = () => {
               </span>
               <span>{isBypassed ? 'Modo Bypass Flat' : 'Filtros Activos'}</span>
             </div>
-            <div className="w-full relative pt-0.5 bg-black/35 rounded-[16px] border border-white/[0.08] p-1.5 overflow-hidden backdrop-blur-md">
+            <div className="glass-card w-full relative !p-2 overflow-hidden">
               <canvas
                 ref={canvasRef}
                 onPointerDown={handleCanvasPointerDown}
@@ -635,12 +635,12 @@ export const EqualizerModal: React.FC = () => {
                     onClick={() => handleApplyPreset(preset)}
                     aria-pressed={isSelected}
                     aria-label={`Aplicar preset ${preset.name}`}
-                    className={`min-h-[46px] px-3 py-2 rounded-[12px] border text-left flex flex-col justify-between btn-spring transition-all cursor-pointer backdrop-blur-sm ${
+                    className={`glass-item !rounded-2xl min-h-[48px] px-3.5 py-2 text-left flex flex-col justify-between cursor-pointer ${
                       isSelected
                         ? isLucid
-                          ? 'text-white shadow-md'
-                          : 'bg-white/[0.18] border-white/40 text-white shadow-md ring-1 ring-white/20'
-                        : 'bg-white/[0.04] border-white/[0.07] hover:border-white/[0.18] hover:bg-white/[0.08] text-white/80 hover:text-white'
+                          ? 'is-active text-white'
+                          : 'is-active text-white'
+                        : 'text-white/80 hover:text-white'
                     }`}
                     style={
                       isSelected && isLucid
@@ -671,7 +671,7 @@ export const EqualizerModal: React.FC = () => {
 
           {/* 3. Faders Verticales de Precisión */}
           <div className="pt-2 border-t border-white/[0.06]">
-            <div className="grid grid-cols-5 sm:grid-cols-10 divide-x divide-white/[0.04] bg-white/[0.02] backdrop-blur-md rounded-[16px] border border-white/[0.08] shadow-inner">
+            <div className="grid grid-cols-5 sm:grid-cols-10 glass-card !p-0 divide-x divide-white/[0.06] overflow-hidden">
               {eqBands.map((band, idx) => {
                 const cat = BAND_CATEGORIES[idx] || { tag: 'MID' };
 
@@ -731,7 +731,7 @@ export const EqualizerModal: React.FC = () => {
                         }}
                         disabled={isBypassed || band.gain <= -12}
                         aria-label={`Disminuir ${band.label} 0.5 dB`}
-                        className="w-5 h-5 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] text-white/80 hover:text-white text-[11px] font-bold disabled:opacity-20 transition-all cursor-pointer shadow-sm active:scale-90"
+                        className="glass-btn w-6 h-6 flex items-center justify-center text-white/85 hover:text-white text-[11px] font-bold disabled:opacity-20"
                         title="Bajar 0.5dB"
                       >
                         -
@@ -743,7 +743,7 @@ export const EqualizerModal: React.FC = () => {
                         }}
                         disabled={isBypassed || band.gain >= 12}
                         aria-label={`Aumentar ${band.label} 0.5 dB`}
-                        className="w-5 h-5 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] text-white/80 hover:text-white text-[11px] font-bold disabled:opacity-20 transition-all cursor-pointer shadow-sm active:scale-90"
+                        className="glass-btn w-6 h-6 flex items-center justify-center text-white/85 hover:text-white text-[11px] font-bold disabled:opacity-20"
                         title="Subir 0.5dB"
                       >
                         +

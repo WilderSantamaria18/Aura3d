@@ -54,13 +54,12 @@ import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { LucidToggle } from './LucidToggle';
 import { BackgroundAtmospherePopover } from './BackgroundAtmospherePopover';
-import { VideoRecorderButton } from './VideoRecorderButton';
+import { CaptureStudioButton } from '../../capture/components/CaptureStudioButton';
 import { useRecorderStore } from '../../store/recorderStore';
 import { BpmMeter } from './BpmMeter';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { AuraMindRadar } from './AuraMindRadar';
 import { MiniSpectrumBars } from './MiniSpectrumBars';
-import { captureVisualizerSnapshot } from '../../utils/snapshotCapture';
 import { RADIO_STATIONS } from '../../config/radioStations';
 import { soundscapeEngine, type SoundscapeType, type SoundscapesConfig } from '../../services/soundscapeEngine';
 import { harmonicAnalysisService, type HarmonicKeyResult } from '../../services/harmonicAnalysisService';
@@ -155,6 +154,7 @@ export const HeaderBar: React.FC = () => {
     isSidebarOpen,
     setSidebarOpen,
     currentTrack,
+    queue,
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
@@ -223,8 +223,6 @@ export const HeaderBar: React.FC = () => {
   const [soundscapeConfig, setSoundscapeConfig] = useState<SoundscapesConfig>(soundscapeEngine.getConfig());
   const [soundscapeActiveCount, setSoundscapeActiveCount] = useState(0);
   const [harmonicKey, setHarmonicKey] = useState<HarmonicKeyResult>(harmonicAnalysisService.getLastResult());
-  const [isCapturingSnapshot, setIsCapturingSnapshot] = useState(false);
-  const [snapshotSuccess, setSnapshotSuccess] = useState(false);
   const [isPipActive, setIsPipActive] = useState(false);
 
   const hasActiveBg =
@@ -283,22 +281,6 @@ export const HeaderBar: React.FC = () => {
     });
     return unsub;
   }, []);
-
-  const handleCaptureSnapshot = async () => {
-    if (isCapturingSnapshot) return;
-    setIsCapturingSnapshot(true);
-    const ok = await captureVisualizerSnapshot({
-      resolution: captureQuality || '4k',
-      aspectRatio: captureAspectRatio || '16:9',
-      trackTitle: currentTrack?.title || 'Aura3D_Visualizer',
-      includeWatermark: true,
-    });
-    if (ok) {
-      setSnapshotSuccess(true);
-      setTimeout(() => setSnapshotSuccess(false), 1800);
-    }
-    setIsCapturingSnapshot(false);
-  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -384,11 +366,12 @@ export const HeaderBar: React.FC = () => {
       ref={menuRef}
       className="w-full flex items-center justify-start px-3 sm:px-6 md:px-8 pt-2 sm:pt-3 pointer-events-none select-none font-sans"
     >
-      <div className="w-auto liquid-glass liquid-glass--pill flex items-center px-2.5 sm:px-3.5 py-1 pointer-events-auto gap-1.5 sm:gap-2">
+      <div className="w-full flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
         {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
         <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
           <div
-            className="w-6 h-6 rounded-full flex items-center justify-center bg-white/[0.06] border border-white/10 border-t-white/20 shadow-sm transition-colors"
+            className="glass-item !rounded-full w-9 h-9 flex items-center justify-center"
             style={{ borderColor: isLucid ? `${activeAccent}40` : undefined }}
           >
             <Disc3 className="w-3.5 h-3.5" style={{ color: activeAccent }} />
@@ -396,7 +379,7 @@ export const HeaderBar: React.FC = () => {
 
           <div className="hidden min-[380px]:flex flex-col min-w-0">
             <div className="flex items-center gap-1">
-              <span className="font-semibold tracking-[0.1em] font-display text-[11px] uppercase text-white/95">
+              <span className="font-semibold tracking-[0.1em] font-display text-[13px] uppercase text-white/95">
                 Auralis
               </span>
               <span className="text-[7.5px] tracking-wider uppercase font-mono px-1 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
@@ -406,7 +389,7 @@ export const HeaderBar: React.FC = () => {
             </div>
 
             {currentTrack && (
-              <div className="hidden md:flex items-center gap-1 text-[9px] text-white/50 truncate max-w-[100px] lg:max-w-[130px]">
+              <div className="hidden md:flex items-center gap-1 text-[11px] text-white/55 truncate max-w-[150px] lg:max-w-[210px]">
                 <span className="truncate text-white/80 font-medium">{currentTrack.title}</span>
                 <span className="text-white/30">•</span>
                 <span className="truncate text-white/50">{currentTrack.artist}</span>
@@ -417,7 +400,7 @@ export const HeaderBar: React.FC = () => {
           {/* Global Command Palette Chip */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="hidden 2xl:flex items-center gap-1 px-2 py-0.5 h-6.5 sm:h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 border-t-white/20 text-[8.5px] font-mono text-white/70 hover:text-white transition-all shadow-sm pointer-events-auto ml-0.5 cursor-pointer active:scale-95"
+            className="glass-btn hidden min-[1700px]:flex items-center gap-1 px-2.5 h-7 text-[8.5px] font-mono text-white/80 hover:text-white pointer-events-auto ml-0.5"
             title="Abrir Paleta Universal de Comandos (Ctrl+K / ⌘K)"
           >
             <Keyboard className="w-2.5 h-2.5 text-cyan-400" />
@@ -426,7 +409,38 @@ export const HeaderBar: React.FC = () => {
           </button>
         </div>
 
-        <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block flex-shrink-0" />
+        <div className="w-px h-6 bg-white/10 mx-1 flex-shrink-0" />
+
+        {/* Vistas: acceso directo a Biblioteca (lista de reproducción), Letras y Ecualizador */}
+        <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Vistas">
+          {[
+            { key: 'lib', label: 'Biblioteca y lista de reproducción (B)', icon: ListMusic, active: isSidebarOpen, badge: queue.length, onClick: () => setSidebarOpen(!isSidebarOpen) },
+            { key: 'lyr', label: 'Letras sincronizadas', icon: AlignLeft, active: isLyricsOpen, badge: 0, onClick: () => setLyricsOpen(!isLyricsOpen) },
+            { key: 'eq', label: 'Ecualizador (E)', icon: Sliders, active: isEqualizerOpen, badge: 0, onClick: () => setEqualizerOpen(!isEqualizerOpen) },
+          ].map((v) => {
+            const Icon = v.icon;
+            return (
+              <button
+                key={v.key}
+                type="button"
+                onClick={v.onClick}
+                aria-pressed={v.active}
+                aria-label={v.label}
+                title={v.label}
+                className={`glass-btn relative w-9 h-9 flex items-center justify-center ${v.active ? 'is-active text-white' : 'text-white/75 hover:text-white'}`}
+              >
+                <Icon className="w-[18px] h-[18px]" />
+                {v.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-cyan-400 text-black text-[10px] font-mono font-bold flex items-center justify-center leading-none">
+                    {v.badge > 99 ? '99+' : v.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
 
         {/* ── CLUSTER 2 (Center): Stage, DSP Studio & Live Harmony Hub ── */}
         <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
@@ -441,16 +455,16 @@ export const HeaderBar: React.FC = () => {
                 aria-haspopup="true"
                 aria-expanded={activeMenu === 'visualizers'}
                 aria-label="Seleccionar modo de visualización"
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
+                className={`flex items-center gap-1 sm:gap-1.5 glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
                   activeMenu === 'visualizers'
-                    ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                    : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/90 shadow-sm'
+                    ? 'is-active text-white [--glass-accent:0,229,255]'
+                    : 'text-white/90 shadow-sm'
                 }`}
                 title="Seleccionar Modo de Visualización (Rainbow Void, Synthwave 3D, Warp, Terreno)"
               >
-                <VizIcon className={`w-3 h-3 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
-                <span className="font-medium text-[9.5px] sm:text-[10px]">{currentViz.name}</span>
-                <ChevronDown className="w-2.5 h-2.5 text-white/50" />
+                <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
+                <span className="font-medium text-[12px]">{currentViz.name}</span>
+                <ChevronDown className="w-3 h-3 $1" />
               </button>
             );
           })()}
@@ -459,7 +473,7 @@ export const HeaderBar: React.FC = () => {
             <div
               role="menu"
               aria-label="Modos de visualización interactivos"
-              className="fixed inset-x-3 top-14 max-w-[290px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 select-none text-white font-sans"
+              className="fixed inset-x-3 top-14 max-w-[290px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-3 sm:w-80 liquid-glass liquid-glass--card z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 select-none text-white font-sans"
             >
               <div className="flex items-center justify-between px-2 pt-0.5 pb-1.5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
@@ -485,15 +499,15 @@ export const HeaderBar: React.FC = () => {
                         setVisualizerMode(viz.id as any);
                         setActiveMenu(null);
                       }}
-                      className={`flex items-center justify-between p-2 min-h-[42px] rounded-xl transition-all cursor-pointer ${
+                      className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                         isActive
-                          ? 'bg-white/15 text-white border border-white/20 font-semibold shadow-sm'
-                          : 'text-white/80 hover:text-white hover:bg-white/[0.06] border border-transparent'
+                          ? 'is-active text-white font-semibold'
+                          : 'text-white/85 hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
                             isActive
                               ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-sm'
                               : 'bg-white/[0.05] text-white/60'
@@ -503,10 +517,10 @@ export const HeaderBar: React.FC = () => {
                         </div>
                         <div className="flex flex-col text-left">
                           <span className="font-semibold text-xs text-white tracking-tight">{viz.name}</span>
-                          <span className="text-[9.5px] text-white/50 tracking-tight font-sans">{viz.desc}</span>
+                          <span className="text-[11px] text-white/55 tracking-tight font-sans">{viz.desc}</span>
                         </div>
                       </div>
-                      {isActive && <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff]" />}
+                      {isActive && <div className="w-2 h-2 rounded-full bg-cyan-400" />}
                     </button>
                   );
                 })}
@@ -520,15 +534,15 @@ export const HeaderBar: React.FC = () => {
           <button
             onClick={() => toggleCameraStudio()}
             aria-label="Spatial Camera Studio"
-            className={`flex items-center gap-1.5 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
+            className={`flex items-center gap-1.5 glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
               isCameraStudioOpen
-                ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white shadow-sm'
+                ? 'is-active text-white [--glass-accent:0,229,255]'
+                : 'text-white/80 hover:text-white shadow-sm'
             }`}
             title="Spatial Camera Studio: Sintetizadores, Batería y Theremin 3D con tus Manos"
           >
             <Camera className={`w-3.5 h-3.5 ${isCameraStudioOpen ? 'text-cyan-400' : 'text-white/70'}`} />
-            <span className="hidden sm:inline text-[9.5px] sm:text-[10.5px]">Cámara 3D</span>
+            <span className="hidden min-[1700px]:inline text-[12px]">Cámara 3D</span>
             {isCameraStudioOpen && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
           </button>
         </div>
@@ -537,10 +551,10 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => handleToggleMenu('intel_hub')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
+            className={`flex items-center gap-1.5 glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
               activeMenu === 'intel_hub' || soundscapeActiveCount > 0
-                ? 'border-purple-400/50 bg-purple-500/20 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
-                : 'border-white/10 border-t-white/20 bg-white/[0.06] hover:bg-white/[0.12] text-white/85 hover:text-white shadow-sm'
+                ? 'is-active text-white [--glass-accent:168,85,247]'
+                : 'text-white/85 hover:text-white shadow-sm'
             }`}
             title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
           >
@@ -548,15 +562,15 @@ export const HeaderBar: React.FC = () => {
             <span className="text-[8px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[3px] border border-purple-500/30">
               {harmonicKey.camelot}
             </span>
-            <span className="hidden 2xl:inline text-[9.5px] sm:text-[10px] font-medium text-white/80">
+            <span className="hidden min-[1700px]:inline text-[12px] font-medium text-white/80">
               {harmonicKey.shortKey !== '--' ? harmonicKey.shortKey : 'Tonalidad'}
             </span>
 
-            <span className="text-white/20 hidden 2xl:inline">|</span>
+            <span className="text-white/20 hidden min-[1700px]:inline">|</span>
 
             {/* Soundscapes indicator */}
             <span className="text-[11px] flex items-center gap-1 text-cyan-300">
-              <Waves className="w-3 h-3 text-cyan-400" />
+              <Waves className="w-3.5 h-3.5 text-cyan-400" />
               {soundscapeActiveCount > 0 && (
                 <span className="text-[9px] px-1 bg-cyan-400 text-black font-bold rounded-full">
                   {soundscapeActiveCount}
@@ -564,15 +578,15 @@ export const HeaderBar: React.FC = () => {
               )}
             </span>
 
-            <span className="text-white/20 hidden 2xl:inline">|</span>
+            <span className="text-white/20 hidden min-[1700px]:inline">|</span>
 
             {/* Mood indicator */}
-            <span className="hidden 2xl:flex items-center gap-1 text-[11px] text-amber-300">
-              <Sparkles className="w-3 h-3 text-amber-400" />
+            <span className="hidden min-[1700px]:flex items-center gap-1 text-[11px] text-amber-300">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-white/80">{moodLabels[mood]?.label}</span>
             </span>
 
-            <ChevronDown className="w-2.5 h-2.5 text-white/40 ml-0.5" />
+            <ChevronDown className="w-3 h-3 $1 ml-0.5" />
           </button>
 
           {/* Popover Unificado del Hub de Inteligencia */}
@@ -590,12 +604,12 @@ export const HeaderBar: React.FC = () => {
               </div>
 
               {/* Selector de Pestañas del Hub (Apple Segmented Control) */}
-              <div className="p-1 rounded-xl bg-black/40 border border-white/10 backdrop-blur-xl grid grid-cols-3 gap-1">
+              <div className="glass-input !rounded-2xl p-1 grid grid-cols-3 gap-1">
                 <button
                   onClick={() => setIntelTab('harmonic')}
-                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'harmonic'
-                      ? 'bg-purple-500/25 text-purple-200 border border-purple-500/40 shadow-sm backdrop-blur-md'
+                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                       : 'text-white/50 hover:text-white/80'
                   }`}
                 >
@@ -604,9 +618,9 @@ export const HeaderBar: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setIntelTab('soundscapes')}
-                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'soundscapes'
-                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/40 shadow-sm backdrop-blur-md'
+                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                       : 'text-white/50 hover:text-white/80'
                   }`}
                 >
@@ -615,9 +629,9 @@ export const HeaderBar: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setIntelTab('auramind')}
-                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     intelTab === 'auramind'
-                      ? 'bg-amber-500/25 text-amber-200 border border-amber-500/40 shadow-sm backdrop-blur-md'
+                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                       : 'text-white/50 hover:text-white/80'
                   }`}
                 >
@@ -635,7 +649,7 @@ export const HeaderBar: React.FC = () => {
                     const compatibleCamelots = getCompatibleCamelots(harmonicKey.camelot);
                     return (
                       <>
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-purple-500/10 border border-purple-500/25">
+                        <div className="flex items-center justify-between glass-item [--glass-accent:168,85,247] is-active p-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-lg font-bold text-purple-300">
                               {harmonicKey.camelot}
@@ -657,9 +671,9 @@ export const HeaderBar: React.FC = () => {
                         </div>
 
                         {/* Mezclas Armónicas Compatibles */}
-                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                        <div className="glass-item p-2.5">
                           <div className="text-[10px] text-white/70 font-semibold mb-1 flex items-center gap-1">
-                            <Music2 className="w-3 h-3 text-purple-400" />
+                            <Music2 className="w-3.5 h-3.5 text-purple-400" />
                             <span>Transiciones Armónicas Compatibles:</span>
                           </div>
                           <div className="flex flex-wrap gap-1 pt-0.5">
@@ -675,7 +689,7 @@ export const HeaderBar: React.FC = () => {
                         </div>
 
                         {/* Rueda de Quintas Interactiva */}
-                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                        <div className="glass-item p-2.5">
                           <div className="text-[10px] text-white/50 mb-1.5 uppercase tracking-wider">
                             Círculo de Quintas
                           </div>
@@ -726,7 +740,7 @@ export const HeaderBar: React.FC = () => {
                           : 'bg-white/[0.05] text-white/60 border-white/[0.08] hover:text-white'
                       }`}
                     >
-                      {soundscapeConfig.masterMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                      {soundscapeConfig.masterMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                       <span>{soundscapeConfig.masterMuted ? 'Muteado' : 'Mute Todo'}</span>
                     </button>
                   </div>
@@ -739,15 +753,13 @@ export const HeaderBar: React.FC = () => {
                       return (
                         <div
                           key={ch.type}
-                          className={`p-2 rounded-xl border transition-all ${
-                            state.enabled
-                              ? 'bg-white/[0.05] border-cyan-500/30 shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.05] opacity-70'
+                          className={`glass-item p-2.5 ${
+                            state.enabled ? 'is-active' : 'opacity-70'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
+                              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
                                 <Icon className={`w-3.5 h-3.5 ${ch.accentColor}`} />
                               </div>
                               <div>
@@ -770,7 +782,7 @@ export const HeaderBar: React.FC = () => {
 
                           {state.enabled && (
                             <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-white/[0.04]">
-                              <Volume2 className="w-3 h-3 text-cyan-400/80" />
+                              <Volume2 className="w-3.5 h-3.5 text-cyan-400/80" />
                               <input
                                 type="range"
                                 min={0}
@@ -795,10 +807,10 @@ export const HeaderBar: React.FC = () => {
               {/* ── SUB-TAB 3: AURAMIND & TELEMETRÍA AI ── */}
               {intelTab === 'auramind' && (
                 <div className="flex flex-col gap-2.5 animate-in fade-in duration-150">
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
+                  <div className="glass-item [--glass-accent:245,158,11] is-active p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="w-3 h-3 rounded-full transition-transform"
+                        className="w-3.5 h-3.5 rounded-full transition-transform"
                         style={{
                           backgroundColor: aiColor,
                           boxShadow: `0 0 12px ${aiColor}`,
@@ -817,7 +829,7 @@ export const HeaderBar: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-white/70 space-y-1.5 font-sans leading-relaxed">
+                  <div className="glass-item p-3 text-xs text-white/70 space-y-1.5 font-sans leading-relaxed">
                     <p>
                       El motor de Inteligencia Artificial analiza el espectro FFT en tiempo real para clasificar la valencia emocional, la tonalidad y sincronizar el campo de energía visual.
                     </p>
@@ -828,11 +840,11 @@ export const HeaderBar: React.FC = () => {
                       setIsAuraMindOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+                    className="glass-btn is-active w-full min-h-[40px] py-2 px-4 text-white text-xs font-mono font-bold flex items-center justify-center gap-2"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>Abrir Radar 3D AuraMind Completo</span>
-                    <ExternalLink className="w-3 h-3 opacity-70" />
+                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
                   </button>
                 </div>
               )}
@@ -841,55 +853,21 @@ export const HeaderBar: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block flex-shrink-0" />
+      </div>
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
 
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
-        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-sm">
+        <div className="flex items-center gap-1 glass-item !rounded-full !p-0.5 !transform-none">
           <BpmMeter />
-          <div className="w-px h-3.5 bg-white/10 mx-0.5 hidden sm:block" />
-          <VideoRecorderButton
-            isOpen={activeMenu === 'recorder'}
-            onToggle={() => handleToggleMenu('recorder')}
-            onClose={() => setActiveMenu(null)}
-          />
-
-          {/* 4K Snapshot Wallpaper */}
-          <button
-            onClick={handleCaptureSnapshot}
-            disabled={isCapturingSnapshot}
-            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 ${
-              snapshotSuccess
-                ? 'text-emerald-300 bg-emerald-500/25 border border-emerald-400/40 font-bold'
-                : isCapturingSnapshot
-                ? 'text-cyan-300 animate-pulse bg-cyan-500/20'
-                : 'text-white/60 hover:text-white hover:bg-white/[0.1]'
-            }`}
-            title={`Captura Foto ${captureAspectRatio} (4K / Full HD)`}
-            aria-label="Captura Foto 4K"
-          >
-            {snapshotSuccess ? <Check className="w-3 h-3 text-emerald-300" /> : <Camera className="w-3 h-3" />}
-          </button>
-
-          {/* Ajustar Encuadre & Studio Capture Card */}
-          <button
-            onClick={() => toggleCaptureStudio()}
-            className={`w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 ${
-              isCaptureStudioOpen
-                ? 'text-cyan-300 bg-cyan-500/25 border border-cyan-400/40 font-bold'
-                : 'text-white/60 hover:text-white hover:bg-white/[0.1]'
-            }`}
-            title="Ajustar Encuadre de Pantalla & Suite de Grabación (9:16, 16:9, 1:1, 4:5)"
-            aria-label="Ajustar Encuadre de Grabación"
-          >
-            <Sliders className="w-3 h-3 text-cyan-400" />
-          </button>
+          <div className="w-px h-5 bg-white/10 mx-0.5 hidden sm:block" />
+          <CaptureStudioButton />
 
           {/* Aura Wallpaper & Atmosphere Studio */}
           <button
             onClick={() => useWallpaperStore.getState().togglePanel()}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
+            className="w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
             title="Aura Wallpaper Studio (Fondos 4K, Subir Foto, IA y Atmósferas - Atajo: W)"
             aria-label="Estudio de Fondos y Atmósfera"
           >
@@ -899,21 +877,21 @@ export const HeaderBar: React.FC = () => {
           {/* Auralis Story Card 9:16 Social Export & Studio */}
           <button
             onClick={() => useRecorderStore.getState().openModal('cards')}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
+            className="w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
             title="Aura3D Social Content Studio (Grabación 9:16 y Story Cards para Instagram/TikTok)"
             aria-label="Aura3D Social Studio"
           >
-            <Sparkles className="w-3 h-3 text-purple-400" />
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
           </button>
 
           {/* Ayuda & Atajos de Teclado (?) */}
           <button
             onClick={() => toggleShortcutsModal()}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
+            className="w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
             title="Ayuda y Atajos de Teclado (?)"
             aria-label="Ayuda y Atajos de Teclado"
           >
-            <HelpCircle className="w-3 h-3 text-cyan-400" />
+            <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
           </button>
         </div>
 
@@ -921,23 +899,23 @@ export const HeaderBar: React.FC = () => {
         <div className="relative">
           <button
             onClick={() => handleToggleMenu('studio')}
-            className={`px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
+            className={`glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
               activeMenu === 'studio' || isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive
-                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_12px_rgba(0,229,255,0.25)]'
-                : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border-white/10 border-t-white/20 shadow-sm'
+                ? 'is-active text-white [--glass-accent:0,229,255]'
+                : 'text-white/80 hover:text-white'
             }`}
             title="Estudio: Entradas de audio, Radios 24/7, Experiencias 3D y Picture-in-Picture"
           >
-            <Layers className="w-3 h-3 text-cyan-400" />
-            <span className="hidden md:inline text-[9.5px] sm:text-[10px]">Estudio</span>
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden min-[1700px]:inline text-[12px]">Estudio</span>
             {(isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive) && (
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             )}
-            <ChevronDown className="w-2.5 h-2.5 text-white/40" />
+            <ChevronDown className="w-3 h-3 $1" />
           </button>
 
           {activeMenu === 'studio' && (
-            <div className="fixed inset-x-3 top-14 max-w-[290px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans">
+            <div className="fixed inset-x-3 top-14 max-w-[290px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-80 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans">
               {/* Header */}
               <div className="flex items-center justify-between px-1 pb-1.5 border-b border-white/[0.08]">
                 <div className="flex items-center gap-1.5">
@@ -951,7 +929,7 @@ export const HeaderBar: React.FC = () => {
 
               {/* Sección Fuentes */}
               <div>
-                <span className="text-[10px] font-semibold text-white/45 px-1 uppercase tracking-wider block mb-1">
+                <span className="text-[10.5px] font-semibold text-white/55 px-1 uppercase tracking-wider block mb-1">
                   Fuentes de Audio
                 </span>
                 <div className="flex flex-col gap-1">
@@ -961,22 +939,22 @@ export const HeaderBar: React.FC = () => {
                       toggleMicrophone();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       isMicActive
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold [--glass-accent:16,185,129]'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-500/30 flex-shrink-0 shadow-sm">
                         <Mic className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">Micrófono en vivo</span>
-                        <span className="text-[9px] text-white/45">Entrada de voz o DAW</span>
+                        <span className="text-[10.5px] text-white/55">Entrada de voz o DAW</span>
                       </div>
                     </div>
-                    {isMicActive && <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />}
+                    {isMicActive && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
                   </button>
 
                   {/* Audio de Pantalla / Tab */}
@@ -985,22 +963,22 @@ export const HeaderBar: React.FC = () => {
                       startSystemCapture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       isCapturing
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold [--glass-accent:0,229,255]'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
                         <Cast className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">Audio de Pantalla</span>
-                        <span className="text-[9px] text-white/45">Captura directa de pestaña</span>
+                        <span className="text-[10.5px] text-white/55">Captura directa de pestaña</span>
                       </div>
                     </div>
-                    {isCapturing && <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#00e5ff]" />}
+                    {isCapturing && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
                   </button>
 
                   {/* Spotify */}
@@ -1010,14 +988,14 @@ export const HeaderBar: React.FC = () => {
                       else connectSpotify();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       isSpotifyConnected
-                        ? 'bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/35 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold [--glass-accent:29,185,84]'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center border border-[#1DB954]/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-[#1DB954]/20 text-[#1DB954] flex items-center justify-center border border-[#1DB954]/30 flex-shrink-0 shadow-sm">
                         <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                           <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.306c-.215.353-.675.466-1.028.25-2.816-1.721-6.36-2.11-10.536-1.157-.403.093-.807-.156-.9-.558-.093-.402.156-.806.558-.9 4.576-1.045 8.492-.6 11.656 1.336.353.216.465.676.25 1.029zm1.467-3.26c-.27.441-.85.578-1.29.308-3.224-1.982-8.139-2.555-11.952-1.398-.496.15-1.026-.134-1.176-.63-.15-.496.134-1.026.63-1.176 4.359-1.323 9.774-.688 13.48 1.589.442.27.579.85.308 1.288zm.135-3.398c-3.864-2.295-10.24-2.508-13.93-1.387-.594.18-1.222-.16-1.402-.754-.18-.594.16-1.222.754-1.402 4.24-1.287 11.28-1.037 15.718 1.597.534.316.708 1.009.392 1.543-.316.534-1.01.708-1.543.392z" />
                         </svg>
@@ -1026,10 +1004,10 @@ export const HeaderBar: React.FC = () => {
                         <span className="text-xs font-semibold text-white">
                           {isSpotifyConnected ? 'Spotify Conectado' : 'Conectar Spotify'}
                         </span>
-                        <span className="text-[9px] text-white/45">Sincronización Web API</span>
+                        <span className="text-[10.5px] text-white/55">Sincronización Web API</span>
                       </div>
                     </div>
-                    {isSpotifyConnected && <span className="w-2 h-2 rounded-full bg-[#1DB954] shadow-[0_0_6px_#1DB954]" />}
+                    {isSpotifyConnected && <span className="w-2 h-2 rounded-full bg-[#1DB954]" />}
                   </button>
 
                   {/* Radio Web 24/7 */}
@@ -1039,15 +1017,15 @@ export const HeaderBar: React.FC = () => {
                       if (synthwaveStation) playRadioStation(synthwaveStation);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center justify-between p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                    className="glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer text-white/85 hover:text-white"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center border border-fuchsia-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-fuchsia-500/20 text-fuchsia-300 flex items-center justify-center border border-fuchsia-500/30 flex-shrink-0 shadow-sm">
                         <Radio className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">Radio Synthwave</span>
-                        <span className="text-[9px] text-white/45">Emisión continua 24/7</span>
+                        <span className="text-[10.5px] text-white/55">Emisión continua 24/7</span>
                       </div>
                     </div>
                     <span className="text-[9px] px-1.5 py-0.2 bg-fuchsia-500/20 text-fuchsia-300 rounded-full font-bold uppercase border border-fuchsia-500/30">
@@ -1061,7 +1039,7 @@ export const HeaderBar: React.FC = () => {
 
               {/* Sección Experiencias Inmersivas */}
               <div>
-                <span className="text-[10px] font-semibold text-white/45 px-1 uppercase tracking-wider block mb-1">
+                <span className="text-[10.5px] font-semibold text-white/55 px-1 uppercase tracking-wider block mb-1">
                   Experiencias Inmersivas
                 </span>
                 <div className="flex flex-col gap-1">
@@ -1076,22 +1054,22 @@ export const HeaderBar: React.FC = () => {
                       }
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       isAirInstrumentsActive
-                        ? 'bg-[#00e5ff]/20 text-[#00e5ff] border border-[#00e5ff]/35 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold [--glass-accent:0,229,255]'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30 flex-shrink-0 shadow-sm">
                         <Piano className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">3D Air Synth</span>
-                        <span className="text-[9px] text-white/45">Control gestual con manos</span>
+                        <span className="text-[10.5px] text-white/55">Control gestual con manos</span>
                       </div>
                     </div>
-                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-full bg-[#00e5ff] shadow-[0_0_6px_#00e5ff]" />}
+                    {isAirInstrumentsActive && <span className="w-2 h-2 rounded-full bg-[#00e5ff]" />}
                   </button>
 
                   {/* VR Pose & Dance */}
@@ -1100,19 +1078,19 @@ export const HeaderBar: React.FC = () => {
                       toggleVrMode();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       vrMode
-                        ? 'bg-white/15 text-white border border-white/25 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30 flex-shrink-0 shadow-sm">
                         <Camera className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">VR Dance & Tracker</span>
-                        <span className="text-[9px] text-white/45">Captura de movimiento</span>
+                        <span className="text-[10.5px] text-white/55">Captura de movimiento</span>
                       </div>
                     </div>
                     {vrMode && <span className="text-[9px] px-1.5 py-0.5 bg-white/20 rounded-full font-bold uppercase">{vrTrackingMode}</span>}
@@ -1124,19 +1102,19 @@ export const HeaderBar: React.FC = () => {
                       await pictureInPictureService.togglePictureInPicture();
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer ${
+                    className={`glass-item flex items-center justify-between p-2.5 min-h-[46px] cursor-pointer ${
                       isPipActive
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/35 font-semibold'
-                        : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                        ? 'is-active text-white font-semibold [--glass-accent:0,229,255]'
+                        : 'text-white/85 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center border border-sky-500/30 flex-shrink-0 shadow-sm">
+                      <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center border border-sky-500/30 flex-shrink-0 shadow-sm">
                         <Tv className="w-3.5 h-3.5" />
                       </div>
                       <div className="flex flex-col text-left">
                         <span className="text-xs font-semibold text-white">Ventana Flotante (PiP)</span>
-                        <span className="text-[9px] text-white/45">Mini pantalla externa</span>
+                        <span className="text-[10.5px] text-white/55">Mini pantalla externa</span>
                       </div>
                     </div>
                     <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-white/10 font-bold border border-white/10">
@@ -1156,28 +1134,28 @@ export const HeaderBar: React.FC = () => {
             aria-haspopup="true"
             aria-expanded={activeMenu === 'settings'}
             aria-label="Ajustes de Sistema y Herramientas"
-            className={`px-2.5 py-1 h-6.5 sm:h-7 rounded-full text-[10px] sm:text-[10.5px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
+            className={`glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 flex items-center gap-1 active:scale-95 border cursor-pointer ${
               activeMenu === 'settings' || isEqualizerOpen || isLyricsOpen || isSidebarOpen || sleepTimerMinutes > 0
-                ? 'bg-purple-500/20 text-purple-200 border-purple-400/50 shadow-[0_0_12px_rgba(168,85,247,0.25)]'
-                : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white border-white/10 border-t-white/20 shadow-sm'
+                ? 'is-active text-white [--glass-accent:168,85,247]'
+                : 'text-white/80 hover:text-white'
             }`}
             title="Ajustes de Sistema: Biblioteca, Letras, Ecualizador, Temporizador, Rendimiento y Atajos"
           >
-            <SlidersHorizontal className="w-3 h-3 text-purple-400" />
-            <span className="hidden md:inline text-[9.5px] sm:text-[10px]">Ajustes</span>
+            <SlidersHorizontal className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden min-[1700px]:inline text-[12px]">Ajustes</span>
             {sleepTimerMinutes > 0 && (
               <span className="text-[8px] font-mono font-bold text-amber-300">
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-2.5 h-2.5 text-white/50" />
+            <ChevronDown className="w-3 h-3 $1" />
           </button>
 
           {activeMenu === 'settings' && (
             <div
               role="menu"
               aria-label="Ajustes de Sistema"
-              className="fixed inset-x-3 top-14 max-w-[300px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2.5 sm:w-72 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans max-h-[85vh] overflow-y-auto liquid-glass-scrollbar"
+              className="fixed inset-x-3 top-14 max-w-[300px] ml-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-80 liquid-glass liquid-glass--card z-50 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 select-none text-white font-sans max-h-[85vh] overflow-y-auto liquid-glass-scrollbar"
             >
               {/* Sección Vistas & Utilidades */}
               <div>
@@ -1191,8 +1169,8 @@ export const HeaderBar: React.FC = () => {
                       setSidebarOpen(!isSidebarOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isSidebarOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between glass-item p-2.5 min-h-[40px] text-xs font-mono ${
+                      isSidebarOpen ? 'is-active text-white font-medium' : 'text-white/80 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -1208,8 +1186,8 @@ export const HeaderBar: React.FC = () => {
                       setEqualizerOpen(!isEqualizerOpen);
                       setActiveMenu(null);
                     }}
-                    className={`flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all ${
-                      isEqualizerOpen ? 'bg-white/15 text-white font-medium' : 'text-white/70 hover:text-white hover:bg-white/5'
+                    className={`flex items-center justify-between glass-item p-2.5 min-h-[40px] text-xs font-mono ${
+                      isEqualizerOpen ? 'is-active text-white font-medium' : 'text-white/80 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -1225,7 +1203,7 @@ export const HeaderBar: React.FC = () => {
                       setSessionStatsOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="glass-item flex items-center gap-2 p-2.5 min-h-[40px] text-xs font-mono text-white/80 hover:text-white"
                   >
                     <Clock className="w-4 h-4 text-amber-400" />
                     <span>Estadísticas de Sesión</span>
@@ -1240,7 +1218,7 @@ export const HeaderBar: React.FC = () => {
                 <span className="text-[10px] font-mono text-white/40 px-2 uppercase tracking-wider">
                   Tema Visual & Acento
                 </span>
-                <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-[12px] bg-white/[0.02] border border-white/[0.04]">
+                <div className="flex flex-col gap-1.5 mt-1 glass-card !p-3 !rounded-2xl">
                   {/* Selector de Modo: Auto / Dark / Light */}
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] text-white/70">Tema</span>
@@ -1297,7 +1275,7 @@ export const HeaderBar: React.FC = () => {
                       useWallpaperStore.getState().setPanelOpen(true);
                       setActiveMenu(null);
                     }}
-                    className="w-full flex items-center justify-between p-2 rounded-[10px] text-xs font-mono transition-all text-white/80 hover:text-white hover:bg-white/5 border border-white/[0.04] bg-white/[0.02] cursor-pointer group"
+                    className="w-full flex items-center justify-between glass-item p-2.5 min-h-[40px] text-xs font-mono text-white/85 hover:text-white cursor-pointer group"
                   >
                     <div className="flex items-center gap-2">
                       <Image className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
@@ -1328,7 +1306,7 @@ export const HeaderBar: React.FC = () => {
                   {/* Rendimiento Gráfico */}
                   <button
                     onClick={cyclePerformanceTier}
-                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="glass-item flex items-center justify-between p-2.5 min-h-[40px] text-xs font-mono text-white/80 hover:text-white"
                   >
                     <div className="flex items-center gap-2">
                       <Gauge className="w-4 h-4 text-amber-400" />
@@ -1342,7 +1320,7 @@ export const HeaderBar: React.FC = () => {
                   {/* Efectos de Cursor */}
                   <button
                     onClick={toggleMouseEffects}
-                    className="flex items-center justify-between p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="glass-item flex items-center justify-between p-2.5 min-h-[40px] text-xs font-mono text-white/80 hover:text-white"
                   >
                     <div className="flex items-center gap-2">
                       <MousePointer className={`w-4 h-4 ${mouseEffectsEnabled ? 'text-cyan-400' : 'text-white/40'}`} />
@@ -1354,7 +1332,7 @@ export const HeaderBar: React.FC = () => {
                   </button>
 
                   {/* Sleep Timer Preset Rápido */}
-                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-white/[0.02] border border-white/[0.04]">
+                  <div className="flex items-center justify-between glass-item p-2.5">
                     <div className="flex items-center gap-2 text-white/70">
                       <Clock className="w-4 h-4 text-amber-400" />
                       <span>Sleep Timer</span>
@@ -1382,7 +1360,7 @@ export const HeaderBar: React.FC = () => {
                       toggleShortcutsModal();
                       setActiveMenu(null);
                     }}
-                    className="flex items-center gap-2 p-2 rounded-[10px] text-xs font-mono text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                    className="glass-item flex items-center gap-2 p-2.5 min-h-[40px] text-xs font-mono text-white/80 hover:text-white"
                   >
                     <Keyboard className="w-4 h-4 text-blue-400" />
                     <span>Atajos de Teclado (?)</span>
@@ -1397,7 +1375,7 @@ export const HeaderBar: React.FC = () => {
                   className="flex items-center gap-1.5 text-[10px] text-white/70 hover:text-white transition-colors cursor-pointer"
                   title="Compartir enlace de sesión"
                 >
-                  <Share2 className="w-3 h-3 text-purple-400" />
+                  <Share2 className="w-3.5 h-3.5 text-purple-400" />
                   <span>{copied ? '¡Copiado!' : 'Compartir'}</span>
                 </button>
 
@@ -1406,7 +1384,7 @@ export const HeaderBar: React.FC = () => {
                   className="px-2 py-0.5 rounded-[6px] text-[10px] font-mono font-bold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1 cursor-pointer border border-white/10"
                   title={currentLang === 'es' ? 'Cambiar a English' : 'Switch to Spanish'}
                 >
-                  <Globe className="w-3 h-3 text-cyan-400" />
+                  <Globe className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="uppercase">{currentLang === 'es' ? 'Español (ES)' : 'English (EN)'}</span>
                 </button>
               </div>
@@ -1415,7 +1393,7 @@ export const HeaderBar: React.FC = () => {
         </div>
 
         {/* 4. Pod Final Compacto: Lúcido & Pantalla Completa */}
-        <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-sm">
+        <div className="flex items-center gap-1 glass-item !rounded-full !p-0.5 !transform-none">
           <LucidToggle
             isOpen={activeMenu === 'lucid'}
             onToggle={() => handleToggleMenu('lucid')}
@@ -1424,20 +1402,20 @@ export const HeaderBar: React.FC = () => {
 
           <button
             onClick={() => updateBlobSettings({ isUiHidden: true })}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full text-white/60 hover:text-cyan-300 hover:bg-white/[0.1] active:scale-95 transition-all hidden sm:flex items-center justify-center"
+            className="w-8 h-8 rounded-full text-white/60 hover:text-cyan-300 hover:bg-white/[0.1] active:scale-95 transition-all hidden sm:flex items-center justify-center"
             title="Modo Galería / Inmersión Pura (Atajo: G)"
             aria-label="Modo Galería"
           >
-            <Sparkles className="w-3 h-3 text-cyan-400" />
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
           </button>
 
           <button
             onClick={toggleFullscreen}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] active:scale-95 transition-all cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.1] active:scale-95 transition-all cursor-pointer"
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             aria-label="Pantalla completa"
           >
-            {isFullscreen ? <Minimize className="w-3 h-3" /> : <Maximize className="w-3 h-3" />}
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
         </div>
 
@@ -1447,6 +1425,7 @@ export const HeaderBar: React.FC = () => {
           onOpenChange={setIsAtmosphereOpen}
           showTrigger={false}
         />
+      </div>
       </div>
       </div>
 

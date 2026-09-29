@@ -16,6 +16,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { PROFESSIONAL_PALETTES, LUCID_THEMES } from '../../types/audio';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
+import { VoidFxCustomizer } from './VoidFxCustomizer';
 
 export const VisualizerSettingsModal: React.FC = () => {
   const {
@@ -52,15 +53,15 @@ export const VisualizerSettingsModal: React.FC = () => {
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-aura-backdrop">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-md pointer-events-auto select-none font-sans animate-aura-backdrop">
       <div
-        className="w-full max-w-2xl border border-white/[0.08] rounded-[20px] p-4 sm:p-5 shadow-[var(--shadow-modal)] relative flex flex-col max-h-[90vh] overflow-hidden bg-[#0c101a]/95 backdrop-blur-3xl animate-aura-modal"
+        className="w-full max-w-2xl liquid-glass liquid-glass--modal relative flex flex-col max-h-[90vh] overflow-hidden animate-aura-modal"
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm">
+            <div className="glass-item is-active !rounded-2xl w-9 h-9 flex items-center justify-center text-cyan-300">
               <Sliders className="w-4 h-4" />
             </div>
             <div>
@@ -75,7 +76,7 @@ export const VisualizerSettingsModal: React.FC = () => {
 
           <button
             onClick={() => setVisualizerSettingsOpen(false)}
-            className="p-1.5 text-white/40 hover:text-white rounded-[8px] hover:bg-white/[0.06] transition-colors"
+            className="glass-btn min-h-[36px] min-w-[36px] flex items-center justify-center text-white/70 hover:text-white"
             aria-label="Cerrar ventana"
           >
             <X className="w-4 h-4" />
@@ -83,12 +84,12 @@ export const VisualizerSettingsModal: React.FC = () => {
         </div>
 
         {/* ── Segmented Tab Switcher ── */}
-        <div className="flex items-center p-0.5 my-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex-shrink-0">
+        <div className="glass-input !rounded-2xl flex items-center p-1 my-3 flex-shrink-0">
           <button
             onClick={() => setActiveTab('shapes')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium transition-colors ${
               activeTab === 'shapes'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+                ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                 : 'text-white/50 hover:text-white/80'
             }`}
           >
@@ -97,9 +98,9 @@ export const VisualizerSettingsModal: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('params')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium transition-colors ${
               activeTab === 'params'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+                ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                 : 'text-white/50 hover:text-white/80'
             }`}
           >
@@ -108,9 +109,9 @@ export const VisualizerSettingsModal: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('colors')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium transition-colors ${
               activeTab === 'colors'
-                ? 'bg-white/10 text-white border border-white/15 shadow-sm'
+                ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
                 : 'text-white/50 hover:text-white/80'
             }`}
           >
@@ -124,39 +125,30 @@ export const VisualizerSettingsModal: React.FC = () => {
           {/* TAB 1: GEOMETRÍAS Y EFECTOS */}
           {activeTab === 'shapes' && (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {RAINBOW_VOID_EFFECTS.map((fx) => {
                   const isSelected = blobShape === fx.id;
                   return (
                     <button
                       key={fx.id}
                       onClick={() => setBlobShape(fx.id)}
-                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
-                        isSelected
-                          ? 'bg-white/10 border-white/25 text-white shadow-sm ring-1 ring-white/20'
-                          : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] text-white/70'
+                      className={`glass-item !rounded-2xl px-3.5 py-3 min-h-[92px] text-left flex flex-col justify-between gap-2 cursor-pointer ${
+                        isSelected ? 'is-active text-white' : 'text-white/75'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div>
                         <div className="flex items-center gap-1.5">
                           {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                          <span className="text-xs font-medium text-white/90">{fx.name}</span>
+                          <span className="text-[13px] font-semibold tracking-tight text-white">{fx.name}</span>
                         </div>
-                        <span className="text-[8px] font-mono tracking-widest uppercase px-1.5 py-0.5 rounded border border-white/[0.08] text-white/60 bg-white/[0.02]">
-                          {fx.tag}
-                        </span>
+                        <p className="text-[11px] text-white/55 leading-snug mt-1 line-clamp-2">{fx.desc}</p>
                       </div>
-                      <p className="text-[11px] text-white/40 leading-relaxed">{fx.desc}</p>
-                      <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-white/40 pt-1.5 border-t border-white/[0.04]">
-                        <span>{fx.category}</span>
-                        <span className={isSelected ? 'text-[#00e5ff] font-semibold' : ''}>
-                          {isSelected ? 'ACTIVO VOID' : 'SELECCIONAR'}
-                        </span>
-                      </div>
+                      <span className="text-[9px] font-mono tracking-[0.14em] uppercase text-white/45">{fx.tag}</span>
                     </button>
                   );
                 })}
               </div>
+              <VoidFxCustomizer showShockwave />
             </div>
           )}
 
@@ -166,7 +158,7 @@ export const VisualizerSettingsModal: React.FC = () => {
               {/* Grid 2 Columnas de Sliders de Precisión */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Escala 3D */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <div className="glass-card !p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <CircleDot className="w-3.5 h-3.5 text-white/40" />
@@ -188,7 +180,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 </div>
 
                 {/* Escala Blob (Bloqueada a 0.50x) */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-cyan-400/20">
+                <div className="glass-card !p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-cyan-400" />
@@ -212,7 +204,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 </div>
 
                 {/* Opacidad */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <div className="glass-card !p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5 text-white/40" />
@@ -234,7 +226,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                 </div>
 
                 {/* Velocidad / Sensibilidad de Audio */}
-                <div className="space-y-1.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <div className="glass-card !p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 text-white/40" />
@@ -269,11 +261,7 @@ export const VisualizerSettingsModal: React.FC = () => {
               <div className="pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   onClick={() => setLinkScales(!linkScales)}
-                  className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
-                    linkScales
-                      ? 'bg-white/10 border-white/20 text-white'
-                      : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:bg-white/[0.05]'
-                  }`}
+                  className={`glass-item !rounded-2xl p-3 flex items-center justify-between cursor-pointer ${linkScales ? 'is-active text-white' : 'text-white/70'}`}
                 >
                   <div className="flex items-center gap-2 text-left">
                     {linkScales ? <Link2 className="w-4 h-4 text-white" /> : <Unlink className="w-4 h-4 text-white/40" />}
@@ -289,11 +277,7 @@ export const VisualizerSettingsModal: React.FC = () => {
 
                 <button
                   onClick={() => setShowFrequencyBars(!showFrequencyBars)}
-                  className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
-                    showFrequencyBars
-                      ? 'bg-white/10 border-white/20 text-white'
-                      : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:bg-white/[0.05]'
-                  }`}
+                  className={`glass-item !rounded-2xl p-3 flex items-center justify-between cursor-pointer ${showFrequencyBars ? 'is-active text-white' : 'text-white/70'}`}
                 >
                   <div className="flex items-center gap-2 text-left">
                     <Activity className={`w-4 h-4 ${showFrequencyBars ? 'text-white' : 'text-white/40'}`} />
@@ -314,18 +298,14 @@ export const VisualizerSettingsModal: React.FC = () => {
           {activeTab === 'colors' && (
             <div className="space-y-4">
               {/* Modo Lúcido Toggle */}
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between">
+              <div className="glass-card !p-3.5 flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-medium text-white/90">Modo Lúcido</h4>
                   <p className="text-[11px] text-white/40">Temas cromáticos y acentos reactivos</p>
                 </div>
                 <button
                   onClick={toggleLucidMode}
-                  className={`px-3 py-1 rounded-lg text-xs font-mono font-medium border transition-colors ${
-                    isLucid
-                      ? 'bg-white/10 border-white/25 text-white'
-                      : 'bg-white/[0.04] border-white/[0.08] text-white/50'
-                  }`}
+                  className={`glass-btn px-4 py-1 min-h-[32px] text-xs font-mono font-medium ${isLucid ? 'is-active text-white' : 'text-white/60'}`}
                 >
                   {isLucid ? 'ACTIVO' : 'INACTIVO'}
                 </button>
@@ -344,11 +324,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                         <button
                           key={theme.id}
                           onClick={() => setLucidTheme(theme)}
-                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-colors ${
-                            isSelected
-                              ? 'bg-white/10 border-white/25 text-white'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/70 hover:bg-white/[0.05]'
-                          }`}
+                          className={`glass-item !rounded-2xl p-2.5 text-left flex items-center justify-between cursor-pointer ${isSelected ? 'is-active text-white' : 'text-white/70'}`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
@@ -387,11 +363,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                         <button
                           key={palette.name}
                           onClick={() => setCurrentPaletteIndex(idx)}
-                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-colors ${
-                            isSelected
-                              ? 'bg-white/10 border-white/25 text-white'
-                              : 'bg-white/[0.02] border-white/[0.04] text-white/70 hover:bg-white/[0.05]'
-                          }`}
+                          className={`glass-item !rounded-2xl p-2.5 text-left flex items-center justify-between cursor-pointer ${isSelected ? 'is-active text-white' : 'text-white/70'}`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             {/* Swatch de 4 colores */}

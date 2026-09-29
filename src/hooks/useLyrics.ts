@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { EnhancedLyricsData, EnhancedLyricLine } from '../types/lyrics';
 import { LyricsService } from '../services/lyricsService';
 import { usePlayerStore } from '../stores/playerStore';
+import { getPlaybackTime } from '../services/playbackClock';
+import { findActiveLine } from './useLyricSync';
 
 export const useLyrics = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
-  const currentTime = usePlayerStore((s) => s.currentTime);
   const [lyricsData, setLyricsData] = useState<EnhancedLyricsData>({
     synced: false,
     lines: [],
@@ -62,26 +63,28 @@ export const useLyrics = () => {
     }
   }, [trackKey]);
 
-  // Determine current active line index via binary search O(log n)
-  const activeLineIndex = useMemo(() => {
+  // Línea activa: se calcula con el reloj interpolado y solo cambia el estado cuando cambia
+  // la línea (unas pocas veces por segundo), en vez de re-renderizar en cada muestra de tiempo.
+  const [activeLineIndex, setActiveLineIndex] = useState(-1);
+  useEffect(() => {
     const lines = lyricsData.lines;
-    if (!lines || lines.length === 0) return -1;
-
-    let lo = 0;
-    let hi = lines.length - 1;
-    let result = -1;
-
-    while (lo <= hi) {
-      const mid = (lo + hi) >>> 1;
-      if (lines[mid].time <= currentTime) {
-        result = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
-      }
+    if (!lines || lines.length === 0) {
+      setActiveLineIndex(-1);
+      return;
     }
-    return result;
-  }, [lyricsData.lines, currentTime]);
+    let raf = 0;
+    let last = -2;
+    const tick = () => {
+      const idx = findActiveLine(lines, getPlaybackTime());
+      if (idx !== last) {
+        last = idx;
+        setActiveLineIndex(idx);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [lyricsData.lines]);
 
   const activeLine: EnhancedLyricLine | null = useMemo(() => {
     if (activeLineIndex >= 0 && activeLineIndex < lyricsData.lines.length) {

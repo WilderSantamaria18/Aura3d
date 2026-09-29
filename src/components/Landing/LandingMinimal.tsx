@@ -1,8 +1,23 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import Lenis from 'lenis';
+import { ArrowRight, Sparkles, SlidersHorizontal, Palette, AlignLeft, Image as ImageIcon, Layers } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import './sections/ConicStation.css';
+import {
+  AmbientOrbs,
+  GlassNav,
+  Scene3D,
+  SectionLabel,
+  SpotlightCard,
+  WordReveal,
+  motionForced,
+  reducedMotion,
+  setForceMotion,
+  systemReducedMotion,
+  type NavLink,
+} from './pro/ProParts';
 
 export const LandingMinimal: React.FC = () => {
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
@@ -55,7 +70,7 @@ export const LandingMinimal: React.FC = () => {
   const latencySectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReducedMotion = reducedMotion();
 
     // ==========================================
     // 1. SHARED GLOBAL BEAT SIMULATOR (120 BPM)
@@ -137,7 +152,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeHero() {
       if (!heroCanvas || !heroCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const parent = heroCanvas.parentElement;
       const rect = parent ? parent.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
       heroWidth = rect.width;
@@ -182,7 +197,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeIdle() {
       if (!idleCanvas || !idleCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       idleW = idleCanvas.clientWidth;
       idleH = idleCanvas.clientHeight;
       idleCanvas.width = Math.floor(idleW * dpr);
@@ -220,7 +235,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeSignalCanvas() {
       if (!signalCanvas || !signalCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       sigW = signalCanvas.clientWidth;
       sigH = signalCanvas.clientHeight;
       signalCanvas.width = Math.floor(sigW * dpr);
@@ -327,7 +342,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeRadar() {
       if (!radarCanvas || !radarCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       radarW = radarCanvas.clientWidth;
       radarH = radarCanvas.clientHeight;
       radarCanvas.width = Math.floor(radarW * dpr);
@@ -388,7 +403,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeMiniCone() {
       if (!miniCanvas || !miniCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       miniW = miniCanvas.clientWidth;
       miniH = miniCanvas.clientHeight;
       miniCanvas.width = Math.floor(miniW * dpr);
@@ -459,7 +474,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeHand() {
       if (!handCanvas || !handCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       handW = handCanvas.clientWidth;
       handH = handCanvas.clientHeight;
       handCanvas.width = Math.floor(handW * dpr);
@@ -627,7 +642,7 @@ export const LandingMinimal: React.FC = () => {
 
     function resizeFooterCanvas() {
       if (!footerCanvas || !footerCtx) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       footW = footerCanvas.clientWidth;
       footH = footerCanvas.clientHeight;
       footerCanvas.width = Math.floor(footW * dpr);
@@ -723,6 +738,27 @@ export const LandingMinimal: React.FC = () => {
     resizeAll();
 
     // ==========================================
+    // VISIBILIDAD: solo se dibuja lo que está en pantalla
+    // ==========================================
+    const vis: Record<string, boolean> = { hero: true, idle: false, radar: false, cone: false, hand: false, footer: false, kawarp: false };
+    const visIO = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((en) => {
+          const k = (en.target as HTMLElement).dataset.vis;
+          if (k) vis[k] = en.isIntersecting;
+        });
+      },
+      { rootMargin: '160px' }
+    );
+    const kawarpRow = document.getElementById('kawarp-lyrics-row');
+    ([[heroCanvas, 'hero'], [idleCanvas, 'idle'], [radarCanvas, 'radar'], [miniCanvas, 'cone'], [handCanvas, 'hand'], [footerCanvas, 'footer'], [kawarpRow, 'kawarp']] as Array<[HTMLElement | null, string]>).forEach(([el, k]) => {
+      if (el) {
+        el.dataset.vis = k;
+        visIO.observe(el);
+      }
+    });
+
+    // ==========================================
     // MASTER RAF RENDER LOOP
     // ==========================================
     let lastTime = performance.now();
@@ -737,7 +773,7 @@ export const LandingMinimal: React.FC = () => {
       BeatSim.update(nowSec);
 
       // 1. Render Hero Visualizer
-      if (heroCtx && heroCanvas) {
+      if (heroCtx && heroCanvas && vis.hero) {
         const heroElapsed = now - bootStartTime;
         const introP = prefersReducedMotion ? 1.0 : Math.min(1.0, heroElapsed / BOOT_DURATION);
         if (isHeroBooting && introP >= 1.0) isHeroBooting = false;
@@ -918,12 +954,12 @@ export const LandingMinimal: React.FC = () => {
 
       // 2. Render Secondary Canvases (if not reduced motion)
       if (!prefersReducedMotion) {
-        renderIdleLine(nowSec);
-        renderRadarLines(nowSec);
-        renderMiniCone(delta);
-        renderHandWireframe(nowSec);
-        updateKawarpWordSync(nowSec);
-        renderFooterCone(delta);
+        if (vis.idle) renderIdleLine(nowSec);
+        if (vis.radar) renderRadarLines(nowSec);
+        if (vis.cone) renderMiniCone(delta);
+        if (vis.hand) renderHandWireframe(nowSec);
+        if (vis.kawarp) updateKawarpWordSync(nowSec);
+        if (vis.footer) renderFooterCone(delta);
       }
 
       animId = requestAnimationFrame(masterLoop);
@@ -945,535 +981,510 @@ export const LandingMinimal: React.FC = () => {
       }
       specsObserver.disconnect();
       latencyObserver.disconnect();
+      visIO.disconnect();
     };
+  }, []);
+
+  // ── Scroll suave (Lenis) ─────────────────────────────────────────────────
+  const lenisRef = useRef<Lenis | null>(null);
+  useEffect(() => {
+    if (reducedMotion()) return;
+    const lenis = new Lenis({ lerp: 0.09, smoothWheel: true });
+    lenisRef.current = lenis;
+    let id = requestAnimationFrame(function raf(t) {
+      lenis.raf(t);
+      id = requestAnimationFrame(raf);
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
+
+  const scrollToSection = useCallback((targetId: string) => {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    if (lenisRef.current) lenisRef.current.scrollTo(el, { duration: 1.4 });
+    else el.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault();
-    const el = document.getElementById(targetId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    scrollToSection(targetId);
   };
 
+  // ── Salida 3D del hero al hacer scroll ───────────────────────────────────
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+  const { scrollYProgress: heroP } = useScroll({ target: heroSectionRef, offset: ['start start', 'end start'] });
+  const heroY = useTransform(heroP, [0, 1], [0, -140]);
+  const heroRotX = useTransform(heroP, [0, 1], [0, 12]);
+  const heroScale = useTransform(heroP, [0, 1], [1, 0.93]);
+
+  const navLinks: NavLink[] = [
+    { id: 'manifiesto', label: 'Manifiesto' },
+    { id: 'camino-senal', label: 'Señal', also: ['latencia'] },
+    { id: 'conico', label: 'Funciones', also: ['manos', 'kawarp'] },
+    { id: 'estudio', label: 'Estudio' },
+    { id: 'especificaciones', label: 'Specs' },
+  ];
+
+  const eqHeights = [38, 62, 48, 80, 58, 92, 66, 44, 72, 52];
+
   return (
-    <div className="landing-root bg-auraBg text-white selection:bg-cyan-500/30 selection:text-white select-none w-full min-h-[100dvh] overflow-x-clip font-sans">
+    <div data-motion={motionForced() ? 'on' : undefined} className="lp-root landing-root selection:bg-cyan-500/30 selection:text-white w-full min-h-[100dvh] overflow-x-clip">
+      <AmbientOrbs />
+      <GlassNav links={navLinks} onNavigate={scrollToSection} onEnter={handleEnter} />
+
       {/* Desktop Vertical Scroll Rail Indicator */}
-      <aside
-        ref={scrollRailRef}
-        aria-label="Progreso de página"
-        className="hidden md:block"
-        id="scroll-rail"
-        title="Desplazarse por la estación"
-      >
+      <aside ref={scrollRailRef} aria-label="Progreso de página" className="hidden md:block" id="scroll-rail" title="Desplazarse por la estación">
         <div ref={scrollThumbRef} id="scroll-thumb" style={{ top: '0%' }} />
       </aside>
 
-      {/* ================= SECTION 1: HERO (100svh) ================= */}
-      <section className="relative w-full h-[100svh] min-h-[640px] overflow-hidden bg-auraBg" id="hero">
-        <div id="hero-canvas-container">
-          <canvas ref={heroCanvasRef} aria-hidden="true" id="visualizer-canvas" />
-        </div>
+      <main className="lp-content">
+        {/* ================= HERO ================= */}
+        <section ref={heroSectionRef} className="relative w-full h-[100svh] min-h-[600px] overflow-hidden" id="hero">
+          <div id="hero-canvas-container">
+            <canvas ref={heroCanvasRef} aria-hidden="true" id="visualizer-canvas" />
+          </div>
 
-        {/* UI Overlay Grid */}
-        <div className="relative z-10 w-full h-full flex flex-col justify-between px-6 md:px-12 lg:px-16 py-7 md:py-10 pointer-events-none">
-          {/* Top Bar (Zone A) */}
-          <header className="w-full flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleEnter}
-              aria-label="Aura3D Inicio"
-              className="inline-flex items-center gap-2.5 pointer-events-auto text-white/90 hover:text-white transition-opacity bg-transparent border-0 cursor-pointer p-0"
-            >
-              <span className="w-[7px] h-[7px] rounded-full bg-auraCyan shadow-[0_0_10px_#00e5ff,0_0_3px_#00e5ff] inline-block shrink-0" />
-              <span className="text-[13px] font-medium tracking-tight text-white/90">Aura3D</span>
-            </button>
-            <div className="flex items-center gap-5">
-              <div className="inline-flex items-center gap-2">
-                <span className="w-[5px] h-[5px] rounded-full bg-auraCyan shadow-[0_0_6px_#00e5ff] status-dot-pulse shrink-0" />
-                <span className="text-[11px] font-normal tracking-wider text-white/40 tabular-nums min-w-[84px]" ref={statusElRef} id="status-indicator">
+          <motion.div
+            style={{ y: heroY, rotateX: heroRotX, scale: heroScale, transformPerspective: 1400, transformOrigin: '50% 100%' }}
+            className="relative z-10 w-full h-full flex flex-col justify-between px-6 md:px-12 lg:px-16 pt-24 md:pt-28 pb-8 md:pb-10 pointer-events-none"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <SectionLabel className="hidden sm:flex">Estación de audio reactiva</SectionLabel>
+              <div className="inline-flex items-center gap-2 ml-auto">
+                <span className="w-[5px] h-[5px] rounded-full bg-auraCyan status-dot-pulse shrink-0" />
+                <span className="font-mono text-[11px] tracking-wider text-white/60 tabular-nums min-w-[84px]" ref={statusElRef} id="status-indicator">
                   Iniciando
                 </span>
               </div>
-              <span className="hidden sm:inline text-[11px] font-normal tracking-wide text-white/30">
-                Estación de audio reactiva
-              </span>
             </div>
-          </header>
 
-          {/* Center Space Reserved for Visualizer Geometry */}
-          <div aria-hidden="true" className="flex-1 w-full" />
+            <div aria-hidden="true" className="flex-1 w-full" />
 
-          {/* Bottom Bar (Zone C) */}
-          <footer className="w-full flex flex-col md:flex-row md:items-end justify-between gap-8 pb-1">
-            <div className="max-w-[640px]">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[76px] font-medium tracking-[-0.045em] leading-[0.96] text-white balance mb-4">
-                El sonido<br />hecho visible.
-              </h1>
-              <p className="text-[13.5px] sm:text-[14px] leading-relaxed text-white/50 max-w-[46ch] font-normal tracking-tight">
-                Visualizador cónico, tracking de manos y word-sync con Kawarp. Un instrumento para hacer música visible en tiempo real.
+            <div className="w-full flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+              <div className="max-w-[720px]">
+                <motion.h1
+                  initial={{ opacity: 0, y: 36 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1.1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ fontSize: 'clamp(42px, min(10.5vh, 8vw), 96px)' }}
+                  className="lp-h1 text-white mb-4"
+                >
+                  El sonido
+                  <br />
+                  <span className="lp-gradient-text">hecho visible.</span>
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  className="lp-lead text-[14px] sm:text-[16px] max-w-[50ch]"
+                >
+                  Visualizador cónico, tracking de manos y word-sync con Kawarp. Un instrumento para hacer música visible en tiempo real, directo en tu navegador.
+                </motion.p>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.85, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex flex-wrap items-center gap-3 mt-6 pointer-events-auto"
+                >
+                  <button type="button" id="btn-reboot" onClick={handleEnter} className="lp-btn lp-btn--primary lp-btn--lg">
+                    Iniciar motor
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                  <a href="#conico" onClick={(e) => handleSmoothScroll(e, 'conico')} className="lp-btn lp-btn--lg">
+                    Ver cómo funciona
+                  </a>
+                </motion.div>
+              </div>
+
+              <motion.dl
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.2, delay: 1.1 }}
+                className="lp-stats"
+              >
+                <div>
+                  <dt>Entrada</dt>
+                  <dd>48 kHz</dd>
+                </div>
+                <div>
+                  <dt>Buffer</dt>
+                  <dd>128</dd>
+                </div>
+                <div>
+                  <dt>Salida</dt>
+                  <dd>7.8 ms</dd>
+                </div>
+              </motion.dl>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* ================= MANIFIESTO ================= */}
+        <section className="relative min-h-[100svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-28 overflow-hidden" id="manifiesto">
+          <canvas ref={idleCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-40" id="idle-line-canvas" />
+          <div className="relative z-10 max-w-[980px] flex flex-col gap-10">
+            <SectionLabel>Manifiesto de señal</SectionLabel>
+            <WordReveal
+              text="No dibujamos formas. Dejamos que el sonido se dibuje solo. Cada barra es una banda de frecuencia. Cada frecuencia es una decisión de mezcla. Aura3D no interpreta: traduce."
+              className="lp-h2 text-[32px] sm:text-5xl md:text-6xl lg:text-[66px] text-white"
+            />
+            <p className="font-mono text-[12px] tracking-[0.12em] uppercase text-[color:var(--lp-muted)]">
+              Respuesta lineal <span className="mx-3 opacity-40">/</span> Sin post-procesado <span className="mx-3 opacity-40">/</span> Hardware directo
+            </p>
+          </div>
+        </section>
+
+        {/* ================= CAMINO DE LA SEÑAL (sticky) ================= */}
+        <section className="relative w-full" id="camino-senal">
+          <div ref={signalParentRef} className="signal-sticky-wrapper" id="signal-scroll-parent">
+            <div className="signal-sticky-box flex items-center justify-center px-6 md:px-16">
+              <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+                <div className="lg:col-span-5 flex flex-col gap-7" id="signal-steps-list">
+                  <div className="flex flex-col gap-4">
+                    <SectionLabel>Arquitectura en tiempo real</SectionLabel>
+                    <h3 className="lp-h2 text-3xl sm:text-4xl md:text-[44px] text-white">El camino de la señal</h3>
+                    <p className="lp-lead text-[15px]">Flujo síncrono punto a punto de entrada acústica a fotón.</p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {[
+                      ['01', 'Entrada analógica', 'XLR / Line In'],
+                      ['02', 'Conversión A/D — 48 kHz', '24-bit delta-sigma'],
+                      ['03', 'Motor Aura3D — 128 samples', 'FFT cónica 160b'],
+                      ['04', 'Render en GPU', 'Metal / WebGL'],
+                      ['05', 'Salida — 7.8 ms round-trip', 'Zero perceived lag'],
+                    ].map(([n, title, meta], i) => (
+                      <div
+                        key={n}
+                        className="step-item rounded-2xl border border-transparent px-4 py-3.5 flex items-center justify-between gap-3"
+                        data-step={i}
+                        style={i === 0 ? undefined : { opacity: 0.4 }}
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <span className="font-mono text-[11px] text-auraCyan shrink-0">{n}</span>
+                          <span className="text-[15px] font-medium text-white truncate">{title}</span>
+                        </div>
+                        <span className="hidden sm:inline font-mono text-[11.5px] tabular-nums shrink-0 text-[color:var(--lp-muted)]">{meta}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-7 flex flex-col items-center justify-center">
+                  <div className="lp-glass w-full aspect-[16/10] max-h-[470px] relative overflow-hidden p-4 flex items-center justify-center">
+                    <canvas ref={signalCanvasRef} className="w-full h-full block" id="signal-path-canvas" />
+                    <div className="absolute top-4 left-5 font-mono text-[10px] uppercase tracking-wider text-[color:var(--lp-muted)]">Buffer activo · 128 s / 2.66 ms</div>
+                    <div className="absolute bottom-4 right-5 font-mono text-[10px] tracking-wider text-[color:var(--lp-muted)] tabular-nums">SYNC LOCK 99.98%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= LATENCIA ================= */}
+        <section ref={latencySectionRef} className="relative min-h-[100svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-24 overflow-hidden" id="latencia">
+          <canvas ref={radarCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-50" id="radar-canvas" />
+          <Scene3D className="relative z-10 w-full max-w-[1100px]">
+            <div className="text-center flex flex-col items-center">
+              <span className="font-mono text-[12px] tracking-[0.14em] uppercase text-[color:var(--lp-muted)]">El tiempo que tarda el sonido en volverse luz</span>
+              <div className="flex items-baseline justify-center tracking-[-0.05em] select-none my-3">
+                <span ref={latencyCounterRef} className="lp-gradient-text text-[96px] sm:text-[150px] md:text-[210px] lg:text-[250px] leading-none tabular-nums font-medium" id="latency-counter">
+                  7.8
+                </span>
+                <span className="text-3xl sm:text-5xl md:text-7xl text-white/45 font-light ml-2 tracking-tight">ms</span>
+              </div>
+              <p className="lp-lead text-[14px] sm:text-[15px] max-w-[520px]">
+                Medido desde la excitación del transductor hasta el frame desplegado en panel OLED a 120Hz con sincronía por hardware.
               </p>
-              <div className="inline-flex items-center gap-5 mt-6 sm:mt-7 pointer-events-auto">
+            </div>
+          </Scene3D>
+        </section>
+
+        {/* ================= FEATURE 1: CÓNICO ================= */}
+        <section className="relative min-h-[100svh] w-full flex items-center justify-center px-6 md:px-16 py-24" id="conico">
+          <Scene3D className="w-full max-w-[1240px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+              <div className="lg:col-span-7 flex justify-center">
+                <div ref={tiltBoxRef} style={{ transition: 'transform 0.2s ease-out' }} className="lp-glass relative w-full max-w-[560px] overflow-hidden" id="cone-tilt-container">
+                  <div className="lp-window-bar">
+                    <i />
+                    <i />
+                    <i />
+                    <span>radial-spectrum.live</span>
+                  </div>
+                  <div className="relative aspect-square p-2">
+                    <canvas ref={miniConeCanvasRef} className="w-full h-full block rounded-2xl" id="mini-cone-canvas" />
+                    <div className="absolute bottom-4 left-5 font-mono text-[11px] text-[color:var(--lp-muted)]">RADIAL SPECTRUM — 160 BANDS</div>
+                    <div className="absolute top-3 right-5 font-mono text-[11px] text-auraCyan">● LIVE</div>
+                  </div>
+                </div>
+              </div>
+              <div className="lg:col-span-5 flex flex-col gap-6">
+                <SectionLabel index="01">Visualizador cónico</SectionLabel>
+                <h2 className="lp-h2 text-4xl sm:text-5xl md:text-[54px] text-white">
+                  Forma que sigue
+                  <br />
+                  <span className="lp-gradient-text">a la frecuencia.</span>
+                </h2>
+                <p className="lp-lead text-[15px] sm:text-base">
+                  Un cono en perspectiva real inclinado 22 grados que organiza el espectro audible en 160 barras continuas. Desde subgraves profundos en la base hasta agudos aireados en la cresta, el volumen se convierte en geometría tridimensional que flota en el espacio.
+                </p>
+                <dl className="lp-stats mt-2">
+                  <div>
+                    <dt>Resolución</dt>
+                    <dd>160 bandas</dd>
+                  </div>
+                  <div>
+                    <dt>Cadencia</dt>
+                    <dd>60 fps</dd>
+                  </div>
+                  <div>
+                    <dt>Ángulo</dt>
+                    <dd>22°</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+          </Scene3D>
+        </section>
+
+        {/* ================= FEATURE 2: MANOS ================= */}
+        <section className="relative min-h-[100svh] w-full flex items-center justify-center px-6 md:px-16 py-24" id="manos">
+          <Scene3D className="w-full max-w-[1240px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+              <div className="lg:col-span-5 order-2 lg:order-1 flex flex-col gap-6">
+                <SectionLabel index="02">Tracking de manos</SectionLabel>
+                <h2 className="lp-h2 text-4xl sm:text-5xl md:text-[54px] text-white">
+                  Mueve la mano.
+                  <br />
+                  <span className="lp-gradient-text">Mueve la sala.</span>
+                </h2>
+                <p className="lp-lead text-[15px] sm:text-base">
+                  Control gestual sin latencia gracias a un esqueleto cinemático de 21 puntos clave. Abre la palma para expandir el campo estéreo, cierra los dedos para aplicar filtro pasabajos, o eleva la mano para esculpir la dispersión lumínica en tu entorno escénico.
+                </p>
+                <dl className="lp-stats mt-2">
+                  <div>
+                    <dt>Nodos</dt>
+                    <dd>21</dd>
+                  </div>
+                  <div>
+                    <dt>Sensor</dt>
+                    <dd>30 fps</dd>
+                  </div>
+                  <div>
+                    <dt>Tracking</dt>
+                    <dd>&lt; 40 ms</dd>
+                  </div>
+                </dl>
+                <p className="font-mono text-[11.5px] tracking-wider text-[color:var(--lp-muted)]">Impulsado por MediaPipe Vision</p>
+              </div>
+              <div className="lg:col-span-7 order-1 lg:order-2 flex justify-center">
+                <div className="lp-glass relative w-full max-w-[560px] overflow-hidden">
+                  <div className="lp-window-bar">
+                    <i />
+                    <i />
+                    <i />
+                    <span>hand-tracker.optical</span>
+                  </div>
+                  <div className="relative aspect-square p-2">
+                    <canvas ref={handCanvasRef} className="w-full h-full block rounded-2xl" id="hand-canvas" />
+                    <div className="absolute bottom-4 left-5 font-mono text-[11px] text-[color:var(--lp-muted)]">21-POINT SKELETAL RIG</div>
+                    <div className="absolute top-3 right-5 font-mono text-[11px] text-auraViolet">● OPTICAL TRACK</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Scene3D>
+        </section>
+
+        {/* ================= FEATURE 3: KAWARP ================= */}
+        <section className="relative min-h-[100svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-24" id="kawarp">
+          <Scene3D className="w-full max-w-[1000px]">
+            <div className="flex flex-col items-center text-center gap-8">
+              <SectionLabel index="03">Kawarp word-sync</SectionLabel>
+              <h2 className="lp-h2 text-4xl sm:text-6xl md:text-7xl text-white">
+                Cada palabra,
+                <br />
+                <span className="lp-gradient-text">en su momento exacto.</span>
+              </h2>
+              <div className="lp-glass lp-glass--tint w-full py-12 sm:py-16 px-6 sm:px-12 flex flex-col items-center justify-center">
+                <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-7 gap-y-4 text-2xl sm:text-4xl md:text-5xl font-medium tracking-tight select-none" id="kawarp-lyrics-row">
+                  {['el', 'silencio', 'también', 'tiene', 'ritmo'].map((w, i) => (
+                    <div key={w} className="flex flex-col items-center gap-3">
+                      <span className="sync-word text-white/40" data-idx={i}>{w}</span>
+                      <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
+                    </div>
+                  ))}
+                </div>
+                <div className="w-full max-w-[480px] h-1 bg-white/10 rounded-full mt-10 overflow-hidden relative">
+                  <div ref={kawarpProgressFillRef} className="h-full bg-gradient-to-r from-auraCyan to-auraViolet w-0" id="kawarp-progress-fill" />
+                </div>
+                <div className="flex items-center justify-between w-full max-w-[480px] font-mono text-[11px] text-[color:var(--lp-muted)] mt-3 tabular-nums">
+                  <span>120.00 BPM</span>
+                  <span ref={bpmPhaseReadoutRef} id="bpm-phase-readout">PASO 01 / 05</span>
+                  <span>SYNC LOCK: EXACT</span>
+                </div>
+              </div>
+              <p className="lp-lead text-[15px] sm:text-lg max-w-[640px]">
+                Kawarp alinea el texto con el audio a nivel de palabra. No hay desfase. No hay adivinación. Solo timing analítico procesado en búfer circular para directos, visuales escénicos y videoclips generativos.
+              </p>
+            </div>
+          </Scene3D>
+        </section>
+
+        {/* ================= ESTUDIO ================= */}
+        <section className="relative w-full px-6 md:px-16 py-28" id="estudio">
+          <div className="w-full max-w-[1200px] mx-auto">
+            <Scene3D intensity={0.6}>
+              <div className="flex flex-col gap-5 mb-12 max-w-[760px]">
+                <SectionLabel>Estudio</SectionLabel>
+                <h2 className="lp-h2 text-4xl sm:text-5xl md:text-6xl text-white">
+                  Un estudio completo,
+                  <br />
+                  <span className="lp-gradient-text">sin instalar nada.</span>
+                </h2>
+                <p className="lp-lead text-base max-w-[56ch]">Visualiza, mezcla, controla con las manos y publica. Todo corre en el navegador con procesamiento 100% local.</p>
+              </div>
+            </Scene3D>
+
+            <div className="lp-bento">
+              <SpotlightCard tint tilt={3} className="b-7 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
+                <div>
+                  <div className="lp-icon"><Sparkles className="w-5 h-5" aria-hidden="true" /></div>
+                  <h3 className="text-2xl md:text-[30px] font-medium tracking-tight text-white mt-6">Visualizadores 3D en tiempo real</h3>
+                  <p className="lp-lead text-[15px] mt-3 max-w-[50ch]">Geometrías y shaders que reaccionan al espectro FFT con física de bajos, halos líquidos y cámara reactiva.</p>
+                </div>
+                <p className="font-mono text-[12px] tracking-wider text-[color:var(--lp-muted)] mt-8">
+                  Rainbow Void <span className="mx-2 opacity-40">·</span> Synthwave 3D <span className="mx-2 opacity-40">·</span> Túnel Warp <span className="mx-2 opacity-40">·</span> Terreno 3D
+                </p>
+              </SpotlightCard>
+
+              <SpotlightCard tilt={3} className="b-5 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
+                <div>
+                  <div className="lp-icon lp-icon--v"><SlidersHorizontal className="w-5 h-5" aria-hidden="true" /></div>
+                  <h3 className="text-2xl font-medium tracking-tight text-white mt-6">Ecualizador de 10 bandas</h3>
+                  <p className="lp-lead text-[15px] mt-3">Filtros Biquad, curva de respuesta en vivo y 12 presets de estudio.</p>
+                </div>
+                <div className="flex items-end gap-1.5 h-14 mt-8" aria-hidden="true">
+                  {eqHeights.map((h, i) => (
+                    <span key={i} className="flex-1 rounded-full bg-gradient-to-t from-[#8b6cff] to-[#00e5ff] opacity-80" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </SpotlightCard>
+            </div>
+
+            <div className="lp-features mt-12">
+              {[
+                { icon: <Palette className="w-5 h-5" aria-hidden="true" />, t: 'Modo Lúcido', d: '10 temas neón que tiñen toda la interfaz.' },
+                { icon: <AlignLeft className="w-5 h-5" aria-hidden="true" />, t: 'Letras sincronizadas', d: 'Motor LRC con resaltado rítmico y karaoke.' },
+                { icon: <ImageIcon className="w-5 h-5" aria-hidden="true" />, t: 'Wallpaper Studio', d: 'Fondos 4K, tus fotos, IA y atmósferas 3D.' },
+                { icon: <Layers className="w-5 h-5" aria-hidden="true" />, t: 'Social Studio', d: 'Clips 9:16 y Story Cards HD para redes.' },
+              ].map((f, i) => (
+                <div key={f.t} className="lp-feature">
+                  <div className={`lp-icon ${i % 2 ? 'lp-icon--v' : ''}`}>{f.icon}</div>
+                  <h4 className="text-[17px] font-medium tracking-tight text-white mt-5">{f.t}</h4>
+                  <p className="text-[14px] leading-relaxed text-[color:var(--lp-text)] mt-2 max-w-[28ch]">{f.d}</p>
+                </div>
+              ))}
+            </div>
+            <p className="font-mono text-[12px] tracking-wider text-[color:var(--lp-muted)] mt-8">
+              FUENTES <span className="mx-3 opacity-40">/</span> Archivos locales · Micrófono · Audio del sistema · Spotify · YouTube · Radio 24/7
+            </p>
+          </div>
+        </section>
+
+        {/* ================= ESPECIFICACIONES ================= */}
+        <section className="relative w-full px-6 md:px-16 py-28" id="especificaciones">
+          <div className="w-full max-w-[1200px] mx-auto">
+            <Scene3D intensity={0.6}>
+              <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+                <div className="flex flex-col gap-4">
+                  <SectionLabel>Ficha de ingeniería</SectionLabel>
+                  <h2 className="lp-h2 text-4xl sm:text-5xl text-white">Especificaciones técnicas</h2>
+                </div>
+                <div className="font-mono text-[12px] tracking-wider text-auraCyan tabular-nums">MOTOR V3.4.2 — ARQUITECTURA SÍNCRONA</div>
+              </div>
+              <div ref={specsGridRef} id="specs-grid-parent">
+                {[
+                  { k: 'Entrada', v: '48 kHz', t: '48', d: 'Sample rate nativo, sin resampleo ni conversión destructiva.', c: false },
+                  { k: 'Buffer', v: '128', t: '128', d: 'Ventana de análisis ultra corta en muestras síncronas.', c: false },
+                  { k: 'Latencia', v: '7.8 ms', t: '7.8', d: 'Round-trip analógico/digital de captura hasta render visual.', c: true },
+                  { k: 'Bandas', v: '160', t: '160', d: 'Barras del espectro cónico distribuidas logarítmicamente.', c: false },
+                  { k: 'Frame rate', v: '60 fps', t: '60', d: 'Render por GPU acelerado, vsync-locked y libre de tearing.', c: false },
+                  { k: 'Salida', v: 'Estéreo', t: '', d: 'Canales independientes con rango dinámico de 32 bits flotante.', c: false },
+                ].map((s) => (
+                  <div key={s.k} className="lp-spec">
+                    <span className="font-mono text-[12px] tracking-[0.12em] uppercase text-[color:var(--lp-muted)]">{s.k}</span>
+                    <span className={`text-3xl sm:text-4xl font-medium tracking-tight tabular-nums ${s.c ? 'text-auraCyan' : 'text-white'}`} {...(s.t ? { 'data-target': s.t } : {})}>
+                      {s.v}
+                    </span>
+                    <span className="text-[14px] leading-relaxed text-[color:var(--lp-text)]">{s.d}</span>
+                  </div>
+                ))}
+              </div>
+            </Scene3D>
+          </div>
+        </section>
+
+        {/* ================= CTA FINAL ================= */}
+        <section className="relative min-h-[80svh] w-full flex flex-col justify-between overflow-hidden" id="descargar">
+          <canvas ref={footerCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-30" id="footer-ambient-canvas" />
+          <div className="relative z-10 flex-1 flex items-center justify-center px-6 py-24">
+            <Scene3D className="w-full max-w-[980px]" intensity={0.8}>
+              <div className="lp-glass lp-glass--tint text-center flex flex-col items-center px-6 sm:px-14 py-16 sm:py-24">
+                <h2 className="lp-h1 text-5xl sm:text-7xl md:text-8xl text-white">
+                  Enciende
+                  <br />
+                  <span className="lp-gradient-text">el motor.</span>
+                </h2>
+                <p className="lp-lead text-base sm:text-lg mt-6 max-w-[500px]">Inicia Aura3D y empieza a hacer visible lo que ya estás escuchando.</p>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mt-9">
+                  <button type="button" onClick={handleEnter} className="lp-btn lp-btn--primary lp-btn--lg">
+                    Iniciar Aura3D
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                  <a href="#especificaciones" onClick={(e) => handleSmoothScroll(e, 'especificaciones')} className="lp-btn lp-btn--lg">
+                    Ver especificaciones
+                  </a>
+                </div>
+                <p className="font-mono text-[12px] tracking-wider text-[color:var(--lp-muted)] mt-7">Corre en tu navegador · Sin instalación · Procesamiento local</p>
+              </div>
+            </Scene3D>
+          </div>
+
+          <footer className="relative z-10 w-full px-6 md:px-16 pb-8">
+            <div className="max-w-[1200px] mx-auto pt-6 border-t border-[color:var(--lp-line)] flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-[color:var(--lp-muted)]">
+              <span>Aura3D © 2026</span>
+              <div className="flex items-center gap-5">
+                <a className="hover:text-white transition-colors no-underline" href="#">Privacidad</a>
+                <a className="hover:text-white transition-colors no-underline" href="#">Términos</a>
+                <a className="hover:text-white transition-colors no-underline" href="#">Contacto</a>
+              </div>
+              {systemReducedMotion() ? (
                 <button
                   type="button"
-                  id="btn-reboot"
-                  onClick={handleEnter}
-                  className="inline-flex items-center justify-center bg-white text-auraBg px-5 sm:px-6 py-3 rounded-full text-[13px] font-medium tracking-tight shadow-[0_6px_24px_rgba(0,229,255,0.28)] hover:shadow-[0_10px_36px_rgba(0,229,255,0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer border-0"
+                  className="lp-motion-toggle"
+                  onClick={() => {
+                    setForceMotion(!motionForced());
+                    window.location.reload();
+                  }}
                 >
-                  Iniciar motor
+                  {motionForced() ? 'Reducir animaciones' : 'Efectos reducidos por tu sistema · Activar animaciones'}
                 </button>
-                <a
-                  href="#especificaciones"
-                  onClick={(e) => handleSmoothScroll(e, 'especificaciones')}
-                  className="text-[13px] text-white/60 hover:text-white border-b border-white/20 hover:border-white pb-0.5 transition-colors tracking-tight text-decoration-none"
-                >
-                  Ver especificaciones
-                </a>
-              </div>
-            </div>
-
-            {/* Specs right column */}
-            <div className="flex items-end justify-between md:justify-end gap-8 sm:gap-10 pt-4 md:pt-0 border-t border-white/10 md:border-none">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-normal text-white/30 tracking-tight">Entrada</span>
-                <span className="text-lg md:text-xl lg:text-[22px] font-normal tracking-tight text-white/85 tabular-nums">48 kHz</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-normal text-white/30 tracking-tight">Buffer</span>
-                <span className="text-lg md:text-xl lg:text-[22px] font-normal tracking-tight text-white/85 tabular-nums">128</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-normal text-white/30 tracking-tight">Salida</span>
-                <span className="text-lg md:text-xl lg:text-[22px] font-normal tracking-tight text-white/85 tabular-nums">7.8 ms</span>
-              </div>
+              ) : (
+                <span>Hecho para quien escucha</span>
+              )}
             </div>
           </footer>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* ================= SECTION 2: MANIFESTO (min 90svh) ================= */}
-      <section className="relative min-h-[90svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-24 bg-auraBg overflow-hidden border-t border-white/[0.06]" id="manifiesto">
-        <canvas ref={idleCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-40" id="idle-line-canvas" />
-        <div className="relative z-10 max-w-[780px] text-center flex flex-col items-center gap-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.02]">
-            <span className="w-1.5 h-1.5 rounded-full bg-auraCyan" />
-            <span className="text-[11px] font-normal text-white/50 tracking-wider uppercase">Manifiesto de señal</span>
-          </div>
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-medium tracking-tight text-white leading-[1.08] text-balance" id="manifesto-heading">
-            No dibujamos formas.<br />
-            <span className="text-white/85">Dejamos que el sonido se dibuje solo.</span>
-          </h2>
-          <p className="text-base sm:text-lg md:text-xl text-white/50 font-normal leading-relaxed max-w-[620px] text-balance">
-            Cada barra es una banda de frecuencia. Cada frecuencia es una decisión de mezcla. Aura3D no interpreta: traduce. 48 kHz entran, luz sale, y todo ocurre antes de que el oído pueda notarlo.
-          </p>
-          <div className="flex items-center gap-6 mt-4 text-xs tracking-wider text-white/30 tabular-nums uppercase">
-            <span>Respuesta lineal</span>
-            <span className="text-white/15">/</span>
-            <span>Sin post-procesado</span>
-            <span className="text-white/15">/</span>
-            <span>Hardware directo</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION 3: THE SIGNAL PATH (Sticky scrubber) ================= */}
-      <section className="relative w-full bg-gradient-to-b from-auraBg to-auraDark" id="camino-senal">
-        <div ref={signalParentRef} className="signal-sticky-wrapper" id="signal-scroll-parent">
-          <div className="signal-sticky-box flex items-center justify-center px-6 md:px-16">
-            <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-              {/* Left Column: 5 Steps */}
-              <div className="lg:col-span-5 flex flex-col gap-6" id="signal-steps-list">
-                <div>
-                  <span className="text-[11px] font-normal text-auraCyan tracking-wider uppercase">Arquitectura en tiempo real</span>
-                  <h3 className="text-2xl sm:text-3xl font-medium tracking-tight text-white mt-1">El camino de la señal</h3>
-                  <p className="text-sm text-white/45 mt-2">Flujo síncrono punto a punto de entrada acústica a fotón.</p>
-                </div>
-                <div className="flex flex-col gap-3.5 mt-2">
-                  <div className="step-item p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between" data-step="0">
-                    <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded-full border border-auraCyan/40 flex items-center justify-center text-[11px] text-auraCyan font-mono">01</span>
-                      <span className="text-sm md:text-base font-medium text-white/80">Entrada analógica</span>
-                    </div>
-                    <span className="text-xs text-white/30 tabular-nums">XLR / Line In</span>
-                  </div>
-                  <div className="step-item p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between opacity-40" data-step="1">
-                    <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[11px] text-white/40 font-mono">02</span>
-                      <span className="text-sm md:text-base font-medium text-white/80">Conversión A/D — 48 kHz</span>
-                    </div>
-                    <span className="text-xs text-white/30 tabular-nums">24-bit delta-sigma</span>
-                  </div>
-                  <div className="step-item p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between opacity-40" data-step="2">
-                    <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[11px] text-white/40 font-mono">03</span>
-                      <span className="text-sm md:text-base font-medium text-white/80">Motor Aura3D — 128 samples</span>
-                    </div>
-                    <span className="text-xs text-white/30 tabular-nums">FFT cónica 160b</span>
-                  </div>
-                  <div className="step-item p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between opacity-40" data-step="3">
-                    <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[11px] text-white/40 font-mono">04</span>
-                      <span className="text-sm md:text-base font-medium text-white/80">Render en GPU</span>
-                    </div>
-                    <span className="text-xs text-white/30 tabular-nums">Metal / WebGL</span>
-                  </div>
-                  <div className="step-item p-4 rounded-xl border border-white/5 bg-white/[0.01] flex items-center justify-between opacity-40" data-step="4">
-                    <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[11px] text-white/40 font-mono">05</span>
-                      <span className="text-sm md:text-base font-medium text-white/80">Salida — 7.8 ms round-trip</span>
-                    </div>
-                    <span className="text-xs text-auraCyan font-mono tabular-nums">Zero perceived lag</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Signal Path Canvas */}
-              <div className="lg:col-span-7 flex flex-col items-center justify-center">
-                <div className="w-full aspect-[16/10] max-h-[460px] relative rounded-2xl border border-white/10 bg-black/40 overflow-hidden shadow-2xl p-4 flex items-center justify-center">
-                  <canvas ref={signalCanvasRef} className="w-full h-full block" id="signal-path-canvas" />
-                  <div className="absolute top-4 left-5 text-[10px] font-mono uppercase tracking-wider text-white/35 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Buffer activo: 128 s / 2.66 ms
-                  </div>
-                  <div className="absolute bottom-4 right-5 text-[10px] font-mono tracking-wider text-white/35 tabular-nums">
-                    SYNC LOCK: 99.98%
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION 4: LATENCY PROOF (min 100svh) ================= */}
-      <section ref={latencySectionRef} className="relative min-h-[100svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-24 bg-auraDeep overflow-hidden" id="latencia">
-        <canvas ref={radarCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-50" id="radar-canvas" />
-        <div className="relative z-10 max-w-[1100px] w-full text-center flex flex-col items-center">
-          <span className="text-xs sm:text-sm font-normal text-white/50 tracking-wider uppercase mb-3">
-            El tiempo que tarda el sonido en volverse luz
-          </span>
-          <div className="flex items-baseline justify-center font-normal tracking-[-0.05em] select-none my-2">
-            <span ref={latencyCounterRef} className="text-[90px] sm:text-[140px] md:text-[200px] lg:text-[240px] leading-none text-white tabular-nums font-medium" id="latency-counter">
-              7.8
-            </span>
-            <span className="text-3xl sm:text-5xl md:text-7xl text-white/40 font-light ml-2 tracking-tight">ms</span>
-          </div>
-          <div className="w-full max-w-[560px] h-[1px] bg-gradient-to-r from-transparent via-auraCyan/60 to-transparent my-8 relative">
-            <div className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 rounded-full bg-auraCyan shadow-[0_0_12px_#00e5ff]" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-12 w-full max-w-[820px] mt-2">
-            <div className="flex flex-col items-center gap-1.5 p-5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              <span className="text-2xl sm:text-3xl font-normal text-white tabular-nums">48 kHz</span>
-              <span className="text-xs text-white/40 tracking-wide uppercase">Entrada directa</span>
-            </div>
-            <div className="flex flex-col items-center gap-1.5 p-5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              <span className="text-2xl sm:text-3xl font-normal text-white tabular-nums">128</span>
-              <span className="text-xs text-white/40 tracking-wide uppercase">Buffer muestras</span>
-            </div>
-            <div className="flex flex-col items-center gap-1.5 p-5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              <span className="text-2xl sm:text-3xl font-normal text-auraCyan tabular-nums">7.8 ms</span>
-              <span className="text-xs text-white/40 tracking-wide uppercase">Round-trip total</span>
-            </div>
-          </div>
-          <p className="text-xs sm:text-sm text-white/40 max-w-[480px] mt-8 text-balance">
-            Medido desde la excitación del transductor hasta el frame desplegado en panel OLED a 120Hz con sincronía por hardware.
-          </p>
-        </div>
-      </section>
-
-      {/* ================= SECTION 5: FEATURE 1: VISUALIZADOR CÓNICO (min 110svh) ================= */}
-      <section className="relative min-h-[110svh] w-full flex items-center justify-center px-6 md:px-16 py-24 bg-auraBg border-t border-white/[0.06]" id="conico">
-        <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          <div className="lg:col-span-7 flex justify-center">
-            <div ref={tiltBoxRef} className="relative w-full max-w-[540px] aspect-square rounded-2xl border border-white/10 bg-black/60 overflow-hidden shadow-2xl p-2 transition-transform duration-200 ease-out" id="cone-tilt-container">
-              <canvas ref={miniConeCanvasRef} className="w-full h-full block rounded-xl" id="mini-cone-canvas" />
-              <div className="absolute bottom-4 left-5 text-[11px] font-mono text-white/40">
-                RADIAL SPECTRUM — 160 BANDS
-              </div>
-              <div className="absolute top-4 right-5 text-[11px] font-mono text-auraCyan flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-auraCyan animate-ping" />
-                LIVE RENDER
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-5 flex flex-col gap-5">
-            <span className="text-[11px] font-medium text-auraCyan tracking-widest uppercase">01 — Visualizador cónico</span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight text-white leading-tight">
-              Forma que sigue<br />a la frecuencia.
-            </h2>
-            <p className="text-sm sm:text-base text-white/50 leading-relaxed font-normal">
-              Un cono en perspectiva real inclinado 22 grados que organiza el espectro audible en 160 barras continuas. Desde subgraves profundos en la base hasta agudos aireados en la cresta, el volumen se convierte en geometría tridimensional que flota en el espacio.
-            </p>
-            <div className="pt-4 border-t border-white/10 flex flex-wrap gap-6 text-sm text-white/80 tabular-nums">
-              <div>
-                <div className="text-xs text-white/40 uppercase">Resolución</div>
-                <div className="text-base font-mono text-white mt-0.5">160 bandas</div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40 uppercase">Cadencia</div>
-                <div className="text-base font-mono text-white mt-0.5">60 fps locked</div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40 uppercase">Ángulo zenit</div>
-                <div className="text-base font-mono text-white mt-0.5">Perspectiva 22°</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION 6: FEATURE 2: TRACKING DE MANOS (min 110svh) ================= */}
-      <section className="relative min-h-[110svh] w-full flex items-center justify-center px-6 md:px-16 py-24 bg-auraDark border-t border-white/[0.06]" id="manos">
-        <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          <div className="lg:col-span-6 order-2 lg:order-1 flex flex-col gap-5">
-            <span className="text-[11px] font-medium text-auraViolet tracking-widest uppercase">02 — Tracking de manos</span>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-medium tracking-tight text-white leading-tight">
-              Mueve la mano.<br />Mueve la sala.
-            </h2>
-            <p className="text-sm sm:text-base text-white/50 leading-relaxed font-normal">
-              Control gestual sin latencia gracias a un esqueleto cinemático de 21 puntos clave. Abre la palma para expandir el campo estéreo, cierra los dedos para aplicar filtro pasabajos, o eleva la mano para esculpir la dispersión lumínica en tu entorno escénico.
-            </p>
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between mt-2">
-              <div className="flex items-center gap-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-auraViolet" />
-                <span className="text-xs font-mono text-white/70">MediaPipe Vision AI</span>
-              </div>
-              <span className="text-xs font-mono text-auraCyan tabular-nums">&lt; 40 ms de tracking</span>
-            </div>
-            <div className="pt-4 border-t border-white/10 flex flex-wrap gap-6 text-sm text-white/80 tabular-nums">
-              <div>
-                <div className="text-xs text-white/40 uppercase">Nodos</div>
-                <div className="text-base font-mono text-white mt-0.5">21 landmarks 3D</div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40 uppercase">Frecuencia</div>
-                <div className="text-base font-mono text-white mt-0.5">30 fps sensor</div>
-              </div>
-              <div>
-                <div className="text-xs text-white/40 uppercase">Precisión</div>
-                <div className="text-base font-mono text-white mt-0.5">Sub-milimétrica</div>
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-6 order-1 lg:order-2 flex justify-center">
-            <div className="relative w-full max-w-[520px] aspect-square rounded-2xl border border-white/10 bg-black/60 overflow-hidden shadow-2xl p-2">
-              <canvas ref={handCanvasRef} className="w-full h-full block rounded-xl" id="hand-canvas" />
-              <div className="absolute bottom-4 left-5 text-[11px] font-mono text-white/40">
-                21-POINT SKELETAL RIG
-              </div>
-              <div className="absolute top-4 right-5 text-[11px] font-mono text-auraViolet flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-auraViolet" />
-                OPTICAL TRACK
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION 7: FEATURE 3: KAWARP WORD-SYNC (min 110svh) ================= */}
-      <section className="relative min-h-[110svh] w-full flex flex-col items-center justify-center px-6 md:px-12 py-24 bg-auraDeep border-t border-white/[0.06]" id="kawarp">
-        <div className="w-full max-w-[960px] text-center flex flex-col items-center gap-8">
-          <span className="text-[11px] font-medium text-auraPink tracking-widest uppercase">03 — Kawarp word-sync</span>
-          <h2 className="text-3xl sm:text-5xl md:text-6xl font-medium tracking-tight text-white leading-tight">
-            Cada palabra,<br />en su momento exacto.
-          </h2>
-          <div className="w-full py-12 sm:py-16 px-6 sm:px-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm my-4 flex flex-col items-center justify-center">
-            <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-7 gap-y-4 text-2xl sm:text-4xl md:text-5xl font-medium tracking-tight select-none" id="kawarp-lyrics-row">
-              <div className="flex flex-col items-center gap-3">
-                <span className="sync-word text-white/40" data-idx="0">el</span>
-                <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <span className="sync-word text-white/40" data-idx="1">silencio</span>
-                <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <span className="sync-word text-white/40" data-idx="2">también</span>
-                <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <span className="sync-word text-white/40" data-idx="3">tiene</span>
-                <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <span className="sync-word text-white/40" data-idx="4">ritmo</span>
-                <span className="w-1 h-3 rounded-full bg-white/20 sync-bar" />
-              </div>
-            </div>
-            <div className="w-full max-w-[480px] h-1 bg-white/10 rounded-full mt-10 overflow-hidden relative">
-              <div ref={kawarpProgressFillRef} className="h-full bg-gradient-to-r from-auraCyan via-auraViolet to-auraPink w-0 transition-all duration-75" id="kawarp-progress-fill" />
-            </div>
-            <div className="flex items-center justify-between w-full max-w-[480px] text-[11px] font-mono text-white/40 mt-3 tabular-nums">
-              <span>120.00 BPM</span>
-              <span ref={bpmPhaseReadoutRef} id="bpm-phase-readout">PASO 01 / 05</span>
-              <span>SYNC LOCK: EXACT</span>
-            </div>
-          </div>
-          <p className="text-sm sm:text-base md:text-lg text-white/50 font-normal leading-relaxed max-w-[640px] text-balance">
-            Kawarp alinea el texto con el audio a nivel de palabra. No hay desfase. No hay adivinación. Solo timing analítico procesado en búfer circular para directos, visuales escénicos y videoclips generativos.
-          </p>
-        </div>
-      </section>
-
-      {/* ================= SECTION 8: TECHNICAL SPECS GRID (min 80svh) ================= */}
-      <section className="relative min-h-[80svh] w-full flex flex-col items-center justify-center px-6 md:px-16 py-28 bg-auraBg border-t border-white/[0.08]" id="especificaciones">
-        <div className="w-full max-w-[1200px]">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 pb-6 border-b border-white/10 gap-4">
-            <div>
-              <span className="text-[11px] font-normal text-white/40 tracking-wider uppercase">Ficha de ingeniería</span>
-              <h2 className="text-3xl sm:text-4xl font-medium tracking-tight text-white mt-1">Especificaciones técnicas</h2>
-            </div>
-            <div className="text-xs font-mono text-auraCyan tabular-nums">
-              MOTOR V3.4.2 — ARQUITECTURA SÍNCRONA
-            </div>
-          </div>
-          <div ref={specsGridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-white/[0.08] rounded-2xl overflow-hidden border border-white/[0.08]" id="specs-grid-parent">
-            {/* 1: Entrada */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Entrada</span>
-                <span className="text-[11px] font-mono text-white/25">01</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-white tracking-tight tabular-nums" data-target="48">
-                  48 kHz
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Sample rate nativo, sin resampleo ni conversión destructiva.
-                </p>
-              </div>
-            </div>
-            {/* 2: Buffer */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Buffer</span>
-                <span className="text-[11px] font-mono text-white/25">02</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-white tracking-tight tabular-nums" data-target="128">
-                  128
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Ventana de análisis ultra corta en muestras síncronas.
-                </p>
-              </div>
-            </div>
-            {/* 3: Latencia */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Latencia</span>
-                <span className="text-[11px] font-mono text-white/25">03</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-auraCyan tracking-tight tabular-nums" data-target="7.8">
-                  7.8 ms
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Round-trip analógico/digital de captura hasta render visual.
-                </p>
-              </div>
-            </div>
-            {/* 4: Bandas */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Bandas</span>
-                <span className="text-[11px] font-mono text-white/25">04</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-white tracking-tight tabular-nums" data-target="160">
-                  160
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Barras del espectro cónico distribuidas logarítmicamente.
-                </p>
-              </div>
-            </div>
-            {/* 5: Frame rate */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Frame rate</span>
-                <span className="text-[11px] font-mono text-white/25">05</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-white tracking-tight tabular-nums" data-target="60">
-                  60 fps
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Render por GPU acelerado, vsync-locked y libre de tearing.
-                </p>
-              </div>
-            </div>
-            {/* 6: Salida */}
-            <div className="bg-auraBg p-8 flex flex-col justify-between min-h-[190px] group hover:bg-white/[0.015] transition-colors">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-mono text-white/40 tracking-wider uppercase">Salida</span>
-                <span className="text-[11px] font-mono text-white/25">06</span>
-              </div>
-              <div>
-                <div className="text-3xl sm:text-4xl font-medium text-white tracking-tight">
-                  Estéreo
-                </div>
-                <p className="text-xs text-white/50 mt-2 font-normal">
-                  Canales independientes con rango dinámico de 32 bits flotante.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION 9: FINAL CTA & FOOTER (min 70svh) ================= */}
-      <section className="relative min-h-[70svh] w-full flex flex-col justify-between bg-gradient-to-b from-auraDark to-auraBg overflow-hidden border-t border-white/[0.08]" id="descargar">
-        <canvas ref={footerCanvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-25" id="footer-ambient-canvas" />
-        <div aria-hidden="true" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-auraCyan/10 blur-[130px] pointer-events-none rounded-full" />
-        <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center text-center px-6 py-20">
-          <h2 className="text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight text-white leading-none">
-            Enciende el motor.
-          </h2>
-          <p className="text-sm sm:text-base md:text-lg text-white/50 font-normal mt-4 max-w-[520px] text-balance">
-            Inicia Aura3D y empieza a hacer visible lo que ya estás escuchando.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center gap-4 mt-8">
-            <button
-              type="button"
-              onClick={handleEnter}
-              className="inline-flex items-center justify-center bg-white text-auraBg px-8 py-3.5 rounded-full text-sm font-medium tracking-tight shadow-[0_6px_28px_rgba(0,229,255,0.35)] hover:shadow-[0_12px_44px_rgba(0,229,255,0.55)] hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer border-0"
-            >
-              Iniciar Aura3D
-            </button>
-            <a
-              href="#especificaciones"
-              onClick={(e) => handleSmoothScroll(e, 'especificaciones')}
-              className="text-sm text-white/60 hover:text-white px-5 py-3 border-b border-transparent hover:border-white/30 transition-colors text-decoration-none"
-            >
-              Ver documentación técnica
-            </a>
-          </div>
-          <div className="text-[11px] text-white/35 font-mono mt-6">
-            macOS 13+ · Windows 11 · Linux (ALSA / PipeWire)
-          </div>
-        </div>
-
-        {/* Footer Bar */}
-        <footer className="relative z-10 w-full border-t border-white/[0.08] px-6 md:px-16 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-white/40">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-auraCyan" />
-            <span>Aura3D © 2026</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <a className="hover:text-white transition-colors text-decoration-none" href="#">Privacidad</a>
-            <span className="text-white/20">·</span>
-            <a className="hover:text-white transition-colors text-decoration-none" href="#">Términos</a>
-            <span className="text-white/20">·</span>
-            <a className="hover:text-white transition-colors text-decoration-none" href="#">Contacto</a>
-          </div>
-          <span className="text-white/30 font-normal">
-            Hecho para quien escucha
-          </span>
-        </footer>
-      </section>
-
-      {/* Transición simple: fade a negro al entrar al motor 3D */}
+      {/* Transición: fade a negro al entrar al motor 3D */}
       <AnimatePresence>
         {isTransitioning && (
           <motion.div

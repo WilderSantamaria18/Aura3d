@@ -5,6 +5,7 @@ import type {
   WallpaperStyle,
   WallpaperAspectRatio,
   WallpaperPalette,
+  WallpaperQuality,
   WallpaperGenerationResult,
 } from '../types/wallpaper';
 
@@ -23,6 +24,7 @@ export const useWallpaperGenerator = () => {
   const [style, setStyle] = useState<WallpaperStyle>('cinematic');
   const [aspectRatio, setAspectRatio] = useState<WallpaperAspectRatio>('16:9');
   const [palette, setPalette] = useState<WallpaperPalette>('warm-sunset');
+  const [quality, setQuality] = useState<WallpaperQuality>('4k');
 
   const generate = useCallback(async (): Promise<WallpaperGenerationResult | null> => {
     if (!prompt.trim() || isGenerating) return null;
@@ -36,6 +38,7 @@ export const useWallpaperGenerator = () => {
       style,
       aspectRatio,
       palette,
+      quality,
     };
     setLastRequest(request);
 
@@ -71,6 +74,7 @@ export const useWallpaperGenerator = () => {
     style,
     aspectRatio,
     palette,
+    quality,
     isGenerating,
     setIsGenerating,
     setGenerationProgress,
@@ -89,6 +93,8 @@ export const useWallpaperGenerator = () => {
     setAspectRatio,
     palette,
     setPalette,
+    quality,
+    setQuality,
     generate,
     isGenerating,
     generationProgress,

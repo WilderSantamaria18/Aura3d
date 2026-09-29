@@ -84,8 +84,8 @@ function resolveAestheticFallback(prompt = '', style = '') {
  */
 router.post('/generate', async (req, res) => {
   const { prompt, negativePrompt, width, height, seed, style } = req.body;
-  const w = width || 1920;
-  const h = height || 1080;
+  const w = Math.min(2048, Math.max(256, Number(width) || 1920));
+  const h = Math.min(2048, Math.max(256, Number(height) || 1080));
   const s = seed || Math.floor(Math.random() * 10000000);
 
   // 1. Replicate API Token
@@ -117,13 +117,15 @@ router.post('/generate', async (req, res) => {
     }
   }
 
-  // 2. Pollinations AI desde Node (sin headers restrictivos de navegador)
+  // 2. Modelo de Nueva Generación FLUX.1 (Ultra alta definición fotográfica)
   try {
-    const cleanPrompt = encodeURIComponent(prompt || 'cinematic wallpaper 4k');
-    const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=${w}&height=${h}&seed=${s}&nologo=true`;
+    const fluxModel = 'flux';
+
+    const cleanPrompt = encodeURIComponent(prompt || 'cinematic wallpaper 4k ultra detailed masterpiece');
+    const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=${fluxModel}&width=${w}&height=${h}&seed=${s}&nologo=true&enhance=false&private=true`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 18000);
+    const timeout = setTimeout(() => controller.abort(), 80000);
 
     const pollRes = await fetch(pollUrl, {
       signal: controller.signal,
@@ -156,15 +158,10 @@ router.post('/generate', async (req, res) => {
     console.warn('[Wallpapers] Pollinations request notice:', pollErr.message);
   }
 
-  // 3. Fallback Curated 4K Cinema Aesthetic
-  const fallbackUrl = resolveAestheticFallback(prompt, style);
-  return res.json({
-    success: true,
-    url: fallbackUrl,
-    engine: 'curated-4k-cinema',
-    width: w,
-    height: h,
-    isCuratedFallback: true,
+  // 3. Sin motor disponible: se informa (no se sustituye por una foto ajena al prompt)
+  return res.status(502).json({
+    success: false,
+    error: 'Ningún motor de imágenes respondió',
   });
 });
 

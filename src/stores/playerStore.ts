@@ -5,6 +5,7 @@ import type {
   EqualizerBand,
   VisualizerMode,
   VisualizerShape,
+  BlobShape,
   WaveEffectMode,
   BlobCustomSettings,
   LucidTheme,
@@ -225,7 +226,7 @@ interface PlayerState {
   sphereBassBoomIntensity: number;
 
   // Independent Blob 2D Slice
-  blobShape: VisualizerShape;
+  blobShape: BlobShape;
   blobWaveMode: WaveEffectMode;
   blobWaveIntensity: number;
   blobBassBoomThreshold: number;
@@ -369,7 +370,7 @@ interface PlayerState {
   setSphereBassBoomThreshold: (threshold: number) => void;
   setSphereBassBoomIntensity: (intensity: number) => void;
 
-  setBlobShape: (shape: VisualizerShape) => void;
+  setBlobShape: (shape: BlobShape) => void;
   setBlobWaveMode: (mode: WaveEffectMode) => void;
   setBlobWaveIntensity: (intensity: number) => void;
   setBlobBassBoomThreshold: (threshold: number) => void;
@@ -907,7 +908,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const activeBoomIntensity = safeMode === 'blob' ? state.blobBassBoomIntensity : state.sphereBassBoomIntensity;
     set({
       visualizerMode: safeMode,
-      visualizerShape: activeShape,
+      visualizerShape: activeShape as VisualizerShape,
       waveEffectMode: activeWaveMode,
       waveEffectIntensity: activeWaveIntensity,
       bassBoomThreshold: activeBoomThreshold,
@@ -1010,7 +1011,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     StorageService.saveBlobShape(blobShape);
     set((state) => ({
       blobShape,
-      visualizerShape: state.visualizerMode === 'blob' ? blobShape : state.visualizerShape,
+      visualizerShape: state.visualizerMode === 'blob' ? (blobShape as VisualizerShape) : state.visualizerShape,
     }));
   },
   setBlobWaveMode: (blobWaveMode) => {

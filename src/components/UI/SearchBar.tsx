@@ -16,16 +16,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   return (
     <div
-      className={`relative mx-4 mt-3 rounded-full bg-white/[0.05] border border-white/[0.12] backdrop-blur-xl shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.15)] flex items-center gap-2 px-3.5 py-2 transition-all duration-200 focus-within:border-cyan-400/40 focus-within:bg-white/[0.08] focus-within:shadow-[0_0_16px_rgba(0,240,255,0.18)] ${className}`}
+      className={`glass-input mx-4 mt-3 flex items-center gap-2.5 px-4 min-h-[44px] ${className}`}
     >
-      <Search className="w-4 h-4 text-white/40 flex-shrink-0" aria-hidden="true" />
+      <Search className="w-[18px] h-[18px] text-white/50 flex-shrink-0" aria-hidden="true" />
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-white placeholder:text-white/30 font-medium tracking-tight"
+        className="flex-1 bg-transparent outline-none text-[14px] text-white placeholder:text-white/40 font-medium tracking-tight"
       />
       {value && (
         <button

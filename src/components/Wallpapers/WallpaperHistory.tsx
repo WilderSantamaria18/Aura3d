@@ -35,14 +35,14 @@ export const WallpaperHistory: React.FC<WallpaperHistoryProps> = ({ onPreview, o
       </div>
 
       {/* List */}
-      <div className="flex flex-col gap-2 max-h-[52vh] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="flex flex-col gap-2">
         {cachedWallpapers.map((item) => {
           const isApplied = currentWallpaper?.id === item.id;
           return (
             <div
               key={item.id}
               onClick={() => onPreview(item)}
-              className="group flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.06] hover:border-cyan-400/30 transition-all cursor-pointer"
+              className="group glass-item !rounded-2xl flex items-center justify-between p-3 cursor-pointer"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <img

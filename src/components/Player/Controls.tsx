@@ -1,41 +1,53 @@
-import React, { useCallback, useState } from 'react';
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Shuffle,
-  Repeat,
-  Repeat1,
-  Heart,
-  Music,
-  Disc3,
-  Maximize2,
-} from 'lucide-react';
+import React, { useCallback } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Heart, Music, Disc3, Maximize2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 import { AudioEngine } from '../../services/audioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { VolumeControl } from './VolumeControl';
 
+/**
+ * Controles de la cápsula inferior.
+ * Rendimiento: selectores acotados (antes se suscribía al store entero y se re-renderizaba
+ * con cualquier cambio) y estilos sin `backdrop-filter` propio por botón.
+ */
 export const Controls: React.FC = React.memo(() => {
   const {
     currentTrack,
     isPlaying,
     repeatMode,
     isShuffled,
-    favorites,
     toggleShuffle,
     setRepeatMode,
     toggleFavorite,
     autoMode,
-    autoPalette,
+    autoPrimary,
     isLucid,
-    lucidTheme,
+    lucidPrimary,
     isSpotifyConnected,
     isMiniPlayerOpen,
     toggleMiniPlayer,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      currentTrack: s.currentTrack,
+      isPlaying: s.isPlaying,
+      repeatMode: s.repeatMode,
+      isShuffled: s.isShuffled,
+      toggleShuffle: s.toggleShuffle,
+      setRepeatMode: s.setRepeatMode,
+      toggleFavorite: s.toggleFavorite,
+      autoMode: s.autoMode,
+      autoPrimary: s.autoPalette.primary,
+      isLucid: s.isLucid,
+      lucidPrimary: s.lucidTheme.primary,
+      isSpotifyConnected: s.isSpotifyConnected,
+      isMiniPlayerOpen: s.isMiniPlayerOpen,
+      toggleMiniPlayer: s.toggleMiniPlayer,
+    }))
+  );
+  // Booleano: no depende de la identidad de la lista de favoritos
+  const isFav = usePlayerStore((s) => (s.currentTrack ? s.favorites.some((t) => t.id === s.currentTrack!.id) : false));
 
   const { togglePlayPause: engineTogglePlayPause, playNext: enginePlayNext, playPrevious: enginePlayPrevious } = useAudioEngine();
   const {
@@ -45,30 +57,19 @@ export const Controls: React.FC = React.memo(() => {
   } = useSpotifyPlayer();
 
   const handlePlayPause = useCallback(() => {
-    if (isSpotifyConnected) {
-      spotifyTogglePlayPause();
-    } else {
-      engineTogglePlayPause();
-    }
+    if (isSpotifyConnected) spotifyTogglePlayPause();
+    else engineTogglePlayPause();
   }, [isSpotifyConnected, spotifyTogglePlayPause, engineTogglePlayPause]);
 
   const handleNext = useCallback(() => {
-    if (isSpotifyConnected) {
-      spotifyPlayNext();
-    } else {
-      enginePlayNext();
-    }
+    if (isSpotifyConnected) spotifyPlayNext();
+    else enginePlayNext();
   }, [isSpotifyConnected, spotifyPlayNext, enginePlayNext]);
 
   const handlePrevious = useCallback(() => {
-    if (isSpotifyConnected) {
-      spotifyPlayPrevious();
-    } else {
-      enginePlayPrevious();
-    }
+    if (isSpotifyConnected) spotifyPlayPrevious();
+    else enginePlayPrevious();
   }, [isSpotifyConnected, spotifyPlayPrevious, enginePlayPrevious]);
-
-  const isFav = currentTrack ? favorites.some((t) => t.id === currentTrack.id) : false;
 
   const cycleRepeat = useCallback(() => {
     if (repeatMode === 'off') setRepeatMode('all');
@@ -84,45 +85,51 @@ export const Controls: React.FC = React.memo(() => {
         engine.triggerDjScratch();
         return;
       }
-      if (isPlaying) {
-        engine.triggerTapeStop(0.85);
-      } else {
-        engine.triggerTapeStart(0.55);
-      }
+      if (isPlaying) engine.triggerTapeStop(0.85);
+      else engine.triggerTapeStart(0.55);
     },
     [isPlaying]
   );
 
+  const accent = autoMode ? autoPrimary : isLucid ? lucidPrimary : '#ffffff';
+
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-2 w-full px-0.5 select-none">
-      {/* Track Info */}
-      <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-1/3 min-w-0 justify-between sm:justify-start">
-        <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-md bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden">
+    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 w-full select-none">
+      {/* Pista actual */}
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="dock-cover w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
           {currentTrack?.coverUrl ? (
-            <img src={currentTrack.coverUrl} alt={currentTrack.title} className="w-full h-full object-cover" />
+            <img
+              src={currentTrack.coverUrl}
+              alt={currentTrack.title}
+              className="w-full h-full object-cover"
+              decoding="async"
+              loading="lazy"
+              draggable={false}
+            />
           ) : (
-            <Music className="w-3 h-3 text-white/40" />
+            <Music className="w-4 h-4 text-white/40" />
           )}
         </div>
 
-        <div className="flex-1 min-w-0 pr-1">
-          <div className="flex items-center gap-1">
-            <h4 className="text-white font-medium text-[10px] sm:text-[11px] truncate tracking-tight">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h4 className="text-white font-semibold text-[12px] sm:text-[12.5px] truncate tracking-tight leading-tight">
               {currentTrack ? currentTrack.title : 'Sin pista seleccionada'}
             </h4>
             {currentTrack?.sourceType === 'system' && (
-              <span className="text-[7.5px] font-mono uppercase tracking-wider px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
+              <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
                 LIVE
               </span>
             )}
             {isSpotifyConnected && (
-              <span className="text-[7.5px] font-mono tracking-wider px-1 py-0.2 rounded bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30 flex items-center gap-1 flex-shrink-0">
+              <span className="text-[8px] font-mono tracking-wider px-1.5 rounded bg-[#1DB954]/15 text-[#1DB954] border border-[#1DB954]/30 flex items-center gap-1 flex-shrink-0">
                 <span className="w-1 h-1 rounded-full bg-[#1DB954]" />
                 SYNC
               </span>
             )}
           </div>
-          <p className="text-white/40 text-[8.5px] sm:text-[9px] truncate font-mono mt-0.2">
+          <p className="text-white/50 text-[10.5px] truncate mt-0.5 leading-tight">
             {currentTrack ? currentTrack.artist : 'Aura3D Engine'}
           </p>
         </div>
@@ -130,154 +137,106 @@ export const Controls: React.FC = React.memo(() => {
         {currentTrack && (
           <button
             onClick={() => toggleFavorite(currentTrack)}
-            className={`p-1 h-6 w-6 flex items-center justify-center rounded-md transition-colors flex-shrink-0 cursor-pointer ${
-              isFav
-                ? 'text-rose-500 hover:text-rose-400'
-                : 'text-white/50 hover:text-white hover:bg-white/[0.06]'
-            }`}
+            className={`dock-btn w-8 h-8 flex-shrink-0 ${isFav ? 'text-rose-400' : 'text-white/55 hover:text-white'}`}
             title={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
             aria-label={isFav ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            aria-pressed={isFav}
           >
-            <Heart className={`w-3 h-3 ${isFav ? 'fill-rose-500' : ''}`} />
+            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-400' : ''}`} />
           </button>
         )}
 
-        {/* Mobile Actions (Volume & MiniPlayer) */}
+        {/* Móvil: volumen y consola */}
         <div className="flex sm:hidden items-center gap-1">
           <VolumeControl />
           <button
             onClick={toggleMiniPlayer}
-            className={`p-1 h-6.5 w-6.5 rounded-md transition-all flex items-center justify-center cursor-pointer border ${
-              isMiniPlayerOpen
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-[0_0_8px_rgba(0,229,255,0.2)]'
-                : 'text-white/40 hover:text-white border-transparent hover:bg-white/[0.06]'
-            }`}
+            className={`dock-btn w-8 h-8 ${isMiniPlayerOpen ? 'is-active' : 'text-white/55'}`}
+            aria-label="Consola MiniPlayer"
           >
-            <Maximize2 className="w-3 h-3" />
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Main Playback Buttons */}
-      <div className="flex items-center justify-center gap-1 sm:gap-1.5 w-full sm:w-auto">
+      {/* Transporte */}
+      <div className="flex items-center justify-center gap-1.5 sm:gap-2">
         <button
           onClick={toggleShuffle}
-          className={`p-1 h-6.5 w-6.5 sm:h-7 sm:w-7 flex items-center justify-center rounded-md transition-colors cursor-pointer ${
-            isShuffled
-              ? isLucid
-                ? 'text-white bg-white/20 shadow-sm'
-                : 'text-white bg-white/15 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-          }`}
+          className={`dock-btn w-8 h-8 ${isShuffled ? 'is-active' : 'text-white/60 hover:text-white'}`}
           title={isShuffled ? 'Desactivar Aleatorio (S)' : 'Activar Aleatorio (S)'}
           aria-label={isShuffled ? 'Desactivar modo aleatorio' : 'Activar modo aleatorio'}
+          aria-pressed={isShuffled}
         >
-          <Shuffle className="w-3 h-3" />
+          <Shuffle className="w-3.5 h-3.5" />
         </button>
 
         <button
           onClick={handlePrevious}
-          className="p-1 h-6.5 w-6.5 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          className="dock-btn w-9 h-9 text-white/85 hover:text-white"
           title="Canción Anterior (Shift+←)"
           aria-label="Canción anterior"
         >
-          <SkipBack className="w-3 h-3 fill-current" />
+          <SkipBack className="w-4 h-4 fill-current" />
         </button>
 
         <button
           onClick={handlePlayPause}
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center btn-spring shadow-[0_4px_16px_rgba(0,0,0,0.5)] border border-white/25 flex-shrink-0 group cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-          style={
-            autoMode
-              ? {
-                  backgroundColor: autoPalette.primary,
-                  color: '#000000',
-                }
-              : isLucid
-              ? {
-                  backgroundColor: lucidTheme.primary,
-                  color: '#000000',
-                }
-              : {
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                }
-          }
+          className="dock-play w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+          style={{ backgroundColor: accent, ['--dock-play-glow' as string]: accent }}
           title={isPlaying ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'}
           aria-label={isPlaying ? 'Pausar reproducción' : 'Iniciar reproducción'}
         >
-          {isPlaying ? (
-            <Pause className="w-4 h-4 fill-current" />
-          ) : (
-            <Play className="w-4 h-4 fill-current translate-x-0.5" />
-          )}
+          {isPlaying ? <Pause className="w-5 h-5 fill-current text-black" /> : <Play className="w-5 h-5 fill-current text-black translate-x-0.5" />}
         </button>
 
         <button
           onClick={handleNext}
-          className="p-1 h-6.5 w-6.5 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-white/75 hover:text-white hover:bg-white/[0.06] btn-spring cursor-pointer"
+          className="dock-btn w-9 h-9 text-white/85 hover:text-white"
           title="Siguiente Canción (Shift+→)"
           aria-label="Siguiente canción"
         >
-          <SkipForward className="w-3.5 h-3.5 fill-current" />
+          <SkipForward className="w-4 h-4 fill-current" />
         </button>
 
         <button
           onClick={cycleRepeat}
-          className={`p-1 h-6.5 w-6.5 sm:h-7 sm:w-7 flex items-center justify-center rounded-md transition-colors cursor-pointer ${
-            repeatMode !== 'off'
-              ? isLucid
-                ? 'text-white bg-white/20 shadow-sm'
-                : 'text-white bg-white/15 shadow-sm'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-          }`}
+          className={`dock-btn w-8 h-8 ${repeatMode !== 'off' ? 'is-active' : 'text-white/60 hover:text-white'}`}
           title={`Repetición: ${repeatMode} (R)`}
           aria-label={`Modo de repetición actual: ${repeatMode}. Clic para cambiar.`}
+          aria-pressed={repeatMode !== 'off'}
         >
-          {repeatMode === 'one' ? (
-            <Repeat1 className="w-3 h-3" />
-          ) : (
-            <Repeat className="w-3 h-3" />
-          )}
+          {repeatMode === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
         </button>
+      </div>
 
-        {/* Vinyl Tape Stop & Scratch DJ Button */}
+      {/* Volumen, freno de vinilo y consola */}
+      <div className="hidden sm:flex justify-end items-center gap-2">
         <button
           onClick={handleVinylTapeStop}
           onDoubleClick={(e) => {
             e.stopPropagation();
             AudioEngine.getInstance().triggerDjScratch();
           }}
-          className={`p-1 h-6.5 w-6.5 sm:h-7 sm:w-7 flex items-center justify-center rounded-md transition-all cursor-pointer ${
-            isPlaying
-              ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 active:scale-90'
-              : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-          }`}
-          title="Freno de Vinilo Analógico (Tape Stop) • Doble clic / Shift+Clic: Scratch DJ"
+          className={`dock-btn w-8 h-8 ${isPlaying ? 'text-amber-400' : 'text-white/55 hover:text-white'}`}
+          title="Freno de Vinilo (Tape Stop) • Doble clic / Shift+Clic: Scratch DJ"
           aria-label="Freno de vinilo analógico"
         >
-          <Disc3 className={`w-3 h-3 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
+          <Disc3 className={`w-3.5 h-3.5 ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
         </button>
-
-      </div>
-
-      {/* Volume & MiniPlayer Launcher (Desktop & Tablet) */}
-      <div className="hidden sm:flex w-1/3 justify-end items-center gap-2">
-        <VolumeControl />
+        <VolumeControl compact />
         <button
           onClick={toggleMiniPlayer}
-          className={`p-1 h-6.5 w-6.5 rounded-md transition-all flex items-center justify-center cursor-pointer border ${
-            isMiniPlayerOpen
-              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-[0_0_8px_rgba(0,229,255,0.2)]'
-              : 'text-white/40 hover:text-white border-transparent hover:bg-white/[0.06]'
-          }`}
+          className={`dock-btn w-8 h-8 ${isMiniPlayerOpen ? 'is-active' : 'text-white/55 hover:text-white'}`}
           title={isMiniPlayerOpen ? 'Cerrar consola MiniPlayer' : 'Abrir consola MiniPlayer (YouTube, Cola y EQ)'}
           aria-label="Consola MiniPlayer"
+          aria-pressed={isMiniPlayerOpen}
         >
-          <Maximize2 className="w-3 h-3" />
+          <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
   );
 });
 
+Controls.displayName = 'Controls';

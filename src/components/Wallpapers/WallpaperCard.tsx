@@ -26,7 +26,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
   const imageUrl = 'thumbnailUrl' in item ? item.thumbnailUrl : item.thumbnail || item.url;
 
   return (
-    <div className="group relative rounded-2xl overflow-hidden bg-black/40 border border-white/10 hover:border-cyan-400/50 transition-all duration-300 flex flex-col shadow-lg">
+    <div className="group glass-card !p-0 overflow-hidden flex flex-col">
       {/* Image Thumbnail Container with 16:9 Aspect Ratio */}
       <div className="relative aspect-video w-full overflow-hidden bg-slate-900 cursor-pointer" onClick={onPreview}>
         <img
@@ -40,7 +40,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
 
         {/* Top Badges & Actions */}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider bg-black/60 text-white/90 backdrop-blur-md border border-white/10">
+          <span className="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider bg-white/15 text-white backdrop-blur-xl border border-white/25">
             {item.style}
           </span>
 
@@ -51,10 +51,10 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
                 e.stopPropagation();
                 onToggleFavorite();
               }}
-              className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${
+              className={`p-2 rounded-full backdrop-blur-xl transition-colors ${
                 isFavorite
-                  ? 'bg-rose-500/80 text-white'
-                  : 'bg-black/50 text-white/60 hover:text-white hover:bg-black/70'
+                  ? 'bg-rose-500/80 text-white border border-white/30'
+                  : 'bg-white/15 border border-white/25 text-white/80 hover:text-white hover:bg-white/25'
               }`}
               title="Guardar en favoritos"
             >
@@ -65,7 +65,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
 
         {/* Applied Badge Indicator */}
         {isApplied && (
-          <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-400 text-black font-mono font-bold text-[9px] shadow-[0_0_10px_rgba(0,229,255,0.8)]">
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-400/90 backdrop-blur-md border border-white/40 text-black font-mono font-bold text-[9px]">
             <Check className="w-3 h-3 stroke-[3]" />
             <span>ACTIVO</span>
           </div>
@@ -79,7 +79,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
               e.stopPropagation();
               onPreview();
             }}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-[11px] font-semibold backdrop-blur-md transition-colors"
+            className="glass-btn flex items-center gap-1 px-3 py-1.5 text-white text-[11px] font-semibold"
           >
             <Eye className="w-3 h-3" />
             <span>Previsualizar</span>
@@ -91,7 +91,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
               e.stopPropagation();
               onApply();
             }}
-            className="flex items-center gap-1 px-3 py-1 rounded-full bg-cyan-400 hover:bg-cyan-300 text-black text-[11px] font-bold shadow-md transition-colors"
+            className="glass-btn is-active flex items-center gap-1 px-4 py-1.5 text-white text-[11px] font-bold"
           >
             <Sparkles className="w-3 h-3 fill-current" />
             <span>Aplicar</span>

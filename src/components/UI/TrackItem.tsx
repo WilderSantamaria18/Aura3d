@@ -43,7 +43,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
 
   return (
     <div
-      className={`track-item-glass p-2.5 sm:p-3 flex items-center gap-3 group relative cursor-pointer active:scale-[0.99] select-none ${
+      className={`track-item-glass p-3 flex items-center gap-3.5 min-h-[68px] group relative cursor-pointer active:scale-[0.99] select-none ${
         isActive ? 'is-active' : ''
       }`}
       onClick={onPlay}
@@ -58,7 +58,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
       aria-label={`Reproducir ${track.title} de ${track.artist}`}
     >
       {/* Cover / Mini Visualizer */}
-      <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white/[0.05] border border-white/10 flex items-center justify-center shadow-md">
+      <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/[0.06] border border-white/15 flex items-center justify-center shadow-[0_6px_14px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]">
         {track.coverUrl ? (
           <img
             src={track.coverUrl}
@@ -86,7 +86,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span
-            className={`text-xs sm:text-sm font-semibold truncate tracking-tight transition-colors ${
+            className={`text-[14px] font-semibold truncate tracking-tight transition-colors ${
               isActive ? 'text-cyan-300' : 'text-white'
             }`}
           >
@@ -94,22 +94,22 @@ export const TrackItem: React.FC<TrackItemProps> = ({
           </span>
 
           {/* Audio Format Chip */}
-          <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/[0.06] border border-white/10 text-white/50 flex-shrink-0">
+          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/15 text-white/70 flex-shrink-0">
             {detectedFormat}
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 mt-0.5 text-white/50 text-[11px] truncate font-medium">
-          <span className="truncate max-w-[120px] sm:max-w-[160px]">{track.artist}</span>
+        <div className="flex items-center gap-1.5 mt-1 text-white/60 text-[12px] truncate font-medium">
+          <span className="truncate max-w-[140px] sm:max-w-[170px]">{track.artist}</span>
           <span className="text-white/20">•</span>
-          <span className="font-mono text-[10px] text-white/40 tabular-nums">
+          <span className="font-mono text-[11px] text-white/50 tabular-nums">
             {formatDuration(track.duration)}
           </span>
 
           {track.bpm && (
             <>
               <span className="text-white/20">•</span>
-              <span className="font-mono text-[10px] text-cyan-400/80 font-semibold">
+              <span className="font-mono text-[11px] text-cyan-300/90 font-semibold">
                 {track.bpm} BPM
               </span>
             </>
@@ -118,7 +118,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
           {track.camelotKey && (
             <>
               <span className="text-white/20">•</span>
-              <span className="font-mono text-[10px] text-purple-400/80 font-semibold">
+              <span className="font-mono text-[11px] text-purple-300/90 font-semibold">
                 {track.camelotKey}
               </span>
             </>
@@ -139,12 +139,12 @@ export const TrackItem: React.FC<TrackItemProps> = ({
               e.stopPropagation();
               onToggleFavorite(track);
             }}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors cursor-pointer active:scale-90"
+            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-white transition-colors cursor-pointer active:scale-90"
             title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
             aria-label={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
           >
             <Heart
-              className={`w-3.5 h-3.5 transition-all ${
+              className={`w-4 h-4 transition-all ${
                 isFavorite ? 'fill-rose-500 text-rose-500 scale-110' : 'text-white/40 hover:text-rose-400'
               }`}
             />
@@ -159,11 +159,11 @@ export const TrackItem: React.FC<TrackItemProps> = ({
               e.stopPropagation();
               onPlayNext(track);
             }}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-cyan-400 transition-colors cursor-pointer active:scale-90"
+            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-cyan-300 transition-colors cursor-pointer active:scale-90"
             title="Reproducir a continuación"
             aria-label="Reproducir a continuación"
           >
-            <ListPlus className="w-3.5 h-3.5" />
+            <ListPlus className="w-4 h-4" />
           </button>
         )}
 
@@ -175,11 +175,11 @@ export const TrackItem: React.FC<TrackItemProps> = ({
               e.stopPropagation();
               onRemove();
             }}
-            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-white/40 hover:text-rose-400 transition-colors cursor-pointer active:scale-90"
+            className="p-2 rounded-full hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors cursor-pointer active:scale-90"
             title="Eliminar pista"
             aria-label="Eliminar pista"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </button>
         )}
       </div>

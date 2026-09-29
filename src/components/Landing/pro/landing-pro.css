@@ -1,0 +1,216 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   Aura3D — Landing Pro
+   Sistema: tipografía editorial + cristal solo donde hay "objeto" (nav, ventanas
+   de demo, CTA). Todo lo demás es texto y líneas finas.
+   Paleta: azul noche + cian (acento) + violeta (secundario). Sin rosa en la UI.
+   Rendimiento: solo transform/opacity animados, blur moderado, canvas pausados
+   fuera de pantalla.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.lp-root {
+  --lp-bg: #060814;
+  --lp-cyan: 0, 229, 255;
+  --lp-violet: 139, 108, 255;
+  --lp-text: rgba(232, 238, 255, 0.78);
+  --lp-muted: rgba(190, 202, 238, 0.58);
+  --lp-line: rgba(160, 180, 255, 0.14);
+  --lp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  background: var(--lp-bg);
+  color: #fff;
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.lp-root section { position: relative; background: transparent; }
+.lp-content { position: relative; z-index: 1; }
+
+/* ── Luz ambiental (lo que el cristal refracta) — solo transform ───────────── */
+.lp-orbs { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; contain: strict; }
+.lp-orb { position: absolute; top: 0; left: 0; width: 70vmax; height: 70vmax; border-radius: 50%; will-change: transform; backface-visibility: hidden; }
+.lp-orb--a { background: radial-gradient(circle, rgba(var(--lp-violet), 0.42) 0%, transparent 62%); }
+.lp-orb--b { background: radial-gradient(circle, rgba(var(--lp-cyan), 0.26) 0%, transparent 62%); }
+.lp-orb--c { background: radial-gradient(circle, rgba(90, 70, 220, 0.30) 0%, transparent 62%); }
+.lp-orbs::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 72px 72px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
+}
+
+/* ── Cristal (uso restringido) ──────────────────────────────────────────────── */
+.lp-glass {
+  position: relative;
+  isolation: isolate;
+  border-radius: 28px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.02) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: blur(18px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.36);
+  box-shadow: 0 36px 60px -34px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+.lp-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.13), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s var(--lp-ease);
+}
+.lp-glass--hover:hover::before { opacity: 1; }
+.lp-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0) 70%, rgba(var(--lp-cyan), 0.28));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0.65;
+}
+.lp-glass--pill { border-radius: 9999px; }
+.lp-glass--tint { background-image: linear-gradient(150deg, rgba(var(--lp-cyan), 0.14), rgba(var(--lp-violet), 0.08) 55%, rgba(255, 255, 255, 0.02)); }
+
+/* ── Botones ────────────────────────────────────────────────────────────────── */
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 26px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition: transform 0.35s var(--lp-ease), background-color 0.35s var(--lp-ease), border-color 0.35s var(--lp-ease);
+}
+.lp-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.32); transform: translateY(-1px); }
+.lp-btn:active { transform: scale(0.97); transition-duration: 0.1s; }
+.lp-btn:focus-visible { outline: 2px solid rgb(var(--lp-cyan)); outline-offset: 3px; }
+.lp-btn--primary {
+  color: #04121a;
+  font-weight: 600;
+  background: linear-gradient(160deg, #ffffff 0%, #c9f6ff 100%);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 28px -12px rgba(var(--lp-cyan), 0.6);
+}
+.lp-btn--primary:hover { background: linear-gradient(160deg, #ffffff 0%, #d9f9ff 100%); border-color: #fff; }
+.lp-btn--lg { min-height: 54px; padding: 0 32px; font-size: 15px; }
+
+/* ── Navegación ─────────────────────────────────────────────────────────────── */
+.lp-nav {
+  position: fixed;
+  top: 16px;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 6px 6px 18px;
+  max-width: calc(100vw - 24px);
+}
+.lp-nav-link { padding: 8px 14px; border-radius: 9999px; font-size: 13px; color: var(--lp-muted); text-decoration: none; transition: color 0.25s var(--lp-ease), background-color 0.25s var(--lp-ease); white-space: nowrap; }
+.lp-nav-link:hover { color: #fff; }
+.lp-nav-link.is-active { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.lp-nav-progress { position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; border-radius: 2px; overflow: hidden; pointer-events: none; }
+.lp-nav-progress > span { display: block; height: 100%; transform-origin: 0 50%; background: linear-gradient(90deg, rgb(var(--lp-violet)), rgb(var(--lp-cyan))); }
+
+/* ── Tipografía ─────────────────────────────────────────────────────────────── */
+.lp-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 500 11.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+}
+.lp-label b { font-weight: 500; color: rgb(var(--lp-cyan)); }
+.lp-label i { display: block; width: 36px; height: 1px; background: linear-gradient(90deg, rgba(var(--lp-cyan), 0.7), transparent); }
+.lp-h1 { font-weight: 500; letter-spacing: -0.045em; line-height: 0.96; }
+.lp-h2 { font-weight: 500; letter-spacing: -0.035em; line-height: 1.05; text-wrap: balance; }
+.lp-lead { color: var(--lp-text); line-height: 1.7; text-wrap: pretty; }
+.lp-gradient-text {
+  background: linear-gradient(100deg, #ffffff 0%, #a9f1ff 45%, #b8a5ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── Datos en línea (sin tarjetas) ──────────────────────────────────────────── */
+.lp-stats { display: flex; flex-wrap: wrap; gap: 0; }
+.lp-stats > div { padding: 0 24px; border-left: 1px solid var(--lp-line); }
+.lp-stats > div:first-child { padding-left: 0; border-left: 0; }
+.lp-stats dt { font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lp-muted); }
+.lp-stats dd { margin: 6px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: #fff; font-variant-numeric: tabular-nums; }
+
+/* ── Ventana de demo ────────────────────────────────────────────────────────── */
+.lp-window-bar { display: flex; align-items: center; gap: 7px; padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.lp-window-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+.lp-window-bar span { margin-left: 10px; font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; color: var(--lp-muted); text-transform: uppercase; }
+
+/* ── Bento (solo 2 tarjetas) + lista de funciones ───────────────────────────── */
+.lp-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
+.lp-bento > * { grid-column: span 12; }
+@media (min-width: 900px) {
+  .lp-bento > .b-7 { grid-column: span 7; }
+  .lp-bento > .b-5 { grid-column: span 5; }
+}
+.lp-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: rgb(var(--lp-cyan)); background: rgba(var(--lp-cyan), 0.1); border: 1px solid rgba(var(--lp-cyan), 0.28); }
+.lp-icon--v { color: rgb(var(--lp-violet)); background: rgba(var(--lp-violet), 0.12); border-color: rgba(var(--lp-violet), 0.32); }
+.lp-features { display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--lp-line); }
+@media (min-width: 768px) { .lp-features { grid-template-columns: repeat(4, 1fr); } }
+.lp-feature { padding: 28px 24px 28px 0; border-bottom: 1px solid var(--lp-line); }
+@media (min-width: 768px) { .lp-feature { border-bottom: 0; border-right: 1px solid var(--lp-line); padding-left: 24px; } .lp-feature:first-child { padding-left: 0; } .lp-feature:last-child { border-right: 0; } }
+
+/* ── Tabla de especificaciones ──────────────────────────────────────────────── */
+.lp-spec { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 22px 0; border-top: 1px solid var(--lp-line); align-items: baseline; }
+@media (min-width: 768px) { .lp-spec { grid-template-columns: 200px 1fr 1.4fr; gap: 32px; } }
+.lp-spec:last-child { border-bottom: 1px solid var(--lp-line); }
+
+/* ── Rail de scroll ─────────────────────────────────────────────────────────── */
+.lp-root #scroll-rail { width: 2px; height: 160px; right: 20px; background: var(--lp-line); }
+.lp-root #scroll-thumb { width: 10px; height: 10px; background: rgb(var(--lp-cyan)); box-shadow: 0 0 10px rgba(var(--lp-cyan), 0.6); }
+
+/* ── Adaptación ─────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .lp-glass { border-radius: 22px; -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
+  .lp-orb { width: 110vmax; height: 110vmax; }
+  .lp-nav { top: 10px; padding-left: 14px; }
+  .lp-stats > div { padding: 0 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-root:not([data-motion='on']) .lp-glass::before { transition: none; }
+  .lp-root:not([data-motion='on']) .lp-btn { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lp-glass { background-color: rgba(20, 24, 40, 0.86); }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .lp-glass { background: rgba(24, 28, 44, 0.9); }
+}
+
+/* Aviso de efectos reducidos (footer) */
+.lp-motion-toggle { background: none; border: 0; padding: 0; color: var(--lp-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; }
+.lp-motion-toggle:hover { color: #fff; }

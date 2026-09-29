@@ -299,7 +299,6 @@ export const useAudioPlayer = () => {
   // ── Fine-grained Zustand selectors to avoid excessive re-renders ─────────────
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
@@ -553,7 +552,8 @@ export const useAudioPlayer = () => {
 
   const playPrevious = useCallback(async () => {
     // If more than 3 seconds in, restart current track
-    if (currentTime > 3) {
+    // Se lee al momento: suscribirse a currentTime re-renderizaba a todos los consumidores cada 250 ms
+    if (usePlayerStore.getState().currentTime > 3) {
       seek(0);
       return;
     }
@@ -568,7 +568,7 @@ export const useAudioPlayer = () => {
     } else {
       seek(0);
     }
-  }, [currentTime, seek, playTrack]);
+  }, [seek, playTrack]);
 
   // ── 2. Local File Ingestion ─────────────────────────────────────────────────
   const loadAudioFile = useCallback(
@@ -828,7 +828,6 @@ export const useAudioPlayer = () => {
     // State
     currentTrack,
     isPlaying,
-    currentTime,
     duration,
     volume,
     isMuted,

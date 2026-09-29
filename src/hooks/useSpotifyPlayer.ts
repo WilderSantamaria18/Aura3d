@@ -63,12 +63,11 @@ let lastPollTimestamp = 0;
  * - Zero-token: Ningún token de Spotify se almacena en el cliente
  */
 export const useSpotifyPlayer = () => {
-  const {
-    isSpotifyConnected,
-    setSpotifyConnected,
-    updateFromSpotify,
-    isPlaying,
-  } = usePlayerStore();
+  // Selectores finos: suscribirse al store entero re-renderizaba a todos los que usan este hook
+  const isSpotifyConnected = usePlayerStore((s) => s.isSpotifyConnected);
+  const setSpotifyConnected = usePlayerStore((s) => s.setSpotifyConnected);
+  const updateFromSpotify = usePlayerStore((s) => s.updateFromSpotify);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

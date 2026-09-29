@@ -169,7 +169,7 @@ export const PlaylistSidebar: React.FC = () => {
     { id: 'queue', label: 'Cola', count: queue.length, icon: <Music className="w-3 h-3" /> },
     { id: 'favorites', label: 'Favoritos', count: favorites.length, icon: <Heart className="w-3 h-3" /> },
     { id: 'playlists', label: 'Listas', count: playlists.length, icon: <ListMusic className="w-3 h-3" /> },
-    { id: 'radio', label: 'Radio 24/7', icon: <Radio className="w-3 h-3" /> },
+    { id: 'radio', label: 'Radio', icon: <Radio className="w-3 h-3" /> },
   ];
 
   // Search Filtering
@@ -238,7 +238,7 @@ export const PlaylistSidebar: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[59]"
+            className="fixed inset-x-0 bottom-0 top-[72px] bg-black/45 backdrop-blur-sm z-[59]"
             aria-hidden="true"
           />
 
@@ -255,7 +255,7 @@ export const PlaylistSidebar: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-label="Biblioteca de Audio de Estudio"
-            className="fixed left-4 top-4 bottom-4 w-[clamp(320px,92vw,440px)] liquid-glass-drawer z-[60] flex flex-col overflow-hidden select-none pointer-events-auto max-sm:inset-x-3 max-sm:bottom-3 max-sm:top-16 max-sm:w-auto"
+            className="fixed left-4 top-[80px] bottom-4 w-[clamp(320px,92vw,440px)] liquid-glass-drawer z-[60] flex flex-col overflow-hidden select-none pointer-events-auto max-sm:inset-x-3 max-sm:bottom-3 max-sm:top-[80px] max-sm:w-auto"
           >
             {/* Drag & Drop Visual Overlay Feedback */}
             {isDragging && (
@@ -269,26 +269,26 @@ export const PlaylistSidebar: React.FC = () => {
             )}
 
             {/* Header: Dynamic Island Style Studio Title */}
-            <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/[0.08] bg-white/[0.02]">
+            <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-white/[0.08] bg-white/[0.02]">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-2xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 shadow-[0_0_16px_rgba(0,240,255,0.2)]">
-                  <ListMusic className="w-4 h-4" aria-hidden="true" />
+                <div className="glass-item is-active !rounded-2xl w-11 h-11 flex items-center justify-center text-cyan-300">
+                  <ListMusic className="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-sm tracking-tight flex items-center gap-2">
+                  <h3 className="text-white font-bold text-[16px] tracking-tight flex items-center gap-2">
                     Biblioteca de Estudio
-                    <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-300">
+                    <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-300">
                       PRO
                     </span>
                   </h3>
-                  <p className="text-[10px] font-mono text-white/50">Estación de trabajo y reproducción 3D</p>
+                  <p className="text-[11.5px] font-mono text-white/55 mt-0.5">Estación de trabajo y reproducción 3D</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/[0.06] hover:bg-white/[0.14] border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                className="glass-btn w-9 h-9 text-white/70 hover:text-white flex items-center justify-center"
                 aria-label="Cerrar biblioteca"
                 title="Cerrar (Esc)"
               >
@@ -320,8 +320,8 @@ export const PlaylistSidebar: React.FC = () => {
             />
 
             {/* Action Bar: Local Import Pill */}
-            <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-              <label className="flex-1 min-h-[38px] flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.09] border border-white/[0.08] hover:border-cyan-400/30 text-xs font-medium text-white/90 hover:text-white cursor-pointer transition-all active:scale-[0.98] shadow-sm">
+            <div className="px-4 pt-3 pb-1 flex items-center gap-2.5">
+              <label className="glass-btn flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2 px-4 text-[13px] font-medium text-white">
                 <Upload className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
                 <span className="truncate">Importar Audio Local</span>
                 <input
@@ -337,10 +337,10 @@ export const PlaylistSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleClearQueueClick}
-                  className={`min-h-[38px] px-3 rounded-xl text-[11px] font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  className={`glass-btn min-h-[44px] px-4 text-[12px] font-mono tracking-wider flex items-center gap-1.5 ${
                     isConfirmingClear
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse'
-                      : 'bg-white/[0.04] text-white/50 hover:text-rose-400 border-white/[0.08] hover:bg-white/[0.08]'
+                      ? 'is-danger text-rose-200 animate-pulse'
+                      : 'text-white/70 hover:text-rose-300'
                   }`}
                   title="Limpiar cola de reproducción"
                 >
@@ -365,11 +365,11 @@ export const PlaylistSidebar: React.FC = () => {
               id={`tabpanel-${activeTab}`}
               role="tabpanel"
               aria-labelledby={`tab-${activeTab}`}
-              className="flex-1 overflow-y-auto liquid-glass-scrollbar px-4 py-2 space-y-1.5"
+              className="flex-1 overflow-y-auto liquid-glass-scrollbar px-4 py-3 space-y-2"
             >
               {/* TAB 1: QUEUE */}
               {activeTab === 'queue' && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {filteredQueue.length === 0 ? (
                     <EmptyState
                       icon={filterQuery ? Music : Upload}
@@ -403,7 +403,7 @@ export const PlaylistSidebar: React.FC = () => {
 
               {/* TAB 2: FAVORITES */}
               {activeTab === 'favorites' && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {filteredFavorites.length === 0 ? (
                     <EmptyState
                       icon={Heart}
@@ -440,13 +440,13 @@ export const PlaylistSidebar: React.FC = () => {
                   {!selectedPlaylistId ? (
                     <>
                       <div className="flex items-center justify-between pb-1 pt-1">
-                        <span className="text-xs text-white/50 font-mono uppercase tracking-wider">
+                        <span className="text-[12px] text-white/60 font-mono uppercase tracking-wider">
                           Tus Listas ({playlists.length})
                         </span>
                         <button
                           type="button"
                           onClick={() => setIsCreatingPlaylist(true)}
-                          className="flex items-center gap-1.5 text-xs text-cyan-300 hover:text-cyan-200 font-semibold cursor-pointer"
+                          className="flex items-center gap-1.5 text-[13px] text-cyan-300 hover:text-cyan-200 font-semibold cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" /> Nueva Lista
                         </button>
@@ -459,7 +459,7 @@ export const PlaylistSidebar: React.FC = () => {
                             placeholder="Nombre de la playlist..."
                             value={newPlaylistName}
                             onChange={(e) => setNewPlaylistName(e.target.value)}
-                            className="flex-1 px-3 py-1.5 bg-black/50 border border-white/20 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                            className="flex-1 px-3 py-1.5 glass-input !rounded-xl text-xs text-white focus:outline-none font-mono"
                             autoFocus
                           />
                           <button
@@ -488,15 +488,15 @@ export const PlaylistSidebar: React.FC = () => {
                           <div
                             key={pl.id}
                             onClick={() => setSelectedPlaylistId(pl.id)}
-                            className="track-item-glass p-3 flex items-center justify-between cursor-pointer group transition-all"
+                            className="track-item-glass p-3.5 min-h-[68px] flex items-center justify-between cursor-pointer group"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/60 group-hover:text-cyan-300">
+                              <div className="glass-item !rounded-xl w-11 h-11 flex items-center justify-center text-white/60 group-hover:text-cyan-300">
                                 <ListMusic className="w-4 h-4" />
                               </div>
                               <div>
-                                <p className="text-xs font-semibold text-white tracking-tight">{pl.name}</p>
-                                <p className="text-[10px] text-white/40 font-mono">
+                                <p className="text-[14px] font-semibold text-white tracking-tight">{pl.name}</p>
+                                <p className="text-[12px] text-white/55 font-mono mt-0.5">
                                   {pl.tracks.length} {pl.tracks.length === 1 ? 'canción' : 'canciones'}
                                 </p>
                               </div>
@@ -527,7 +527,7 @@ export const PlaylistSidebar: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => addToPlaylist(activePlaylist.id, currentTrack)}
-                          className="w-full py-2 bg-white/[0.03] hover:bg-white/[0.07] rounded-xl text-xs text-white/80 border border-white/[0.08] flex items-center justify-center gap-1.5 transition-colors font-mono cursor-pointer"
+                          className="glass-btn w-full py-2.5 text-xs text-white/90 flex items-center justify-center gap-1.5 font-mono"
                         >
                           <Plus className="w-3.5 h-3.5 text-cyan-400" /> Añadir pista actual ({currentTrack.title})
                         </button>
@@ -563,17 +563,17 @@ export const PlaylistSidebar: React.FC = () => {
               {/* TAB 4: LIVE RADIO 24/7 */}
               {activeTab === 'radio' && (
                 <div className="space-y-2.5 animate-in fade-in duration-200">
-                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-purple-950/25 to-black/60 border border-white/[0.08] shadow-inner">
+                  <div className="glass-card p-4">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                       </span>
-                      <span className="text-[10px] font-mono tracking-widest uppercase text-emerald-400 font-bold">
+                      <span className="text-[11px] font-mono tracking-widest uppercase text-emerald-400 font-bold">
                         EMISORAS EN VIVO 24/7
                       </span>
                     </div>
-                    <p className="text-[11px] text-white/60 leading-relaxed">
+                    <p className="text-[13px] text-white/70 leading-relaxed">
                       Transmisiones de audio continuas procesadas por el motor cuántico de Aura3D.
                     </p>
                   </div>
@@ -584,14 +584,14 @@ export const PlaylistSidebar: React.FC = () => {
                     return (
                       <div
                         key={station.id}
-                        className={`track-item-glass p-3 flex flex-col gap-2.5 ${
+                        className={`track-item-glass p-4 flex flex-col gap-3 ${
                           isCurrentPlaying ? 'is-active' : ''
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className="w-8 h-8 rounded-xl flex items-center justify-center border border-white/10 flex-shrink-0"
+                              className="w-11 h-11 rounded-xl flex items-center justify-center border border-white/15 flex-shrink-0"
                               style={{
                                 backgroundColor: `${station.accentColor}22`,
                                 color: station.accentColor,
@@ -600,19 +600,19 @@ export const PlaylistSidebar: React.FC = () => {
                               <Radio className="w-4 h-4" />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="text-xs font-semibold text-white tracking-tight truncate">
+                              <h4 className="text-[15px] font-semibold text-white tracking-tight truncate">
                                 {station.name}
                               </h4>
-                              <span className="text-[10px] font-mono text-white/50">{station.genre}</span>
+                              <span className="text-[12px] font-mono text-white/60">{station.genre}</span>
                             </div>
                           </div>
 
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.06] text-white/60 border border-white/10 flex-shrink-0">
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-white/70 border border-white/10 flex-shrink-0">
                             {station.bitrate}
                           </span>
                         </div>
 
-                        <p className="text-[11px] text-white/50 leading-snug">
+                        <p className="text-[13px] text-white/65 leading-snug">
                           {station.description}
                         </p>
 
@@ -624,7 +624,7 @@ export const PlaylistSidebar: React.FC = () => {
                               const p = presets.find((item) => item.id === station.suggestedPresetId);
                               if (p) PresetService.applyPreset(p);
                             }}
-                            className="text-[10px] font-mono text-cyan-300 hover:text-cyan-200 flex items-center gap-1 cursor-pointer"
+                            className="text-[12px] font-mono text-cyan-300 hover:text-cyan-200 flex items-center gap-1.5 cursor-pointer"
                           >
                             <Sparkles className="w-3 h-3" /> Preset Visual
                           </button>
@@ -632,10 +632,10 @@ export const PlaylistSidebar: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => playRadioStation(station)}
-                            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
+                            className={`px-5 py-2 min-h-[38px] rounded-full text-[13px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                               isCurrentPlaying
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                                : 'bg-white/[0.08] text-white hover:bg-white/[0.16] border border-white/10'
+                                ? 'bg-emerald-400/25 text-emerald-200 border border-emerald-300/40'
+                                : 'glass-btn text-white'
                             }`}
                           >
                             {isCurrentPlaying ? (
@@ -659,7 +659,7 @@ export const PlaylistSidebar: React.FC = () => {
             </div>
 
             {/* Studio Telemetry Footer */}
-            <div className="px-5 py-3 border-t border-white/[0.08] bg-white/[0.02] flex items-center justify-between font-mono text-[10px] text-white/40 tracking-wider">
+            <div className="px-5 py-3.5 border-t border-white/[0.08] bg-white/[0.02] flex items-center justify-between font-mono text-[11px] text-white/55 tracking-wider">
               <span>{currentTabTracks.length} PISTAS</span>
               <span className="text-white/20">•</span>
               <span>{formatTotalDuration(currentTabTracks)}</span>

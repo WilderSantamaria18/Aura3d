@@ -1,6 +1,7 @@
 import type { ScenePreset } from '../types/presets';
 import { usePlayerStore } from '../stores/playerStore';
 import { createLucidTheme } from '../types/audio';
+import { voidEffectForPreset } from '../config/visualPresets';
 
 const STORAGE_KEY = 'aura3d_user_presets';
 
@@ -142,7 +143,7 @@ export const FACTORY_PRESETS: ScenePreset[] = [
   {
     id: 'factory_rainbow_void',
     name: 'Rainbow Void Core',
-    description: 'Visualizador circular Rainbow Void con halo exterior de 202px, núcleo de 179px, bajo 2.8x y subwoofer kick de 160%.',
+    description: 'Visualizador circular Rainbow Void con halo exterior de 382px, núcleo de 340px, bajo 2.8x y subwoofer kick de 160%.',
     author: 'Aura3D Studio',
     createdAt: 1700000000006,
     isFactory: true,
@@ -166,8 +167,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#ff088a',
       haloColor2: '#00f2fe',
       isRainbowMode: true,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -207,8 +208,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#ff3d00',
       haloColor2: '#ffb300',
       isRainbowMode: true,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 43.5,
       bassBoost: 2.8,
@@ -256,8 +257,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#ff007f',
       haloColor2: '#00f5ff',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -297,8 +298,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#7928ca',
       haloColor2: '#0070f3',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -339,8 +340,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#ff2a00',
       haloColor2: '#ffb300',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -381,8 +382,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#00ff66',
       haloColor2: '#00f2fe',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -422,8 +423,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#00e5ff',
       haloColor2: '#e0e7ff',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -464,8 +465,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#a855f7',
       haloColor2: '#06b6d4',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -505,8 +506,8 @@ export const FACTORY_PRESETS: ScenePreset[] = [
       haloColor1: '#10b981',
       haloColor2: '#06b6d4',
       isRainbowMode: false,
-      circleSize: 179,
-      haloSize: 202,
+      circleSize: 340,
+      haloSize: 382,
       posX: 50,
       posY: 50,
       bassBoost: 2.8,
@@ -574,7 +575,8 @@ export class PresetService {
     const safeMode = preset.visualizerMode === 'sphere' ? 'blob' : preset.visualizerMode;
     store.setVisualizerMode(safeMode);
     store.setVisualizerShape(preset.visualizerShape);
-    store.setBlobShape(preset.visualizerShape);
+    // La forma 3D conserva su id original; Rainbow Void usa el efecto equivalente del catálogo nuevo
+    store.setBlobShape(voidEffectForPreset(preset));
 
     // 2. Wave & Bass boom
     store.setWaveEffectMode(preset.waveEffectMode);
@@ -587,7 +589,7 @@ export class PresetService {
     store.setLucidPrimaryColor(preset.lucidPrimaryColor);
     store.setLucidSecondaryColor(preset.lucidSecondaryColor);
     store.setLucidTheme(
-      createLucidTheme(preset.name, preset.lucidPrimaryColor, preset.lucidSecondaryColor)
+      createLucidTheme(preset.lucidPrimaryColor, preset.lucidSecondaryColor, preset.name)
     );
 
     // 4. Scales and sensitivities

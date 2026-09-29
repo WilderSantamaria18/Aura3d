@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import { usePlayerStore } from "../../stores/playerStore";
 import { audioEngine } from "../../services/audioEngine";
+import { feedPlaybackClock } from "../../services/playbackClock";
 
 /* ──────────────────────────────────────────────────────────────
    YT IFrame API global types
@@ -35,31 +36,38 @@ declare global {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Singleton portal management
-   The iframe div lives once in document.body and is NEVER
-   removed/re-created; only CSS controls its position & size.
-   This eliminates the duplicate-ID postMessage cross-origin bug.
+   Portal singleton
+   El iframe vive una sola vez en document.body y NUNCA se destruye:
+   solo cambia su posición/tamaño. Se mueve con transform (compuesto por
+   la GPU) y sin animaciones de tamaño; antes se reescribían left/top y
+   una transición de 200 ms en cada fotograma, lo que provocaba tirones y
+   una proporción desfasada mientras el reproductor se animaba.
 ────────────────────────────────────────────────────────────── */
 const PORTAL_ID = "aura-yt-singleton-portal";
 const MOUNT_ID = "aura-global-youtube-player-mount";
+const OFFSCREEN = "translate3d(-9999px, -9999px, 0)";
+
+let lastPlacedKey = "";
+let portalWidth = 0; // ancho actual visible (0 = oculto), para elegir la calidad
 
 function getOrCreatePortal(): HTMLElement {
   let portal = document.getElementById(PORTAL_ID);
   if (!portal) {
     portal = document.createElement("div");
     portal.id = PORTAL_ID;
-    // Invisible placeholder position until placed by a consumer
     Object.assign(portal.style, {
       position: "fixed",
-      left: "-9999px",
-      top: "-9999px",
+      left: "0px",
+      top: "0px",
       width: "1px",
       height: "1px",
+      transform: OFFSCREEN,
       overflow: "hidden",
       zIndex: "9000",
       borderRadius: "12px",
       background: "#000",
-      transition: "left 0ms, top 0ms, width 200ms, height 200ms",
+      willChange: "transform",
+      contain: "layout paint",
     });
 
     const mount = document.createElement("div");
@@ -71,74 +79,208 @@ function getOrCreatePortal(): HTMLElement {
   return portal;
 }
 
-function placePortal(rect: {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  borderRadius?: string;
-}) {
+function placePortal(rect: { left: number; top: number; width: number; height: number; borderRadius?: string }) {
+  // Medios píxeles para la posición y enteros para el tamaño: evita iframes borrosos
+  const x = Math.round(rect.left * 2) / 2;
+  const y = Math.round(rect.top * 2) / 2;
+  const w = Math.round(rect.width);
+  const h = Math.round(rect.height);
+  const radius = rect.borderRadius || "12px";
+  const key = `${x}|${y}|${w}|${h}|${radius}`;
+  if (key === lastPlacedKey) return; // sin cambios: no se toca el DOM
+  lastPlacedKey = key;
+  portalWidth = w;
+
   const portal = getOrCreatePortal();
-  Object.assign(portal.style, {
-    left: `${rect.left}px`,
-    top: `${rect.top}px`,
-    width: `${rect.width}px`,
-    height: `${rect.height}px`,
-    overflow: "hidden",
-    borderRadius: rect.borderRadius || "12px",
-  });
+  portal.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  portal.style.width = `${w}px`;
+  portal.style.height = `${h}px`;
+  portal.style.borderRadius = radius;
+  applyQuality();
 }
 
 function hidePortal() {
+  if (lastPlacedKey === "hidden") return;
+  lastPlacedKey = "hidden";
+  portalWidth = 0;
   const portal = document.getElementById(PORTAL_ID);
   if (portal) {
-    Object.assign(portal.style, {
-      left: "-9999px",
-      top: "-9999px",
-      width: "1px",
-      height: "1px",
-      overflow: "hidden",
-    });
+    portal.style.transform = OFFSCREEN;
+    portal.style.width = "1px";
+    portal.style.height = "1px";
   }
+  applyQuality();
 }
 
 let activeHolderId: string | null = null;
 
 /* ──────────────────────────────────────────────────────────────
-   Singleton YT.Player instance (module-level)
+   Singleton YT.Player (nivel de módulo)
 ────────────────────────────────────────────────────────────── */
 let ytPlayer: any = null;
 let ytPlayerReady = false;
 let ytCurrentVideoId = "";
+let lastQuality = "";
+let errorRetries: Record<string, number> = {};
+
+// Último estado deseado. Se actualiza en cada render del controlador: así los callbacks del
+// iframe (que pueden dispararse mucho después) nunca usan un videoId o un estado obsoletos.
+const latest: { videoId?: string; isPlaying: boolean } = { videoId: undefined, isPlaying: false };
+
+/** Calidad según el tamaño visible: en modo solo-audio se pide la más baja para ahorrar red. */
+function applyQuality() {
+  if (!ytPlayer || !ytPlayerReady) return;
+  const q = portalWidth === 0 ? "small" : portalWidth < 300 ? "small" : portalWidth < 520 ? "medium" : portalWidth < 900 ? "large" : "hd720";
+  if (q === lastQuality) return;
+  lastQuality = q;
+  try {
+    ytPlayer.setPlaybackQuality?.(q);
+  } catch {
+    /* YouTube puede ignorarlo */
+  }
+}
+
+function playSafe() {
+  try {
+    ytPlayer?.playVideo?.();
+  } catch {
+    /* ignorar */
+  }
+}
+
+/** Crea el reproductor o cambia de video. Siempre usa `latest`, nunca variables capturadas. */
+function createOrUpdatePlayer(handlers: { onEnded: () => void }) {
+  const videoId = latest.videoId;
+  if (!window.YT || !window.YT.Player || !videoId) return;
+  getOrCreatePortal();
+
+  if (!ytPlayer) {
+    try {
+      ytPlayer = new window.YT.Player(MOUNT_ID, {
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          disablekb: 0,
+          enablejsapi: 1,
+          fs: 1,
+          iv_load_policy: 3,
+          modestbranding: 1,
+          playsinline: 1,
+          rel: 0,
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: (e: { target: any }) => {
+            ytPlayerReady = true;
+            const store = usePlayerStore.getState();
+            e.target.setVolume(store.isMuted ? 0 : Math.round(store.volume * 100));
+            // Si mientras cargaba se eligió otro video, se cambia ahora
+            if (latest.videoId && latest.videoId !== ytCurrentVideoId) {
+              ytCurrentVideoId = latest.videoId;
+              e.target.loadVideoById(latest.videoId);
+            }
+            applyQuality();
+            if (latest.isPlaying) e.target.playVideo();
+          },
+          onStateChange: (e: { data: number; target: any }) => {
+            const YTS = window.YT?.PlayerState;
+            if (!YTS) return;
+            if (e.data === YTS.PLAYING) {
+              usePlayerStore.getState().setIsPlaying(true);
+              const dur = e.target.getDuration?.();
+              if (dur && dur > 0) usePlayerStore.getState().setDuration(dur);
+            } else if (e.data === YTS.PAUSED) {
+              // Un video cargándose puede reportar PAUSED brevemente: solo se refleja si el usuario pausó
+              if (!latest.isPlaying) usePlayerStore.getState().setIsPlaying(false);
+              else setTimeout(playSafe, 250);
+            } else if (e.data === YTS.ENDED) {
+              handlers.onEnded();
+            } else if (e.data === YTS.CUED || e.data === YTS.UNSTARTED) {
+              if (latest.isPlaying) setTimeout(playSafe, 300);
+            }
+          },
+          onError: (e: { data: number }) => {
+            const id = latest.videoId || "";
+            // 5 = error del reproductor HTML5: se reintenta una vez desde el mismo punto
+            if (e.data === 5 && id && (errorRetries[id] ?? 0) < 1) {
+              errorRetries[id] = (errorRetries[id] ?? 0) + 1;
+              try {
+                const t = ytPlayer?.getCurrentTime?.() || 0;
+                ytPlayer?.loadVideoById?.({ videoId: id, startSeconds: t });
+              } catch {
+                /* ignorar */
+              }
+              return;
+            }
+            // 2, 100, 101, 150: no se puede reproducir → siguiente pista
+            setTimeout(handlers.onEnded, 1500);
+          },
+        },
+      });
+      ytCurrentVideoId = videoId;
+    } catch (err) {
+      console.error("[YT] Error creating player:", err);
+    }
+  } else if (ytPlayerReady && ytCurrentVideoId !== videoId) {
+    try {
+      ytCurrentVideoId = videoId;
+      lastQuality = "";
+      ytPlayer.loadVideoById(videoId);
+      if (latest.isPlaying) setTimeout(playSafe, 200);
+    } catch {
+      /* ignorar */
+    }
+  }
+}
+
+/** Carga la API una sola vez y, cuando esté lista, crea el reproductor con el video MÁS RECIENTE. */
+function ensureYtApi(handlers: { onEnded: () => void }) {
+  if (typeof window === "undefined") return;
+  if (window.YT && window.YT.Player) {
+    window.__auraYtApiReady = true;
+    createOrUpdatePlayer(handlers);
+    return;
+  }
+  const prev = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = () => {
+    if (prev) prev();
+    window.__auraYtApiReady = true;
+    createOrUpdatePlayer(handlers);
+  };
+  if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    s.async = true;
+    document.head.appendChild(s);
+  }
+}
 
 /* ──────────────────────────────────────────────────────────────
    GlobalYouTubeController
-   Manages the YT.Player API lifecycle. Can be mounted anywhere
-   in the tree without affecting the iframe's DOM node.
+   Gestiona el ciclo de vida de la YT.Player API. Se monta una vez en la app.
 ────────────────────────────────────────────────────────────── */
 export const GlobalYouTubeController: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const volume = usePlayerStore((s) => s.volume);
   const isMuted = usePlayerStore((s) => s.isMuted);
-  const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
   const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
   const setDuration = usePlayerStore((s) => s.setDuration);
 
-  const isApiLoaded = useRef(false);
   const intervalRef = useRef<number | null>(null);
 
   const videoId =
     currentTrack?.youtubeId ||
     (currentTrack?.id?.startsWith("yt_") ? currentTrack.id.replace(/^yt_/, "") : undefined);
 
-  const isYT = Boolean(
-    currentTrack &&
-      (currentTrack.sourceType === "youtube" || Boolean(videoId)) &&
-      videoId
-  );
+  const isYT = Boolean(currentTrack && (currentTrack.sourceType === "youtube" || Boolean(videoId)) && videoId);
 
-  /* ── Handle track ended → advance queue ────────────────────── */
+  // Siempre el último valor, aunque el callback del iframe se dispare tarde
+  latest.videoId = isYT ? videoId : undefined;
+  latest.isPlaying = isPlaying;
+
+  /* ── Pista terminada → siguiente en la cola ─────────────────── */
   const handleEnded = useCallback(() => {
     const store = usePlayerStore.getState();
     const next = store.nextTrack();
@@ -149,183 +291,181 @@ export const GlobalYouTubeController: React.FC = () => {
     }
   }, []);
 
-  /* ── 1. Load YT IFrame API once ────────────────────────────── */
+  /* ── 1. Cargar la API una vez ───────────────────────────────── */
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.__auraYtApiReady || (window.YT && window.YT.Player)) {
-      isApiLoaded.current = true;
-      return;
-    }
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (prev) prev();
-      window.__auraYtApiReady = true;
-      isApiLoaded.current = true;
-      // Trigger re-initialization
-      initOrUpdatePlayer();
-    };
-    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-      const s = document.createElement("script");
-      s.src = "https://www.youtube.com/iframe_api";
-      s.async = true;
-      document.head.appendChild(s);
-    }
-    // Also check if already loaded
-    if (window.YT && window.YT.Player) {
-      isApiLoaded.current = true;
-      window.__auraYtApiReady = true;
-    }
-  }, []);
+    ensureYtApi({ onEnded: handleEnded });
+  }, [handleEnded]);
 
-  /* ── 2. Init or update YT.Player when videoId changes ──────── */
-  function initOrUpdatePlayer() {
-    if (!window.YT || !window.YT.Player) return;
-    if (!videoId) return;
-
-    // Ensure portal exists
-    getOrCreatePortal();
-
-    if (!ytPlayer) {
-      // Fresh instantiation
-      try {
-        ytPlayer = new window.YT.Player(MOUNT_ID, {
-          videoId,
-          playerVars: {
-            autoplay: 1,
-            controls: 1,
-            disablekb: 0,
-            enablejsapi: 1,
-            fs: 1,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            playsinline: 1,
-            rel: 0,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (e: { target: any }) => {
-              ytPlayerReady = true;
-              ytCurrentVideoId = videoId!;
-              const store = usePlayerStore.getState();
-              e.target.setVolume(store.isMuted ? 0 : Math.round(store.volume * 100));
-              if (store.isPlaying) e.target.playVideo();
-            },
-            onStateChange: (e: { data: number; target: any }) => {
-              const YTS = window.YT?.PlayerState;
-              if (!YTS) return;
-              if (e.data === YTS.PLAYING) {
-                setIsPlaying(true);
-                const dur = e.target.getDuration?.();
-                if (dur && dur > 0) setDuration(dur);
-              } else if (e.data === YTS.PAUSED) {
-                setIsPlaying(false);
-              } else if (e.data === YTS.ENDED) {
-                handleEnded();
-              } else if (e.data === YTS.CUED) {
-                if (usePlayerStore.getState().isPlaying) e.target.playVideo();
-              }
-            },
-            onError: (e: { data: number }) => {
-              if (e.data === 101 || e.data === 150) {
-                setTimeout(handleEnded, 1500);
-              }
-            },
-          },
-        });
-        ytCurrentVideoId = videoId;
-      } catch (err) {
-        console.error("[YT] Error creating player:", err);
-      }
-    } else {
-      // Swap video if needed
-      try {
-        if (ytCurrentVideoId !== videoId) {
-          ytCurrentVideoId = videoId;
-          ytPlayer.loadVideoById(videoId);
-          const store = usePlayerStore.getState();
-          if (store.isPlaying) setTimeout(() => ytPlayer?.playVideo?.(), 200);
-        }
-      } catch {}
-    }
-  }
-
+  /* ── 2. Crear/actualizar el reproductor al cambiar el video ─── */
   useEffect(() => {
     if (!isYT || !videoId) {
-      // Not a YT track: pause and hide portal
       if (ytPlayer && ytPlayerReady) {
-        try { ytPlayer.pauseVideo(); } catch {}
+        try {
+          ytPlayer.pauseVideo();
+        } catch {
+          /* ignorar */
+        }
       }
       hidePortal();
       audioEngine.setIframeMode(false);
       return;
     }
-    initOrUpdatePlayer();
-  }, [isYT, videoId]);
+    errorRetries = {};
+    createOrUpdatePlayer({ onEnded: handleEnded });
+  }, [isYT, videoId, handleEnded]);
 
-  /* ── 3. Play / Pause sync ───────────────────────────────────── */
+  /* ── 3. Play / Pausa ────────────────────────────────────────── */
   useEffect(() => {
     if (!ytPlayer || !ytPlayerReady || !isYT) return;
     try {
-      if (isPlaying) ytPlayer.playVideo();
-      else ytPlayer.pauseVideo();
-    } catch {}
+      const st = ytPlayer.getPlayerState?.();
+      const YTS = window.YT?.PlayerState;
+      if (isPlaying) {
+        if (st !== YTS?.PLAYING && st !== YTS?.BUFFERING) ytPlayer.playVideo();
+      } else if (st === YTS?.PLAYING || st === YTS?.BUFFERING) {
+        ytPlayer.pauseVideo();
+      }
+    } catch {
+      /* ignorar */
+    }
   }, [isPlaying, isYT]);
 
-  /* ── 4. Volume sync ─────────────────────────────────────────── */
+  /* ── 4. Volumen ─────────────────────────────────────────────── */
   useEffect(() => {
     if (!ytPlayer || !ytPlayerReady || !isYT) return;
     try {
       ytPlayer.setVolume(isMuted ? 0 : Math.round(volume * 100));
-    } catch {}
+    } catch {
+      /* ignorar */
+    }
   }, [volume, isMuted, isYT]);
 
-  /* ── 5. Seek listener ───────────────────────────────────────── */
+  /* ── 5. Seek ────────────────────────────────────────────────── */
   useEffect(() => {
     const handler = (e: Event) => {
       const sec = (e as CustomEvent<{ seconds: number }>).detail?.seconds;
       if (typeof sec === "number" && ytPlayer && ytPlayerReady) {
-        try { ytPlayer.seekTo(sec, true); } catch {}
+        try {
+          ytPlayer.seekTo(sec, true);
+          feedPlaybackClock(sec, latest.isPlaying, true);
+        } catch {
+          /* ignorar */
+        }
       }
     };
     window.addEventListener("aura:youtube-seek", handler);
     return () => window.removeEventListener("aura:youtube-seek", handler);
   }, []);
 
-  /* ── 6. Time polling ────────────────────────────────────────── */
+  /* ── 6. Sondeo de tiempo (100 ms) + vigilancia de atascos ───── */
   useEffect(() => {
     if (!isYT || !isPlaying) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
       return;
     }
+
+    let lastStoreUpdate = 0;
+    let lastTime = -1;
+    let lastAdvance = performance.now();
+    let recoverStep = 0;
+
+    const recover = () => {
+      if (!ytPlayer || !ytPlayerReady) return;
+      const id = latest.videoId;
+      if (!id) return;
+      try {
+        const t = ytPlayer.getCurrentTime?.() || 0;
+        if (recoverStep === 0) {
+          ytPlayer.playVideo();
+        } else if (recoverStep === 1) {
+          ytPlayer.seekTo(t, true);
+          ytPlayer.playVideo();
+        } else if (recoverStep === 2) {
+          // Último recurso: recargar el video desde el mismo punto
+          lastQuality = "";
+          ytPlayer.loadVideoById({ videoId: id, startSeconds: t });
+        }
+      } catch {
+        /* ignorar */
+      }
+      recoverStep++;
+      lastAdvance = performance.now(); // espera otros 5 s antes del siguiente intento
+    };
+
     intervalRef.current = window.setInterval(() => {
       if (!ytPlayer || !ytPlayerReady) return;
       try {
+        const now = performance.now();
         const t = ytPlayer.getCurrentTime?.();
         const d = ytPlayer.getDuration?.();
-        if (typeof t === "number" && !isNaN(t)) setCurrentTime(t);
+        const state = ytPlayer.getPlayerState?.();
+        const YTS = window.YT?.PlayerState;
+
+        if (typeof t === "number" && !isNaN(t)) {
+          // Reloj rápido para las letras (a 60 fps se interpola entre muestras)
+          feedPlaybackClock(t, state === YTS?.PLAYING, true);
+          if (Math.abs(t - lastTime) > 0.05) {
+            lastAdvance = now;
+            lastTime = t;
+            recoverStep = 0;
+          }
+          // El store (y con él la interfaz) se actualiza más despacio
+          if (now - lastStoreUpdate >= 250) {
+            lastStoreUpdate = now;
+            setCurrentTime(t);
+          }
+        }
         if (typeof d === "number" && d > 0 && !isNaN(d)) setDuration(d);
-      } catch {}
-    }, 300);
+
+        // Vigilancia: debería avanzar y lleva 5 s sin hacerlo → recuperar
+        const shouldAdvance = state !== YTS?.PAUSED && state !== YTS?.ENDED;
+        if (shouldAdvance && now - lastAdvance > 5000 && recoverStep < 3) recover();
+      } catch {
+        /* ignorar */
+      }
+    }, 100);
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
     };
   }, [isYT, isPlaying, setCurrentTime, setDuration]);
 
-  /* ── 7. iframeMode for visualizer ──────────────────────────── */
+  /* ── 7. Al volver a la pestaña o recuperar la red, reanudar ─── */
+  useEffect(() => {
+    const resume = () => {
+      if (!latest.isPlaying || !ytPlayer || !ytPlayerReady) return;
+      try {
+        const st = ytPlayer.getPlayerState?.();
+        if (st !== window.YT?.PlayerState?.PLAYING) ytPlayer.playVideo();
+      } catch {
+        /* ignorar */
+      }
+    };
+    const onVisible = () => {
+      if (!document.hidden) resume();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", resume);
+    };
+  }, []);
+
+  /* ── 8. Modo iframe para el visualizador ────────────────────── */
   useEffect(() => {
     audioEngine.setIframeMode(Boolean(isYT && isPlaying));
     return () => audioEngine.setIframeMode(false);
   }, [isYT, isPlaying]);
 
-  return null; // No DOM output — portal is managed imperatively
+  return null; // sin DOM propio: el portal se gestiona de forma imperativa
 };
 
 /* ──────────────────────────────────────────────────────────────
    GlobalYouTubePlayer
-   Visual shell that positions the singleton portal inside itself.
-   Place one instance wherever you want the video to appear.
+   Carcasa visual: coloca el portal singleton dentro de su hueco.
 ────────────────────────────────────────────────────────────── */
 export interface GlobalYouTubePlayerProps {
   inMiniPlayer?: boolean;
@@ -353,7 +493,7 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     (currentTrack?.id?.startsWith("yt_") ? currentTrack.id.replace(/^yt_/, "") : undefined);
   const isYT = Boolean(currentTrack && videoId);
 
-  /* Keep the portal aligned to slotRef every animation frame */
+  /* Mantiene el portal alineado con el hueco. Solo escribe en el DOM cuando algo cambió. */
   useEffect(() => {
     if (!isYT || !showVideoInPlayer) {
       if (activeHolderId === instanceId.current) {
@@ -366,29 +506,16 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     activeHolderId = instanceId.current;
 
     const sync = () => {
-      if (!isYT || !showVideoInPlayer) {
-        if (activeHolderId === instanceId.current) {
-          activeHolderId = null;
-          hidePortal();
-        }
-        return;
-      }
-
-      if (slotRef.current) {
-        const r = slotRef.current.getBoundingClientRect();
+      const slot = slotRef.current;
+      if (slot && !document.hidden) {
+        const r = slot.getBoundingClientRect();
         if (r.width > 10 && r.height > 10) {
           activeHolderId = instanceId.current;
-          placePortal({
-            left: r.left,
-            top: r.top,
-            width: r.width,
-            height: r.height,
-            borderRadius,
-          });
+          placePortal({ left: r.left, top: r.top, width: r.width, height: r.height, borderRadius });
         } else if (activeHolderId === instanceId.current) {
           hidePortal();
         }
-      } else if (activeHolderId === instanceId.current) {
+      } else if (!slot && activeHolderId === instanceId.current) {
         hidePortal();
       }
       rafRef.current = requestAnimationFrame(sync);
@@ -405,13 +532,7 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
 
   if (!isYT) return null;
 
-  return (
-    <div
-      ref={slotRef}
-      className={className}
-      aria-label="Reproductor de YouTube"
-    />
-  );
+  return <div ref={slotRef} className={className} aria-label="Reproductor de YouTube" />;
 };
 
 export default GlobalYouTubePlayer;

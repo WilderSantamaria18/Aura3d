@@ -8,20 +8,39 @@ export interface SmoothedAudioData {
   highs: number;
   energy: number;
   raw: Uint8Array;
+  /** Energía de las 12 notas (0 = Do … 11 = Si), normalizada 0..1 */
+  chroma: Float32Array;
+  /** true solo en la llamada en que se detecta un golpe de bombo */
+  kick: boolean;
+  /** Fuerza del golpe (0..1); 0 si no hay kick */
+  kickStrength: number;
 }
 
 export const useVisualizer = (smoothingFactor = 0.2) => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array>(new Uint8Array(64));
+  // Picos recientes por banda (auto-gain) y estado del detector de bombo
+  const peaksRef = useRef({ bass: 1e-9, mids: 1e-9, highs: 1e-9 });
+  const kickRef = useRef({ prev: 0, fluxAvg: 0, last: -1e9, lastBeat: -1 });
   const smoothedRef = useRef<SmoothedAudioData>({
     bass: 0,
     mids: 0,
     highs: 0,
     energy: 0,
     raw: new Uint8Array(64),
+    chroma: new Float32Array(12),
+    kick: false,
+    kickStrength: 0,
   });
 
-  const getSmoothedData = useCallback((): SmoothedAudioData => {
+  /**
+   * @param kickSensitivity cuánto debe sobresalir el flujo de graves para contar como bombo
+   *        (menor = más golpes). 3 es el valor calibrado con música real.
+   */
+  const getSmoothedData = useCallback((kickSensitivity = 3): SmoothedAudioData => {
+    smoothedRef.current.kick = false;
+    smoothedRef.current.kickStrength = 0;
+
     // 1. Dynamically retrieve live AnalyserNode from AudioEngine singleton or store
     const currentAnalyser = audioEngine.analyser || usePlayerStore.getState().analyser;
     if (currentAnalyser && analyserRef.current !== currentAnalyser) {
@@ -38,6 +57,7 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
       smoothedRef.current.mids *= 0.9;
       smoothedRef.current.highs *= 0.9;
       smoothedRef.current.energy *= 0.9;
+      for (let k = 0; k < 12; k++) smoothedRef.current.chroma[k] *= 0.9;
       return smoothedRef.current;
     }
 
@@ -89,6 +109,11 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
         // Downbeat accent (beat 1 of measure in 4/4 time)
         const isDownbeat = (beatNumber % 4) === 0;
         const isBackbeat = (beatNumber % 2) === 1; // Beats 2 & 4: Snare / Clap
+        if (beatNumber !== kickRef.current.lastBeat) {
+          kickRef.current.lastBeat = beatNumber;
+          smoothedRef.current.kick = true;
+          smoothedRef.current.kickStrength = isDownbeat ? 1 : 0.7;
+        }
 
         // 1. Kick drum attack with exponential release curve
         const kickPunch = Math.pow(Math.max(0, 1.0 - beatPhase * 3.6), 2.2);
@@ -115,6 +140,15 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
         smoothedRef.current.mids = dynamicMids;
         smoothedRef.current.highs = dynamicHighs;
         smoothedRef.current.energy = dynamicEnergy;
+
+        // Sin señal real (Spotify/iframe): notas de una escala menor al compás para mantener vivas las auroras
+        const scale = [0, 3, 5, 7, 10, 12];
+        const noteIdx = Math.floor(currentBeat * 0.5) % scale.length;
+        const chroma = smoothedRef.current.chroma;
+        for (let k = 0; k < 12; k++) {
+          const target = k === scale[noteIdx] % 12 ? 0.55 + kickPunch * 0.4 : k === scale[(noteIdx + 2) % scale.length] % 12 ? 0.35 : 0.04;
+          chroma[k] += (target - chroma[k]) * 0.2;
+        }
 
         // Populate raw FFT buffer with realistic acoustic harmonics so all visualizers dance to the real beat
         for (let i = 0; i < total; i++) {
@@ -144,39 +178,75 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
         smoothedRef.current.mids *= 0.88;
         smoothedRef.current.highs *= 0.88;
         smoothedRef.current.energy *= 0.88;
+        for (let k = 0; k < 12; k++) smoothedRef.current.chroma[k] *= 0.88;
         for (let i = 0; i < total; i++) raw[i] = 0;
       }
       return smoothedRef.current;
     }
 
-    // Frequency spectrum bands
-    // Frequency spectrum bands: focus sub-bass & kick bins
-    const bassEnd = Math.max(2, Math.floor(total * 0.12));
-    const midsEnd = Math.max(bassEnd + 1, Math.floor(total * 0.60));
+    // ── Bandas por Hz (independiente de la sample rate del dispositivo) ──
+    const sampleRate = activeAnalyser.context?.sampleRate || 48000;
+    const binHz = sampleRate / activeAnalyser.fftSize;
+    const toBin = (hz: number) => Math.max(0, Math.min(total - 1, Math.round(hz / binHz)));
 
-    // Weighted sub-bass: lower bins have higher multiplier for immediate kick punch
-    let bassSum = 0;
+    const bassLo = 0;
+    const bassHi = Math.max(1, toBin(250)); // sub-bajo + kick
+    const midHi = Math.max(bassHi + 2, toBin(2500)); // cuerpo, voces, snare
+    const highHi = Math.max(midHi + 2, Math.min(total - 1, toBin(16000))); // brillo / hats
+
+    // ── Bandas en amplitud LINEAL ──
+    // Los bytes del analizador están en dB: comprimen tanto la dinámica que, con música
+    // masterizada, los graves quedan pegados a 1.0 y un bombo nunca "sobresale". Medido con
+    // canciones reales: el detector por bytes acertaba 0–9 % de los golpes; en lineal, 56–77 %.
+    const minDb = activeAnalyser.minDecibels;
+    const dbRange = activeAnalyser.maxDecibels - minDb;
+    const lin = (byte: number) => Math.pow(10, (minDb + (byte / 255) * dbRange) / 20);
+
+    let bassLinSum = 0;
     let bassWeights = 0;
-    for (let i = 0; i < bassEnd; i++) {
-      const w = i <= 3 ? 2.2 : 1.2;
-      bassSum += raw[i] * w;
+    for (let i = bassLo; i <= bassHi; i++) {
+      const w = i <= 1 ? 1.6 : 1.0; // el kick vive en los bins más graves
+      bassLinSum += lin(raw[i]) * w;
       bassWeights += w;
     }
-    const rawBass = bassWeights > 0 ? bassSum / (bassWeights * 255) : 0;
-    // Enhanced punch curve: explosive kick response with pristine clarity
-    const bass = Math.min(1.0, Math.pow(rawBass, 1.15) * 1.55);
+    const bassLin = bassWeights > 0 ? bassLinSum / bassWeights : 0;
 
-    let midsSum = 0;
-    for (let i = bassEnd; i < midsEnd; i++) midsSum += raw[i];
-    const mids = midsSum / ((midsEnd - bassEnd) * 255);
+    let midsLinSum = 0;
+    for (let i = bassHi + 1; i <= midHi; i++) midsLinSum += lin(raw[i]);
+    const midsLin = midsLinSum / Math.max(1, midHi - bassHi);
 
-    let highsSum = 0;
-    for (let i = midsEnd; i < total; i++) highsSum += raw[i];
-    const highs = highsSum / ((total - midsEnd) * 255);
+    let highsLinSum = 0;
+    for (let i = midHi + 1; i <= highHi; i++) highsLinSum += lin(raw[i]);
+    const highsLin = highsLinSum / Math.max(1, highHi - midHi);
 
-    const energy = Math.min(1.0, (sum / (total * 255)) * 1.25);
+    const rawEnergy = Math.min(1.0, (sum / (total * 255)) * 1.25);
 
-    // Asymmetric audio envelope: Instantaneous 0.92 attack for crisp kicks, musical organic decay
+    // ── Auto-gain: cada banda se normaliza contra su pico reciente ──
+    // El suelo evita amplificar el ruido en pasajes casi silenciosos.
+    const peaks = peaksRef.current;
+    const norm = (v: number, key: 'bass' | 'mids' | 'highs', floor: number) => {
+      peaks[key] = Math.max(v, peaks[key] * 0.998);
+      return Math.min(1, v / Math.max(peaks[key], floor));
+    };
+    const bass = norm(bassLin, 'bass', 2e-3);
+    const mids = Math.pow(norm(midsLin, 'mids', 1e-3), 0.8);
+    const highs = Math.pow(norm(highsLin, 'highs', 5e-4), 0.8);
+    const energy = Math.min(1.0, (bass * 0.5 + mids * 0.35 + highs * 0.15) * 1.1 + rawEnergy * 0.1);
+
+    // ── Detector de bombo: flujo positivo de graves (amplitud lineal) ──
+    const kd = kickRef.current;
+    const nowMs = performance.now();
+    const flux = Math.max(0, bassLin - kd.prev);
+    kd.prev = bassLin;
+    const bassPeak = peaks.bass;
+    if (flux > kd.fluxAvg * kickSensitivity + bassPeak * 0.02 && bassLin > bassPeak * 0.25 && nowMs - kd.last > 140) {
+      kd.last = nowMs;
+      smoothedRef.current.kick = true;
+      smoothedRef.current.kickStrength = Math.min(1, 0.35 + (flux / (bassPeak * 0.15)) * 0.65);
+    }
+    kd.fluxAvg += (flux - kd.fluxAvg) * 0.08;
+
+    // Envolvente asimétrica: ataque casi instantáneo (kicks nítidos) y caída orgánica
     const attackFactor = 0.92;
     const bassDecay = 0.20;
     const genDecay = smoothingFactor;
@@ -191,6 +261,7 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
     smoothedRef.current.highs += (highs - smoothedRef.current.highs) * hFactor;
     smoothedRef.current.energy += (energy - smoothedRef.current.energy) * eFactor;
     smoothedRef.current.raw = raw;
+    smoothedRef.current.chroma = audioEngine.getChroma();
 
     return {
       bass: Math.min(1.0, Math.max(0, smoothedRef.current.bass)),
@@ -198,6 +269,9 @@ export const useVisualizer = (smoothingFactor = 0.2) => {
       highs: Math.min(1.0, Math.max(0, smoothedRef.current.highs)),
       energy: Math.min(1.0, Math.max(0, smoothedRef.current.energy)),
       raw,
+      chroma: smoothedRef.current.chroma,
+      kick: smoothedRef.current.kick,
+      kickStrength: smoothedRef.current.kickStrength,
     };
   }, [smoothingFactor]);
 

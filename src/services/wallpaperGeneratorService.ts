@@ -2,126 +2,175 @@ import type {
   WallpaperGenerationRequest,
   WallpaperGenerationResult,
   WallpaperAspectRatio,
+  WallpaperQuality,
 } from '../types/wallpaper';
 import { enhancePrompt, buildNegativePrompt } from './wallpaperPresetsService';
 import { WallpaperCacheService } from './wallpaperCacheService';
+import { upscaleImage, blobToDataUrl } from './imageUpscale';
 
 const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
   (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : 'http://localhost:4000');
 
+/** Lado largo máximo que la IA entrega de forma nativa y fiable */
+const NATIVE_LONG_SIDE = 2048;
+
+/** Relación de aspecto → proporción ancho:alto */
+const RATIO: Record<WallpaperAspectRatio, [number, number]> = {
+  '16:9': [16, 9],
+  '21:9': [21, 9],
+  '9:16': [9, 16],
+  '1:1': [1, 1],
+  '4:3': [4, 3],
+};
+
+/** Lado largo final por calidad */
+const TARGET_LONG_SIDE: Record<WallpaperQuality, number> = {
+  hd: 1280,
+  fhd: 1920,
+  '4k': 3840,
+};
+
+const round16 = (v: number) => Math.max(16, Math.round(v / 16) * 16);
+
+export interface WallpaperDimensions {
+  /** Resolución final que se guarda */
+  width: number;
+  height: number;
+  /** Resolución que se pide a la IA (≤ 2048) */
+  nativeWidth: number;
+  nativeHeight: number;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export class WallpaperGeneratorService {
   /**
-   * Resuelve dimensiones reales en píxeles según el aspect ratio
+   * Dimensiones finales y nativas según relación de aspecto y calidad.
+   * 4K = 3840 px de lado largo (3840×2160 en 16:9).
    */
-  static getDimensions(aspectRatio: WallpaperAspectRatio): { width: number; height: number } {
-    switch (aspectRatio) {
-      case '21:9':
-        return { width: 2560, height: 1080 };
-      case '9:16':
-        return { width: 1080, height: 1920 };
-      case '1:1':
-        return { width: 1440, height: 1440 };
-      case '4:3':
-        return { width: 1600, height: 1200 };
-      case '16:9':
-      default:
-        return { width: 1920, height: 1080 };
-    }
+  static getDimensions(aspectRatio: WallpaperAspectRatio, quality: WallpaperQuality = 'fhd'): WallpaperDimensions {
+    const [rw, rh] = RATIO[aspectRatio] ?? RATIO['16:9'];
+    const long = TARGET_LONG_SIDE[quality];
+    const scale = long / Math.max(rw, rh);
+    const width = Math.round(rw * scale);
+    const height = Math.round(rh * scale);
+
+    const nativeLong = Math.min(long, NATIVE_LONG_SIDE);
+    const ns = nativeLong / Math.max(rw, rh);
+    const nativeWidth = round16(rw * ns);
+    const nativeHeight = round16(rh * ns);
+    return { width, height, nativeWidth, nativeHeight };
   }
 
   /**
-   * Genera un fondo de pantalla con IA.
-   * Conecta con el backend si está disponible y cuenta con fallback
-   * de alta fidelidad para asegurar que siempre funcione.
+   * Pide la imagen a la IA. Primero al backend local (guarda en disco y evita CORS) y, si no
+   * responde, directo a FLUX. Si nada responde se lanza un error claro: ya NO se sustituye por
+   * una foto de stock que no tiene relación con lo pedido.
+   */
+  private static async fetchNative(
+    prompt: string,
+    negative: string,
+    request: WallpaperGenerationRequest,
+    dims: WallpaperDimensions,
+    seed: number,
+    onProgress?: (p: number) => void
+  ): Promise<Blob> {
+    // 1. Backend local
+    try {
+      const resp = await fetchWithTimeout(
+        `${BACKEND_URL}/api/wallpapers/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            negativePrompt: negative,
+            aspectRatio: request.aspectRatio,
+            style: request.style,
+            palette: request.palette,
+            width: dims.nativeWidth,
+            height: dims.nativeHeight,
+            seed,
+          }),
+        },
+        90000
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.url && !data.isCuratedFallback) {
+          const img = await fetchWithTimeout(data.url, {}, 45000);
+          if (img.ok) {
+            const blob = await img.blob();
+            if (blob.size > 15000) return blob;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[WallpaperGeneratorService] Backend no disponible:', err);
+    }
+
+    onProgress?.(40);
+
+    // 2. Directo a FLUX (2 intentos; la semilla cambia levemente si el primero falla)
+    const cleanPrompt = encodeURIComponent(prompt);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const url =
+        `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux` +
+        `&width=${dims.nativeWidth}&height=${dims.nativeHeight}&seed=${seed + attempt}` +
+        `&nologo=true&enhance=false&private=true`;
+      try {
+        const res = await fetchWithTimeout(url, {}, 90000);
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob.size > 15000 && blob.type.startsWith('image/')) return blob;
+        }
+      } catch (err) {
+        console.warn(`[WallpaperGeneratorService] FLUX intento ${attempt + 1} falló:`, err);
+      }
+      onProgress?.(50);
+    }
+
+    throw new Error(
+      'El servicio de IA no respondió. Revisa tu conexión y vuelve a intentarlo (no se aplicó ninguna imagen de reemplazo).'
+    );
+  }
+
+  /**
+   * Genera un fondo con IA a la calidad pedida (HD / Full HD / 4K).
    */
   static async generate(
     request: WallpaperGenerationRequest,
     onProgress?: (progress: number) => void
   ): Promise<WallpaperGenerationResult> {
-    const { width, height } = this.getDimensions(request.aspectRatio);
+    const quality: WallpaperQuality = request.quality ?? 'fhd';
+    const dims = this.getDimensions(request.aspectRatio, quality);
     const enhanced = enhancePrompt(request.prompt, request.style, request.palette);
     const negative = request.negativePrompt || buildNegativePrompt(request.style);
     const seed = request.seed || Math.floor(Math.random() * 10000000);
 
-    onProgress?.(15);
+    onProgress?.(12);
+    const native = await this.fetchNative(enhanced || request.prompt, negative, request, dims, seed, onProgress);
+    onProgress?.(70);
 
-    let finalImageUrl: string | null = null;
+    // Reescalado a la resolución final (solo si la IA entregó menos de lo pedido)
+    const { blob, width, height } = await upscaleImage(native, dims.width, dims.height);
+    onProgress?.(88);
 
-    // 1. Intentar llamar al backend local de Aura3D
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-      const resp = await fetch(`${BACKEND_URL}/api/wallpapers/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: enhanced,
-          negativePrompt: negative,
-          aspectRatio: request.aspectRatio,
-          style: request.style,
-          palette: request.palette,
-          width,
-          height,
-          seed,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.success && data.url) {
-          finalImageUrl = data.url;
-        }
-      }
-    } catch (backendErr) {
-      console.warn('[WallpaperGeneratorService] Backend fetch notice:', backendErr);
-    }
-
-    onProgress?.(55);
-
-    // 2. Si el backend fallara completamente, usar fotografía curada 4K según tema
-    if (!finalImageUrl) {
-      const promptLower = (request.prompt + ' ' + request.style).toLowerCase();
-      if (promptLower.includes('porsche') || promptLower.includes('car') || promptLower.includes('auto')) {
-        finalImageUrl = 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=2560&auto=format&fit=crop&q=90';
-      } else if (promptLower.includes('lago') || promptLower.includes('lake') || promptLower.includes('water')) {
-        finalImageUrl = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=2560&auto=format&fit=crop&q=90';
-      } else if (promptLower.includes('ghibli') || promptLower.includes('anime') || promptLower.includes('campo')) {
-        finalImageUrl = 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=2560&auto=format&fit=crop&q=90';
-      } else if (promptLower.includes('cyberpunk') || promptLower.includes('neon') || promptLower.includes('tokyo')) {
-        finalImageUrl = 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=2560&auto=format&fit=crop&q=90';
-      } else if (promptLower.includes('cosmic') || promptLower.includes('space') || promptLower.includes('nebula')) {
-        finalImageUrl = 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=2560&auto=format&fit=crop&q=90';
-      } else {
-        finalImageUrl = 'https://images.unsplash.com/photo-1494526585095-c41746248156?w=2560&auto=format&fit=crop&q=90';
-      }
-    }
-
-    onProgress?.(80);
-
-    // 3. Pre-cargar imagen para crear thumbnail y calcular metadatos
-    let imgBlob: Blob;
-    try {
-      const res = await fetch(finalImageUrl);
-      imgBlob = await res.blob();
-    } catch {
-      // Si la URL externa bloqueara CORS, usar imagen dummy de emergencia
-      imgBlob = new Blob([''], { type: 'image/jpeg' });
-    }
-
-    onProgress?.(90);
-
-    // 4. Si ya es una Data URL o URL pública persistente, mantenerla como url
-    const persistentUrl = finalImageUrl.startsWith('data:') ? finalImageUrl : finalImageUrl;
-    const thumbnail = imgBlob.size > 0 ? await this.createThumbnail(imgBlob, 400) : persistentUrl;
+    // Data URL: sobrevive a recargas y a la revocación de blob URLs
+    const [url, thumbnail] = await Promise.all([blobToDataUrl(blob), this.createThumbnail(blob, 480)]);
 
     const result: WallpaperGenerationResult = {
       id: `wallpaper-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      url: persistentUrl,
+      url,
       thumbnail,
       prompt: request.prompt,
       style: request.style,
@@ -133,12 +182,13 @@ export class WallpaperGeneratorService {
       isFavorite: false,
       width,
       height,
-      fileSize: imgBlob.size,
+      fileSize: blob.size,
+      quality,
+      nativeWidth: dims.nativeWidth,
+      nativeHeight: dims.nativeHeight,
     };
 
-    // 5. Guardar en IndexedDB
     await WallpaperCacheService.save(result);
-
     onProgress?.(100);
     return result;
   }
@@ -157,6 +207,7 @@ export class WallpaperGeneratorService {
         canvas.height = Math.round(targetWidth * aspect);
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const dataUrl = canvas.toDataURL('image/webp', 0.85);
           URL.revokeObjectURL(tempUrl);

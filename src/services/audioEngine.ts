@@ -21,6 +21,13 @@ export class AudioEngine {
   public audioContext: AudioContext | null = null;
   public masterGain: GainNode | null = null;
   public analyser: AnalyserNode | null = null;
+  /** Analizador de alta resolución (FFT 4096) dedicado a detectar notas */
+  private pitchAnalyser: AnalyserNode | null = null;
+  private pitchBuffer: Uint8Array | null = null;
+  private chromaAcc = new Float32Array(12);
+  private chromaValues = new Float32Array(12);
+  private chromaPeak = 1.0;
+  private chromaStamp = 0;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private audioElement: HTMLAudioElement;
 
@@ -197,7 +204,13 @@ export class AudioEngine {
         const AudioContextClass =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        this.audioContext = new AudioContextClass();
+        // 48 kHz fijos: el ancho de bin del analizador (≈94 Hz) es igual en todos los
+        // dispositivos, así el kick y los graves caen siempre en los mismos bins.
+        try {
+          this.audioContext = new AudioContextClass({ sampleRate: 48000, latencyHint: 'interactive' });
+        } catch {
+          this.audioContext = new AudioContextClass();
+        }
 
         // Master Analyser Node for FFT computation — ultra-low latency & zero temporal lag
         this.analyser = this.audioContext.createAnalyser();
@@ -249,6 +262,14 @@ export class AudioEngine {
         this.underwaterFilter.connect(this.analyser);
 
         this.analyser.connect(this.dryGain);
+
+        // Analizador de notas: cuelga del analizador principal, así también recibe
+        // micrófono y audio del sistema (que entran directo a this.analyser)
+        this.pitchAnalyser = this.audioContext.createAnalyser();
+        this.pitchAnalyser.fftSize = 4096;
+        this.pitchAnalyser.smoothingTimeConstant = 0.55;
+        this.pitchBuffer = new Uint8Array(this.pitchAnalyser.frequencyBinCount);
+        this.analyser.connect(this.pitchAnalyser);
         this.analyser.connect(this.convolver);
         this.convolver.connect(this.wetGain);
 
@@ -813,6 +834,45 @@ export class AudioEngine {
       highs,
       energy,
     };
+  }
+
+  /**
+   * Cromagrama: energía de las 12 notas (0 = Do … 11 = Si) normalizada 0..1.
+   * Se pliega el espectro entre 110 Hz y 2.1 kHz (los graves por debajo son bombo, no notas) sobre las 12 clases de nota y se
+   * normaliza con auto-gain para que funcione igual con música suave o fuerte.
+   */
+  public getChroma(): Float32Array {
+    const now = performance.now();
+    if (!this.pitchAnalyser || !this.pitchBuffer || !this.audioContext) return this.chromaValues;
+    if (now - this.chromaStamp < 8) return this.chromaValues;
+    this.chromaStamp = now;
+
+    this.pitchAnalyser.getByteFrequencyData(this.pitchBuffer as never);
+    const buf = this.pitchBuffer;
+    const binHz = this.audioContext.sampleRate / this.pitchAnalyser.fftSize;
+    const lo = Math.max(1, Math.ceil(110 / binHz));
+    const hi = Math.min(buf.length - 1, Math.floor(2100 / binHz));
+
+    const acc = this.chromaAcc;
+    acc.fill(0);
+    for (let i = lo; i <= hi; i++) {
+      const mag = buf[i] / 255;
+      if (mag < 0.32) continue; // suelo de ruido
+      const semis = Math.round(12 * Math.log2((i * binHz) / 440));
+      const pc = (((semis + 9) % 12) + 12) % 12; // A4 = clase 9, Do = 0
+      acc[pc] += mag * mag;
+    }
+
+    let mx = 0;
+    for (let k = 0; k < 12; k++) if (acc[k] > mx) mx = acc[k];
+    this.chromaPeak = Math.max(mx, this.chromaPeak * 0.996);
+    const denom = Math.max(this.chromaPeak, 1.0);
+    for (let k = 0; k < 12; k++) {
+      const v = Math.min(1, acc[k] / denom);
+      const cur = this.chromaValues[k];
+      this.chromaValues[k] = cur + (v - cur) * (v > cur ? 0.6 : 0.12);
+    }
+    return this.chromaValues;
   }
 
   public getFrequencyData(): FrequencyData {

@@ -2,8 +2,13 @@ import React from 'react';
 import { Volume2, Volume1, VolumeX } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 
-export const VolumeControl: React.FC = () => {
-  const { volume, isMuted, setVolume, toggleMute, isLucid, lucidTheme } = usePlayerStore();
+export const VolumeControl: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  const volume = usePlayerStore((s) => s.volume);
+  const isMuted = usePlayerStore((s) => s.isMuted);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+  const toggleMute = usePlayerStore((s) => s.toggleMute);
+  const isLucid = usePlayerStore((s) => s.isLucid);
+  const lucidTheme = usePlayerStore((s) => s.lucidTheme);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -45,7 +50,7 @@ export const VolumeControl: React.FC = () => {
         {getIcon()}
       </button>
 
-      <div className="w-16 sm:w-20 flex items-center">
+      <div className={compact ? "w-14 flex items-center" : "w-16 sm:w-20 flex items-center"}>
         <input
           type="range"
           min="0"
@@ -63,7 +68,7 @@ export const VolumeControl: React.FC = () => {
         />
       </div>
 
-      <span className="hidden sm:inline-block w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors">
+      <span className={compact ? "hidden" : "hidden sm:inline-block w-12 text-right font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/70 transition-colors"}>
         {dbText}
       </span>
     </div>

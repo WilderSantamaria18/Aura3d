@@ -26,7 +26,9 @@ import {
   Disc,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
-import { RAINBOW_VOID_EFFECTS, ATMOSPHERE_OPTIONS } from '../../config/visualPresets';
+import { RAINBOW_VOID_EFFECTS, ATMOSPHERE_OPTIONS, DEFAULT_VOID_EFFECT, isVoidEffectId, resolveVoidFx } from '../../config/visualPresets';
+import { VoidFxCustomizer } from '../UI/VoidFxCustomizer';
+import { drawVoidEffect, createVoidFxState, type VoidFxState } from './voidEffects';
 import type { VisualizerShape, BackgroundAtmosphere } from '../../types/audio';
 import { DEFAULT_BLOB_SETTINGS } from '../../services/storageService';
 import { useFPSMonitor } from '../../hooks/useFPSMonitor';
@@ -39,7 +41,6 @@ import {
   renderConstellationLines,
   renderPlasmaVortex,
   renderGravitationalLensRings,
-  applyGravitationalLens,
   renderAuroraRibbons,
   renderCrystalShards,
   spawnCrystalShards,
@@ -185,17 +186,6 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const auroraRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Swarm particles for 'cloud' shape
-  const [cloudParticles] = useState(() =>
-    Array.from({ length: 90 }, () => ({
-      angle: Math.random() * Math.PI * 2,
-      dist: 130 + Math.random() * 120,
-      speed: (Math.random() - 0.5) * 0.03,
-      size: 2 + Math.random() * 3.5,
-      hue: Math.random() * 360,
-    }))
-  );
-
   // Internal twinkling stars for DHONKIO mode
   const voidStars = useRef<VoidStar[]>(
     Array.from({ length: 28 }, () => {
@@ -210,8 +200,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
     })
   );
 
-  // Crystalline percussive micro-particles for Spikes mode
-  const spikeParticles = useRef<SpikeParticle[]>([]);
+  // Estado persistente de los efectos minimalistas (p. ej. anillos de Marea)
+  const voidFxState = useRef<VoidFxState>(createVoidFxState());
+
+  // Migra formas guardadas que ya no existen en el catálogo
+  useEffect(() => {
+    if (!isVoidEffectId(blobShape)) setBlobShape(DEFAULT_VOID_EFFECT);
+  }, [blobShape, setBlobShape]);
 
   // Audio smoothing refs
   const smoothedBassRef = useRef(0);
@@ -228,6 +223,10 @@ export const RainbowBlobVisualizer: React.FC = () => {
     prevBass: 0,
   });
   const morphNRef = useRef(blobSettings.catEarsCount ?? 2);
+
+  // Envolvente del kick + medidores de calibración en vivo
+  const kickEnvRef = useRef(0);
+  const meterRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Window resize handler: update scale factor ref and canvas dimensions
   useEffect(() => {
@@ -266,7 +265,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const timeSec = now * 0.001;
       const u = scaleURef.current;
 
-      const { bass, mids, energy, raw } = getSmoothedData();
+      // Sensibilidad del bombo (control de calibración): 0.32 → 3.0, el valor medido con música real
+      const { bass, mids, energy, raw, chroma, kick, kickStrength } = getSmoothedData(1.5 + (bs.kickThreshold ?? 0.32) * 4.7);
       const audioSens = musicSensitivity ?? 1.0;
       const isAudioActive = energy > 0.005 || isPlaying || isMicActive;
 
@@ -311,15 +311,24 @@ export const RainbowBlobVisualizer: React.FC = () => {
       // ── Kick Transient & iOS Spring Damping Integration ──
       const kickThresh = bs.kickThreshold ?? 0.32;
       const kPower = bs.kickPower ?? 1.6;
-      const bassDelta = sBass - kickSpringRef.current.prevBass;
-      kickSpringRef.current.prevBass = sBass;
 
-      let isKickTriggered = false;
-      if (isAudioActive && sBass > kickThresh && bassDelta > 0.04) {
-        // Elastic impulse proportional to kick
-        kickSpringRef.current.velocity += Math.min(0.38, bassDelta * kPower * 1.5);
-        isKickTriggered = true;
+      // El bombo lo detecta el hook (flujo positivo de graves en amplitud lineal)
+      kickSpringRef.current.prevBass = sBass;
+      const isKickTriggered = isAudioActive && kick;
+      const boomStrength = isKickTriggered ? kickStrength : 0;
+      if (isKickTriggered) {
+        // Impulso elástico proporcional a la fuerza real del golpe
+        kickSpringRef.current.velocity += Math.min(0.38, (0.08 + boomStrength * 0.3) * kPower * 0.8);
+        kickEnvRef.current = Math.max(kickEnvRef.current, boomStrength);
       }
+      kickEnvRef.current *= 0.9;
+
+      // Medidores de calibración (solo existen con el panel abierto)
+      const mt = meterRefs.current;
+      if (mt.bass) mt.bass.style.transform = `scaleX(${Math.min(1, sBass)})`;
+      if (mt.mids) mt.mids.style.transform = `scaleX(${Math.min(1, sMids)})`;
+      if (mt.treble) mt.treble.style.transform = `scaleX(${Math.min(1, sTreble)})`;
+      if (mt.kick) mt.kick.style.opacity = String(Math.min(1, kickEnvRef.current * 1.4));
 
       // Spring physics step (stiffness 140, damping 0.78 for iOS-like elastic return)
       const springDt = 0.016;
@@ -333,14 +342,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const kickSpringRebound = kickSpringRef.current.displacement * 0.25; // Up to +25% spring expansion on Kick
 
       // Smooth audio-reactive scale calibration
-      const isEarLikeShape = [
-        'dual_crest', 'vector_spires', 'pulse_antennas', 'aero_fins',
-        'apex_prism', 'harmonic_crown', 'hyperbolic_arcs', 'laser_needles',
-        'wave_peaks',
-        'cat_ears', 'fox_ears', 'cyber_horns', 'valkyrie_wings', 'laser_crown',
-        'cyber_hexagon', 'octagram_star', 'phoenix_wings',
-        'quantum_gyro', 'lotus_mandala', 'radar_heartbeat',
-      ].includes(blobShape);
+      const isEarLikeShape = isVoidEffectId(blobShape);
       const isTransparentHalo = bs.transparentHalo !== false;
       const kickIntensity = bs.kickIntensity ?? 1.0;
       const nivel = isAudioActive ? sBass : 0;
@@ -614,591 +616,37 @@ export const RainbowBlobVisualizer: React.FC = () => {
           }
 
           // ─────────────────────────────────────────────────────────────────
-          // SHAPES: CRESTAS, AGUJAS, ANTENAS & GEOMETRÍAS POLARES (visionOS)
+          // EFECTO ACTIVO — catálogo minimalista (voidEffects.ts)
           // ─────────────────────────────────────────────────────────────────
-          if (isEarLikeShape) {
-            const N = morphNRef.current;
-            const layers = Math.min(4, Math.max(1, blobSettings.catEarsLayers ?? 1));
-            const strokeWidth = Math.max(0.75, Math.min(1.5, blobSettings.strokeHairline ?? blobSettings.catEarsStrokeWidth ?? 0.75)) * u;
-            const baseSharpness = blobSettings.catEarsSharpness ?? 2.2;
-            const palette = blobSettings.sacredPalette ?? 'neon';
-
-            // Sacred Palette Definition
-            primaryColor = '#00F0FF';
-            secondaryColor = '#DDB7FF';
-            const accentTipColor = '#FFFFFF';
-
-            if (palette === 'gold') {
-              primaryColor = '#E2C889';
-              secondaryColor = '#FFF2CE';
-            } else if (palette === 'crystal') {
-              primaryColor = '#FFFFFF';
-              secondaryColor = '#B0C4DE';
-            } else if (palette === 'lucid') {
-              primaryColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary) : (dynamicColor || '#00f0ff');
-              secondaryColor = isLucid ? (lucidTheme.secondary || '#a855f7') : '#ddb7ff';
-            } else if (palette === 'cyberpunk') {
-              primaryColor = '#ff007f';
-              secondaryColor = '#00f2fe';
-            } else if (palette === 'aurora') {
-              primaryColor = '#00ff87';
-              secondaryColor = '#60efff';
-            } else if (palette === 'custom') {
-              primaryColor = blobSettings.haloColor1 || '#00f0ff';
-              secondaryColor = blobSettings.haloColor2 || '#ffd166';
-            } else {
-              primaryColor = '#00F0FF';
-              secondaryColor = '#DDB7FF';
-            }
-
-            // Dinámica de Crestas: Estiramiento, Potencia de Bajos y Modulación por Notas Musicales
-            const stretch = blobSettings.crestStretch ?? 1.0;
-            const bassPunch = blobSettings.crestBassBoost ?? 1.6;
-            const noteDancingFactor = blobSettings.crestNoteMovement ?? 1.0;
-
-            // Detección de notas melódicas (voces, sintetizadores, arpegios y acordes)
-            const noteSlice = raw.slice(6, 64);
-            const noteMelody = noteSlice.length > 0 ? noteSlice.reduce((a, b) => a + b, 0) / (noteSlice.length * 255) : 0;
-            const noteElevation = noteMelody * 34 * noteDancingFactor;
-
-            // Potencia de impacto en bajos combinando sub-bajos y rebote elástico
-            const bassSurge = 1 + sBass * 0.70 * bassPunch + kickSpringRebound * 1.35 * bassPunch;
-
-            // Amplitud base de las crestas/hipérbolas estirada y modulada por notas
-            const earAmplitude = (16 + (sMids * 44 + noteElevation) * bassSurge) * stretch * u;
-
-            // Treble energy for apex micro-nodes (diamond sparkle)
-            const trebleSlice = raw.slice(Math.floor(raw.length * 0.65));
-            const trebleEnergy = trebleSlice.length > 0
-              ? trebleSlice.reduce((a, b) => a + b, 0) / (trebleSlice.length * 255)
-              : 0;
-
-            const pointsCount = 180;
-
-            // Render concentric layers (1 to 4)
-            for (let l = 0; l < layers; l++) {
-              ctx.save();
-
-              // Differential rotation for Moiré interference
-              const rotSpeed = l === 0 ? 0.22 : l === 1 ? -0.16 : l === 2 ? 0.11 : -0.07;
-              const layerPhase = timeSec * rotSpeed + l * (Math.PI / 4);
-              const layerBaseRadius = baseCircleRadius + l * 12 * u;
-              const layerAmp = earAmplitude * (1 - l * 0.14);
-              const layerAlpha = Math.max(0.35, 1.0 - l * 0.20);
-
-              // Angular offset so when N=2, the two crests rise symmetrically on top-left and top-right
-              const earOffsetAngle = Math.PI / 2;
-
-              ctx.beginPath();
-              const tipPoints: { x: number; y: number }[] = [];
-
-              for (let i = 0; i <= pointsCount; i++) {
-                const theta = (i / pointsCount) * Math.PI * 2;
-                const modAngle = theta * N + layerPhase + earOffsetAngle;
-                const cosVal = Math.cos(modAngle);
-
-                let currentR = layerBaseRadius;
-                let isApexTip = false;
-
-                // Ondulación melódica continua por notas a lo largo del perímetro
-                const noteBin = Math.min(raw.length - 1, Math.floor((Math.abs(Math.sin(theta * 2 + timeSec * 0.6)) * 0.4 + 0.05) * raw.length));
-                const noteFreqVal = (raw[noteBin] || 0) / 255;
-                const noteMicroRhythm = Math.sin(theta * 6 + timeSec * 4.2) * (noteFreqVal * 7 * noteDancingFactor) * u;
-
-                if (blobShape === 'dual_crest' || blobShape === 'cat_ears') {
-                  // Symmetrical pointed Dual Crests
-                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness) : 0;
-                  currentR = layerBaseRadius + earFactor * layerAmp + noteMicroRhythm;
-                  if (cosVal > 0.992) isApexTip = true;
-                } else if (blobShape === 'vector_spires' || blobShape === 'fox_ears') {
-                  // Slender vector spires with high power exponent
-                  const flare = 1 + 0.22 * Math.cos(modAngle * 2);
-                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.35) * flare : 0;
-                  currentR = layerBaseRadius + earFactor * (layerAmp * 1.32) + noteMicroRhythm;
-                  if (cosVal > 0.994) isApexTip = true;
-                } else if (blobShape === 'pulse_antennas') {
-                  // Slender pulse antennas with harmonic resonance
-                  const harmonicMod = 1 + 0.25 * Math.cos(modAngle * 4);
-                  const earFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.2) * harmonicMod : 0;
-                  currentR = layerBaseRadius + earFactor * (layerAmp * 1.25) + noteMicroRhythm;
-                  if (cosVal > 0.990) isApexTip = true;
-                } else if (blobShape === 'hyperbolic_arcs' || blobShape === 'cyber_horns') {
-                  // Swept curved arcs / parabolas with tangential tension and bass stretch
-                  const hornFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 1.6) : 0;
-                  const sweep = hornFactor * Math.sin(theta * 2) * (6 + sBass * 8 * bassPunch) * u;
-                  currentR = layerBaseRadius + hornFactor * (layerAmp * 1.22) + sweep + noteMicroRhythm;
-                  if (cosVal > 0.990) isApexTip = true;
-                } else if (blobShape === 'aero_fins' || blobShape === 'valkyrie_wings') {
-                  // Lateral aerodynamic feathered fins
-                  const feather = 0.85 + 0.15 * Math.sin(theta * 12);
-                  const wingFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 0.92) * feather : 0;
-                  currentR = layerBaseRadius + wingFactor * (layerAmp * 1.15) + noteMicroRhythm;
-                  if (cosVal > 0.985) isApexTip = true;
-                } else if (blobShape === 'apex_prism') {
-                  // Pure triangular faceted crests
-                  const count = N === 4 ? 4 : 3;
-                  const modA = ((theta * count) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-                  const tri = Math.max(0, 1 - Math.abs((modA / Math.PI) - 1));
-                  const prismFactor = Math.pow(tri, baseSharpness * 1.1);
-                  currentR = layerBaseRadius + prismFactor * (layerAmp * 1.20) + noteMicroRhythm;
-                  if (tri > 0.98) isApexTip = true;
-                } else if (blobShape === 'harmonic_crown' || blobShape === 'laser_crown') {
-                  // 3 or 4 geometric crown peaks
-                  const crownFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 2.8) : 0;
-                  currentR = layerBaseRadius + crownFactor * (layerAmp * 1.25) + noteMicroRhythm;
-                  if (cosVal > 0.992) isApexTip = true;
-                } else if (blobShape === 'laser_needles') {
-                  // Ultra-slender needle spires
-                  const needleFactor = cosVal > 0 ? Math.pow(cosVal, baseSharpness * 4.2) : 0;
-                  currentR = layerBaseRadius + needleFactor * (layerAmp * 1.45) + noteMicroRhythm;
-                  if (cosVal > 0.994) isApexTip = true;
-                } else if (blobShape === 'wave_peaks') {
-                  // Halo orbital con ondas viajeras y picos reactivos
-                  const travelAngle = theta * 8 + timeSec * 3.2 * (l === 0 ? 1 : -0.8);
-                  const wave1 = Math.sin(travelAngle) * 0.45;
-                  const wave2 = Math.cos(theta * 16 - timeSec * 2.0) * 0.25;
-                  const waveHarmonic = wave1 + wave2;
-                  const peakSharpness = Math.pow(Math.max(0, Math.sin(travelAngle)), 3.0);
-                  const reactiveAmp = (sBass * 0.45 * bassPunch + sMids * 0.55 + noteFreqVal * 0.35 * noteDancingFactor) * peakSharpness;
-                  const waveOffset = (waveHarmonic * 10 * u + reactiveAmp * 28 * u) * stretch * (1 + kickSpringRebound * 0.85);
-                  currentR = layerBaseRadius + 8 * u + waveOffset + noteMicroRhythm;
-                  if (peakSharpness > 0.94) isApexTip = true;
-
-                } else if (blobShape === 'cyber_hexagon') {
-                  // ── ADN / DOUBLE HELIX: Dos hebras sinusoidales entrelazadas ──
-                  // Hebra A: sin(nθ + t), Hebra B: sin(nθ + t + π)  — desfasadas 180°
-                  // El radio oscila entre R_min y R_max siguiendo la hélice
-                  const helixN = 7; // número de giros de la hélice
-                  const helixPhaseA = theta * helixN + timeSec * 1.8 * rotDir;
-                  const helixPhaseB = helixPhaseA + Math.PI; // hebra opuesta
-                  // Selecciona qué hebra está "arriba" en este ángulo
-                  const strandA = Math.sin(helixPhaseA);
-                  const strandB = Math.sin(helixPhaseB);
-                  const activateStrand = strandA > strandB ? strandA : strandB;
-                  // Anchura reactiva al audio: bajos ensanchan la hélice
-                  const helixWidth = (18 + sBass * 52 + sMids * 22) * u * bassSurge * stretch;
-                  currentR = layerBaseRadius + activateStrand * helixWidth + noteMicroRhythm;
-                  if (activateStrand > 0.96) isApexTip = true;
-
-                } else if (blobShape === 'octagram_star') {
-                  // ── LISSAJOUS SCOPE: Figura de osciloscupio analógico ──
-                  // Proyección polar de X=sin(3t)  Y=sin(2t+π/4) en función del ángulo θ
-                  // El resultado es una curva de Lissajous 3:2 que parece un 8 retorcido
-                  const lissA = 3;
-                  const lissB = 2;
-                  const lissDelta = Math.PI / 4 + timeSec * 0.45 * rotDir;
-                  // Parametrize t via theta — one full revolution = one full Lissajous cycle
-                  const lissX = Math.sin(lissA * theta + lissDelta);
-                  const lissY = Math.sin(lissB * theta);
-                  // Convert X,Y offset to radial perturbation
-                  const lissR = Math.sqrt(lissX * lissX + lissY * lissY);
-                  const lissAmp = (24 + sMids * 58 + sBass * 32) * u * bassSurge * stretch;
-                  // Second harmonic 5:4 sweeps across the primary curve like ghost trace
-                  const ghostTrace = Math.sin(5 * theta - timeSec * 0.9) * Math.sin(4 * theta) * (8 + sEnergy * 14) * u;
-                  currentR = layerBaseRadius + lissR * lissAmp + ghostTrace + noteMicroRhythm;
-                  if (lissR > 1.28 && lissAmp > 22 * u) isApexTip = true;
-
-                } else if (blobShape === 'phoenix_wings') {
-                  // ── HEARTBEAT: Curva Cardioide + pico sistólico que bombea con el kick ──
-                  // r(θ) = R·(1 + cos θ)  — cardioide clásico, pero orientado y pulsante
-                  // En cada kick, el corazón late: se expande súbitamente y vuelve con spring
-                  const heartAngle = theta - Math.PI * 0.5; // orientar punta hacia arriba
-                  // Cardioide base: da forma de corazón
-                  const cardioid = 1 + Math.cos(heartAngle);
-                  // Pico sistólico: pulso gaussiano en la punta (heartAngle ~ 0)
-                  const systolicPeak = Math.exp(-Math.pow(heartAngle, 2) / 0.18) * kickSpringRebound * 3.2;
-                  // Modulación diastólica: latido suave continuo
-                  const diastole = Math.sin(timeSec * 1.8 + heartAngle * 0.5) * (sBass * 0.12);
-                  const heartAmp = (22 + sBass * 48 + sMids * 28) * u * bassSurge * stretch;
-                  currentR = layerBaseRadius * 0.6 + (cardioid * 0.5 + systolicPeak + diastole) * heartAmp + noteMicroRhythm;
-                  if (Math.abs(heartAngle) < 0.08 || Math.abs(heartAngle - Math.PI) < 0.08) isApexTip = true;
-
-                } else if (blobShape === 'quantum_gyro') {
-                  // ── COPO KOCH: Fractal Snowflake con 6 puntas auto-similares ──
-                  // 2 iteraciones de Koch: cada lado del triángulo genera una punta fractal
-                  // r(θ) calcula la distancia al borde de un copo de Koch de orden 2
-                  const kochSides = 6;
-                  const kochAngle = (Math.PI * 2) / kochSides;
-                  const normT = ((theta % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-                  const sector = Math.floor(normT / kochAngle);
-                  const tInSector = (normT - sector * kochAngle) / kochAngle; // 0..1
-                  // Koch iteration 1: punto central del lado se eleva 1/3 de la longitud
-                  let kochR: number;
-                  const kochFrac = Math.abs(tInSector - 0.5) * 2; // 0 en centro, 1 en esquinas
-                  if (kochFrac < 0.33) {
-                    // Zona central del lado: punta fractal de primer orden
-                    const kochTip = 1 - (kochFrac / 0.33); // 1 en la punta, 0 en los lados
-                    const kochPeakPow = Math.pow(kochTip, 2.8);
-                    kochR = layerBaseRadius + kochPeakPow * (28 + sMids * 52 + sBass * 36) * u * bassSurge * stretch;
-                    if (kochTip > 0.94) isApexTip = true;
-                  } else {
-                    // Zona lateral: sub-punta de 2° orden (auto-similaridad)
-                    const subT = ((kochFrac - 0.33) / 0.67);
-                    const subTip = Math.max(0, 1 - Math.abs(subT - 0.5) * 4);
-                    const subPow = Math.pow(subTip, 3.5);
-                    kochR = layerBaseRadius + subPow * (14 + sMids * 28 + sBass * 18) * u * bassSurge * stretch;
-                    if (subTip > 0.9) isApexTip = true;
-                  }
-                  // Respiración global: el copo crece con la energía
-                  const snowBreath = Math.sin(timeSec * 0.9 * rotDir + sector * kochAngle) * (4 + sEnergy * 10) * u;
-                  currentR = kochR + snowBreath + noteMicroRhythm;
-
-                } else if (blobShape === 'lotus_mandala') {
-                  // ── EYE OF GOD: Iris que abre y cierra párpados con el audio ──
-                  // La forma tiene simetría bilateral: arriba = arriba del ojo, abajo = abajo
-                  // r(θ) = R·|sin(θ)|^exp donde exp reacciona a la energía (apertura del ojo)
-                  const eyeAngle = theta; // 0 = derecha, π/2 = arriba
-                  // Simetría superior/inferior del ojo
-                  const eyeSign = Math.sin(eyeAngle); // positivo = semicírculo sup, neg = inf
-                  // Abertura del párpado: energía alta → ojo abierto (exp bajo), energía baja → ojo cerrado (exp alto)
-                  const eyelidOpen = 0.55 + sEnergy * 1.4 + kickSpringRebound * 1.8; // 0.55..2.0
-                  const pupilBulge = Math.pow(Math.abs(Math.sin(eyeAngle)), 1 / eyelidOpen);
-                  // Forma de almendra: radio máximo en los costados (0°, 180°), 0 en arriba/abajo
-                  const almondWidth = Math.abs(Math.cos(eyeAngle)); // 1 en costados, 0 arriba/abajo
-                  const eyeAmp = (26 + sBass * 58 + sMids * 32) * u * bassSurge * stretch;
-                  // Iris interno: micro-ondulaciones radiales (textura del iris)
-                  const irisTexture = Math.sin(theta * 14 + timeSec * 2.2) * (3 + sMids * 7) * u;
-                  // Brillo del pupilo: pico en el centro horizontal
-                  const pupilGlow = (1 - almondWidth) * pupilBulge;
-                  currentR = layerBaseRadius + (almondWidth * 0.4 + pupilGlow * 0.6) * eyeAmp + irisTexture + noteMicroRhythm;
-                  if (almondWidth < 0.08 && Math.abs(eyeSign) < 0.15) isApexTip = true; // punta de la almendra
-
-                } else if (blobShape === 'radar_heartbeat') {
-                  // ── LEMNISCATA ∞: La curva del infinito que late ──
-                  // r²(θ) = a²·cos(2θ)  →  r = a·√|cos(2θ)|  (lemniscata de Bernoulli)
-                  // Solo existe donde cos(2θ) ≥ 0, se cierra en el centro en θ=π/4, 3π/4...
-                  const lemCos2 = Math.cos(2 * theta);
-                  // Audio reactive: bajos aumentan el tamaño, mids deforman la simetría
-                  const lemAmp = (32 + sBass * 72 + sMids * 36) * u * bassSurge * stretch;
-                  // Rotación: la lemniscata gira suavemente
-                  const lemRotTheta = theta + timeSec * 0.4 * rotDir;
-                  const lemCos2Rot = Math.cos(2 * lemRotTheta);
-                  if (lemCos2Rot >= 0) {
-                    // Zona de existencia de la curva: forma los dos lóbulos del ∞
-                    const lemR = Math.sqrt(lemCos2Rot) * lemAmp;
-                    // Modulación de mids: asimetría dinámica entre los dos lóbulos
-                    const asymmetry = Math.sin(theta + timeSec * 0.7) * (sMids * 18) * u;
-                    currentR = layerBaseRadius * 0.25 + lemR + asymmetry + noteMicroRhythm;
-                    if (Math.sqrt(lemCos2Rot) > 0.96) isApexTip = true;
-                  } else {
-                    // Zona de no existencia: se cierra al radio base (el cruce del ∞)
-                    const crossover = Math.abs(Math.sin(2 * lemRotTheta)) * (4 + sEnergy * 8) * u;
-                    currentR = layerBaseRadius * 0.22 + crossover + noteMicroRhythm;
-                  }
-                }
-
-                const px = cx + Math.cos(theta) * currentR;
-                const py = cy + Math.sin(theta) * currentR;
-
-                if (i === 0) {
-                  ctx.moveTo(px, py);
-                } else {
-                  ctx.lineTo(px, py);
-                }
-
-                // Detect tip vertices on primary layer 0
-                if (l === 0 && isApexTip) {
-                  tipPoints.push({ x: px, y: py });
-                }
-              }
-
-              ctx.closePath();
-
-              // Hairline stroke with subtle, controlled bloom (Zero Noise)
-              ctx.strokeStyle = l === 0 ? primaryColor : secondaryColor;
-              ctx.globalAlpha = layerAlpha;
-              ctx.lineWidth = strokeWidth;
-              ctx.lineCap = 'round';
-              ctx.lineJoin = 'round';
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 12 * u;
-              ctx.stroke();
-
-              ctx.restore();
-
-              // White-hot diamond micro-nodes on apex tips (Layer 0 only)
-              if (l === 0 && tipPoints.length > 0) {
-                const filteredTips: { x: number; y: number }[] = [];
-                tipPoints.forEach((pt) => {
-                  const exists = filteredTips.some(
-                    (ft) => Math.hypot(ft.x - pt.x, ft.y - pt.y) < 14 * u
-                  );
-                  if (!exists) filteredTips.push(pt);
-                });
-                currentFrameTips = filteredTips;
-
-                filteredTips.forEach((tip) => {
-                  ctx.save();
-                  const nodeRadius = (1.4 + trebleEnergy * 1.6) * u;
-                  ctx.beginPath();
-                  ctx.arc(tip.x, tip.y, nodeRadius, 0, Math.PI * 2);
-                  ctx.fillStyle = accentTipColor;
-                  ctx.shadowColor = '#FFFFFF';
-                  ctx.shadowBlur = (6 + trebleEnergy * 8) * u;
-                  ctx.globalAlpha = 0.85 + trebleEnergy * 0.15;
-                  ctx.fill();
-                  ctx.restore();
-                });
-              }
-            }
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 1: SPHERE (Núcleo Minimal Difuminado & Aura Cuántica Radiante)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'sphere') {
-            // Core breathing plasma halo (optimized 2-pass radial aura)
-            const sRadOuter = baseCircleRadius + 42 * u * (1 + sBass * 0.3);
-            const sGradOuter = ctx.createRadialGradient(cx, cy, baseCircleRadius * 0.9, cx, cy, sRadOuter);
-            const sHue = isLucid ? (timeSec * 20) % 360 : (timeSec * 30) % 360;
-            const sAlpha = Math.min(0.55, (0.35 + sBass * 0.25));
-            sGradOuter.addColorStop(0, isLucid ? `${lucidTheme.primary}40` : `hsla(${sHue}, 95%, 65%, ${sAlpha})`);
-            sGradOuter.addColorStop(0.65, isLucid ? `${lucidTheme.secondary}20` : `hsla(${(sHue + 40) % 360}, 90%, 55%, ${sAlpha * 0.5})`);
-            sGradOuter.addColorStop(1, 'transparent');
-            ctx.beginPath();
-            ctx.arc(cx, cy, sRadOuter, 0, Math.PI * 2);
-            ctx.fillStyle = sGradOuter;
-            ctx.fill();
-
-            // Concentric laser-engraved hardware micro-grooves
-            for (let g = 0; g < 2; g++) {
-              const gR = baseCircleRadius + (g + 1) * 14 * u * (1 + sBass * 0.12);
-              ctx.beginPath();
-              ctx.arc(cx, cy, gR, 0, Math.PI * 2);
-              ctx.strokeStyle = isLucid ? `${lucidTheme.primary}60` : `hsla(${(timeSec * 25 + g * 80) % 360}, 90%, 65%, ${0.35 + sBass * 0.3})`;
-              ctx.lineWidth = Math.max(1.0, 1.4 * u);
-              ctx.stroke();
-            }
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 3: SPIKES (Corona de Picos FFT Reactiva: 48 agujas cristalinas)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'spikes') {
-            const barCount = 48;
-            for (let i = 0; i < barCount; i++) {
-              const barAngle = (i / barCount) * Math.PI * 2 + angle * 0.02;
-              const rawVal = raw[i % raw.length] || 0;
-              const barLen = (18 + (rawVal / 255) * 95 * (1 + sBass * 0.65)) * u;
-              const barHue = (i * (360 / barCount) + timeSec * 35) % 360;
-
-              const x1 = cx + Math.cos(barAngle) * (baseCircleRadius + 2 * u);
-              const y1 = cy + Math.sin(barAngle) * (baseCircleRadius + 2 * u);
-              const x2 = cx + Math.cos(barAngle) * (baseCircleRadius + 2 * u + barLen);
-              const y2 = cy + Math.sin(barAngle) * (baseCircleRadius + 2 * u + barLen);
-
-              // Tapered needle gradient
-              const spikeGrad = ctx.createLinearGradient(x1, y1, x2, y2);
-              spikeGrad.addColorStop(0, isLucid ? lucidTheme.secondary : `hsla(${barHue}, 90%, 60%, 0.65)`);
-              spikeGrad.addColorStop(1, isLucid ? lucidTheme.primary : `hsla(${(barHue + 50) % 360}, 100%, 75%, 1.0)`);
-
-              ctx.beginPath();
-              ctx.moveTo(x1, y1);
-              ctx.lineTo(x2, y2);
-              ctx.strokeStyle = spikeGrad;
-              ctx.lineWidth = Math.max(1.8, 3.0 * u);
-              ctx.lineCap = 'round';
-              ctx.stroke();
-
-              // Intense white-hot diamond tip
-              ctx.beginPath();
-              ctx.arc(x2, y2, Math.max(1.8, 2.6 * u), 0, Math.PI * 2);
-              ctx.fillStyle = '#ffffff';
-              ctx.fill();
-            }
-
-            // Micro-partículas percusivas
-            spikeParticles.current = spikeParticles.current.filter((p) => {
-              p.x += p.vx;
-              p.y += p.vy;
-              p.alpha *= 0.93;
-              if (p.alpha < 0.02) return false;
-
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, p.size * u, 0, Math.PI * 2);
-              ctx.fillStyle = `hsla(${p.hue}, 95%, 70%, ${p.alpha})`;
-              ctx.fill();
-              return true;
-            });
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 5: FRACTAL (Mándala Sagrada Multicapa: 4 capas con pétalos)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'fractal') {
-            const rings = 4;
-            for (let r = 0; r < rings; r++) {
-              const petals = 6 + r * 2;
-              const fRadius = baseCircleRadius + (r + 1) * 22 * u * (1 + sBass * 0.25);
-              const petalAmp = (10 + sMids * 20) * u;
-              ctx.beginPath();
-              for (let p = 0; p <= 120; p++) {
-                const theta = (p / 120) * Math.PI * 2;
-                const rMod = fRadius + Math.cos(theta * petals + timeSec * (1.5 - r * 0.3)) * petalAmp;
-                const fx = cx + Math.cos(theta) * rMod;
-                const fy = cy + Math.sin(theta) * rMod;
-                if (p === 0) ctx.moveTo(fx, fy);
-                else ctx.lineTo(fx, fy);
-              }
-              ctx.closePath();
-              const fHue = (r * 60 + timeSec * 25) % 360;
-              ctx.strokeStyle = isLucid
-                ? r % 2 === 0
-                  ? lucidTheme.primary
-                  : lucidTheme.secondary
-                : `hsla(${fHue}, 85%, 65%, ${0.75 - r * 0.1})`;
-              ctx.lineWidth = Math.max(1.2, 1.8 * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 8 * u;
-              ctx.stroke();
-            }
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 6: WAVE (Ondas de Frecuencia Líquida: Cinta armónica doble)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'wave') {
-            const wavePoints = 140;
-            // Primary radiant wave
-            ctx.beginPath();
-            for (let i = 0; i <= wavePoints; i++) {
-              const theta = (i / wavePoints) * Math.PI * 2;
-              const freqVal = (raw[Math.floor((i / wavePoints) * raw.length * 0.6)] || 0) / 255;
-              const ripple = Math.sin(theta * 8 + timeSec * 4) * (18 + sBass * 38 + freqVal * 32) * u;
-              const r = baseCircleRadius + 24 * u + ripple;
-              let wx = cx + Math.cos(theta) * r;
-              let wy = cy + Math.sin(theta) * r;
-              if (blobSettings.gravitationalLensEnabled) {
-                const bent = applyGravitationalLens(wx, wy, cx, cy, baseCircleRadius, u, (blobSettings.gravitationalLensIntensity ?? 1.0) * hwMult);
-                wx = bent.x;
-                wy = bent.y;
-              }
-              if (i === 0) ctx.moveTo(wx, wy);
-              else ctx.lineTo(wx, wy);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.primary : autoMode ? dynamicColor : 'rgba(0, 255, 195, 0.92)';
-            ctx.lineWidth = Math.max(2.4, (3.4 + sMids * 2.2) * u);
-            ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 16 * u;
-            ctx.stroke();
-
-            // Secondary outer harmonic wave
-            ctx.beginPath();
-            for (let i = 0; i <= wavePoints; i++) {
-              const theta = (i / wavePoints) * Math.PI * 2;
-              const freqVal = (raw[Math.floor((i / wavePoints) * raw.length * 0.4)] || 0) / 255;
-              const ripple2 = Math.cos(theta * 10 - timeSec * 3.5) * (12 + sEnergy * 25 + freqVal * 20) * u;
-              const r2 = baseCircleRadius + 42 * u + ripple2;
-              let wx = cx + Math.cos(theta) * r2;
-              let wy = cy + Math.sin(theta) * r2;
-              if (blobSettings.gravitationalLensEnabled) {
-                const bent = applyGravitationalLens(wx, wy, cx, cy, baseCircleRadius, u, (blobSettings.gravitationalLensIntensity ?? 1.0) * hwMult);
-                wx = bent.x;
-                wy = bent.y;
-              }
-              if (i === 0) ctx.moveTo(wx, wy);
-              else ctx.lineTo(wx, wy);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = isLucid ? lucidTheme.secondary : 'rgba(255, 8, 138, 0.65)';
-            ctx.lineWidth = Math.max(1.6, 2.2 * u);
-            ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 12 * u;
-            ctx.stroke();
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 7: TORUS (Anillo Neón Orbital: Giroscopio 3D Neón)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'torus') {
-            for (let t = 0; t < 3; t++) {
-              const rotDir = t === 0 ? 1 : t === 1 ? -1 : 0.6;
-              const tAngle = timeSec * (1.1 + t * 0.3) * rotDir + t * (Math.PI / 3);
-              const tRadiusX = (baseCircleRadius + (30 + t * 14) * u) * (1 + sBass * 0.22);
-              const tRadiusY = (baseCircleRadius + (15 + t * 8) * u) * (1 + sMids * 0.25);
-
-              ctx.save();
-              ctx.translate(cx, cy);
-              ctx.rotate(tAngle);
-              ctx.beginPath();
-              ctx.ellipse(0, 0, tRadiusX, tRadiusY, 0, 0, Math.PI * 2);
-              const torHue = (t * 80 + timeSec * 30) % 360;
-              ctx.strokeStyle = isLucid
-                ? t === 0 ? lucidTheme.primary : lucidTheme.secondary
-                : `hsla(${torHue}, 95%, 65%, 0.88)`;
-              ctx.lineWidth = Math.max(2, (3.4 + sBass * 2.5) * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 14 * u;
-              ctx.stroke();
-
-              // Cardinal energy nodes
-              for (let n = 0; n < 4; n++) {
-                const nAng = (n / 4) * Math.PI * 2;
-                const nx = Math.cos(nAng) * tRadiusX;
-                const ny = Math.sin(nAng) * tRadiusY;
-                ctx.beginPath();
-                ctx.arc(nx, ny, Math.max(2, (3.2 + sBass * 1.5) * u), 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = '#ffffff';
-                ctx.shadowBlur = 8 * u;
-                ctx.fill();
-              }
-              ctx.restore();
-            }
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 8: CLOUD (Nébula Cuántica: Enjambre de Estrellas Orbital)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'cloud') {
-            cloudParticles.forEach((p) => {
-              p.angle += p.speed * (1 + sMids * 2.5 + sBass * 1.5);
-              const currentDist = p.dist * u * (1 - sBass * 0.15) * blobScale;
-              const px = cx + Math.cos(p.angle) * currentDist;
-              const py = cy + Math.sin(p.angle) * currentDist;
-
-              ctx.beginPath();
-              ctx.arc(px, py, Math.max(1.8, p.size * u * (1 + sEnergy * 1.4)), 0, Math.PI * 2);
-              ctx.fillStyle = isLucid
-                ? lucidTheme.primary
-                : autoMode
-                ? dynamicColor
-                : `hsla(${p.hue + timeSec * 20}, 90%, 70%, ${0.6 + sBass * 0.4})`;
-              ctx.shadowColor = isLucid ? lucidTheme.glow : `hsla(${p.hue}, 90%, 60%, 0.8)`;
-              ctx.shadowBlur = 10 * u;
-              ctx.fill();
-            });
-          }
-
-          // ─────────────────────────────────────────────────────────────────
-          // SHAPE 11: NEBULA (Nebulosa / Aurora Líquida: Cintas Turbulentes)
-          // ─────────────────────────────────────────────────────────────────
-          if (blobShape === 'nebula') {
-            const ribbons = 6;
-            for (let rb = 0; rb < ribbons; rb++) {
-              ctx.beginPath();
-              const rbAngle = (rb / ribbons) * Math.PI * 2;
-              const points = 50;
-              for (let p = 0; p <= points; p++) {
-                const theta = (p / points) * Math.PI * 2;
-                const waveOffset = Math.sin(theta * 5 + timeSec * 2.5 + rb) * (20 + sBass * 32) * u;
-                const r = baseCircleRadius + (22 + rb * 12) * u + waveOffset;
-                const nx = cx + Math.cos(theta + rbAngle) * r;
-                const ny = cy + Math.sin(theta + rbAngle) * r;
-                if (p === 0) ctx.moveTo(nx, ny);
-                else ctx.lineTo(nx, ny);
-              }
-              ctx.closePath();
-              const nbHue = (rb * 55 + timeSec * 25) % 360;
-              ctx.strokeStyle = isLucid
-                ? rb % 2 === 0 ? lucidTheme.primary : lucidTheme.secondary
-                : `hsla(${nbHue}, 90%, 65%, ${0.55 - rb * 0.06})`;
-              ctx.lineWidth = Math.max(1.8, (2.6 + sMids * 1.6) * u);
-              ctx.shadowColor = ctx.strokeStyle;
-              ctx.shadowBlur = 12 * u;
-              ctx.stroke();
-            }
+          {
+            const activeEffect = isVoidEffectId(blobShape) ? blobShape : DEFAULT_VOID_EFFECT;
+            currentFrameTips = drawVoidEffect(
+              activeEffect,
+              {
+                ctx,
+                cx,
+                cy,
+                r: baseCircleRadius,
+                u,
+                t: timeSec,
+                bass: sBass,
+                mids: sMids,
+                treble: sTreble,
+                energy: sEnergy,
+                kickStrength: kickEnvRef.current,
+                boom: boomStrength,
+                active: isAudioActive,
+                chroma,
+                raw,
+                fx: resolveVoidFx(bs.voidFx, activeEffect),
+                primary: primaryColor,
+                secondary: secondaryColor,
+                accent: '#FFFFFF',
+                angleDeg: angle,
+                stroke: Math.max(0.75, Math.min(1.5, bs.strokeHairline ?? bs.catEarsStrokeWidth ?? 1.0)),
+              },
+              voidFxState.current
+            );
           }
 
           // ═════════════════════════════════════════════════════════════════
@@ -1346,7 +794,6 @@ export const RainbowBlobVisualizer: React.FC = () => {
     lucidPrimaryColor,
     autoMode,
     dynamicColor,
-    cloudParticles,
     isSunset,
     blobSettings.catEarsCount,
     blobSettings.catEarsLayers,
@@ -1410,6 +857,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
       scaleSensitivity: DEFAULT_BLOB_SETTINGS.scaleSensitivity,
       kickThreshold: DEFAULT_BLOB_SETTINGS.kickThreshold,
       kickPower: DEFAULT_BLOB_SETTINGS.kickPower,
+      kickIntensity: DEFAULT_BLOB_SETTINGS.kickIntensity,
+      strokeHairline: 1.0,
+      rotationSpeed: 1.0,
       dhonkioBloom: 1.33,
       dhonkioInnerSize: 0.14,
       dhonkioOuterSize: 0.35,
@@ -1430,8 +880,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
     setBlobBassBoomIntensity(1.6);
   };
 
-  const haloDimension = (blobSettings.haloSize || 202) * scaleU;
-  const circleDimension = (blobSettings.circleSize || 179) * scaleU;
+  const haloDimension = (blobSettings.haloSize || 382) * scaleU;
+  const circleDimension = (blobSettings.circleSize || 340) * scaleU;
 
   // Render active center logo (custom image, Spotify/local track cover, or SVG vector logo)
   const renderCenterLogo = () => {
@@ -1534,11 +984,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     );
   };
 
-  const isEarLikeShape = [
-    'dual_crest', 'vector_spires', 'pulse_antennas', 'aero_fins',
-    'apex_prism', 'harmonic_crown', 'hyperbolic_arcs', 'laser_needles',
-    'cat_ears', 'fox_ears', 'cyber_horns', 'valkyrie_wings', 'laser_crown'
-  ].includes(blobShape);
+  const isEarLikeShape = isVoidEffectId(blobShape);
   const containerPosX = isSunset ? 50 : blobSettings.posX;
   const containerPosY = isSunset ? 43.5 : blobSettings.posY;
 
@@ -1593,6 +1039,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         {/* El Círculo Interior (The Void) */}
         <div
           ref={circleRef}
+          data-void-disc="true"
           className={`relative z-10 rounded-full flex items-center justify-center transform-gpu will-change-transform overflow-hidden ${
             isLucid
               ? 'border'
@@ -1795,6 +1242,44 @@ export const RainbowBlobVisualizer: React.FC = () => {
               })}
             </div>
 
+            {/* Medidores de calibración en vivo */}
+            <div className="glass-card !rounded-xl !p-3 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-white/60">
+                <span>Señal en vivo</span>
+                <span
+                  ref={(el) => {
+                    meterRefs.current.kick = el;
+                  }}
+                  className="text-cyan-300 font-bold opacity-0"
+                >
+                  ● KICK
+                </span>
+              </div>
+              {(
+                [
+                  ['Graves', 'bass'],
+                  ['Medios', 'mids'],
+                  ['Agudos', 'treble'],
+                ] as const
+              ).map(([label, key]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="w-12 text-[10px] font-mono text-white/55">{label}</span>
+                  <div className="relative flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      ref={(el) => {
+                        meterRefs.current[key] = el;
+                      }}
+                      className="absolute inset-0 origin-left bg-gradient-to-r from-cyan-400 to-violet-400"
+                      style={{ transform: 'scaleX(0)' }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <p className="text-[10px] leading-snug text-white/45">
+                Sube o baja «Sensibilidad del Bombo» hasta que KICK parpadee solo con el bombo.
+              </p>
+            </div>
+
             {/* Banner de Notificación Pro Effects (Límites o Circuit Breaker) */}
             {proEffectToast && (
               <div className="p-2.5 bg-amber-500/15 border border-amber-400/35 rounded-xl text-amber-200 text-[10px] font-mono flex items-center gap-2 animate-in fade-in duration-200">
@@ -1813,25 +1298,25 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   <div className="flex justify-between items-center text-[10px] font-mono">
                     <span className="text-white/80 font-medium">Tamaño del Núcleo Void:</span>
                     <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.circleSize || 179} px ({Math.round(((blobSettings.circleSize || 179) / 179) * 100)}%)
+                      {blobSettings.circleSize || 340} px ({Math.round(((blobSettings.circleSize || 340) / 340) * 100)}%)
                     </span>
                   </div>
                   <input
                     type="range"
-                    min="120"
-                    max="220"
+                    min="160"
+                    max="500"
                     step="1"
-                    value={blobSettings.circleSize || 179}
+                    value={blobSettings.circleSize || 340}
                     onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value, 10) })}
                     className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
                   />
                   <div className="grid grid-cols-3 gap-1 pt-0.5">
                     {[
-                      { size: 140, label: 'Compacto (140px)' },
-                      { size: 179, label: 'Estándar (179px)' },
-                      { size: 210, label: 'Amplio (210px)' },
+                      { size: 240, label: 'Compacto (240px)' },
+                      { size: 340, label: 'Estándar (340px)' },
+                      { size: 430, label: 'Amplio (430px)' },
                     ].map((preset) => {
-                      const isActive = (blobSettings.circleSize || 179) === preset.size;
+                      const isActive = (blobSettings.circleSize || 340) === preset.size;
                       return (
                         <button
                           key={preset.size}
@@ -1850,261 +1335,37 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 2. Toggle Activación de Formas Periféricas (Opcionales por defecto) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-mono text-white/90 font-semibold block">
-                      {blobSettings.showPeripheralShapes ? 'Formas Periféricas Activas' : 'Puro Minimal (Solo Aro + Void)'}
-                    </span>
-                    <span className="text-[8px] text-white/40 block">
-                      {blobSettings.showPeripheralShapes
-                        ? 'Crestas polares ultrafinas con micro-nodos en ápices'
-                        : 'Aro cónico giratorio sin geometrías secundarias (visionOS)'}
+                {/* 2. Selector de efecto */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/70">Efecto</span>
+                    <span className="text-[10px] font-mono text-cyan-300">
+                      {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !blobSettings.showPeripheralShapes;
-                      updateBlobSettings({ showPeripheralShapes: next });
-                      if (next && !isEarLikeShape && blobShape !== 'fractal') setBlobShape('dual_crest');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-mono font-bold transition-all border ${
-                      blobSettings.showPeripheralShapes
-                        ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/40 shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-                        : 'bg-white/[0.05] text-white/50 border-white/[0.08] hover:text-white'
-                    }`}
-                  >
-                    {blobSettings.showPeripheralShapes ? 'ACTIVADAS' : 'DESACTIVADAS'}
-                  </button>
-                </div>
-
-                {/* 3. Selector de Efectos Sagrados & Geometrías Minimalistas */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                      Efecto Visual Activo:
-                    </span>
-                    <span className="text-[9px] font-mono text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 uppercase font-bold">
-                      {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag || 'MINIMAL'}
-                    </span>
-                  </div>
-
-                  {/* Efectos Sagrados & Ondas Destacadas */}
-                  <div>
-                    <span className="text-[9px] font-mono text-white/50 block mb-1">Geometría Sagrada & Ondas:</span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'fractal', label: 'Mándala Sagrada', icon: Disc3, desc: 'Mándala de 4 capas con pétalos oscilantes' },
-                        { id: 'wave_peaks', label: 'Halo de Ondas', icon: Waves, desc: 'Halo orbital con picos ondulantes viajando al ritmo' },
-                        { id: 'spikes', label: 'Espículas FFT', icon: Sparkles, desc: '48 agujas radiales cristalinas' },
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        const isSelected = blobShape === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              setBlobShape(item.id as VisualizerShape);
-                              updateBlobSettings({ peripheralShapeType: item.id as any, showPeripheralShapes: true });
-                            }}
-                            className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-                              isSelected
-                                ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-[0_0_12px_rgba(0,240,255,0.25)]'
-                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                            }`}
-                            title={item.desc}
-                          >
-                            <Icon className="w-4 h-4 text-cyan-300" />
-                            <span className="text-[8px] font-mono leading-tight">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 8 Crestas Polares Minimalistas */}
-                  <div>
-                    <span className="text-[9px] font-mono text-white/50 block mb-1">Crestas Polares Minimalistas (visionOS):</span>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[
-                        { id: 'dual_crest', label: 'Cresta Dual', icon: Activity, desc: '2 crestas afiladas' },
-                        { id: 'vector_spires', label: 'Agujas', icon: Radio, desc: 'Picos esbeltos' },
-                        { id: 'pulse_antennas', label: 'Antenas', icon: Zap, desc: 'Doble contorno' },
-                        { id: 'aero_fins', label: 'Aletas', icon: Layers, desc: 'Flancos escalonados' },
-                        { id: 'apex_prism', label: 'Prisma', icon: Compass, desc: 'Crestas triangulares' },
-                        { id: 'harmonic_crown', label: 'Corona', icon: Disc, desc: 'Cruz de 4 crestas' },
-                        { id: 'hyperbolic_arcs', label: 'Arcos', icon: Waves, desc: 'Barrido hiperbólico' },
-                        { id: 'laser_needles', label: 'Láser', icon: Sparkles, desc: '0.75px ultrafino' },
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        const isSelected = blobShape === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              setBlobShape(item.id as VisualizerShape);
-                              updateBlobSettings({ peripheralShapeType: item.id as any, showPeripheralShapes: true });
-                            }}
-                            className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-                              isSelected
-                                ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-[0_0_12px_rgba(0,240,255,0.25)]'
-                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                            }`}
-                            title={item.desc}
-                          >
-                            <Icon className="w-4 h-4" />
-                            <span className="text-[8px] font-mono leading-tight">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* ✦ 6 Geometrías Radicalmente Distintas */}
-                  <div>
-                    <span className="text-[9px] font-mono text-violet-400/80 block mb-1">✦ Geometrías Distintas (Nuevas):</span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'cyber_hexagon', label: 'ADN Helix', icon: Waves, desc: 'Doble hélice de ADN: 2 hebras sinusoidales entrelazadas que rotan con el ritmo' },
-                        { id: 'octagram_star', label: 'Lissajous', icon: Activity, desc: 'Osciloscupio analógico: curva 3:2 que traza figuras hipnóticas al sonido' },
-                        { id: 'phoenix_wings', label: 'Heartbeat', icon: Radio, desc: 'Cardioide que late: el corazón bombea en cada kick con muelle elástico' },
-                        { id: 'quantum_gyro', label: 'Koch Snow', icon: Sparkles, desc: 'Copo de nieve fractal: 6 puntas auto-similares que crecen con la energía' },
-                        { id: 'lotus_mandala', label: 'Eye of God', icon: Globe2, desc: 'Ojo cósmico: párpados que abren/cierran según la intensidad del audio' },
-                        { id: 'radar_heartbeat', label: 'Lemniscata ∞', icon: Disc3, desc: 'Curva del infinito de Bernoulli: dos lóbulos que laten y rotan' },
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        const isSelected = blobShape === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              setBlobShape(item.id as VisualizerShape);
-                              updateBlobSettings({ peripheralShapeType: item.id as any, showPeripheralShapes: true });
-                            }}
-                            className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-                              isSelected
-                                ? 'bg-violet-500/25 border-violet-400 text-white font-bold shadow-[0_0_12px_rgba(167,139,250,0.35)]'
-                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-violet-500/[0.06] hover:border-violet-500/20'
-                            }`}
-                            title={item.desc}
-                          >
-                            <Icon className={`w-4 h-4 ${isSelected ? 'text-violet-300' : 'text-white/50'}`} />
-                            <span className="text-[8px] font-mono leading-tight">{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modulación de Dinámica de Crestas: Estiramiento, Bajos y Movimiento por Notas */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
-                  <span className="text-[11px] font-mono text-cyan-300 font-semibold block">
-                    Dinámica & Estiramiento de Crestas:
-                  </span>
-
-                  {/* 1. Estiramiento de Parabolas / Hipérbolas */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-white/70">Estiramiento / Longitud de Crestas:</span>
-                      <span className="text-cyan-300 font-bold tabular-nums">
-                        {(blobSettings.crestStretch ?? 1.0).toFixed(2)}x
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="2.5"
-                      step="0.05"
-                      value={blobSettings.crestStretch ?? 1.0}
-                      onChange={(e) => updateBlobSettings({ crestStretch: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                    />
-                  </div>
-
-                  {/* 2. Impacto & Potencia de Bajos */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-white/70">Expansión & Fuerza en Bajos:</span>
-                      <span className="text-cyan-300 font-bold tabular-nums">
-                        {(blobSettings.crestBassBoost ?? 1.6).toFixed(1)}x
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="3.0"
-                      step="0.1"
-                      value={blobSettings.crestBassBoost ?? 1.6}
-                      onChange={(e) => updateBlobSettings({ crestBassBoost: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                    />
-                  </div>
-
-                  {/* 3. Movimiento Continuo por Notas Musicales */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-white/70">Movimiento Flotante por Notas (Melodía):</span>
-                      <span className="text-cyan-300 font-bold tabular-nums">
-                        {(blobSettings.crestNoteMovement ?? 1.0).toFixed(2)}x
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.0"
-                      max="2.0"
-                      step="0.05"
-                      value={blobSettings.crestNoteMovement ?? 1.0}
-                      onChange={(e) => updateBlobSettings({ crestNoteMovement: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                    />
-                    <span className="text-[7.5px] text-white/40 block">
-                      Hace que las crestas e hipérbolas suban y bajen fluidamente con cada cambio de nota musical.
-                    </span>
-                  </div>
-                </div>
-
-                {/* 3. Número de Crestas Simétricas (2, 3 o 4) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Número de Crestas Simétricas:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.catEarsCount === 3
-                        ? '3 Formas (Tríada Sagrada)'
-                        : blobSettings.catEarsCount === 4
-                        ? '4 Formas (Cruz Sagrada)'
-                        : '2 Formas (Simetría Dual)'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { cnt: 2, label: '2 (Dual)' },
-                      { cnt: 3, label: '3 (Tríada)' },
-                      { cnt: 4, label: '4 (Cruz)' },
-                    ].map((item) => {
-                      const active = (blobSettings.catEarsCount ?? 2) === item.cnt;
+                  <div className="grid grid-cols-2 gap-2">
+                    {RAINBOW_VOID_EFFECTS.map((fx) => {
+                      const isSelected = blobShape === fx.id;
                       return (
                         <button
-                          key={item.cnt}
+                          key={fx.id}
                           type="button"
-                          onClick={() => updateBlobSettings({ catEarsCount: item.cnt, peripheralShapeCount: item.cnt as any })}
-                          className={`py-1.5 px-2 rounded-lg text-[9px] font-mono transition-all border cursor-pointer ${
-                            active
-                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
+                          onClick={() => setBlobShape(fx.id)}
+                          className={`glass-item !rounded-xl px-3 py-2.5 text-left flex flex-col gap-0.5 cursor-pointer ${
+                            isSelected ? 'is-active text-white' : 'text-white/75'
                           }`}
+                          title={fx.desc}
                         >
-                          {item.label}
+                          <span className="text-[12px] font-semibold tracking-tight">{fx.name}</span>
+                          <span className="text-[10px] leading-snug text-white/55 line-clamp-2">{fx.desc}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
+
+                {/* 3. Personalización del efecto */}
+                <VoidFxCustomizer />
 
                 {/* 4. Grosor de Línea Hairline (0.75px, 1.00px, 1.50px) */}
                 <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
@@ -2135,34 +1396,6 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 5. Capas Moiré Concéntricas (1 a 4) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Capas Concéntricas Moiré:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.catEarsLayers || 2} {blobSettings.catEarsLayers === 1 ? 'capa' : 'capas'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {[1, 2, 3, 4].map((l) => {
-                      const active = (blobSettings.catEarsLayers || 2) === l;
-                      return (
-                        <button
-                          key={l}
-                          type="button"
-                          onClick={() => updateBlobSettings({ catEarsLayers: l })}
-                          className={`py-1 rounded-lg text-[9px] font-mono transition-all border ${
-                            active
-                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
-                          }`}
-                        >
-                          {l} {l === 1 ? 'Capa' : 'Capas'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -2223,7 +1456,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 {/* 3. Umbral de Disparo del Sub-Bass */}
                 <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
                   <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Umbral Disparo del Bombo:</span>
+                    <span className="text-white/70">Sensibilidad del Bombo (menor = más golpes):</span>
                     <span className="text-white/90 font-bold tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
                   </div>
                   <input
@@ -2236,7 +1469,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
                     className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
                   />
                   <span className="text-[8px] text-white/35 block">
-                    Nivel mínimo de transitorio para disparar la expansión física del aro.
+                    Cuánto debe sobresalir un golpe de graves para contar como kick. Guíate por el indicador KICK de arriba.
                   </span>
                 </div>
 
@@ -2373,22 +1606,22 @@ export const RainbowBlobVisualizer: React.FC = () => {
                   <div className="flex justify-between text-[10px] font-mono">
                     <span className="text-white/70">Grosor y Difusión del Aro:</span>
                     <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.haloSize || 202} px (+{Math.max(0, (blobSettings.haloSize || 202) - (blobSettings.circleSize || 179))}px difusión)
+                      {blobSettings.haloSize || 382} px (+{Math.max(0, (blobSettings.haloSize || 382) - (blobSettings.circleSize || 340))}px difusión)
                     </span>
                   </div>
                   <input
                     type="range"
-                    min="180"
-                    max="260"
+                    min="220"
+                    max="520"
                     step="2"
-                    value={blobSettings.haloSize || 202}
+                    value={blobSettings.haloSize || 382}
                     onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value, 10) })}
                     className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
                   />
                   <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>180px (Línea Fina)</span>
-                    <span>202px (Estándar)</span>
-                    <span>260px (Aura Gruesa)</span>
+                    <span>220px (Línea Fina)</span>
+                    <span>382px (Estándar)</span>
+                    <span>520px (Aura Gruesa)</span>
                   </div>
                 </div>
 

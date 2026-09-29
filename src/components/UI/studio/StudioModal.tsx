@@ -52,7 +52,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-xl pointer-events-auto select-none font-sans animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-md pointer-events-auto select-none font-sans animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -62,14 +62,14 @@ export const StudioModal: React.FC<StudioModalProps> = ({
       aria-describedby={subtitle ? 'studio-modal-desc' : undefined}
     >
       <div
-        className={`liquid-glass liquid-glass--modal w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} relative flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-150 ${className}`}
+        className={`liquid-glass liquid-glass--modal w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} relative flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 ${className}`}
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="w-8 h-8 rounded-[10px] bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-cyan-400 shadow-sm flex-shrink-0">
+              <div className="glass-item is-active !rounded-2xl w-9 h-9 flex items-center justify-center text-cyan-300 flex-shrink-0">
                 {icon}
               </div>
             )}
@@ -79,7 +79,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
                   {title}
                 </h2>
                 {badge && (
-                  <span className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 text-cyan-300 font-bold uppercase">
+                  <span className="text-[9px] font-mono tracking-wider px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-white/85 font-bold uppercase">
                     {badge}
                   </span>
                 )}
@@ -96,7 +96,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
             {headerRight}
             <button
               onClick={onClose}
-              className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center text-white/60 hover:text-white rounded-[8px] hover:bg-white/[0.08] transition-colors cursor-pointer"
+              className="glass-btn min-h-[36px] min-w-[36px] flex items-center justify-center text-white/70 hover:text-white"
               aria-label="Cerrar modal"
             >
               <X className="w-4 h-4" />

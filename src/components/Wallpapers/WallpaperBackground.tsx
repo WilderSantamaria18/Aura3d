@@ -34,15 +34,17 @@ export const WallpaperBackground: React.FC = () => {
   }
 
   // Ajustes combinados de tienda y blob
-  const opacity = applicationSettings?.opacity ?? blobSettings?.backgroundOpacity ?? 0.85;
-  const blur = applicationSettings?.blur ?? blobSettings?.backgroundBlur ?? 0;
+  // blobSettings es la fuente única para opacidad/desenfoque (el popover y el panel escriben ahí)
+  const opacity = blobSettings?.backgroundOpacity ?? applicationSettings?.opacity ?? 1;
+  const blur = blobSettings?.backgroundBlur ?? applicationSettings?.blur ?? 0;
   const brightness = applicationSettings?.brightness ?? 1.0;
   const saturation = applicationSettings?.saturation ?? 1.0;
   const fit = blobSettings?.backgroundFit || 'cover';
   const scale = blobSettings?.backgroundScale || 1.0;
   const contrastMode = blobSettings?.backgroundContrastMode || 'text_clarity';
-  const textScrim = blobSettings?.backgroundTextScrim ?? 0.65;
+  const textScrim = blobSettings?.backgroundTextScrim ?? 0.35;
   const themeTint = blobSettings?.backgroundThemeTint ?? 0.35;
+  const blendMode = applicationSettings?.blendMode ?? 'normal';
 
   const hasCustomFilters = blur > 0 || brightness !== 1.0 || saturation !== 1.0;
 
@@ -68,9 +70,10 @@ export const WallpaperBackground: React.FC = () => {
               console.warn('[WallpaperBackground] Failed to load wallpaper URL:', effectiveUrl);
               setLoadError(true);
             }}
-            className="w-full h-full select-none pointer-events-none will-change-transform transform-gpu transition-all duration-300"
+            className="w-full h-full select-none pointer-events-none will-change-transform transform-gpu transition-[filter] duration-300"
             style={{
               objectFit: fit,
+              mixBlendMode: blendMode === 'normal' ? undefined : blendMode,
               transform: `scale(${scale * (blur > 0 ? 1.04 : 1.0)})`,
               filter: hasCustomFilters
                 ? `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`
@@ -86,11 +89,11 @@ export const WallpaperBackground: React.FC = () => {
             style={{
               background:
                 contrastMode === 'deep_cinema'
-                  ? `radial-gradient(ellipse at 50% 50%, rgba(3, 5, 12, ${textScrim * 0.75}) 0%, rgba(1, 2, 6, ${Math.min(1, textScrim * 1.15)}) 100%)`
+                  ? `radial-gradient(ellipse at 50% 50%, rgba(3, 5, 12, ${textScrim * 0.4}) 0%, rgba(1, 2, 6, ${Math.min(0.9, textScrim * 0.95)}) 100%)`
                   : contrastMode === 'lucid_tint'
-                  ? `radial-gradient(ellipse at 50% 40%, ${hexToRgba(lucidPrimary, themeTint * 0.35)} 0%, rgba(4, 6, 14, ${textScrim}) 85%), linear-gradient(180deg, rgba(3, 5, 12, ${textScrim * 0.8}) 0%, ${hexToRgba(lucidSecondary, themeTint * 0.25)} 50%, rgba(1, 2, 6, ${textScrim * 1.05}) 100%)`
+                  ? `radial-gradient(ellipse at 50% 40%, ${hexToRgba(lucidPrimary, themeTint * 0.35)} 0%, rgba(4, 6, 14, ${textScrim * 0.85}) 90%), linear-gradient(180deg, rgba(3, 5, 12, ${textScrim * 0.5}) 0%, ${hexToRgba(lucidSecondary, themeTint * 0.2)} 50%, rgba(1, 2, 6, ${textScrim * 0.7}) 100%)`
                   : /* text_clarity (default) */
-                    `radial-gradient(ellipse at 50% 50%, rgba(3, 6, 14, ${textScrim * 0.65}) 0%, rgba(1, 3, 8, ${Math.min(0.98, textScrim * 1.1)}) 100%), linear-gradient(180deg, rgba(2, 4, 10, ${textScrim * 0.7}) 0%, transparent 40%, transparent 60%, rgba(2, 4, 10, ${textScrim * 0.85}) 100%)`,
+                    `radial-gradient(ellipse at 50% 50%, rgba(3, 6, 14, ${textScrim * 0.2}) 0%, rgba(1, 3, 8, ${Math.min(0.85, textScrim * 0.85)}) 100%), linear-gradient(180deg, rgba(2, 4, 10, ${textScrim * 0.5}) 0%, transparent 35%, transparent 65%, rgba(2, 4, 10, ${textScrim * 0.6}) 100%)`,
             }}
           />
         )}
@@ -111,7 +114,7 @@ export const WallpaperBackground: React.FC = () => {
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'radial-gradient(ellipse at center, transparent 40%, rgba(1, 2, 6, 0.70) 100%)',
+                'radial-gradient(ellipse at center, transparent 40%, rgba(1, 2, 6, 0.55) 100%)',
             }}
           />
         )}

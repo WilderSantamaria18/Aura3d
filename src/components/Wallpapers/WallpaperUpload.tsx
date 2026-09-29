@@ -73,7 +73,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
   const displayImage = previewDataUrl || currentCustomBg;
 
   return (
-    <div className="flex flex-col gap-4 max-h-[56vh] overflow-y-auto pr-1 custom-scrollbar text-white">
+    <div className="flex flex-col gap-4 text-white">
       {/* Hidden File Input */}
       <input
         ref={fileInputRef}
@@ -103,7 +103,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
               : 'border-white/15 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/30'
           }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center mb-3 text-cyan-400 shadow-[0_0_16px_rgba(0,229,255,0.25)]">
+          <div className="glass-item is-active !rounded-2xl w-12 h-12 flex items-center justify-center mb-3 text-cyan-300">
             <Upload className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-white mb-1">Elige o arrastra una imagen</h4>
@@ -128,7 +128,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
               }}
             />
             {isCurrentlyActive && (
-              <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-400 text-black font-mono font-bold text-[10px] shadow-[0_0_12px_rgba(0,229,255,0.8)]">
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-400 text-black font-mono font-bold text-[10px]">
                 <Check className="w-3 h-3 stroke-[3]" />
                 <span>FONDO ACTIVO</span>
               </div>
@@ -140,7 +140,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-mono text-white/80 transition-colors"
+              className="glass-btn flex items-center gap-1.5 px-4 py-1.5 text-xs font-mono text-white/85"
             >
               <Upload className="w-3.5 h-3.5 text-cyan-400" />
               <span>Cambiar Imagen</span>
@@ -150,7 +150,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
               <button
                 type="button"
                 onClick={handleRemove}
-                className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-all active:scale-95"
+                className="glass-btn is-danger p-2 text-rose-300"
                 title="Quitar imagen subida"
               >
                 <Trash2 className="w-4 h-4" />
@@ -161,8 +161,8 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
                 onClick={() => handleApplyCustom(displayImage)}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold font-mono transition-all shadow-md active:scale-95 ${
                   isCurrentlyActive
-                    ? 'bg-emerald-400 text-black shadow-[0_0_12px_rgba(52,211,153,0.5)]'
-                    : 'bg-cyan-400 hover:bg-cyan-300 text-black shadow-[0_0_14px_rgba(0,229,255,0.4)]'
+                    ? 'bg-emerald-400 text-black'
+                    : 'bg-cyan-400 hover:bg-cyan-300 text-black'
                 }`}
               >
                 {isCurrentlyActive ? (
@@ -181,7 +181,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
           </div>
 
           {/* Proportions & Scale adjustments */}
-          <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] mt-1">
+          <div className="glass-card !p-3.5 flex flex-col gap-2.5 mt-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono text-white/70">Ajuste de Proporción</span>
               <div className="flex rounded-lg bg-black/50 p-0.5 border border-white/10">

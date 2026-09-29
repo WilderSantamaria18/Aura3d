@@ -1,19 +1,10 @@
 import React, { useState } from 'react';
 import { Disc, Play, Pause, Flame, ArrowRight } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import type { VisualizerShape } from '../../types/audio';
+import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 
-interface ShapePreset {
-  id: VisualizerShape;
-  label: string;
-}
-
-const SHAPE_PRESETS: ShapePreset[] = [
-  { id: 'vortex', label: 'Vórtex' },
-  { id: 'kaleidoscope', label: 'Caleidoscopio' },
-  { id: 'fractal', label: 'Fractal' },
-  { id: 'cat_ears', label: 'Cat-Ears Spectrum' },
-];
+// Mismos efectos que el visualizador Rainbow Void
+const SHAPE_PRESETS = RAINBOW_VOID_EFFECTS.slice(0, 4).map((fx) => ({ id: fx.id, label: fx.name }));
 
 interface StudioTurntableDeckProps {
   onStartExperience?: () => void;

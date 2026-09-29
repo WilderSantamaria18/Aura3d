@@ -167,14 +167,16 @@ export const enhancePrompt = (
   const config = STYLE_CONFIGS[style] || STYLE_CONFIGS.cinematic;
   const paletteHint =
     palette && palette !== 'custom' ? config.paletteHints[palette] || '' : '';
-  return [userPrompt.trim(), paletteHint, config.suffix].filter(Boolean).join(', ');
+  const qualityBoost =
+    'masterpiece, 8K UHD wallpaper, ultra-detailed, photorealistic, pristine sharp focus, volumetric raytracing illumination, highly aesthetic composition';
+  return [userPrompt.trim(), paletteHint, config.suffix, qualityBoost].filter(Boolean).join(', ');
 };
 
 export const buildNegativePrompt = (style: WallpaperStyle): string => {
-  return (
-    STYLE_CONFIGS[style]?.negativePrefix ||
-    'low quality, blurry, distorted, watermark, text, artifacts'
-  );
+  const styleNegative = STYLE_CONFIGS[style]?.negativePrefix || '';
+  const standardNegative =
+    'worst quality, low quality, normal quality, blurry, deformed, distorted, text, watermark, bad anatomy, artifacts, oversaturated noise, grainy, lowres';
+  return [styleNegative, standardNegative].filter(Boolean).join(', ');
 };
 
 export const CURATED_PRESETS: WallpaperPreset[] = [

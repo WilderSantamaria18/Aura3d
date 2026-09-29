@@ -87,9 +87,9 @@ export const WallpaperPanel: React.FC = () => {
   const activeThumb = currentWallpaper?.thumbnail || currentWallpaper?.url || customBg;
 
   const TABS = [
-    { id: 'gallery', label: 'Galería 4K', icon: ImageIcon },
-    { id: 'upload', label: 'Subir Foto', icon: Upload },
-    { id: 'generate', label: 'Generador IA', icon: Sparkles },
+    { id: 'gallery', label: 'Galería', icon: ImageIcon },
+    { id: 'upload', label: 'Subir', icon: Upload },
+    { id: 'generate', label: 'IA', icon: Sparkles },
     { id: 'atmosphere', label: 'Atmósfera', icon: CloudFog },
     { id: 'settings', label: 'Ajustes', icon: Sliders },
   ] as const;
@@ -97,40 +97,32 @@ export const WallpaperPanel: React.FC = () => {
   return (
     <>
       <AnimatePresence>
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 transition-all duration-300 ${
-            isPeeking ? 'bg-black/10 pointer-events-none' : 'bg-black/65 backdrop-blur-md pointer-events-auto'
-          }`}
-        >
+        {/* Card anclado bajo el header: sin velo, para ver el fondo mientras se ajusta */}
+        <div className="fixed top-[76px] right-4 z-50 w-[min(440px,calc(100vw-2rem))] max-h-[calc(100dvh-92px)] flex pointer-events-none">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{
-              opacity: isPeeking ? 0.08 : 1,
-              scale: isPeeking ? 0.96 : 1,
-              y: 0,
-            }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-            className={`relative w-full max-w-2xl max-h-[90vh] rounded-[28px] overflow-hidden liquid-glass liquid-glass-modal border border-white/20 shadow-2xl flex flex-col select-none ${
+            initial={{ opacity: 0, scale: 0.97, y: -8 }}
+            animate={{ opacity: isPeeking ? 0.08 : 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: -8 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 340 }}
+            style={{ transformOrigin: 'top right' }}
+            className={`relative w-full rounded-[24px] overflow-hidden liquid-glass liquid-glass-modal flex flex-col select-none shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] ${
               isPeeking ? 'pointer-events-none' : 'pointer-events-auto'
             }`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 px-6 border-b border-white/[0.08] bg-black/20">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-400 to-fuchsia-500 flex items-center justify-center shadow-[0_0_12px_rgba(0,229,255,0.4)]">
+            <div className="flex items-center justify-between gap-2 py-3 px-4 border-b border-white/[0.08] bg-black/20">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-tr from-cyan-400 to-fuchsia-500 flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                    <span>Aura Wallpaper & Atmosphere Studio</span>
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
-                      HDR & 4K
+                    <span className="truncate">Estudio de Fondos</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
+                      4K
                     </span>
                   </h2>
-                  <p className="text-[10px] text-white/50">
-                    Personaliza el fondo, sube tus imágenes o activa shaders atmosféricos
-                  </p>
+                  <p className="text-[10px] text-white/50 truncate">Imagen, IA y atmósferas</p>
                 </div>
               </div>
 
@@ -139,10 +131,8 @@ export const WallpaperPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsPeeking(!isPeeking)}
-                  className={`p-2 rounded-full transition-all cursor-pointer ${
-                    isPeeking
-                      ? 'bg-cyan-400 text-black shadow-[0_0_12px_rgba(0,229,255,0.8)]'
-                      : 'text-white/60 hover:text-white hover:bg-white/10'
+                  className={`glass-btn p-2 ${
+                    isPeeking ? 'is-active text-white' : 'text-white/75 hover:text-white'
                   }`}
                   title={isPeeking ? 'Volver a ver el panel' : 'Vista previa rápida (ver fondo sin el panel)'}
                   aria-label="Vista previa transparente"
@@ -153,7 +143,7 @@ export const WallpaperPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPanelOpen(false)}
-                  className="p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  className="glass-btn p-2 text-white/75 hover:text-white"
                   title="Cerrar panel (Esc o W)"
                 >
                   <X className="w-4 h-4" />
@@ -162,7 +152,7 @@ export const WallpaperPanel: React.FC = () => {
             </div>
 
             {/* Current Active Wallpaper Status Bar */}
-            <div className="px-6 py-2 bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between text-xs">
+            <div className="px-4 py-2 bg-white/[0.02] border-b border-white/[0.06] flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2.5 min-w-0">
                 {activeThumb ? (
                   <div className="w-7 h-7 rounded-lg overflow-hidden border border-cyan-400/40 shrink-0 bg-slate-900 shadow-sm">
@@ -182,7 +172,7 @@ export const WallpaperPanel: React.FC = () => {
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono text-white/40 uppercase">Estado:</span>
-                    <span className="text-xs font-semibold text-white truncate max-w-[220px] sm:max-w-xs">
+                    <span className="text-xs font-semibold text-white truncate max-w-[190px]">
                       {activeTitle || 'Fondo Limpio Predeterminado'}
                     </span>
                   </div>
@@ -199,29 +189,29 @@ export const WallpaperPanel: React.FC = () => {
                         showToast('¡Colores Lúcidos combinados con el fondo!');
                       }
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono transition-all cursor-pointer active:scale-95"
+                    className="glass-btn is-active flex items-center gap-1 px-3 py-1 text-white text-[10px] font-mono"
                     title="Combinar los colores del sistema con este fondo de pantalla"
                   >
                     <Wand2 className="w-3 h-3" />
-                    <span>Combinar colores</span>
+                    <span>Combinar</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-mono transition-all cursor-pointer active:scale-95 shrink-0"
+                    className="glass-btn is-danger flex items-center gap-1 px-3 py-1 text-rose-200 text-[10px] font-mono shrink-0"
                     title="Eliminar fondo actual y regresar al modo original"
                   >
                     <Ban className="w-3 h-3" />
-                    <span>Quitar Fondo</span>
+                    <span>Quitar</span>
                   </button>
                 </div>
               )}
             </div>
 
             {/* Navigation Tabs */}
-            <div className="px-6 pt-3 pb-2 border-b border-white/[0.06]">
-              <div className="flex items-center p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08] overflow-x-auto custom-scrollbar">
+            <div className="px-4 pt-3 pb-2 border-b border-white/[0.06]">
+              <div className="glass-input !rounded-2xl flex items-center p-1 overflow-x-auto custom-scrollbar">
                 {TABS.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
@@ -230,14 +220,14 @@ export const WallpaperPanel: React.FC = () => {
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id as any)}
-                      className={`relative flex-1 py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                        isActive ? 'text-black font-bold' : 'text-white/60 hover:text-white'
+                      className={`relative flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                        isActive ? 'text-white font-bold' : 'text-white/65 hover:text-white'
                       }`}
                     >
                       {isActive && (
                         <motion.div
                           layoutId="wallpaper-active-tab"
-                          className="absolute inset-0 rounded-xl bg-white shadow-md z-0"
+                          className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/30 to-white/10 border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)] z-0"
                           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                         />
                       )}
@@ -250,7 +240,8 @@ export const WallpaperPanel: React.FC = () => {
             </div>
 
             {/* Content Body */}
-            <div className="p-6 flex-1 overflow-hidden">
+            {/* El scroll lo maneja el card, no cada pestaña */}
+            <div className="p-4 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               {activeTab === 'gallery' && (
                 <WallpaperGallery
                   onPreview={(item) => setPreviewItem(item)}
@@ -270,49 +261,6 @@ export const WallpaperPanel: React.FC = () => {
               {activeTab === 'settings' && <WallpaperSettings />}
             </div>
 
-            {/* Quick Adjustments Footer Bar: Opacity & Blur always visible */}
-            <div className="px-6 py-3 border-t border-white/[0.08] bg-black/40 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-4 flex-1 min-w-[280px]">
-                {/* Opacity */}
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="text-[10px] font-mono text-white/50 whitespace-nowrap">Opacidad:</span>
-                  <input
-                    type="range"
-                    min="0.10"
-                    max="1.00"
-                    step="0.05"
-                    value={applicationSettings.opacity}
-                    onChange={(e) => updateApplicationSettings({ opacity: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
-                  />
-                  <span className="text-[10px] font-mono text-cyan-300 w-8 text-right tabular-nums">
-                    {Math.round(applicationSettings.opacity * 100)}%
-                  </span>
-                </div>
-
-                {/* Blur */}
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="text-[10px] font-mono text-white/50 whitespace-nowrap">Desenfoque:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="30"
-                    step="1"
-                    value={applicationSettings.blur}
-                    onChange={(e) => updateApplicationSettings({ blur: parseInt(e.target.value, 10) })}
-                    className="w-full h-1.5 bg-white/10 rounded-lg cursor-pointer accent-cyan-400"
-                  />
-                  <span className="text-[10px] font-mono text-cyan-300 w-8 text-right tabular-nums">
-                    {applicationSettings.blur}px
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[10px] font-mono text-white/30 hidden sm:block">
-                ATAJO: [W]
-              </div>
-            </div>
-
             {/* Confirmation Toast Notification */}
             <AnimatePresence>
               {appliedToast && (
@@ -320,7 +268,7 @@ export const WallpaperPanel: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute bottom-16 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-cyan-500/90 text-black font-semibold text-xs flex items-center gap-2 shadow-2xl backdrop-blur-md pointer-events-none z-50"
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 glass-item is-active !rounded-full px-5 py-2.5 text-white font-semibold text-xs flex items-center gap-2 pointer-events-none z-50"
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>{appliedToast}</span>

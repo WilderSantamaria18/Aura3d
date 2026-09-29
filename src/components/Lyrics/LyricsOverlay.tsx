@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LyricsPanel } from './LyricsPanel';
 import { useLyrics } from '../../hooks/useLyrics';
 import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { KawarpBackground } from './KawarpBackground';
@@ -14,6 +15,8 @@ export type LyricsSize = 'compact' | 'standard' | 'lateral' | 'fullscreen';
 export type PanelState = 'hidden' | 'collapsed' | 'expanded';
 
 export const LyricsOverlay: React.FC = () => {
+  // Selección acotada: antes leía TODO el store y se re-renderizaba (con todas las líneas de
+  // letra) en cada cambio, incluido el tiempo de reproducción cada 250 ms.
   const {
     isLyricsOpen,
     setLyricsOpen,
@@ -21,13 +24,26 @@ export const LyricsOverlay: React.FC = () => {
     toggleKaraokeFullscreen,
     currentTrack,
     isPlaying,
-    currentTime,
     isSpotifyConnected,
     isLucid,
     lucidTheme,
     lyricsPanelState,
     setLyricsPanelState,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isLyricsOpen: s.isLyricsOpen,
+      setLyricsOpen: s.setLyricsOpen,
+      isKaraokeFullscreen: s.isKaraokeFullscreen,
+      toggleKaraokeFullscreen: s.toggleKaraokeFullscreen,
+      currentTrack: s.currentTrack,
+      isPlaying: s.isPlaying,
+      isSpotifyConnected: s.isSpotifyConnected,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lyricsPanelState: s.lyricsPanelState,
+      setLyricsPanelState: s.setLyricsPanelState,
+    }))
+  );
 
   const { lyricsData, loadLrcFile, isLoading } = useLyrics();
   const {
@@ -320,7 +336,7 @@ export const LyricsOverlay: React.FC = () => {
           >
             <LyricsPanel
               lyrics={lyricsData.lines}
-              currentTime={currentTime}
+              currentTime={0} /* la sincronía usa el reloj interpolado, no esta prop */
               isPlaying={isPlaying}
               title={currentTrack?.title || 'Sin título'}
               artist={currentTrack?.artist || 'Artista desconocido'}

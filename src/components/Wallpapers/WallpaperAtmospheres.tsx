@@ -34,7 +34,7 @@ export const WallpaperAtmospheres: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 max-h-[56vh] overflow-y-auto pr-1 custom-scrollbar text-white">
+    <div className="flex flex-col gap-4 text-white">
       {/* Primary Atmosphere Grid */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between text-xs font-mono text-white/60">

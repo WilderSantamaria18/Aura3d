@@ -95,10 +95,8 @@ export const CardEditor: React.FC = () => {
               <button
                 key={tmpl}
                 onClick={() => handleTemplateChange(tmpl)}
-                className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all text-left flex items-center justify-between ${
-                  isSelected
-                    ? 'bg-purple-500/20 text-white border-purple-500/50 shadow-sm shadow-purple-500/20'
-                    : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                className={`glass-item [--glass-accent:139,92,246] min-h-[40px] py-2 px-3.5 text-xs font-medium text-left flex items-center justify-between cursor-pointer ${
+                  isSelected ? 'is-active text-white' : 'text-white/75 hover:text-white'
                 }`}
               >
                 <span>{labels[tmpl]}</span>
@@ -122,7 +120,7 @@ export const CardEditor: React.FC = () => {
               value={cardConfig.title}
               onChange={(e) => updateCardConfig({ title: e.target.value })}
               placeholder="Track Title"
-              className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-purple-500/60 focus:bg-white/10 transition-all"
+              className="glass-input !rounded-2xl w-full px-4 py-2.5 text-sm text-white placeholder-white/45 focus:outline-none"
             />
           </div>
           <div className="relative flex items-center">
@@ -131,7 +129,7 @@ export const CardEditor: React.FC = () => {
               value={cardConfig.artist}
               onChange={(e) => updateCardConfig({ artist: e.target.value })}
               placeholder="Artist / Producer"
-              className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:border-purple-500/60 focus:bg-white/10 transition-all"
+              className="glass-input !rounded-2xl w-full px-4 py-2.5 text-sm text-white placeholder-white/45 focus:outline-none"
             />
           </div>
         </div>
@@ -182,7 +180,7 @@ export const CardEditor: React.FC = () => {
             <button
               key={pal.name}
               onClick={() => handlePaletteSelect(pal)}
-              className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+              className="glass-item w-full min-h-[40px] flex items-center justify-between px-3.5 py-2 cursor-pointer"
             >
               <span className="text-xs font-medium text-white/80">{pal.name}</span>
               <div className="flex items-center gap-1.5">
@@ -206,10 +204,8 @@ export const CardEditor: React.FC = () => {
             <button
               key={font}
               onClick={() => handleFontChange(font)}
-              className={`py-2 px-2 text-center rounded-xl text-xs uppercase tracking-wider border transition-all ${
-                cardConfig.fontFamily === font
-                  ? 'bg-purple-500/20 text-white border-purple-500/50'
-                  : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
+              className={`glass-item [--glass-accent:139,92,246] min-h-[38px] py-2 px-2 text-center text-xs uppercase tracking-wider cursor-pointer ${
+                cardConfig.fontFamily === font ? 'is-active text-white' : 'text-white/65 hover:text-white'
               }`}
             >
               {font}
@@ -224,7 +220,7 @@ export const CardEditor: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-purple-400" />
           <span>Visual Polish & Filters</span>
         </label>
-        <div className="space-y-2 bg-white/5 p-3 rounded-2xl border border-white/10">
+        <div className="glass-card space-y-3 !p-4">
           <div>
             <div className="flex justify-between text-xs text-white/70 mb-1">
               <span>Aura Bloom</span>
@@ -237,7 +233,7 @@ export const CardEditor: React.FC = () => {
               step="0.05"
               value={cardConfig.bloom ?? 0.6}
               onChange={(e) => updateCardConfig({ bloom: parseFloat(e.target.value) })}
-              className="w-full accent-purple-400 h-1 bg-white/20 rounded-lg cursor-pointer"
+              className="w-full accent-purple-400 h-1.5 rounded-full cursor-pointer"
             />
           </div>
 
@@ -253,7 +249,7 @@ export const CardEditor: React.FC = () => {
               step="0.02"
               value={cardConfig.grain ?? 0.1}
               onChange={(e) => updateCardConfig({ grain: parseFloat(e.target.value) })}
-              className="w-full accent-purple-400 h-1 bg-white/20 rounded-lg cursor-pointer"
+              className="w-full accent-purple-400 h-1.5 rounded-full cursor-pointer"
             />
           </div>
 
@@ -269,7 +265,7 @@ export const CardEditor: React.FC = () => {
               step="0.05"
               value={cardConfig.vignette ?? 0.4}
               onChange={(e) => updateCardConfig({ vignette: parseFloat(e.target.value) })}
-              className="w-full accent-purple-400 h-1 bg-white/20 rounded-lg cursor-pointer"
+              className="w-full accent-purple-400 h-1.5 rounded-full cursor-pointer"
             />
           </div>
         </div>
@@ -280,7 +276,7 @@ export const CardEditor: React.FC = () => {
         <button
           onClick={handleGenerateAndExport}
           disabled={isGenerating}
-          className="w-full py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 hover:from-purple-400 hover:to-blue-400 text-white shadow-lg shadow-purple-500/25 transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="glass-btn [--glass-accent:139,92,246] is-active w-full min-h-[48px] py-3 font-semibold text-sm flex items-center justify-center gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
             <>
@@ -296,7 +292,7 @@ export const CardEditor: React.FC = () => {
         </button>
 
         {successMsg && (
-          <div className="mt-2 p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs text-center font-medium animate-fade-in flex items-center justify-center gap-1.5">
+          <div className="mt-2 glass-item !rounded-2xl p-2.5 text-emerald-200 text-xs text-center font-medium animate-fade-in flex items-center justify-center gap-1.5">
             <Check className="w-3.5 h-3.5" />
             <span>{successMsg}</span>
           </div>

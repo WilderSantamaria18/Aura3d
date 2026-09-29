@@ -1,4 +1,6 @@
 export type WallpaperSource = 'ai-generated' | 'preset' | 'user-uploaded';
+/** Calidad de salida: hd 1280p · fhd 1920p · 4k 3840p (IA nativa + reescalado nítido) */
+export type WallpaperQuality = 'hd' | 'fhd' | '4k';
 export type WallpaperAspectRatio = '16:9' | '21:9' | '9:16' | '1:1' | '4:3';
 
 export type WallpaperStyle =
@@ -26,6 +28,7 @@ export interface WallpaperGenerationRequest {
   prompt: string;
   style: WallpaperStyle;
   aspectRatio: WallpaperAspectRatio;
+  quality?: WallpaperQuality;
   palette?: WallpaperPalette;
   negativePrompt?: string;
   seed?: number;
@@ -37,6 +40,7 @@ export interface WallpaperGenerationResult {
   id: string;
   url: string; // DataURL, blob URL o remote URL
   thumbnail: string; // Base64 thumbnail o preview URL
+  title?: string;
   prompt: string;
   style: WallpaperStyle;
   aspectRatio: WallpaperAspectRatio;
@@ -48,6 +52,10 @@ export interface WallpaperGenerationResult {
   width: number;
   height: number;
   fileSize: number; // bytes
+  quality?: WallpaperQuality;
+  /** Resolución nativa que entregó la IA antes de reescalar */
+  nativeWidth?: number;
+  nativeHeight?: number;
 }
 
 export interface WallpaperPreset {
@@ -68,7 +76,7 @@ export interface WallpaperApplicationSettings {
   brightness: number; // 0.5 - 2.0 (default: 1.0)
   saturation: number; // 0.5 - 2.0 (default: 1.0)
   blendMode: 'normal' | 'screen' | 'multiply' | 'overlay' | 'soft-light';
-  vignette: boolean; // Viñeta radial sutil (default: true)
+  vignette: boolean; // Viñeta radial sutil (default: false)
 }
 
 export interface WallpaperHistoryItem {

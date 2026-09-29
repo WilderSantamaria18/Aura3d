@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayer, type YouTubeSearchResult } from '../../hooks/useAudioPlayer';
+import { usePlaybackLoop, formatClock } from '../../hooks/usePlaybackLoop';
 import { useSystemAudio } from '../../hooks/useSystemAudio';
 import { GlobalYouTubePlayer } from './GlobalYouTubePlayer';
 import { audioEngine } from '../../services/audioEngine';
@@ -97,77 +98,165 @@ const LiquidLiveBars: React.FC<{ isPlaying: boolean; color?: string }> = ({
   );
 };
 
-// ── Mini Waveform Real-Time Spectrum Canvas ──────────────────────────────────
+// ── Mini Waveform: espectro en vivo ──────────────────────────────────────────
+// Rendimiento: el progreso llega por un bucle fuera de React (sin reiniciar nada en cada
+// muestra de tiempo), el canvas tiene resolución real de pantalla y solo se anima mientras
+// suena y la pestaña está visible; en pausa se dibuja una vez.
 const MiniWaveform: React.FC<{
-  progress: number;
   activeColor: string;
   isPlaying: boolean;
-}> = ({ progress, activeColor, isPlaying }) => {
+}> = React.memo(({ activeColor, isPlaying }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const barCount = 32;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const fit = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      sizeRef.current = { w, h, dpr };
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+    };
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
 
-    let animId: number;
-    const barCount = 32;
+  usePlaybackLoop(
+    (time, duration) => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!canvas || !ctx) return;
+      const { w, h, dpr } = sizeRef.current;
+      if (w === 0) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
 
-    const render = () => {
-      const width = canvas.width;
-      const height = canvas.height;
-      ctx.clearRect(0, 0, width, height);
+      const progress = duration > 0 ? (time / duration) * 100 : 0;
+      const raw = isPlaying ? audioEngine.getFrequencyData()?.raw : undefined;
+      const step = raw && raw.length > 0 ? Math.floor(raw.length / barCount) : 1;
+      const gap = 1.5;
+      const barWidth = Math.max(1, w / barCount - gap);
 
-      const freqData = audioEngine.getFrequencyData();
-      const raw = freqData?.raw || [];
-      const step = raw.length > 0 ? Math.floor(raw.length / barCount) : 1;
-      const barWidth = width / barCount - 1.5;
-
-      for (let i = 0; i < barCount; i++) {
-        const rawVal =
-          isPlaying && raw.length > 0
-            ? raw[i * step] / 255
-            : 0.12 + Math.sin(i * 0.35) * 0.05;
-        const barHeight = Math.max(2.5, rawVal * (height - 3));
-        const x = i * (barWidth + 1.5);
-        const y = (height - barHeight) / 2;
-
-        const isPlayed = (x / width) * 100 <= progress;
-        ctx.fillStyle = isPlayed ? activeColor : 'rgba(255, 255, 255, 0.18)';
+      // Dos pasadas (reproducido / pendiente) = dos fill en vez de 32
+      for (const played of [false, true]) {
+        ctx.fillStyle = played ? activeColor : 'rgba(255, 255, 255, 0.18)';
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(x, y, Math.max(1, barWidth), barHeight, 1.5);
-        } else {
-          ctx.rect(x, y, Math.max(1, barWidth), barHeight);
+        for (let i = 0; i < barCount; i++) {
+          const x = i * (barWidth + gap);
+          if (((x / w) * 100 <= progress) !== played) continue;
+          const rawVal = raw && raw.length > 0 ? raw[i * step] / 255 : 0.12 + Math.sin(i * 0.35) * 0.05;
+          const bh = Math.max(2.5, rawVal * (h - 3));
+          const y = (h - bh) / 2;
+          if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, barWidth, bh, 1.5);
+          else ctx.rect(x, y, barWidth, bh);
         }
         ctx.fill();
       }
+    },
+    isPlaying,
+    30
+  );
 
-      animId = requestAnimationFrame(render);
-    };
+  return <canvas ref={canvasRef} className="w-full h-full pointer-events-none rounded-full" />;
+});
+MiniWaveform.displayName = 'MiniWaveform';
 
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, [progress, activeColor, isPlaying]);
+// ── Barra de búsqueda + tiempos: se actualiza sola, sin re-renderizar el reproductor ──
+const MiniSeekBar: React.FC<{
+  accentColor: string;
+  isPlaying: boolean;
+  seek: (t: number) => void;
+}> = React.memo(({ accentColor, isPlaying, seek }) => {
+  const duration = usePlayerStore((s) => s.duration);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const currentRef = useRef<HTMLSpanElement>(null);
+  const scrubbing = useRef(false);
+
+  const paint = (t: number) => {
+    if (inputRef.current) inputRef.current.value = String(t);
+    if (currentRef.current) currentRef.current.textContent = formatClock(t);
+  };
+
+  usePlaybackLoop(
+    (t) => {
+      if (!scrubbing.current) paint(t);
+    },
+    isPlaying,
+    10
+  );
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={260}
-      height={18}
-      className="w-full h-full pointer-events-none rounded-full"
-    />
+    <div className="flex flex-col gap-1.5 pt-1">
+      <div className="relative w-full h-5 rounded-full bg-black/40 border border-white/10 px-2 flex items-center shadow-inner cursor-pointer group">
+        <MiniWaveform activeColor={accentColor} isPlaying={isPlaying} />
+        <input
+          ref={inputRef}
+          type="range"
+          min={0}
+          max={duration > 0 ? duration : 100}
+          step={0.1}
+          defaultValue={0}
+          onInput={(e) => {
+            scrubbing.current = true;
+            const v = parseFloat((e.target as HTMLInputElement).value);
+            if (currentRef.current) currentRef.current.textContent = formatClock(v);
+          }}
+          onPointerUp={(e) => {
+            scrubbing.current = false;
+            seek(parseFloat((e.currentTarget as HTMLInputElement).value));
+          }}
+          onKeyUp={(e) => {
+            if (e.key.startsWith('Arrow')) seek(parseFloat((e.currentTarget as HTMLInputElement).value));
+          }}
+          aria-label="Posición de reproducción"
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
+          title="Arrastra para avanzar o retroceder"
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
+        <span ref={currentRef}>0:00</span>
+        <span>{formatClock(duration)}</span>
+      </div>
+    </div>
   );
-};
+});
+MiniSeekBar.displayName = 'MiniSeekBar';
+
+// ── Línea de progreso del mini colapsado (transform, sin layout) ──
+const MiniProgressLine: React.FC<{ accentColor: string; isPlaying: boolean }> = React.memo(({ accentColor, isPlaying }) => {
+  const fillRef = useRef<HTMLDivElement>(null);
+  usePlaybackLoop(
+    (t, d) => {
+      if (fillRef.current) fillRef.current.style.transform = 'scaleX(' + (d > 0 ? Math.min(1, Math.max(0, t / d)) : 0).toFixed(4) + ')';
+    },
+    isPlaying,
+    10
+  );
+  return (
+    <div className="absolute left-3 right-3 bottom-0.5 h-[1.5px] rounded-full overflow-hidden bg-white/[0.08]" aria-hidden="true">
+      <div
+        ref={fillRef}
+        className="h-full w-full rounded-full origin-left"
+        style={{ backgroundColor: accentColor, boxShadow: '0 0 6px ' + accentColor, transform: 'scaleX(0)' }}
+      />
+    </div>
+  );
+});
+MiniProgressLine.displayName = 'MiniProgressLine';
 
 export const MiniPlayer: React.FC = () => {
   // ── Hook Audio Controls (Single Source of Truth) ───────────────────────────
   const {
     currentTrack,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     repeatMode,
@@ -237,8 +326,6 @@ export const MiniPlayer: React.FC = () => {
   const [showToolsDrawer, setShowToolsDrawer] = useState(false);
   const [searchFilter, setSearchFilter] = useState<'video' | 'playlist'>('video');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  const [scrubValue, setScrubValue] = useState(0);
   const [loadingTrackId, setLoadingTrackId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -312,24 +399,6 @@ export const MiniPlayer: React.FC = () => {
       searchYouTube(searchQuery, false, searchFilter);
     }
   }, [searchQuery, activeTab, searchFilter, searchYouTube]);
-
-  // ── Interactive Seek Handlers ───────────────────────────────────────────────
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setScrubValue(parseFloat(e.target.value));
-  };
-
-  const handleSeekMouseDown = () => {
-    setIsScrubbing(true);
-    setScrubValue(currentTime);
-  };
-
-  const handleSeekMouseUp = (
-    e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>
-  ) => {
-    setIsScrubbing(false);
-    const val = parseFloat((e.currentTarget as HTMLInputElement).value);
-    seek(val);
-  };
 
   // ── Volume Handler ─────────────────────────────────────────────────────────
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,10 +484,6 @@ export const MiniPlayer: React.FC = () => {
       setShowVideoView(true);
     }
   }, [currentTrack?.id, isVideoTrack]);
-
-  // ── Effective Time for Scrubber ────────────────────────────────────────────
-  const displayCurrentTime = isScrubbing ? scrubValue : currentTime;
-  const progressPercent = duration > 0 ? (displayCurrentTime / duration) * 100 : 0;
 
   // ── Accent Color Resolution ────────────────────────────────────────────────
   const accentColor = isLucid ? lucidTheme.primary : '#00e5ff';
@@ -558,19 +623,7 @@ export const MiniPlayer: React.FC = () => {
               }}
             >
               {/* Ultra-subtle bottom progress line */}
-              <div
-                className="absolute left-3 right-3 bottom-0.5 h-[1.5px] rounded-full overflow-hidden bg-white/[0.08]"
-                aria-hidden="true"
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-200"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, progressPercent))}%`,
-                    backgroundColor: accentColor,
-                    boxShadow: `0 0 6px ${accentColor}`,
-                  }}
-                />
-              </div>
+              <MiniProgressLine accentColor={accentColor} isPlaying={isPlaying} />
 
               {/* Left: Video Preview Window (when video track) or Album Vinyl Artwork (when audio) */}
               <div className="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
@@ -730,7 +783,7 @@ export const MiniPlayer: React.FC = () => {
             animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, x: -30, y: 15, scale: 0.92, filter: 'blur(12px)' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="fixed bottom-6 left-5 z-50 w-[92vw] max-w-[290px] sm:max-w-[300px] pointer-events-auto select-none"
+            className="fixed bottom-6 left-5 z-50 w-[92vw] max-w-[340px] sm:max-w-[352px] pointer-events-auto select-none"
           >
             <div
               className={`flex flex-col rounded-[20px] overflow-hidden liquid-glass liquid-glass-card`}
@@ -742,23 +795,21 @@ export const MiniPlayer: React.FC = () => {
               }}
             >
               {/* Header Bar */}
-              <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-1.5 px-3.5 pt-4 pb-2">
+                <div className="flex items-center gap-2 min-w-0 overflow-hidden">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: accentColor }} />
-                  <span className="text-[11px] font-bold tracking-wider uppercase text-white/80">
+                  <span className="text-[11.5px] font-bold tracking-normal uppercase text-white/85 whitespace-nowrap">
                     Aura Player
                   </span>
                   {sourceBadge}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   {/* Lyrics Toggle Button */}
                   <button
                     onClick={() => handleToggleLyrics()}
-                    className={`p-1.5 rounded-full transition-all active:scale-95 border ${
-                      isLyricsOpen
-                        ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-[0_0_10px_rgba(0,240,255,0.35)]'
-                        : 'text-white/50 hover:text-white hover:bg-white/10 border-transparent'
+                    className={`glass-btn w-7 h-7 flex items-center justify-center ${
+                      isLyricsOpen ? 'is-active text-white' : 'text-white/70 hover:text-white'
                     }`}
                     style={
                       isLucid && isLyricsOpen
@@ -781,10 +832,8 @@ export const MiniPlayer: React.FC = () => {
                       const { isEqualizerOpen, setEqualizerOpen } = usePlayerStore.getState();
                       setEqualizerOpen(!isEqualizerOpen);
                     }}
-                    className={`p-1.5 rounded-full transition-colors ${
-                      usePlayerStore.getState().isEqualizerOpen
-                        ? 'bg-white/20 text-white'
-                        : 'text-white/50 hover:text-white hover:bg-white/10'
+                    className={`glass-btn w-7 h-7 flex items-center justify-center ${
+                      usePlayerStore.getState().isEqualizerOpen ? 'is-active text-white' : 'text-white/70 hover:text-white'
                     }`}
                     aria-label="Abrir Ecualizador"
                     title="Ecualizador Avanzado"
@@ -795,7 +844,7 @@ export const MiniPlayer: React.FC = () => {
                   {/* Collapse Button */}
                   <button
                     onClick={() => setIsExpanded(false)}
-                    className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    className="glass-btn w-7 h-7 flex items-center justify-center text-white/70 hover:text-white"
                     title="Minimizar a píldora"
                   >
                     <ChevronDown className="w-4 h-4" />
@@ -804,7 +853,7 @@ export const MiniPlayer: React.FC = () => {
                   {/* Close MiniPlayer Button */}
                   <button
                     onClick={() => setMiniPlayerOpen(false)}
-                    className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                    className="glass-btn w-7 h-7 flex items-center justify-center text-white/70 hover:text-white"
                     title="Cerrar consola MiniPlayer"
                   >
                     <X className="w-4 h-4" />
@@ -813,8 +862,8 @@ export const MiniPlayer: React.FC = () => {
               </div>
 
               {/* iOS Segmented Control (Tabs) */}
-              <div className="px-3 py-1.5">
-                <div className="relative flex items-center p-1 rounded-full bg-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.06),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
+              <div className="px-4 py-2">
+                <div className="glass-input relative flex items-center p-1 focus-within:!shadow-[var(--glass-shadow)] focus-within:!border-white/[0.14] focus-within:!border-t-white/40">
                   {(
                     [
                       { id: 'player', label: 'Reproductor', icon: Disc3, badge: 0 },
@@ -837,7 +886,7 @@ export const MiniPlayer: React.FC = () => {
                             setTimeout(() => searchInputRef.current?.focus(), 120);
                           }
                         }}
-                        className={`relative flex-1 py-2 transition-colors flex items-center justify-center rounded-full z-10 group ${
+                        className={`relative flex-1 py-2.5 min-h-[40px] transition-colors flex items-center justify-center rounded-full z-10 group ${
                           isActive
                             ? 'text-white'
                             : 'text-white/45 hover:text-white/85'
@@ -846,13 +895,13 @@ export const MiniPlayer: React.FC = () => {
                         {isActive && (
                           <motion.div
                             layoutId="miniplayer-tab"
-                            className="absolute inset-0 rounded-full bg-white/15 border border-white/25 shadow-[0_2px_10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md"
+                            className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 to-white/10 border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]"
                             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           />
                         )}
                         <div className="relative flex items-center justify-center">
                           <Icon
-                            className={`w-4 h-4 relative z-10 transition-transform duration-200 ${
+                            className={`w-[18px] h-[18px] relative z-10 transition-transform duration-200 ${
                               isActive ? 'scale-110 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]' : 'group-hover:scale-105'
                             }`}
                           />
@@ -1094,34 +1143,7 @@ export const MiniPlayer: React.FC = () => {
                     )}
 
                     {/* Progress Bar & Real-time Live Spectrum Waveform */}
-                    <div className="flex flex-col gap-1.5 pt-1">
-                      <div className="relative w-full h-5 rounded-full bg-black/40 border border-white/10 px-2 flex items-center shadow-inner cursor-pointer group">
-                        <MiniWaveform
-                          progress={progressPercent}
-                          activeColor={accentColor}
-                          isPlaying={isPlaying}
-                        />
-                        <input
-                          type="range"
-                          min={0}
-                          max={duration > 0 ? duration : 100}
-                          step={0.1}
-                          value={displayCurrentTime}
-                          onChange={handleSeekChange}
-                          onMouseDown={handleSeekMouseDown}
-                          onTouchStart={handleSeekMouseDown}
-                          onMouseUp={handleSeekMouseUp}
-                          onTouchEnd={handleSeekMouseUp}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-20"
-                          title="Arrastra para avanzar o retroceder"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-[10px] font-mono text-white/50 px-1">
-                        <span>{formatTime(displayCurrentTime)}</span>
-                        <span>{formatTime(duration)}</span>
-                      </div>
-                    </div>
+                    <MiniSeekBar accentColor={accentColor} isPlaying={isPlaying} seek={seek} />
 
                     {/* Primary Hero Transport Controls */}
                     <div className="flex items-center justify-between px-2 pt-1">

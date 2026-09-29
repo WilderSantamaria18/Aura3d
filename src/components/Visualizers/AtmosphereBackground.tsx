@@ -835,6 +835,8 @@ export const AtmosphereBackground: React.FC = () => {
     <div className="fixed inset-0 w-full h-full pointer-events-none select-none z-[2] overflow-hidden" aria-hidden="true">
       {/* Atmospheric Canvas Animation Layer */}
       <canvas
+        id="atmosphere-canvas"
+        data-atmosphere="true"
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block pointer-events-none transition-opacity duration-700"
       />

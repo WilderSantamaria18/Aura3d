@@ -40,7 +40,7 @@ import Lenis from 'lenis';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { LyricsPosition, LyricsSize } from './LyricsOverlay';
 import type { LyricLine, EnhancedLyricLine } from '../../types/lyrics';
-import { useWordSync } from '../../hooks/useWordSync';
+import { useLyricSync } from '../../hooks/useLyricSync';
 import { FullscreenControls } from './FullscreenControls';
 import { LyricsSettingsModal } from './LyricsSettingsModal';
 import { PlaceholderLines } from './PlaceholderLines';
@@ -93,6 +93,32 @@ const formatTimestamp = (seconds: number): string => {
   const s = Math.floor(seconds % 60);
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
+
+/** Desplazamiento suave con caída exponencial; cancela el anterior si llega otra línea. */
+const scrollTweens = new WeakMap<HTMLElement, number>();
+function smoothScrollTo(el: HTMLElement, top: number, ms = 700): void {
+  const prev = scrollTweens.get(el);
+  if (prev) cancelAnimationFrame(prev);
+  const from = el.scrollTop;
+  const dist = top - from;
+  if (Math.abs(dist) < 1) return;
+  const t0 = performance.now();
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / ms);
+    const eased = p >= 1 ? 1 : 1 - Math.pow(2, -10 * p);
+    el.scrollTop = from + dist * eased;
+    if (p < 1) scrollTweens.set(el, requestAnimationFrame(step));
+    else scrollTweens.delete(el);
+  };
+  scrollTweens.set(el, requestAnimationFrame(step));
+}
+
+/** scrollTop necesario para centrar `target` dentro de `container` */
+function centeredScrollTop(container: HTMLElement, target: HTMLElement): number {
+  const cr = container.getBoundingClientRect();
+  const tr = target.getBoundingClientRect();
+  return tr.top - cr.top + container.scrollTop - container.clientHeight / 2 + tr.height / 2;
+}
 
 export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   lyrics,
@@ -183,11 +209,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
   // ── Word-by-word sync ──────────────────────────────────────────────────────
   const enhancedLines = lyrics as unknown as EnhancedLyricLine[];
-  const { activeLineIndex, activeWordIndex, activeWordProgress, activeLineProgress } = useWordSync(
-    enhancedLines,
-    currentTime,
-    isPlaying
-  );
+  // Sincronía a 60 fps sin re-renderizar por fotograma: solo cambian los índices de línea y
+  // palabra; el progreso continuo va por variables CSS (--line-progress / --word-progress).
+  const { activeLineIndex, activeWordIndex } = useLyricSync(enhancedLines, [fullscreenContainerRef, contentRef]);
 
   const activeIndex = activeLineIndex >= 0 ? activeLineIndex : 0;
 
@@ -271,14 +295,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       lenis.destroy();
       lenisRef.current = null;
     };
-  }, [lenisSettings, lyrics.length, isFullscreen]);
-
-  // Ensure Lenis resizes whenever activeIndex changes
-  useEffect(() => {
-    if (lenisRef.current) {
-      lenisRef.current.resize();
-    }
-  }, [activeIndex]);
+  }, [lenisSettings?.enabled, lenisSettings?.duration, lenisSettings?.smoothWheel, lenisSettings?.wheelMultiplier, lyrics.length, isFullscreen]);
 
   // Fluid Auto-scroll to center active line (Lenis or smooth native fallback)
   useEffect(() => {
@@ -293,21 +310,17 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
 
       if (targetEl) {
         if (lenisRef.current) {
-          lenisRef.current.resize();
           lenisRef.current.scrollTo(targetEl, {
             offset: -containerRef.current.clientHeight / 2 + targetEl.clientHeight / 2,
             duration: lenisSettings?.duration || 0.8,
             immediate: false,
           });
         } else {
-          targetEl.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
+          smoothScrollTo(containerRef.current, centeredScrollTop(containerRef.current, targetEl), 700);
         }
       }
     }
-  }, [activeIndex, activeLineIndex, lyricsAutoScroll, lyrics.length, lenisSettings]);
+  }, [activeIndex, activeLineIndex, lyricsAutoScroll, lyrics.length, lenisSettings?.duration]);
 
   // Fluid Auto-scroll for Fullscreen Cinema Mode
   useEffect(() => {
@@ -315,10 +328,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
     if (isFullscreen && fullscreenContainerRef.current && activeIndex >= 0) {
       const activeEl = fullscreenContainerRef.current.children[activeIndex] as HTMLElement;
       if (activeEl) {
-        activeEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+        smoothScrollTo(fullscreenContainerRef.current, centeredScrollTop(fullscreenContainerRef.current, activeEl), 800);
       }
     }
   }, [activeIndex, lyricsAutoScroll, isFullscreen]);
@@ -390,7 +400,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           blur: 0,
           scale: 1.03,
           translateY: -2,
-          fontWeight: 800,
+          fontWeight: 600,
           color: '#FFFFFF',
           textShadow: `0 0 24px ${activeColor}, 0 0 48px ${activeColor}40`,
         };
@@ -414,7 +424,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
         blur: 1.2,
         scale: 0.99,
         translateY: 0,
-        fontWeight: 500,
+        fontWeight: 600,
         color: '#FFFFFF',
         textShadow: 'none',
       };
@@ -557,7 +567,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           ref={fullscreenContainerRef}
           role="list"
           aria-label="Letras en pantalla completa"
-          className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto py-24 px-6 sm:px-12 space-y-8 scroll-smooth select-none custom-scrollbar lyrics-mask z-20 my-auto text-center"
+          className="flex-1 w-full max-w-4xl mx-auto overflow-y-auto py-24 px-6 sm:px-12 space-y-8 select-none custom-scrollbar lyrics-mask z-20 my-auto text-center"
         >
           {lyrics.length === 0 ? (
             isLoading ? (
@@ -601,7 +611,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     role="listitem"
                     aria-current={isActive ? 'true' : undefined}
                     onClick={() => handleLineSeek(line.time)}
-                    className="group cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2"
+                    className="group cursor-pointer transition-[opacity,transform,filter] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] py-2"
                     style={{
                       opacity: isActive ? 1 : Math.max(0.2, 0.7 - distance * 0.15),
                       filter: isActive ? 'none' : `blur(${Math.min(4.5, distance * 1.2)}px)`,
@@ -618,7 +628,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                           return (
                             <span
                               key={wi}
-                              className="relative inline-block text-3xl sm:text-5xl md:text-6xl font-black transition-all duration-100"
+                              className="relative inline-block text-3xl sm:text-5xl md:text-6xl font-black transition-[color,text-shadow] duration-150"
                               style={{
                                 color: isPast || isCurrent ? '#ffffff' : 'rgba(255,255,255,0.4)',
                                 textShadow: isPast || isCurrent
@@ -631,10 +641,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                                 <span
                                   className="absolute bottom-0 left-0 h-[3px] rounded-full"
                                   style={{
-                                    width: `${activeWordProgress * 100}%`,
+                                    width: 'calc(var(--word-progress, 0) * 100%)',
                                     background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
                                     boxShadow: `0 0 10px ${activeColor}`,
-                                    transition: 'width 80ms linear',
                                   }}
                                 />
                               )}
@@ -645,7 +654,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     ) : (
                       // Line-level verse in Cinema Mode
                       <h2
-                        className={`text-2xl sm:text-4xl md:text-5xl font-black text-center leading-tight tracking-tight transition-all duration-300 ${
+                        className={`text-2xl sm:text-4xl md:text-5xl font-black text-center leading-tight tracking-tight transition-[color,text-shadow] duration-300 ${
                           isActive ? 'text-white' : 'text-white/60 group-hover:text-white'
                         }`}
                         style={{
@@ -680,9 +689,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                     {isActive && (
                       <div className="w-48 sm:w-72 mx-auto h-1 rounded-full bg-white/10 overflow-hidden shadow-inner mt-4">
                         <div
-                          className="h-full rounded-full transition-all duration-100"
+                          className="h-full rounded-full"
                           style={{
-                            width: `${activeLineProgress * 100}%`,
+                            width: 'calc(var(--line-progress, 0) * 100%)',
                             background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
                             boxShadow: `0 0 12px ${activeColor}`,
                           }}
@@ -1024,7 +1033,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           ref={containerRef}
           role="list"
           aria-label="Letras sincronizadas"
-          className="flex-1 overflow-y-auto px-5 scroll-smooth select-none custom-scrollbar lyrics-mask relative z-10"
+          className="flex-1 overflow-y-auto px-5 select-none custom-scrollbar lyrics-mask relative z-10"
         >
           <div ref={contentRef} className="pt-20 pb-32 space-y-4 min-h-full">
             {lyrics.length === 0 ? (
@@ -1093,7 +1102,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                           handleLineSeek(line.time);
                         }
                       }}
-                      className={`group relative rounded-2xl cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass}`}
+                      className={`group relative rounded-2xl cursor-pointer transition-[opacity,transform,filter] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${baseSizeClass}`}
                       style={{
                         opacity: lineStyle.opacity,
                         filter: lineStyle.blur > 0 ? `blur(${lineStyle.blur}px)` : 'none',
@@ -1124,7 +1133,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                       {isActive && hasWords ? (
                         // ── Word-by-word karaoke render ──
                         <p
-                          className="transition-all duration-300 leading-snug flex-1 text-white tracking-tight"
+                          className="leading-snug flex-1 text-white tracking-tight"
                           style={{ fontWeight: lineStyle.fontWeight }}
                         >
                           {eLine!.words!.map((word, wi) => {
@@ -1133,7 +1142,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                             return (
                               <span
                                 key={wi}
-                                className="relative inline-block mr-[0.25em] transition-all duration-100"
+                                className="relative inline-block mr-[0.25em] transition-[color,text-shadow] duration-150"
                                 style={{
                                   color: isPast || isCurrent ? '#ffffff' : 'rgba(255,255,255,0.45)',
                                   textShadow: (isPast || isCurrent)
@@ -1147,10 +1156,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                                   <span
                                     className="absolute bottom-0 left-0 h-[2px] rounded-full"
                                     style={{
-                                      width: `${activeWordProgress * 100}%`,
+                                      width: 'calc(var(--word-progress, 0) * 100%)',
                                       background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
                                       boxShadow: `0 0 6px ${activeColor}`,
-                                      transition: 'width 80ms linear',
                                     }}
                                   />
                                 )}
@@ -1163,7 +1171,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         <div className="flex-1">
                           {romanizationMode === 'furigana' && romanizedMap[index]?.furigana ? (
                             <p
-                              className={`transition-all duration-300 leading-snug ${
+                              className={`transition-[color,text-shadow] duration-300 leading-snug ${
                                 isActive
                                   ? 'text-white tracking-tight lyrics-active-glow'
                                   : 'text-white group-hover:text-white'
@@ -1186,7 +1194,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                             </p>
                           ) : (
                             <p
-                              className={`transition-all duration-300 leading-snug ${
+                              className={`transition-[color,text-shadow] duration-300 leading-snug ${
                                 isActive
                                   ? 'text-white tracking-tight lyrics-active-glow'
                                   : 'text-white group-hover:text-white'
@@ -1227,10 +1235,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                         <div
                           className="h-full rounded-full"
                           style={{
-                            width: `${activeLineProgress * 100}%`,
+                            width: 'calc(var(--line-progress, 0) * 100%)',
                             background: `linear-gradient(to right, ${activeColor}, ${secondaryColor})`,
                             boxShadow: `0 0 8px ${activeColor}`,
-                            transition: 'width 100ms linear',
                           }}
                         />
                       </div>
