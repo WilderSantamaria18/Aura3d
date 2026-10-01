@@ -1,9 +1,12 @@
+import { parseColor } from './color';
+
 export function renderConstellationLines(
   ctx: CanvasRenderingContext2D,
   tipPoints: { x: number; y: number }[],
   u: number,
   sEnergy: number,
-  intensity = 1.0
+  intensity = 1.0,
+  color = '#ffffff'
 ): void {
   const count = tipPoints.length;
   if (count < 3) return;
@@ -14,6 +17,8 @@ export function renderConstellationLines(
   const limit = Math.min(count, 8);
 
   ctx.lineWidth = Math.max(0.4, 0.65 * u * Math.min(intensity, 1.5));
+  const [r, g, b] = parseColor(color);
+  ctx.strokeStyle = `rgb(${r},${g},${b})`;
 
   for (let i = 0; i < limit; i++) {
     for (let j = i + 1; j < limit; j++) {
@@ -23,15 +28,12 @@ export function renderConstellationLines(
 
       if (dist < maxDistance) {
         const proximityFactor = 1 - dist / maxDistance;
-        const alpha = Math.min(
-          0.7,
-          proximityFactor * 0.32 * (0.5 + sEnergy * 0.5) * intensity
-        );
+        // Opacidad por línea con globalAlpha (sin cadenas rgba() nuevas por cada par)
+        ctx.globalAlpha = Math.min(0.7, proximityFactor * 0.32 * (0.5 + sEnergy * 0.5) * intensity);
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
         ctx.stroke();
       }
     }

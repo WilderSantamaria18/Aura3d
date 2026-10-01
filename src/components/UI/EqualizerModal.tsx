@@ -12,6 +12,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { StorageService } from '../../services/storageService';
 import { AudioEngine } from '../../services/audioEngine';
+import { useShallow } from 'zustand/react/shallow';
 
 interface EQPreset {
   id: string;
@@ -117,7 +118,17 @@ export const EqualizerModal: React.FC = () => {
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isEqualizerOpen: s.isEqualizerOpen,
+      setEqualizerOpen: s.setEqualizerOpen,
+      eqBands: s.eqBands,
+      setEqBandGain: s.setEqBandGain,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+    }))
+  );
 
   const [activePresetId, setActivePresetId] = useState<string>(() => StorageService.getActiveEqPresetId());
   const [isBypassed, setIsBypassed] = useState<boolean>(false);

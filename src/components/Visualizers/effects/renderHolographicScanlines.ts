@@ -1,3 +1,5 @@
+import { withAlpha } from './color';
+
 export function renderHolographicScanlines(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -5,7 +7,8 @@ export function renderHolographicScanlines(
   baseCircleRadius: number,
   u: number,
   timeSec: number,
-  intensity = 1.0
+  intensity = 1.0,
+  color = '#00f0ff'
 ): void {
   ctx.save();
 
@@ -18,16 +21,17 @@ export function renderHolographicScanlines(
   const lineSpacing = 8 * u;
   const alpha = Math.min(0.35, 0.08 * intensity);
 
-  ctx.strokeStyle = `rgba(0, 240, 255, ${alpha.toFixed(3)})`;
+  ctx.strokeStyle = withAlpha(color, alpha);
   ctx.lineWidth = Math.max(0.6, 1 * u);
 
+  // Todas las líneas en un único trazado (antes: beginPath + stroke por línea, ~20-40 por frame)
+  ctx.beginPath();
   for (let y = -scanOffset; y < baseCircleRadius * 2; y += lineSpacing) {
     const lineY = cy - baseCircleRadius + y;
-    ctx.beginPath();
     ctx.moveTo(cx - baseCircleRadius, lineY);
     ctx.lineTo(cx + baseCircleRadius, lineY);
-    ctx.stroke();
   }
+  ctx.stroke();
 
   ctx.restore();
 }

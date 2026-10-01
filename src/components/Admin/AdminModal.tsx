@@ -3,9 +3,10 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { socketService } from '../../services/socketService';
 const AdminDashboard = React.lazy(() => import('./AdminDashboard'));
 import { X, Lock, Shield, User, Key, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 export const AdminModal: React.FC = () => {
-  const { isAdminModalOpen, setAdminModalOpen, isLucid } = usePlayerStore();
+  const { isAdminModalOpen, setAdminModalOpen, isLucid } = usePlayerStore(useShallow((s) => ({ isAdminModalOpen: s.isAdminModalOpen, setAdminModalOpen: s.setAdminModalOpen, isLucid: s.isLucid })));
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingToken, setIsCheckingToken] = useState(true);

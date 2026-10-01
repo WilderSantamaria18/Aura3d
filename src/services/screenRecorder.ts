@@ -48,6 +48,28 @@ export class ScreenRecorderService {
     this.recordedChunks = [];
     this.elapsedSeconds = 0;
 
+    // Antes del primer fotograma: el bucle que copia el visualizador al lienzo intermedio sale de
+    // inmediato si isRecording es false, y entonces se graba un lienzo que nunca se dibuja (0 bytes).
+    this.isRecording = true;
+    try {
+      await this.startInternal(options);
+    } catch (err) {
+      // Cancelar el diálogo de captura o un fallo no deben dejar un grabador "grabando" a medias
+      this.isRecording = false;
+      if (this.timerId) {
+        clearInterval(this.timerId);
+        this.timerId = null;
+      }
+      if (this.renderLoopId) {
+        cancelAnimationFrame(this.renderLoopId);
+        this.renderLoopId = null;
+      }
+      this.cleanup();
+      throw err;
+    }
+  }
+
+  private async startInternal(options: StartRecordingOptions): Promise<void> {
     let videoStream: MediaStream | null = null;
 
     // 1. Acquire Video Stream according to source
@@ -134,6 +156,8 @@ export class ScreenRecorderService {
     // 2. Acquire Audio Stream from AudioEngine
     const audioTracks: MediaStreamTrack[] = [];
     if (options.includeAudio !== false) {
+      // Sin iniciar el motor no existe el nodo de grabación y el vídeo saldría mudo
+      await audioEngine.init();
       const recStream = audioEngine.getRecordingStream();
       if (recStream) {
         recStream.getAudioTracks().forEach((track) => {
@@ -181,7 +205,6 @@ export class ScreenRecorderService {
     };
 
     this.mediaRecorder.start(1000); // 1-second chunks for smooth streaming
-    this.isRecording = true;
 
     // 6. Elapsed timer & auto-stop limit
     this.timerId = setInterval(() => {
@@ -201,7 +224,23 @@ export class ScreenRecorderService {
     }, 1000);
   }
 
+  private stopPromise: Promise<Blob> | null = null;
+
+  /**
+   * Detiene la grabación y devuelve el vídeo completo. Es idempotente: el límite de duración llama
+   * a stop() y a continuación onAutoStop() vuelve a llamarla; la segunda llamada debe esperar a la
+   * misma parada (con el último trozo incluido), no devolver lo recibido hasta ese momento.
+   */
   public stop(): Promise<Blob> {
+    if (this.stopPromise) return this.stopPromise;
+    const promise = this.stopOnce().finally(() => {
+      this.stopPromise = null;
+    });
+    this.stopPromise = promise;
+    return promise;
+  }
+
+  private stopOnce(): Promise<Blob> {
     return new Promise((resolve) => {
       if (this.timerId) {
         clearInterval(this.timerId);

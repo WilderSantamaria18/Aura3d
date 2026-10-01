@@ -4,6 +4,7 @@ import { PROFESSIONAL_PALETTES } from '../../types/audio';
 import { X, Eye, EyeOff, Sliders, Palette, Maximize2, Sparkles, Activity } from 'lucide-react';
 
 import { classifyHandGesture } from '../../features/vr/gestureMap';
+import { useShallow } from 'zustand/react/shallow';
 
 const HISTORY_SIZE = 5;
 
@@ -36,7 +37,26 @@ export const HandTracker: React.FC = () => {
     autoPalette,
     isLucid,
     lucidTheme,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      vrMode: s.vrMode,
+      setVrMode: s.setVrMode,
+      setHandLandmarks: s.setHandLandmarks,
+      setSphereOpacity: s.setSphereOpacity,
+      visualizerMode: s.visualizerMode,
+      setSphereScale: s.setSphereScale,
+      setRainbowScale: s.setRainbowScale,
+      handSensitivity: s.handSensitivity,
+      setHandSensitivity: s.setHandSensitivity,
+      currentPaletteIndex: s.currentPaletteIndex,
+      cyclePalette: s.cyclePalette,
+      cycleLucidTheme: s.cycleLucidTheme,
+      autoMode: s.autoMode,
+      autoPalette: s.autoPalette,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+    }))
+  );
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

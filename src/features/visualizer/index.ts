@@ -2,11 +2,9 @@
  * Visualizer Feature Module
  * 3D Scene Container, Particle Sphere, Wave Effects, Rainbow Void and Studio 3D
  */
-export * from '../../components/3D/SceneContainer';
-export * from '../../components/3D/SphereVisualizer';
 export * from '../../components/Visualizers/RainbowBlobVisualizer';
-export * from '../../components/Visualizers/LiquidVoidCircle';
 export * from '../../components/Visualizers/SynthwaveGridVisualizer';
+export * from '../../components/Visualizers/TerrainVisualizer';
 export * from '../../components/Visualizers/AtmosphereBackground';
 export * from '../../components/UI/VisualizerQuickControls';
 export * from '../../config/visualPresets';

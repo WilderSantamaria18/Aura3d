@@ -1,10 +1,12 @@
 import type { Playlist, Track, EqualizerBand, BlobCustomSettings, VisualizerShape, BlobShape, WaveEffectMode, VisualizerMode, LucidTheme } from '../types/audio';
-import { DEFAULT_VOID_EFFECT, DEFAULT_VOID_FX_SETTINGS, isVoidEffectId } from '../config/visualPresets';
+import { parsePersistedQueue, serializeQueue, type PersistedQueue } from '../utils/queuePersistence';
+import { DEFAULT_VOID_EFFECT, DEFAULT_VOID_FX_SETTINGS, migrateVoidEffectId } from '../config/visualPresets';
 
 const STORAGE_KEYS = {
   PLAYLISTS: 'auralis_playlists_v1',
   FAVORITES: 'auralis_favorites_v1',
   VOLUME: 'auralis_volume_v1',
+  QUEUE: 'auralis_queue_v1',
   EQ_PRESET: 'auralis_eq_preset_v1',
   BLOB_SETTINGS: 'auralis_blob_settings_v1',
   SPHERE_SCALE: 'auralis_sphere_scale_v1',
@@ -29,6 +31,7 @@ const STORAGE_KEYS = {
   VISUALIZER_MODE: 'auralis_visualizer_mode_v1',
   ACTIVE_EQ_PRESET_ID: 'auralis_active_eq_preset_id_v1',
   PERFORMANCE_TIER: 'auralis_performance_tier_v1',
+  AUTO_QUALITY: 'auralis_auto_quality_v1',
   MOUSE_EFFECTS: 'auralis_mouse_effects_v1',
   USER_TOKEN: 'auralis_user_jwt_token',
 };
@@ -77,6 +80,13 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   catEarsSharpness: 2.2,
   sacredPalette: 'neon',
   transparentHalo: true,
+  // Aura cromática: visible por defecto, con valores equilibrados
+  auraEnabled: true,
+  auraIntensity: 0.9,
+  auraReach: 1,
+  auraSoftness: 0.6,
+  auraKickResponse: 1,
+  auraMotion: 1,
   isAdvancedMode: false,
   // LiquidVoidCircle defaults (off by default as requested)
   showPeripheralShapes: false,
@@ -106,9 +116,28 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   auroraRibbonsEnabled: false,
   auroraRibbonsIntensity: 1.0,
   crystalShardsEnabled: false,
-  crystalShardsIntensity: 1.0,
   holographicScanlinesEnabled: false,
   holographicScanlinesIntensity: 1.0,
+  // Synthwave Highway defaults
+  synthwaveTheme: 'outrun',
+  synthwaveSunStyle: 'venetian',
+  synthwaveMountains: true,
+  synthwaveCurveIntensity: 1.0,
+  synthwaveSpeed: 1.0,
+  synthwavePalms: true,
+  // Warp Tunnel defaults
+  warpGeometry: 'octagon',
+  warpRingCount: 32,
+  warpTunnelSpeed: 1.0,
+  warpStarCount: 1500,
+  warpFovKick: 1.0,
+  warpTwist: 1.0,
+  // Cyber Terrain defaults
+  terrainStyle: 'wireframe',
+  terrainElevation: 1.0,
+  terrainRoughness: 1.0,
+  terrainSunStyle: 'classic',
+  terrainSpeed: 1.0,
 };
 
 export class StorageService {
@@ -194,16 +223,16 @@ export class StorageService {
   public static getMusicSensitivity(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.MUSIC_SENSITIVITY);
-      const parsed = val ? parseFloat(val) : 0.75;
-      return Math.min(0.85, Math.max(0.60, isNaN(parsed) ? 0.75 : parsed));
+      const parsed = val ? parseFloat(val) : 1.0;
+      return Math.min(2.0, Math.max(0.30, isNaN(parsed) ? 1.0 : parsed));
     } catch {
-      return 0.75;
+      return 1.0;
     }
   }
 
   public static saveMusicSensitivity(sens: number): void {
     try {
-      const clamped = Math.min(0.85, Math.max(0.60, sens));
+      const clamped = Math.min(2.0, Math.max(0.30, sens));
       localStorage.setItem(STORAGE_KEYS.MUSIC_SENSITIVITY, clamped.toString());
     } catch (e) {
       console.warn('Failed to save music sensitivity to LocalStorage', e);
@@ -274,6 +303,22 @@ export class StorageService {
     }
   }
 
+  public static getQueue(): PersistedQueue {
+    try {
+      return parsePersistedQueue(localStorage.getItem(STORAGE_KEYS.QUEUE));
+    } catch {
+      return { tracks: [], index: 0 };
+    }
+  }
+
+  public static saveQueue(queue: Track[], queueIndex: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(serializeQueue(queue, queueIndex)));
+    } catch (e) {
+      console.warn('Failed to save queue to LocalStorage', e);
+    }
+  }
+
   public static getVolume(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.VOLUME);
@@ -311,7 +356,7 @@ export class StorageService {
   public static getVisualizerMode(): VisualizerMode {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.VISUALIZER_MODE) as VisualizerMode;
-      if (val === 'blob' || val === 'synthwave' || val === 'warp' || val === 'terrain') {
+      if (val === 'blob' || val === 'synthwave' || val === 'terrain') {
         return val;
       }
       return 'blob';
@@ -322,7 +367,7 @@ export class StorageService {
 
   public static saveVisualizerMode(mode: VisualizerMode): void {
     try {
-      const safe = mode === 'sphere' ? 'blob' : mode;
+      const safe = mode === 'synthwave' || mode === 'terrain' ? mode : 'blob';
       localStorage.setItem(STORAGE_KEYS.VISUALIZER_MODE, safe);
     } catch (e) {
       console.warn('Failed to save visualizer mode to LocalStorage', e);
@@ -347,6 +392,7 @@ export class StorageService {
 
   public static getBlobSettings(): BlobCustomSettings {
     try {
+      if (typeof localStorage === 'undefined') return DEFAULT_BLOB_SETTINGS;
       const data = localStorage.getItem(STORAGE_KEYS.BLOB_SETTINGS);
       if (!data) return DEFAULT_BLOB_SETTINGS;
       const merged = { ...DEFAULT_BLOB_SETTINGS, ...JSON.parse(data) };
@@ -365,6 +411,7 @@ export class StorageService {
 
   public static saveBlobSettings(settings: BlobCustomSettings): void {
     try {
+      if (typeof localStorage === 'undefined') return;
       localStorage.setItem(STORAGE_KEYS.BLOB_SETTINGS, JSON.stringify(settings));
     } catch (e) {
       console.warn('Failed to save Blob settings to LocalStorage', e);
@@ -493,8 +540,8 @@ export class StorageService {
   public static getBlobShape(): BlobShape {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.BLOB_SHAPE);
-      // Los efectos antiguos ya no existen: se migran a la Mándala Sagrada
-      return isVoidEffectId(stored) ? stored : DEFAULT_VOID_EFFECT;
+      // Las formas antiguas (gato, flama, alas…) ya no existen: se migran a la más parecida
+      return stored ? migrateVoidEffectId(stored) : DEFAULT_VOID_EFFECT;
     } catch {
       return DEFAULT_VOID_EFFECT;
     }
@@ -592,6 +639,23 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.PERFORMANCE_TIER, tier);
     } catch (e) {
       console.warn('Failed to save performance tier to LocalStorage', e);
+    }
+  }
+
+  /** Calidad automática por FPS: activada por defecto (solo se desactiva si el usuario lo decide) */
+  public static getAutoQuality(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.AUTO_QUALITY) !== 'false';
+    } catch {
+      return true;
+    }
+  }
+
+  public static saveAutoQuality(enabled: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.AUTO_QUALITY, String(enabled));
+    } catch (e) {
+      console.warn('Failed to save auto quality to LocalStorage', e);
     }
   }
 

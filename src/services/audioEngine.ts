@@ -68,6 +68,7 @@ export class AudioEngine {
 
   private systemStream: MediaStream | null = null;
   private systemSourceNode: MediaStreamAudioSourceNode | null = null;
+  private systemGain: GainNode | null = null;
   private isSystemActive = false;
   private recordDestination: MediaStreamAudioDestinationNode | null = null;
 
@@ -107,12 +108,54 @@ export class AudioEngine {
     ended: (() => void)[];
     stateChange: ((isPlaying: boolean) => void)[];
     error: ((errorMsg: string) => void)[];
+    captureEnd: ((kind: 'mic' | 'system') => void)[];
   } = {
     timeUpdate: [],
     ended: [],
     stateChange: [],
     error: [],
+    captureEnd: [],
   };
+
+  /** Evita que el pause() provocado por un cambio de fuente apague isPlaying en la UI */
+  private ignoreNextElementPause = false;
+
+  /** Se incrementa en cada carga; permite descartar cargas viejas que terminan tarde */
+  private loadToken = 0;
+
+  /** Notifica cuando el mic o la captura de sistema se cierran desde el motor (cambio de fuente) */
+  public onCaptureEnd(callback: (kind: 'mic' | 'system') => void): () => void {
+    this.listeners.captureEnd.push(callback);
+    return () => {
+      this.listeners.captureEnd = this.listeners.captureEnd.filter((cb) => cb !== callback);
+    };
+  }
+
+  /**
+   * Libera las fuentes activas (buffer local, <audio>, mic, sistema, demo procedural) para que al
+   * cambiar de fuente nunca suenen dos a la vez.
+   *
+   * El micrófono y la captura de sistema son entradas EN VIVO: no suenan por los altavoces, solo
+   * alimentan el visualizador y la grabación, y el estudio de grabación ("Mix") las usa a la vez.
+   * Por eso, al activar una de ellas se conserva la otra (`keepMic` / `keepSystem`); cualquier
+   * fuente de reproducción (archivo, URL, radio) sí libera ambas.
+   */
+  public releaseSources(opts: { keepMic?: boolean; keepSystem?: boolean } = {}): void {
+    this.loadToken++;
+    this.clearStreamRetry();
+    this._stopProcedural();
+    this.unloadBuffer();
+    if (!opts.keepMic) this.disableMicrophone();
+    if (!opts.keepSystem) this.disableSystemCapture();
+
+    const audio = this.audioElement;
+    if (!audio.paused) this.ignoreNextElementPause = true;
+    audio.pause();
+    if (audio.getAttribute('src')) {
+      audio.removeAttribute('src');
+      audio.load();
+    }
+  }
 
   private constructor() {
     this.audioElement = new Audio();
@@ -120,6 +163,12 @@ export class AudioEngine {
     this.audioElement.preload = 'auto';
 
     this.setupAudioElementListeners(this.audioElement);
+
+    // Mantener el store coherente cuando el motor cierra el mic (p. ej. al cambiar de fuente).
+    // Va aquí y no en un hook para que se registre una sola vez, se use el hook que se use.
+    this.listeners.captureEnd.push((kind) => {
+      if (kind === 'mic') usePlayerStore.setState({ isMicActive: false });
+    });
   }
 
   public onError(callback: (errorMsg: string) => void): () => void {
@@ -134,6 +183,49 @@ export class AudioEngine {
       AudioEngine.instance = new AudioEngine();
     }
     return AudioEngine.instance;
+  }
+
+  private streamRetries = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Esperas antes de cada reintento de un stream caído (radio, YouTube proxy, URLs remotas) */
+  public static readonly STREAM_RETRY_DELAYS_MS = [1500, 4000];
+
+  private clearStreamRetry(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+  }
+
+  /**
+   * Reintenta un stream remoto tras un error de red (MEDIA_ERR_NETWORK = 2). Devuelve true si
+   * programó el reintento; false si el error no es de red, no es remoto o ya se agotaron.
+   */
+  private scheduleStreamRetry(audio: HTMLAudioElement, code: number | undefined): boolean {
+    const src = audio.getAttribute('src');
+    if (code !== 2 || !src || !/^https?:/i.test(src)) return false;
+    const delays = AudioEngine.STREAM_RETRY_DELAYS_MS;
+    if (this.streamRetries >= delays.length) return false;
+
+    const delay = delays[this.streamRetries++];
+    const token = this.loadToken;
+    const resumeAt = audio.currentTime;
+    this.clearStreamRetry();
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      // Si mientras tanto se cambió de fuente, este reintento ya no corresponde
+      if (token !== this.loadToken || audio.getAttribute('src') !== src) return;
+      if (resumeAt > 1) {
+        audio.addEventListener(
+          'loadedmetadata',
+          () => {
+            if (Number.isFinite(audio.duration)) audio.currentTime = Math.min(resumeAt, audio.duration);
+          },
+          { once: true }
+        );
+      }
+      audio.load();
+      audio.play().catch(() => {});
+    }, delay);
+    return true;
   }
 
   private setupAudioElementListeners(audio: HTMLAudioElement) {
@@ -169,13 +261,23 @@ export class AudioEngine {
     });
 
     audio.addEventListener('pause', () => {
+      if (this.ignoreNextElementPause) {
+        this.ignoreNextElementPause = false;
+        return;
+      }
       if (!this.loadedAudioBuffer) {
         this.listeners.stateChange.forEach((cb) => cb(false));
       }
     });
 
+    audio.addEventListener('playing', () => {
+      this.streamRetries = 0; // la conexión se recuperó (o nunca falló)
+    });
+
     audio.addEventListener('error', () => {
       if (!this.loadedAudioBuffer) {
+        // Fallo de red en un stream: se reintenta solo, sin avisar ni apagar isPlaying
+        if (this.scheduleStreamRetry(audio, audio.error?.code)) return;
         this.listeners.stateChange.forEach((cb) => cb(false));
         const err = audio.error;
         const msg = err
@@ -215,7 +317,10 @@ export class AudioEngine {
         // Master Analyser Node for FFT computation — ultra-low latency & zero temporal lag
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 512;
-        this.analyser.smoothingTimeConstant = 0.8;
+        // El suavizado largo retrasaba el kick varios frames antes de llegar a los
+        // visualizadores. El hook aplica su propia caída asimétrica, así que aquí
+        // priorizamos una lectura rápida del ataque sin volverla inestable.
+        this.analyser.smoothingTimeConstant = 0.35;
         this.frequencyBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
         // Master Gain (Controls speaker output volume independently from FFT)
@@ -352,6 +457,7 @@ export class AudioEngine {
         }
 
         this.isInitialized = true;
+        this.installContextRecovery();
         usePlayerStore.getState().setAnalyser(this.analyser, this.audioContext);
       } finally {
         this.initPromise = null;
@@ -359,6 +465,40 @@ export class AudioEngine {
     })();
 
     return this.initPromise;
+  }
+
+  private gestureResumeArmed = false;
+
+  /**
+   * El navegador puede suspender el AudioContext por su cuenta (cambio de dispositivo de salida,
+   * reposo del equipo, interrupciones en Safari/iOS). Sin esto el visualizador sigue "reproduciendo"
+   * pero no suena nada hasta pulsar pausa y play. Si el resume() es rechazado por falta de gesto
+   * del usuario, se reintenta en la siguiente interacción.
+   */
+  private installContextRecovery(): void {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    const tryResume = () => {
+      if ((ctx.state as string) === 'running') return;
+      if (!usePlayerStore.getState().isPlaying) return; // en pausa no hay nada que recuperar
+      ctx.resume().catch(() => this.resumeOnNextGesture());
+    };
+
+    ctx.addEventListener?.('statechange', tryResume);
+    navigator.mediaDevices?.addEventListener?.('devicechange', tryResume);
+  }
+
+  private resumeOnNextGesture(): void {
+    if (this.gestureResumeArmed || typeof window === 'undefined') return;
+    this.gestureResumeArmed = true;
+    const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+    const handler = () => {
+      events.forEach((e) => window.removeEventListener(e, handler, true));
+      this.gestureResumeArmed = false;
+      this.audioContext?.resume().catch(() => {});
+    };
+    events.forEach((e) => window.addEventListener(e, handler, true));
   }
 
   /**
@@ -408,15 +548,43 @@ export class AudioEngine {
    * This is the KEY fix: local files now route through the SAME analyser that
    * useVisualizer reads from, so the 3D visualizer reacts to the audio.
    */
+  /**
+   * Por encima de este tamaño comprimido no se decodifica a memoria: un MP3 de 20 MB (~20 min)
+   * ocupa cientos de MB como PCM Float32 y puede tumbar la pestaña. Se reproduce en streaming.
+   */
+  public static readonly MAX_DECODE_BYTES = 20 * 1024 * 1024;
+
+  /**
+   * Carga un archivo local: decodificado en memoria (permite seek exacto y bucles) si es pequeño,
+   * o en streaming por el <audio> si es grande o el navegador no puede decodificarlo.
+   * Devuelve la duración conocida (0 en streaming hasta que carguen los metadatos).
+   */
+  public async loadFile(file: File, blobUrl: string): Promise<number> {
+    if (file.size <= AudioEngine.MAX_DECODE_BYTES) {
+      try {
+        return await this.loadArrayBuffer(await file.arrayBuffer(), file.name);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err;
+        console.warn('[AudioEngine] No se pudo decodificar, se usa streaming:', err);
+      }
+    }
+    await this.loadTrack(blobUrl, true);
+    return this.getDuration() || 0;
+  }
+
   public async loadArrayBuffer(arrayBuffer: ArrayBuffer, fileName: string): Promise<number> {
     await this.init();
     if (!this.audioContext) return 0;
 
-    // Stop any existing buffer playback
-    this._stopBufferSource();
-
-    // Decode
+    const token = ++this.loadToken;
+    // Decode primero: si falla, la fuente actual sigue intacta y el llamador puede usar su fallback
     const decoded = await this.audioContext.decodeAudioData(arrayBuffer);
+    if (token !== this.loadToken) {
+      throw new DOMException('Carga reemplazada por otra fuente', 'AbortError');
+    }
+
+    // Liberar cualquier otra fuente (audio element, mic, sistema, buffer anterior)
+    this.releaseSources();
     this.loadedAudioBuffer = decoded;
 
     // Build a dedicated gain node for buffer playback
@@ -543,8 +711,8 @@ export class AudioEngine {
     await this.init();
     if (!this.audioContext || !this.analyser) return;
 
-    this.unloadBuffer();
-    this.disableSystemCapture();
+    // Se conserva el micrófono (modo "Mix"); una captura de sistema anterior sí se sustituye
+    this.releaseSources({ keepMic: true });
 
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length > 0) {
@@ -555,9 +723,12 @@ export class AudioEngine {
 
     this.systemStream = stream;
     this.systemSourceNode = this.audioContext.createMediaStreamSource(stream);
+    this.systemGain = this.audioContext.createGain();
+    this.systemGain.gain.setValueAtTime(1.8, this.audioContext.currentTime);
 
-    // ✅ Analyser only — the audio is already playing in the browser. No re-route.
-    this.systemSourceNode.connect(this.analyser);
+    // ✅ Analyser only — preamplificado para máxima reactividad visual sin afectar altavoces
+    this.systemSourceNode.connect(this.systemGain);
+    this.systemGain.connect(this.analyser);
     this.isSystemActive = true;
 
     if (this.audioContext.state === 'suspended') {
@@ -566,6 +737,7 @@ export class AudioEngine {
   }
 
   public disableSystemCapture(): void {
+    const wasActive = this.isSystemActive;
     if (this.systemStream) {
       this.systemStream.getTracks().forEach((t) => t.stop());
       this.systemStream = null;
@@ -574,7 +746,12 @@ export class AudioEngine {
       this.systemSourceNode.disconnect();
       this.systemSourceNode = null;
     }
+    if (this.systemGain) {
+      this.systemGain.disconnect();
+      this.systemGain = null;
+    }
     this.isSystemActive = false;
+    if (wasActive) this.listeners.captureEnd.forEach((cb) => cb('system'));
   }
 
   /**
@@ -589,7 +766,7 @@ export class AudioEngine {
     }
 
     try {
-      this.micStream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -597,6 +774,11 @@ export class AudioEngine {
         },
         video: false,
       });
+
+      // Permiso concedido: ahora sí liberar la fuente anterior (si se deniega, no se corta la música).
+      // La captura de sistema se conserva (modo "Mix" del estudio de grabación).
+      this.releaseSources({ keepSystem: true });
+      this.micStream = stream;
 
       this.micSourceNode = this.audioContext.createMediaStreamSource(this.micStream);
       this.micGain = this.audioContext.createGain();
@@ -624,6 +806,7 @@ export class AudioEngine {
   }
 
   public disableMicrophone(): void {
+    const wasActive = this.isMicActive;
     if (this.micStream) {
       this.micStream.getTracks().forEach((t) => t.stop());
       this.micStream = null;
@@ -637,6 +820,7 @@ export class AudioEngine {
       this.micGain = null;
     }
     this.isMicActive = false;
+    if (wasActive) this.listeners.captureEnd.forEach((cb) => cb('mic'));
   }
 
   public isMicrophoneActive(): boolean {
@@ -648,7 +832,13 @@ export class AudioEngine {
   }
 
   public async loadTrack(url: string, playImmediately = true): Promise<void> {
+    const token = ++this.loadToken;
+    this.streamRetries = 0;
+    this.clearStreamRetry();
     await this.init();
+    if (token !== this.loadToken) {
+      throw new DOMException('Carga reemplazada por otra fuente', 'AbortError');
+    }
     this._stopProcedural();
     this.unloadBuffer();
     this.disableMicrophone();
@@ -664,12 +854,20 @@ export class AudioEngine {
       try {
         await this.audioElement.play();
       } catch (err) {
-        console.warn('Playback requires user gesture unlock:', err);
+        const name = (err as DOMException)?.name;
+        if (name === 'NotAllowedError' || name === 'AbortError') {
+          // Autoplay bloqueado o carga reemplazada por otra más nueva: no es un fallo de la fuente
+          console.warn('Playback requires user gesture unlock / interrupted:', err);
+        } else {
+          // Fuente inválida o sin soporte: propagar para que el llamador use su fallback (iframe)
+          throw err;
+        }
       }
     }
   }
 
   public async play(): Promise<void> {
+    this.setLiveInputsEnabled(true);
     await this.init();
     if (this.audioContext?.state === 'suspended') {
       await this.audioContext.resume();
@@ -693,7 +891,22 @@ export class AudioEngine {
     }
   }
 
+  /**
+   * Silencia/reactiva las entradas en vivo (mic y captura de sistema) sin cerrarlas.
+   * Una pista deshabilitada emite silencio, así el visualizador se calma al pausar.
+   */
+  private setLiveInputsEnabled(enabled: boolean): void {
+    this.micStream?.getAudioTracks().forEach((t) => {
+      t.enabled = enabled;
+    });
+    this.systemStream?.getAudioTracks().forEach((t) => {
+      t.enabled = enabled;
+    });
+  }
+
   public pause(): void {
+    this.clearStreamRetry(); // pausar cancela un reintento pendiente: no debe reanudar solo
+    this.setLiveInputsEnabled(false);
     this._stopProcedural();
     if (this.loadedAudioBuffer) {
       if (this.bufferIsPlaying && this.audioContext) {
@@ -709,6 +922,7 @@ export class AudioEngine {
   }
 
   public async resume(): Promise<void> {
+    this.setLiveInputsEnabled(true);
     if (this.audioContext?.state === 'suspended') {
       await this.audioContext.resume();
     }
@@ -729,6 +943,7 @@ export class AudioEngine {
   }
 
   public stop(): void {
+    this.clearStreamRetry();
     this._stopProcedural();
     this.unloadBuffer();
     this.audioElement.pause();
@@ -875,8 +1090,31 @@ export class AudioEngine {
     return this.chromaValues;
   }
 
+  private freqCache: FrequencyData | null = null;
+  private freqCacheAt = -Infinity;
+  /**
+   * Ventana en la que se reutiliza el último análisis. Varios consumidores (fondo, paleta automática,
+   * visualizador, medidores…) lo piden en el mismo fotograma; recalcular bandas para cada uno era
+   * trabajo repetido. 4 ms < un fotograma incluso a 144 Hz (≈6.9 ms), así que nunca se sirve un
+   * dato del fotograma anterior.
+   */
+  public static readonly FREQ_CACHE_MS = 4;
+
   public getFrequencyData(): FrequencyData {
-    const isSpotifyPlaying = usePlayerStore.getState().isSpotifyConnected && usePlayerStore.getState().isPlaying;
+    const now = performance.now();
+    if (this.freqCache && now - this.freqCacheAt < AudioEngine.FREQ_CACHE_MS) return this.freqCache;
+    const data = this.computeFrequencyData();
+    this.freqCache = data;
+    this.freqCacheAt = now;
+    return data;
+  }
+
+  private computeFrequencyData(): FrequencyData {
+    // El beat sintético es solo para cuando suena Spotify (sin acceso a su audio): con un archivo
+    // local o el mic sonando, un pasaje silencioso debe verse silencioso.
+    const playerState = usePlayerStore.getState();
+    const isSpotifyPlaying =
+      playerState.isSpotifyConnected && playerState.isPlaying && playerState.currentTrack?.sourceType === 'spotify';
 
     if (!this.analyser || !this.frequencyBuffer) {
       if (isSpotifyPlaying) {
@@ -896,35 +1134,33 @@ export class AudioEngine {
 
     // Compute Weighted Lows / Sub-Bass & Kick (Bins 0 - 12)
     // Low bins (0-5: 20Hz - 220Hz) carry the main kick & 808 sub-bass.
+    // Una sola pasada sobre el buffer (antes eran cuatro por fotograma)
+    const buf = this.frequencyBuffer;
     let bassWeightedSum = 0;
     let bassWeightTotal = 0;
-    for (let i = 0; i <= 14; i++) {
-      const weight = i <= 5 ? 2.5 : i <= 10 ? 1.5 : 1.0;
-      bassWeightedSum += (this.frequencyBuffer[i] / 255) * weight;
-      bassWeightTotal += weight;
+    let midsSum = 0;
+    let midsCount = 0;
+    let highsSum = 0;
+    let highsCount = 0;
+    let totalSum = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = buf[i];
+      totalSum += v;
+      if (i <= 14) {
+        const weight = i <= 5 ? 2.5 : i <= 10 ? 1.5 : 1.0;
+        bassWeightedSum += (v / 255) * weight;
+        bassWeightTotal += weight;
+      } else if (i <= 65) {
+        midsSum += v;
+        midsCount++;
+      } else if (i <= 150) {
+        highsSum += v;
+        highsCount++;
+      }
     }
     const rawBass = bassWeightTotal > 0 ? bassWeightedSum / bassWeightTotal : 0;
     // Exponential punch curve: quiet bass remains subtle, strong beats burst with power
     const bass = Math.min(1.0, Math.pow(rawBass, 1.28) * 1.45);
-
-    let midsSum = 0;
-    let midsCount = 0;
-    for (let i = 15; i <= 65; i++) {
-      midsSum += this.frequencyBuffer[i];
-      midsCount++;
-    }
-
-    let highsSum = 0;
-    let highsCount = 0;
-    for (let i = 66; i <= 150; i++) {
-      highsSum += this.frequencyBuffer[i];
-      highsCount++;
-    }
-
-    let totalSum = 0;
-    for (let i = 0; i < this.frequencyBuffer.length; i++) {
-      totalSum += this.frequencyBuffer[i];
-    }
 
     const mids = midsCount ? Math.min(1.0, (midsSum / (midsCount * 255)) * 1.15) : 0;
     const highs = highsCount ? Math.min(1.0, (highsSum / (highsCount * 255)) * 1.2) : 0;
@@ -1051,42 +1287,60 @@ export class AudioEngine {
   }
 
   // ── Smart Crossfade Transition ────────────────────────────────────────────
-  public async crossfade(durationSec = 2.0): Promise<void> {
-    if (!this.masterGain || !this.audioContext) return;
-    const now = this.audioContext.currentTime;
-    const currentGain = this.masterGain.gain.value;
-    const fadeOutTime = Math.max(0.4, durationSec * 0.4);
-    const fadeInTime = Math.max(0.4, durationSec * 0.6);
 
-    // Ramp down
-    this.masterGain.gain.setValueAtTime(currentGain, now);
-    this.masterGain.gain.linearRampToValueAtTime(0.01, now + fadeOutTime);
+  /** Volumen al que debe volver el master tras un fundido: el del store, no el instantáneo */
+  private restingGain(): number {
+    const s = usePlayerStore.getState();
+    return s.isMuted ? 0 : Math.max(0, Math.min(1, s.volume));
+  }
+
+  /** Se incrementa en cada fundido; un fundido viejo que termina tarde no debe tocar el volumen */
+  private fadeToken = 0;
+
+  private async fadeThroughSilence(
+    fadeOutTime: number,
+    fadeInTime: number,
+    exponential: boolean
+  ): Promise<void> {
+    if (!this.masterGain || !this.audioContext) return;
+    const token = ++this.fadeToken;
+    const gain = this.masterGain.gain;
+    const floor = exponential ? 0.001 : 0.01;
+    const now = this.audioContext.currentTime;
+
+    // Partir del valor actual (si hay otro fundido en curso, se cancela en vez de encadenarse)
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(Math.max(floor, gain.value), now);
+    if (exponential) gain.exponentialRampToValueAtTime(floor, now + fadeOutTime);
+    else gain.linearRampToValueAtTime(floor, now + fadeOutTime);
 
     await new Promise((resolve) => setTimeout(resolve, fadeOutTime * 1000));
+    if (token !== this.fadeToken || !this.audioContext) return; // lo reemplazó otro fundido
 
-    // Ramp back up
     const afterNow = this.audioContext.currentTime;
-    this.masterGain.gain.setValueAtTime(0.01, afterNow);
-    this.masterGain.gain.linearRampToValueAtTime(currentGain, afterNow + fadeInTime);
+    const target = this.restingGain();
+    gain.cancelScheduledValues(afterNow);
+    gain.setValueAtTime(floor, afterNow);
+    // exponentialRamp no admite destino 0 (silenciado): se usa lineal en ese caso
+    if (exponential && target > 0) gain.exponentialRampToValueAtTime(target, afterNow + fadeInTime);
+    else gain.linearRampToValueAtTime(target, afterNow + fadeInTime);
+  }
+
+  public async crossfade(durationSec = 2.0): Promise<void> {
+    await this.fadeThroughSilence(
+      Math.max(0.4, durationSec * 0.4),
+      Math.max(0.4, durationSec * 0.6),
+      false
+    );
   }
 
   // ── Harmonic DJ Crossfade (BPM & Camelot Beat-Sync) ───────────────────────
   public async harmonicCrossfade(durationSec = 2.5, _fromKey?: string, _toKey?: string): Promise<void> {
-    if (!this.masterGain || !this.audioContext) return;
-    const now = this.audioContext.currentTime;
-    const currentGain = this.masterGain.gain.value;
-
-    const fadeOutTime = Math.max(0.5, durationSec * 0.45);
-    const fadeInTime = Math.max(0.5, durationSec * 0.55);
-
-    this.masterGain.gain.setValueAtTime(currentGain, now);
-    this.masterGain.gain.exponentialRampToValueAtTime(0.001, now + fadeOutTime);
-
-    await new Promise((resolve) => setTimeout(resolve, fadeOutTime * 1000));
-
-    const afterNow = this.audioContext.currentTime;
-    this.masterGain.gain.setValueAtTime(0.001, afterNow);
-    this.masterGain.gain.exponentialRampToValueAtTime(currentGain, afterNow + fadeInTime);
+    await this.fadeThroughSilence(
+      Math.max(0.5, durationSec * 0.45),
+      Math.max(0.5, durationSec * 0.55),
+      true
+    );
   }
 
   // ── Studio Dynamic Mastering Limiter ─────────────────────────────────────

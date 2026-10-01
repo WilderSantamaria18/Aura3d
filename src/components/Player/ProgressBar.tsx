@@ -2,7 +2,8 @@ import React, { useRef, useCallback, useMemo, useEffect } from 'react';
 import { Zap } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
+import { isSpotifyActiveSource } from '../../utils/spotifyRouting';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { usePlaybackLoop, formatClock } from '../../hooks/usePlaybackLoop';
 import { waveformService } from '../../services/waveformService';
@@ -33,7 +34,7 @@ export const ProgressBar: React.FC = React.memo(() => {
     );
   const duration = usePlayerStore((s) => s.duration);
 
-  const { seek: engineSeek } = useAudioEngine();
+  const { seek: engineSeek } = useAudioPlayerActions();
   const { seek: spotifySeek } = useSpotifyPlayer();
 
   const barRef = useRef<HTMLDivElement>(null);
@@ -166,7 +167,7 @@ export const ProgressBar: React.FC = React.memo(() => {
   };
 
   const commitSeek = (time: number) => {
-    if (isSpotifyConnected) spotifySeek(Math.round(time * 1000));
+    if (isSpotifyActiveSource({ isSpotifyConnected, currentTrack })) spotifySeek(Math.round(time * 1000));
     else engineSeek(time);
   };
 

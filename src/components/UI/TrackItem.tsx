@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, ListPlus, Trash2, Music } from 'lucide-react';
+import { Heart, ListPlus, Trash2, Music, Loader2 } from 'lucide-react';
 import type { Track } from '../../types/audio';
 
 interface TrackItemProps {
@@ -7,6 +7,7 @@ interface TrackItemProps {
   isActive: boolean;
   isPlaying?: boolean;
   isFavorite?: boolean;
+  isLoading?: boolean;
   onPlay: () => void;
   onToggleFavorite?: (track: Track) => void;
   onPlayNext?: (track: Track) => void;
@@ -25,6 +26,7 @@ export const TrackItem: React.FC<TrackItemProps> = ({
   isActive,
   isPlaying = false,
   isFavorite = false,
+  isLoading = false,
   onPlay,
   onToggleFavorite,
   onPlayNext,
@@ -46,16 +48,19 @@ export const TrackItem: React.FC<TrackItemProps> = ({
       className={`track-item-glass p-3 flex items-center gap-3.5 min-h-[68px] group relative cursor-pointer active:scale-[0.99] select-none ${
         isActive ? 'is-active' : ''
       }`}
-      onClick={onPlay}
+      onClick={() => {
+        if (!isLoading) onPlay();
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onPlay();
+          if (!isLoading) onPlay();
         }
       }}
       aria-label={`Reproducir ${track.title} de ${track.artist}`}
+      aria-busy={isLoading}
     >
       {/* Cover / Mini Visualizer */}
       <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/[0.06] border border-white/15 flex items-center justify-center shadow-[0_6px_14px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]">
@@ -71,7 +76,11 @@ export const TrackItem: React.FC<TrackItemProps> = ({
         )}
 
         {/* Mini 3-bar animated cyan VU meter if active and playing */}
-        {isActive && (
+        {isLoading ? (
+          <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px] flex items-center justify-center">
+            <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-rose-300" aria-hidden="true" />
+          </div>
+        ) : isActive && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center">
             <div className="flex items-end gap-0.5 h-3.5" aria-label="Reproduciendo">
               <div className={`w-0.5 bg-cyan-400 rounded-full ${isPlaying ? 'animate-[bounce_0.6s_ease-in-out_infinite]' : 'h-3'}`} />

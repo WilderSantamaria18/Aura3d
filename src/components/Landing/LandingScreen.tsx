@@ -22,7 +22,7 @@ import {
   Headphones,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { useLandingScroll } from '../../hooks/useLandingScroll';
 import { CosmicStarfield } from './CosmicStarfield';
 import { StudioOscilloscope } from './StudioOscilloscope';
@@ -34,7 +34,7 @@ import { FEATURES } from '../../constants/features';
 export const LandingScreen: React.FC = () => {
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
-  const { unlockAudio, loadFile, toggleMicrophone } = useAudioEngine();
+  const { unlockAudio, loadFile, toggleMicrophone } = useAudioPlayerActions();
 
   const [isTransitioningOut, setIsTransitioningOut] = useState<boolean>(false);
   const [isDraggingHero, setIsDraggingHero] = useState<boolean>(false);

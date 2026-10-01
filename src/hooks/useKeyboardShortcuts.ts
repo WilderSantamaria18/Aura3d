@@ -2,58 +2,61 @@ import { useEffect, useCallback } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useRecorderStore } from '../store/recorderStore';
 import { useWallpaperStore } from '../stores/wallpaperStore';
-import { useAudioEngine } from './useAudioEngine';
+import { useAudioPlayerActions } from './useAudioPlayer';
+import { isSpotifyActiveSource } from '../utils/spotifyRouting';
 import { useSpotifyPlayer } from './useSpotifyPlayer';
 
 export const useKeyboardShortcuts = () => {
-  const {
-    visualizerMode,
-    setVisualizerMode,
-    isEqualizerOpen,
-    setEqualizerOpen,
-    isLyricsOpen,
-    setLyricsOpen,
-    isSidebarOpen,
-    setSidebarOpen,
-    isShortcutsModalOpen,
-    setShortcutsModalOpen,
-    toggleShortcutsModal,
-    setCommandPaletteOpen,
-    isLucid,
-    setIsLucid,
-    autoMode,
-    setAutoMode,
-    toggleMute,
-    currentTime,
-    duration,
-    setCurrentTime,
-    isSpotifyConnected,
-  } = usePlayerStore();
-
-  const { togglePlayPause: engineTogglePlayPause, seek: engineSeek, playNext: engineNext, playPrevious: enginePrev } = useAudioEngine();
+  // Sin suscripción al store: con `usePlayerStore()` este hook re-renderizaba toda la app en cada
+  // cambio de currentTime (cada 250 ms) y recreaba los listeners de teclado. El estado se lee al actuar.
+  const { togglePlayPause: engineTogglePlayPause, seek: engineSeek, playNext: engineNext, playPrevious: enginePrev } = useAudioPlayerActions();
   const { togglePlayPause: spotifyTogglePlayPause, seek: spotifySeek, playNext: spotifyNext, playPrevious: spotifyPrev } = useSpotifyPlayer();
 
   const dispatchAction = useCallback(
     (action: string) => {
+    const {
+      visualizerMode,
+      setVisualizerMode,
+      isEqualizerOpen,
+      setEqualizerOpen,
+      isLyricsOpen,
+      setLyricsOpen,
+      isSidebarOpen,
+      setSidebarOpen,
+      isShortcutsModalOpen,
+      setShortcutsModalOpen,
+      toggleShortcutsModal,
+      setCommandPaletteOpen,
+      isLucid,
+      setIsLucid,
+      autoMode,
+      setAutoMode,
+      toggleMute,
+      currentTime,
+      duration,
+      setCurrentTime,
+      isSpotifyConnected,
+    } = usePlayerStore.getState();
+      const spotifyActive = isSpotifyActiveSource(usePlayerStore.getState());
       switch (action) {
         case 'TOGGLE_PLAY':
-          if (isSpotifyConnected) spotifyTogglePlayPause();
+          if (spotifyActive) spotifyTogglePlayPause();
           else engineTogglePlayPause();
           break;
 
         case 'NEXT_TRACK':
-          if (isSpotifyConnected) spotifyNext();
+          if (spotifyActive) spotifyNext();
           else engineNext();
           break;
 
         case 'PREV_TRACK':
-          if (isSpotifyConnected) spotifyPrev();
+          if (spotifyActive) spotifyPrev();
           else enginePrev();
           break;
 
         case 'SEEK_FORWARD': {
           const nextTime = Math.min(duration || 300, currentTime + 5);
-          if (isSpotifyConnected) {
+          if (spotifyActive) {
             spotifySeek(nextTime * 1000);
           } else {
             engineSeek(nextTime);
@@ -64,7 +67,7 @@ export const useKeyboardShortcuts = () => {
 
         case 'SEEK_BACKWARD': {
           const prevTime = Math.max(0, currentTime - 5);
-          if (isSpotifyConnected) {
+          if (spotifyActive) {
             spotifySeek(prevTime * 1000);
           } else {
             engineSeek(prevTime);
@@ -92,7 +95,7 @@ export const useKeyboardShortcuts = () => {
           break;
 
         case 'CYCLE_VISUALIZER': {
-          const modes = ['blob', 'synthwave', 'warp', 'terrain'] as const;
+          const modes = ['blob', 'synthwave', 'terrain'] as const;
           const currentIdx = modes.indexOf(visualizerMode as any);
           const nextMode = modes[(currentIdx + 1) % modes.length];
           setVisualizerMode(nextMode);
@@ -176,34 +179,14 @@ export const useKeyboardShortcuts = () => {
       }
     },
     [
-      isSpotifyConnected,
       spotifyTogglePlayPause,
       engineTogglePlayPause,
       spotifyNext,
       engineNext,
       spotifyPrev,
       enginePrev,
-      duration,
-      currentTime,
       spotifySeek,
       engineSeek,
-      setCurrentTime,
-      toggleMute,
-      visualizerMode,
-      setVisualizerMode,
-      isLyricsOpen,
-      setLyricsOpen,
-      setCommandPaletteOpen,
-      isSidebarOpen,
-      setSidebarOpen,
-      toggleShortcutsModal,
-      setShortcutsModalOpen,
-      setEqualizerOpen,
-      isEqualizerOpen,
-      autoMode,
-      setAutoMode,
-      isLucid,
-      setIsLucid,
     ]
   );
 

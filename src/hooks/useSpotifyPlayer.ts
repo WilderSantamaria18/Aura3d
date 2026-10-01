@@ -49,6 +49,52 @@ async function getAuthToken(forceRefresh = false): Promise<string> {
   return guestTokenPromise;
 }
 
+/**
+ * Petición autenticada a los endpoints de Spotify del backend.
+ * Vive a nivel de módulo (no depende del estado de React) para poder usarla fuera del hook.
+ */
+async function spotifyFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
+  let token = await getAuthToken();
+  const headers = new Headers(options.headers || {});
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  let res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, { ...options, headers });
+
+  // Si es 401 (token caducado o invalidado al reiniciar el servidor), renueva el token de invitado y reintenta una vez
+  if (res.status === 401 && endpoint !== '/disconnect') {
+    token = await getAuthToken(true);
+    if (token) {
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set('Authorization', `Bearer ${token}`);
+      res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, { ...options, headers: retryHeaders });
+    }
+  }
+
+  return res;
+}
+
+// ¿Está sonando Spotify en el dispositivo remoto? (último dato del sondeo)
+let remotePlaying = false;
+let sourceSwitchWatcherInstalled = false;
+
+/**
+ * Spotify suena en otro dispositivo (Connect), no en este motor de audio. Si el usuario elige
+ * otra fuente (archivo, YouTube, radio, mic…) hay que pausarlo o se oirían las dos a la vez.
+ */
+function installSourceSwitchWatcher() {
+  if (sourceSwitchWatcherInstalled) return;
+  sourceSwitchWatcherInstalled = true;
+  usePlayerStore.subscribe((state, prev) => {
+    const track = state.currentTrack;
+    if (track === prev.currentTrack) return;
+    if (!state.isSpotifyConnected || !remotePlaying) return;
+    if (!track || track.sourceType === 'spotify') return;
+    remotePlaying = false;
+    spotifyFetch('/pause', { method: 'POST' }).catch(() => {});
+  });
+}
+
 // Module-level singleton polling state (shared across all components)
 let isPollingInFlight = false;
 let sharedPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -74,39 +120,6 @@ export const useSpotifyPlayer = () => {
 
   const prevUriRef = useRef<string>('');
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /**
-   * Helper for authenticated requests to Spotify endpoints
-   */
-  const spotifyFetch = useCallback(
-    async (endpoint: string, options: RequestInit = {}) => {
-      let token = await getAuthToken();
-      const headers = new Headers(options.headers || {});
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
-      let res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, {
-        ...options,
-        headers,
-      });
-
-      // If 401 (token expired or invalidated by server restart), refresh guest token and retry once
-      if (res.status === 401 && endpoint !== '/disconnect') {
-        token = await getAuthToken(true);
-        if (token) {
-          const retryHeaders = new Headers(options.headers || {});
-          retryHeaders.set('Authorization', `Bearer ${token}`);
-          res = await fetch(`${SERVER_URL}/api/spotify${endpoint}`, {
-            ...options,
-            headers: retryHeaders,
-          });
-        }
-      }
-
-      return res;
-    },
-    []
-  );
 
   /**
    * Start Spotify OAuth 2.0 PKCE Authorization flow
@@ -146,7 +159,7 @@ export const useSpotifyPlayer = () => {
       setIsLoading(false);
       alert(`No se pudo conectar con Spotify:\n\n${msg}`);
     }
-  }, [spotifyFetch]);
+  }, []);
 
   /**
    * Disconnect Spotify session on server
@@ -161,17 +174,18 @@ export const useSpotifyPlayer = () => {
       setSpotifyConnected(false);
       setIsLoading(false);
     }
-  }, [spotifyFetch, setSpotifyConnected]);
+  }, [setSpotifyConnected]);
 
   /**
    * Poll currently playing track from Spotify (singleton in-flight protected)
    */
   const pollCurrentTrack = useCallback(async () => {
-    if (!isSpotifyConnected || isPollingInFlight) return;
+    if (!usePlayerStore.getState().isSpotifyConnected || isPollingInFlight) return;
     const now = Date.now();
     if (now - lastPollTimestamp < 1800) return; // Strict throttle
     lastPollTimestamp = now;
     isPollingInFlight = true;
+    const requestStartedAt = performance.now();
 
     try {
       const res = await spotifyFetch('/current');
@@ -192,6 +206,13 @@ export const useSpotifyPlayer = () => {
         if (!data || !data.spotifyUri) return;
 
         prevUriRef.current = data.spotifyUri;
+        remotePlaying = !!(data.isPlaying ?? data.is_playing);
+
+        // Compensa solo la mitad del viaje de red: el progreso recibido es una
+        // fotografía tomada durante la solicitud, no en el instante de pintarla.
+        const responseLagMs = Math.min(400, (performance.now() - requestStartedAt) * 0.5);
+        const reportedProgressMs = data.progressMs || data.progress_ms || 0;
+        const compensatedProgressMs = reportedProgressMs + ((data.isPlaying ?? data.is_playing) ? responseLagMs : 0);
 
         updateFromSpotify({
           title: data.title,
@@ -200,9 +221,9 @@ export const useSpotifyPlayer = () => {
           duration: data.duration,
           coverUrl: data.coverUrl || '',
           spotifyUri: data.spotifyUri,
-          currentTime: Math.round((data.progressMs || data.progress_ms || 0) / 1000),
+          currentTime: compensatedProgressMs / 1000,
           isPlaying: !!(data.isPlaying ?? data.is_playing),
-          progressMs: data.progressMs || data.progress_ms || 0,
+          progressMs: compensatedProgressMs,
           tempo: data.tempo || data.bpm,
           bpm: data.bpm || data.tempo,
           energy: data.energy,
@@ -214,13 +235,15 @@ export const useSpotifyPlayer = () => {
     } finally {
       isPollingInFlight = false;
     }
-  }, [isSpotifyConnected, spotifyFetch, setSpotifyConnected, updateFromSpotify]);
+  }, [setSpotifyConnected, updateFromSpotify]);
 
   /**
    * Check connection status and handle OAuth callback on mount
    */
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    installSourceSwitchWatcher();
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('spotify') === 'connected') {
@@ -253,7 +276,7 @@ export const useSpotifyPlayer = () => {
           isCheckingInitialStatus = false;
         });
     }
-  }, [setSpotifyConnected, spotifyFetch]);
+  }, [setSpotifyConnected]);
 
   /**
    * Shared singleton 2000ms polling loop when Spotify is connected
@@ -282,7 +305,7 @@ export const useSpotifyPlayer = () => {
     } catch (err) {
       console.error('[Spotify Play Error]', err);
     }
-  }, [spotifyFetch, pollCurrentTrack]);
+  }, [pollCurrentTrack]);
 
   const pause = useCallback(async () => {
     try {
@@ -291,7 +314,7 @@ export const useSpotifyPlayer = () => {
     } catch (err) {
       console.error('[Spotify Pause Error]', err);
     }
-  }, [spotifyFetch, pollCurrentTrack]);
+  }, [pollCurrentTrack]);
 
   const togglePlayPause = useCallback(async () => {
     if (isPlaying) {
@@ -308,7 +331,7 @@ export const useSpotifyPlayer = () => {
     } catch (err) {
       console.error('[Spotify Next Error]', err);
     }
-  }, [spotifyFetch, pollCurrentTrack]);
+  }, [pollCurrentTrack]);
 
   const previous = useCallback(async () => {
     try {
@@ -317,7 +340,7 @@ export const useSpotifyPlayer = () => {
     } catch (err) {
       console.error('[Spotify Previous Error]', err);
     }
-  }, [spotifyFetch, pollCurrentTrack]);
+  }, [pollCurrentTrack]);
 
   const seek = useCallback(
     async (positionMs: number) => {
@@ -332,7 +355,7 @@ export const useSpotifyPlayer = () => {
         console.error('[Spotify Seek Error]', err);
       }
     },
-    [spotifyFetch, pollCurrentTrack]
+    [pollCurrentTrack]
   );
 
   return {

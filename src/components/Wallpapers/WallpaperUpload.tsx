@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Upload, Image as ImageIcon, Trash2, Check, Sparkles, ZoomIn } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
+import { useShallow } from 'zustand/react/shallow';
 
 interface WallpaperUploadProps {
   onApplied?: () => void;
@@ -12,7 +13,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
   const [dragOver, setDragOver] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
 
-  const { blobSettings, updateBlobSettings } = usePlayerStore();
+  const { blobSettings, updateBlobSettings } = usePlayerStore(useShallow((s) => ({ blobSettings: s.blobSettings, updateBlobSettings: s.updateBlobSettings })));
   const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
   const setCurrentWallpaper = useWallpaperStore((s) => s.setCurrentWallpaper);
   const clearWallpaper = useWallpaperStore((s) => s.clearWallpaper);

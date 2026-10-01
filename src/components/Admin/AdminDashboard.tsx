@@ -30,6 +30,7 @@ import {
   LayoutDashboard,
   Cpu,
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -38,7 +39,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  const { intensityScore, detectedGenre, vrMode, currentTrack } = usePlayerStore();
+  const { intensityScore, detectedGenre, vrMode, currentTrack } = usePlayerStore(useShallow((s) => ({ intensityScore: s.intensityScore, detectedGenre: s.detectedGenre, vrMode: s.vrMode, currentTrack: s.currentTrack })));
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'sessions' | 'performance'>('dashboard');
 
   const [metrics, setMetrics] = useState<AdminMetrics>(() =>

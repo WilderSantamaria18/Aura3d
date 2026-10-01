@@ -20,477 +20,25 @@ import type {
 import { LUCID_THEMES, PROFESSIONAL_PALETTES, createLucidTheme } from '../types/audio';
 import { StorageService, DEFAULT_BLOB_SETTINGS } from '../services/storageService';
 import { DEFAULT_EQ_BANDS, audioEngine } from '../services/audioEngine';
+import { effectiveTier } from '../utils/adaptiveQuality';
 import { combineColorsFromWallpaper } from '../services/wallpaperColorService';
+import {
+  createTrackFromYouTubeCandidate,
+  replaceResolvedFavorite,
+  resolveSavedTrackCandidate,
+} from '../utils/savedTrackPlayback';
 
-export interface HandLandmark {
-  x: number;
-  y: number;
-  z?: number;
-}
+import type { PlayerState } from './playerStore.types';
+import { DEFAULT_KAWARP_SETTINGS, DEFAULT_LENIS_SETTINGS } from './playerStore.types';
 
-export interface PoseLandmark {
-  x: number;
-  y: number;
-  z?: number;
-  visibility?: number;
-}
-
-export interface AutoPalette {
-  primary: string;
-  secondary: string;
-  tertiary: string;
-  accent?: string;
-  glow: string;
-  bg: string;
-}
-
-export type CameraPreset = 'front' | 'orbit' | 'top' | 'driver' | 'drone';
-
-export const DEFAULT_KAWARP_SETTINGS: KawarpSettings = {
-  enabled: true,
-  warpIntensity: 0.5,
-  blurPasses: 16,
-  motionSpeed: 0.8,
-  saturation: 1.2,
-  brightness: 1.0,
-};
-
-export const DEFAULT_LENIS_SETTINGS: LenisSettings = {
-  enabled: true,
-  duration: 1.2,
-  smoothWheel: true,
-  wheelMultiplier: 1.0,
-};
-
-interface PlayerState {
-  // App navigation state
-  hasStarted: boolean;
-
-  // Lucid Mode (Modo Lúcido) & Color Customization
-  isLucid: boolean;
-  lucidTheme: LucidTheme;
-  customLucidThemes: LucidTheme[];
-  lucidPrimaryColor: string;
-  lucidSecondaryColor: string;
-
-  // VR Gesture Mode & Full Body Dance Pose
-  vrMode: boolean;
-  vrTrackingMode: 'body' | 'hands';
-  handLandmarks: HandLandmark[] | null;
-  handGesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null;
-  handRotation: { x: number; y: number };
-  handSensitivity: number;
-  poseLandmarks: PoseLandmark[] | null;
-  poseVelocity: number;
-  rightHandPos: { x: number; y: number; z: number } | null;
-  leftHandPos: { x: number; y: number; z: number } | null;
-  headPos: { x: number; y: number; z: number } | null;
-
-  // 3D Air Virtual Instruments & Spatial Camera Studio
-  isCameraStudioOpen: boolean;
-  isAirInstrumentsActive: boolean;
-  airInstrumentType: 'synth' | 'drums' | 'theremin' | 'pads' | 'pose';
-  airSynthScale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese';
-  lastTriggeredNote: string | null;
-  multiHandLandmarks: HandLandmark[][] | null;
-
-  // Professional Palettes
-  currentPaletteIndex: number;
-
-  // Current track & queue
-  currentTrack: Track | null;
-  queue: Track[];
-  queueIndex: number;
-  favorites: Track[];
-  playlists: Playlist[];
-
-  // Playback state
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  isMuted: boolean;
-  previousVolume: number;
-  isAudioUnlocked: boolean;
-  repeatMode: 'off' | 'all' | 'one';
-  isShuffled: boolean;
-  shuffleHistory: number[];
-  crossfadeDuration: number;
-  isCrossfadeActive: boolean;
-  toggleCrossfade: () => void;
-
-  // 8D Audio & Spatial Panning DSP
-  is8DAudioActive: boolean;
-  eightDSpeed: number;
-  toggle8DAudio: () => void;
-  set8DSpeed: (speed: number) => void;
-
-  // Virtual Studio Reverb
-  reverbPreset: ReverbPreset;
-  setReverbPreset: (preset: ReverbPreset) => void;
-
-  // Post-Processing Reactive Glitch & Shockwave
-  isRgbGlitchActive: boolean;
-  toggleRgbGlitch: () => void;
-
-  // Sleep Timer
-  sleepTimerMinutes: number;
-  sleepTimerRemainingSec: number;
-  setSleepTimer: (minutes: number) => void;
-  decrementSleepTimer: () => void;
-
-  // Retro CRT & Film Grain
-  isRetroCrtActive: boolean;
-  toggleRetroCrt: () => void;
-  setRetroCrt: (active: boolean) => void;
-
-  // 3D Audio Ribbons
-  showAudioRibbons: boolean;
-  toggleAudioRibbons: () => void;
-  setShowAudioRibbons: (show: boolean) => void;
-
-  // 3D Floating Karaoke Lyrics
-  isLyrics3DActive: boolean;
-  toggleLyrics3D: () => void;
-  setLyrics3DActive: (active: boolean) => void;
-
-  // Audio DSP: Underwater Club Filter
-  isUnderwaterActive: boolean;
-  toggleUnderwater: () => void;
-
-  // Audio DSP: Speed & Pitch Shifter (Slowed + Reverb / Nightcore)
-  dspSpeedMode: 'normal' | 'slowed' | 'nightcore';
-  setDspSpeedMode: (mode: 'normal' | 'slowed' | 'nightcore') => void;
-
-  // Audio DSP: Binaural Beats & Solfeggio 432Hz
-  binauralMode: 'off' | 'alpha' | 'theta' | 'solfeggio432';
-  setBinauralMode: (mode: 'off' | 'alpha' | 'theta' | 'solfeggio432') => void;
-
-  // Studio Dynamic Mastering Limiter
-  masteringPreset: MasteringLimiterPreset;
-  setMasteringPreset: (preset: MasteringLimiterPreset) => void;
-
-  // Vocal Remover & Karaoke / Instrumental DSP
-  vocalMode: VocalMode;
-  setVocalMode: (mode: VocalMode) => void;
-  toggleVocalMode: () => void;
-
-  // Auralis Story Card 9:16 Modal
-  isStoryCardOpen: boolean;
-  setStoryCardOpen: (open: boolean) => void;
-
-  // DJ Looper A-B & Cue Points
-  loopA: number | null;
-  loopB: number | null;
-  isLoopActive: boolean;
-  setLoopPointA: () => void;
-  setLoopPointB: () => void;
-  clearLoop: () => void;
-  cuePoints: number[];
-  setCuePoint: (index: number) => void;
-  jumpToCuePoint: (index: number) => void;
-
-  // Harmonic DJ Sync & Infinite Radio
-  isHarmonicSyncActive: boolean;
-  toggleHarmonicSync: () => void;
-  isInfiniteRadioActive: boolean;
-  toggleInfiniteRadio: () => void;
-
-  // Modals & Panels: Command Palette & Session Stats
-  isCommandPaletteOpen: boolean;
-  setCommandPaletteOpen: (open: boolean) => void;
-  isSessionStatsOpen: boolean;
-  setSessionStatsOpen: (open: boolean) => void;
-
-  // Quick 3-Band Equalizer (MiniPlayer)
-  threeBandEQ: { bass: number; mids: number; treble: number };
-  setThreeBandGain: (band: 'bass' | 'mids' | 'treble', gain: number) => void;
-
-  // 3D Cinematic Camera Preset
-  cameraPreset: CameraPreset;
-  setCameraPreset: (preset: CameraPreset) => void;
-
-  // Shared / Active Visualizer mode
-  visualizerMode: VisualizerMode;
-  visualizerShape: VisualizerShape;
-  waveEffectMode: WaveEffectMode;
-  waveEffectIntensity: number;
-  bassBoomThreshold: number;
-  bassBoomIntensity: number;
-
-  // Independent Sphere 3D Slice
-  sphereShape: VisualizerShape;
-  sphereWaveMode: WaveEffectMode;
-  sphereWaveIntensity: number;
-  sphereBassBoomThreshold: number;
-  sphereBassBoomIntensity: number;
-
-  // Independent Blob 2D Slice
-  blobShape: BlobShape;
-  blobWaveMode: WaveEffectMode;
-  blobWaveIntensity: number;
-  blobBassBoomThreshold: number;
-  blobBassBoomIntensity: number;
-  blobScale: number;
-
-  autoMode: boolean;
-  dynamicColor: string;
-  baseColorHue: number;
-  autoSensitivity: number;
-  autoPalette: AutoPalette;
-  autoFeedbackToast: boolean;
-  autoNotification: { message: string; type: 'info' | 'success' | 'warning'; id: number; color?: string } | null;
-  isMicActive: boolean;
-  showFrequencyBars: boolean;
-  sphereOpacity: number;
-  sphereScale: number;
-  rainbowScale: number;
-  linkScales: boolean;
-  sphereRadius: number; // backward compatibility alias
-  musicSensitivity: number;
-  audioSpeed: number;
-
-  // Blob Customizer settings
-  blobSettings: BlobCustomSettings;
-  isBlobPanelOpen: boolean;
-
-  // UI Modals & Views
-  isVisualizerSettingsOpen: boolean;
-  isEqualizerOpen: boolean;
-  isLyricsOpen: boolean;
-  isImmersiveMode: boolean;
-  isSidebarOpen: boolean;
-  isKaraokeFullscreen: boolean;
-  isNowPlayingExpanded: boolean;
-  isMiniPlayerOpen: boolean;
-  isTransitioning: boolean;
-  setIsTransitioning: (isTransitioning: boolean) => void;
-
-  // ─── Lyrics Evolution V2 ───
-  lyricsPanelState: LyricsPanelState;
-  setLyricsPanelState: (state: LyricsPanelState) => void;
-  isLyricsFullscreen: boolean;
-  setLyricsFullscreen: (v: boolean) => void;
-  romanizationMode: RomanizationMode;
-  setRomanizationMode: (m: RomanizationMode) => void;
-  kawarpSettings: KawarpSettings;
-  updateKawarpSettings: (s: Partial<KawarpSettings>) => void;
-  lenisSettings: LenisSettings;
-  updateLenisSettings: (s: Partial<LenisSettings>) => void;
-  dominantColors: { primary: string; secondary: string } | null;
-  setDominantColors: (c: { primary: string; secondary: string } | null) => void;
-  lyricsHideDelay: number;
-  setLyricsHideDelay: (ms: number) => void;
-  lyricsAutoScroll: boolean;
-  setLyricsAutoScroll: (v: boolean) => void;
-
-  // Studio Capture & Framing Suite
-  isCaptureStudioOpen: boolean;
-  captureAspectRatio: '16:9' | '9:16' | '1:1' | '4:5';
-  isFramingGuideActive: boolean;
-  captureQuality: '1080p' | '4k';
-  captureSourceMode: 'direct_canvas' | 'screen_tab';
-  setCaptureStudioOpen: (isOpen: boolean) => void;
-  toggleCaptureStudio: () => void;
-  setCaptureAspectRatio: (ratio: '16:9' | '9:16' | '1:1' | '4:5') => void;
-  setFramingGuideActive: (active: boolean) => void;
-  toggleFramingGuide: () => void;
-  setCaptureQuality: (quality: '1080p' | '4k') => void;
-  setCaptureSourceMode: (mode: 'direct_canvas' | 'screen_tab') => void;
-
-  // EQ Bands
-  eqBands: EqualizerBand[];
-
-  // Gamification & Real-Time Stats
-  intensityScore: number;
-  sessionHighScore: number;
-  totalListeningTime: number;
-  sessionDuration: number;
-  detectedGenre: string;
-  genreConfidence: number;
-  isAdminModalOpen: boolean;
-  isProfileModalOpen: boolean;
-  isSysReqModalOpen: boolean;
-  performanceTier: 'high' | 'medium' | 'eco';
-  userProfile: {
-    id: string;
-    username: string;
-    email?: string;
-    role: string;
-    isGuest: boolean;
-    genres?: string[];
-  } | null;
-
-  // Web Audio Analyser & Interaction
-  analyser: AnalyserNode | null;
-  audioContext: AudioContext | null;
-  userInteracting: boolean;
-
-  // Actions
-  setHasStarted: (hasStarted: boolean) => void;
-  setIsLucid: (isLucid: boolean) => void;
-  toggleLucidMode: () => void;
-  setLucidTheme: (theme: LucidTheme) => void;
-  setLucidPrimaryColor: (color: string) => void;
-  setLucidSecondaryColor: (color: string) => void;
-  cycleLucidTheme: () => void;
-  saveCustomLucidTheme: (name?: string, primary?: string, secondary?: string) => LucidTheme;
-  deleteCustomLucidTheme: (id: string) => void;
-  combineWithWallpaper: (targetUrl?: string, targetTitle?: string) => Promise<boolean>;
-  setVrMode: (vrMode: boolean) => void;
-  toggleVrMode: () => void;
-  setVrTrackingMode: (mode: 'body' | 'hands') => void;
-  setHandLandmarks: (landmarks: HandLandmark[] | null) => void;
-  setHandGesture: (gesture: 'open' | 'closed' | 'pinch' | 'swipe_left' | 'swipe_right' | 'one' | 'fist' | 'unknown' | null) => void;
-  setHandRotation: (rotation: { x: number; y: number }) => void;
-  setHandSensitivity: (sensitivity: number) => void;
-  setPoseLandmarks: (landmarks: PoseLandmark[] | null) => void;
-  setPoseVelocity: (velocity: number) => void;
-  setPoseKeypoints: (data: { rightHand?: { x: number; y: number; z: number }; leftHand?: { x: number; y: number; z: number }; head?: { x: number; y: number; z: number }; velocity?: number }) => void;
-  setCameraStudioOpen: (open: boolean) => void;
-  toggleCameraStudio: () => void;
-  setAirInstrumentsActive: (active: boolean) => void;
-  toggleAirInstruments: () => void;
-  setAirInstrumentType: (type: 'synth' | 'drums' | 'theremin' | 'pads' | 'pose') => void;
-  setAirSynthScale: (scale: 'pentatonic_minor' | 'pentatonic_major' | 'cyberpunk' | 'japanese') => void;
-  setLastTriggeredNote: (note: string | null) => void;
-  setMultiHandLandmarks: (multiHands: HandLandmark[][] | null) => void;
-  setCurrentPaletteIndex: (index: number) => void;
-  cyclePalette: () => void;
-  setVisualizerMode: (mode: VisualizerMode) => void;
-  setVisualizerShape: (shape: VisualizerShape) => void;
-  setWaveEffectMode: (mode: WaveEffectMode) => void;
-  setWaveEffectIntensity: (intensity: number) => void;
-  setBassBoomThreshold: (threshold: number) => void;
-  setBassBoomIntensity: (intensity: number) => void;
-
-  setSphereShape: (shape: VisualizerShape) => void;
-  setSphereWaveMode: (mode: WaveEffectMode) => void;
-  setSphereWaveIntensity: (intensity: number) => void;
-  setSphereBassBoomThreshold: (threshold: number) => void;
-  setSphereBassBoomIntensity: (intensity: number) => void;
-
-  setBlobShape: (shape: BlobShape) => void;
-  setBlobWaveMode: (mode: WaveEffectMode) => void;
-  setBlobWaveIntensity: (intensity: number) => void;
-  setBlobBassBoomThreshold: (threshold: number) => void;
-  setBlobBassBoomIntensity: (intensity: number) => void;
-  setBlobScale: (scale: number) => void;
-  setAutoMode: (autoMode: boolean) => void;
-  toggleAutoMode: () => void;
-  setDynamicColor: (color: string) => void;
-  setBaseColorHue: (hue: number) => void;
-  setAutoNotification: (notification: { message: string; type: 'info' | 'success' | 'warning'; id: number; color?: string } | null) => void;
-  setAutoSensitivity: (sensitivity: number) => void;
-  setAutoPalette: (palette: AutoPalette) => void;
-  updateAutoPalette: (fftData: Uint8Array) => void;
-  setAutoFeedbackToast: (show: boolean) => void;
-  setIsMicActive: (active: boolean) => void;
-  setShowFrequencyBars: (show: boolean) => void;
-  setSphereOpacity: (opacity: number) => void;
-  setSphereScale: (scale: number) => void;
-  setRainbowScale: (scale: number) => void;
-  setLinkScales: (link: boolean) => void;
-  setSphereRadius: (radius: number) => void;
-  setMusicSensitivity: (sensitivity: number) => void;
-  setAudioSpeed: (speed: number) => void;
-  setBlobSettings: (settings: BlobCustomSettings) => void;
-  updateBlobSettings: (partial: Partial<BlobCustomSettings>) => void;
-  resetBlobSettings: () => void;
-  setBlobPanelOpen: (isOpen: boolean) => void;
-  setVisualizerSettingsOpen: (isOpen: boolean) => void;
-  toggleVisualizerSettings: () => void;
-  setAudioUnlocked: (unlocked: boolean) => void;
-  setCurrentTrack: (track: Track | null) => void;
-  playTrack: (track: Track) => void;
-  setQueue: (tracks: Track[], startIndex?: number) => void;
-  addToQueue: (track: Track) => void;
-  playNext: (track: Track) => void;
-  clearQueue: () => void;
-  removeFromQueue: (index: number) => void;
-  nextTrack: () => Track | null;
-  previousTrack: () => Track | null;
-  setIsPlaying: (isPlaying: boolean) => void;
-  togglePlay: () => void;
-  setCurrentTime: (time: number) => void;
-  setDuration: (duration: number) => void;
-  setVolume: (volume: number) => void;
-  toggleMute: () => void;
-  toggleFavorite: (track: Track) => void;
-  createPlaylist: (name: string) => void;
-  addToPlaylist: (playlistId: string, track: Track) => void;
-  removeFromPlaylist: (playlistId: string, trackId: string) => void;
-  setEqualizerOpen: (isOpen: boolean) => void;
-  setLyricsOpen: (isOpen: boolean) => void;
-  setImmersiveMode: (isImmersive: boolean) => void;
-  setSidebarOpen: (isOpen: boolean) => void;
-  setKaraokeFullscreen: (isFullscreen: boolean) => void;
-  toggleKaraokeFullscreen: () => void;
-  setNowPlayingExpanded: (isExpanded: boolean) => void;
-  setMiniPlayerOpen: (isOpen: boolean) => void;
-  toggleMiniPlayer: () => void;
-  setEqBandGain: (bandId: number, gain: number) => void;
-  setRepeatMode: (mode: 'off' | 'all' | 'one') => void;
-  toggleShuffle: () => void;
-  setCrossfadeDuration: (seconds: number) => void;
-  setIntensityScore: (score: number) => void;
-  setSessionHighScore: (score: number) => void;
-  setTotalListeningTime: (seconds: number) => void;
-  setSessionDuration: (seconds: number) => void;
-  setDetectedGenre: (genre: string, confidence?: number) => void;
-  setAdminModalOpen: (isOpen: boolean) => void;
-  toggleAdminModal: () => void;
-  setProfileModalOpen: (isOpen: boolean) => void;
-  toggleProfileModal: () => void;
-  setSysReqModalOpen: (isOpen: boolean) => void;
-  toggleSysReqModal: () => void;
-  setPerformanceTier: (tier: 'high' | 'medium' | 'eco') => void;
-  cyclePerformanceTier: () => void;
-  mouseEffectsEnabled: boolean;
-  setMouseEffectsEnabled: (enabled: boolean) => void;
-  toggleMouseEffects: () => void;
-  setUserProfile: (profile: { id: string; username: string; email?: string; role: string; isGuest: boolean; genres?: string[] } | null) => void;
-  isShortcutsModalOpen: boolean;
-  setShortcutsModalOpen: (isOpen: boolean) => void;
-  toggleShortcutsModal: () => void;
-  isPresetsModalOpen: boolean;
-  setPresetsModalOpen: (isOpen: boolean) => void;
-  togglePresetsModal: () => void;
-  bpm: number;
-  isBeatPulse: boolean;
-  setBpm: (bpm: number) => void;
-  triggerBeatPulse: () => void;
-  resetBeatPulse: () => void;
-  isUiIdle: boolean;
-  setIsUiIdle: (idle: boolean) => void;
-  setAnalyser: (analyser: AnalyserNode | null, audioContext?: AudioContext | null) => void;
-  setUserInteracting: (interacting: boolean) => void;
-  isSpotifyConnected: boolean;
-  setSpotifyConnected: (connected: boolean) => void;
-  spotifyBpm: number;
-  spotifyEnergy: number;
-  spotifyDanceability: number;
-  spotifySyncTimestamp: number;
-  spotifyProgressMs: number;
-  updateFromSpotify: (trackData: {
-    title: string;
-    artist: string;
-    album: string;
-    duration: number;
-    coverUrl: string;
-    spotifyUri: string;
-    currentTime: number;
-    isPlaying: boolean;
-    progressMs?: number;
-    tempo?: number;
-    bpm?: number;
-    energy?: number;
-    danceability?: number;
-  }) => void;
-}
+// Se reexportan desde aquí: el resto de la app ya importa estos nombres de playerStore
+export * from './playerStore.types';
 
 let lastNextTrackTimestamp = 0;
 let lastPrevTrackTimestamp = 0;
+
+// Cola de la sesión anterior (solo pistas reproducibles tras recargar: YouTube y radio)
+const restoredQueue = StorageService.getQueue();
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   analyser: null,
@@ -500,6 +48,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   hasStarted: false,
   isTransitioning: false,
   isSpotifyConnected: false,
+  audioError: null,
   spotifyBpm: 124,
   spotifyEnergy: 0.85,
   spotifyDanceability: 0.75,
@@ -541,12 +90,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentPaletteIndex: 0,
 
   currentTrack: null,
-  queue: [],
-  queueIndex: 0,
+  queue: restoredQueue.tracks,
+  queueIndex: restoredQueue.index,
   favorites: StorageService.getFavorites(),
   playlists: StorageService.getPlaylists(),
 
   isPlaying: false,
+  playbackStatus: 'idle',
+  playbackMessage: null,
   currentTime: 0,
   duration: 0,
   volume: StorageService.getVolume(),
@@ -714,6 +265,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isProfileModalOpen: false,
   isSysReqModalOpen: false,
   performanceTier: StorageService.getPerformanceTier(),
+  autoQuality: StorageService.getAutoQuality(),
+  autoTierCap: 'high',
+  effectiveTier: StorageService.getPerformanceTier(), // el tope arranca en 'high': coincide con la elección del usuario
   mouseEffectsEnabled: StorageService.getMouseEffectsEnabled(),
   userProfile: {
     id: 'usr_guest',
@@ -735,17 +289,41 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   toggleProfileModal: () => set((state) => ({ isProfileModalOpen: !state.isProfileModalOpen })),
   setSysReqModalOpen: (isSysReqModalOpen) => set({ isSysReqModalOpen }),
   toggleSysReqModal: () => set((state) => ({ isSysReqModalOpen: !state.isSysReqModalOpen })),
+  // Si el usuario elige un nivel a mano, el tope automático se reinicia: su decisión manda y, si el
+  // equipo sigue sin dar abasto, el modo automático volverá a bajarlo por sí solo.
   setPerformanceTier: (performanceTier) => {
     StorageService.savePerformanceTier(performanceTier);
-    set({ performanceTier });
+    set((state) => ({
+      performanceTier,
+      autoTierCap: 'high',
+      effectiveTier: effectiveTier(performanceTier, 'high', state.autoQuality),
+    }));
   },
   cyclePerformanceTier: () => {
     const current = get().performanceTier;
     const next: 'high' | 'medium' | 'eco' =
       current === 'high' ? 'medium' : current === 'medium' ? 'eco' : 'high';
     StorageService.savePerformanceTier(next);
-    set({ performanceTier: next });
+    set((state) => ({
+      performanceTier: next,
+      autoTierCap: 'high',
+      effectiveTier: effectiveTier(next, 'high', state.autoQuality),
+    }));
   },
+  setAutoQuality: (autoQuality) => {
+    StorageService.saveAutoQuality(autoQuality);
+    // Al activar o desactivar se parte de cero: sin tope automático heredado
+    set((state) => ({
+      autoQuality,
+      autoTierCap: 'high',
+      effectiveTier: effectiveTier(state.performanceTier, 'high', autoQuality),
+    }));
+  },
+  setAutoTierCap: (autoTierCap) =>
+    set((state) => ({
+      autoTierCap,
+      effectiveTier: effectiveTier(state.performanceTier, autoTierCap, state.autoQuality),
+    })),
   setMouseEffectsEnabled: (mouseEffectsEnabled) => {
     StorageService.saveMouseEffectsEnabled(mouseEffectsEnabled);
     set({ mouseEffectsEnabled });
@@ -898,7 +476,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setVisualizerMode: (visualizerMode) => {
-    const safeMode = visualizerMode === 'sphere' ? 'blob' : visualizerMode;
+    const safeMode = visualizerMode === 'synthwave' || visualizerMode === 'terrain' ? visualizerMode : 'blob';
     StorageService.saveVisualizerMode(safeMode);
     const state = get();
     const activeShape = safeMode === 'blob' ? state.blobShape : state.sphereShape;
@@ -975,35 +553,35 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     StorageService.saveSphereShape(sphereShape);
     set((state) => ({
       sphereShape,
-      visualizerShape: state.visualizerMode === 'sphere' ? sphereShape : state.visualizerShape,
+      visualizerShape: (state.visualizerMode as string) === 'sphere' ? sphereShape : state.visualizerShape,
     }));
   },
   setSphereWaveMode: (sphereWaveMode) => {
     StorageService.saveSphereWaveMode(sphereWaveMode);
     set((state) => ({
       sphereWaveMode,
-      waveEffectMode: state.visualizerMode === 'sphere' ? sphereWaveMode : state.waveEffectMode,
+      waveEffectMode: (state.visualizerMode as string) === 'sphere' ? sphereWaveMode : state.waveEffectMode,
     }));
   },
   setSphereWaveIntensity: (sphereWaveIntensity) => {
     StorageService.saveSphereWaveIntensity(sphereWaveIntensity);
     set((state) => ({
       sphereWaveIntensity,
-      waveEffectIntensity: state.visualizerMode === 'sphere' ? sphereWaveIntensity : state.waveEffectIntensity,
+      waveEffectIntensity: (state.visualizerMode as string) === 'sphere' ? sphereWaveIntensity : state.waveEffectIntensity,
     }));
   },
   setSphereBassBoomThreshold: (sphereBassBoomThreshold) => {
     StorageService.saveSphereBassBoomThreshold(sphereBassBoomThreshold);
     set((state) => ({
       sphereBassBoomThreshold,
-      bassBoomThreshold: state.visualizerMode === 'sphere' ? sphereBassBoomThreshold : state.bassBoomThreshold,
+      bassBoomThreshold: (state.visualizerMode as string) === 'sphere' ? sphereBassBoomThreshold : state.bassBoomThreshold,
     }));
   },
   setSphereBassBoomIntensity: (sphereBassBoomIntensity) => {
     StorageService.saveSphereBassBoomIntensity(sphereBassBoomIntensity);
     set((state) => ({
       sphereBassBoomIntensity,
-      bassBoomIntensity: state.visualizerMode === 'sphere' ? sphereBassBoomIntensity : state.bassBoomIntensity,
+      bassBoomIntensity: (state.visualizerMode as string) === 'sphere' ? sphereBassBoomIntensity : state.bassBoomIntensity,
     }));
   },
 
@@ -1176,12 +754,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     get().setSphereScale(radius);
   },
   setMusicSensitivity: (sensitivity) => {
-    const clamped = Math.min(0.85, Math.max(0.60, sensitivity));
+    const clamped = Math.min(2.0, Math.max(0.30, sensitivity));
     StorageService.saveMusicSensitivity(clamped);
     set({ musicSensitivity: clamped, audioSpeed: clamped });
   },
   setAudioSpeed: (speed) => {
-    const clamped = Math.min(0.85, Math.max(0.60, speed));
+    const clamped = Math.min(2.0, Math.max(0.30, speed));
     StorageService.saveMusicSensitivity(clamped);
     set({ audioSpeed: clamped, musicSensitivity: clamped });
   },
@@ -1380,6 +958,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setIsPlaying: (isPlaying) => set({ isPlaying }),
 
+  setPlaybackStatus: (playbackStatus, playbackMessage = null) =>
+    set({ playbackStatus, playbackMessage }),
+
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
 
   setCurrentTime: (currentTime) => set({ currentTime }),
@@ -1419,6 +1000,37 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     StorageService.saveFavorites(updatedFavorites);
     set({ favorites: updatedFavorites });
+
+    const shouldResolveInBackground =
+      !isFav &&
+      !track.youtubeId &&
+      !track.id.startsWith('yt_') &&
+      ['local', 'spotify', 'demo'].includes(track.sourceType);
+
+    if (shouldResolveInBackground) {
+      void resolveSavedTrackCandidate(track)
+        .then((candidate) => {
+          const state = get();
+          const isStillFavorite = state.favorites.some((favorite) => favorite.id === track.id);
+          if (!isStillFavorite) return;
+
+          const resolved = createTrackFromYouTubeCandidate(candidate, track);
+          const favorites = replaceResolvedFavorite(state.favorites, track, resolved);
+          StorageService.saveFavorites(favorites);
+          set({
+            favorites,
+            autoNotification: {
+              message: `Favorito vinculado con YouTube: ${resolved.title}`,
+              type: 'success',
+              id: Date.now(),
+            },
+          });
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+          console.warn('[playerStore] No se pudo vincular el favorito con YouTube:', error);
+        });
+    }
   },
 
   createPlaylist: (name) => {
@@ -1628,10 +1240,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   })),
   setUserInteracting: (userInteracting) => set({ userInteracting }),
   setSpotifyConnected: (connected) => set({ isSpotifyConnected: connected }),
+  setAudioError: (audioError) => set({ audioError }),
   updateFromSpotify: (data) => {
     set((state) => {
       const prevTrack = state.currentTrack;
+
+      // Otra fuente está sonando (archivo, YouTube, radio, mic…): el sondeo de Spotify no debe
+      // pisar la pista ni el estado de reproducción. Si esa fuente está en pausa, Spotify retoma.
+      const otherSourceActive =
+        !!prevTrack && prevTrack.sourceType !== 'spotify' && (state.isPlaying || state.isMicActive);
+      if (otherSourceActive) return state; // mismo objeto: zustand no notifica a nadie
+
       const isSameTrack = prevTrack?.spotifyUri === data.spotifyUri;
+      const reportedBpm = Number(data.bpm ?? data.tempo);
+      const fallbackBpm = isSameTrack
+        ? prevTrack?.bpm || state.spotifyBpm || 124
+        : 124;
+      const bpm = Number.isFinite(reportedBpm) && reportedBpm >= 40 && reportedBpm <= 240
+        ? Math.round(reportedBpm)
+        : fallbackBpm;
 
       const track: Track = isSameTrack && prevTrack
         ? {
@@ -1642,6 +1269,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             duration: data.duration || prevTrack.duration,
             coverUrl: data.coverUrl || prevTrack.coverUrl,
             spotifyUri: data.spotifyUri,
+            bpm,
           }
         : {
             id: 'spotify_' + (data.spotifyUri ? data.spotifyUri.replace(/[^a-zA-Z0-9]/g, '_') : Date.now()),
@@ -1652,11 +1280,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             sourceType: 'spotify',
             coverUrl: data.coverUrl || '',
             spotifyUri: data.spotifyUri,
+            bpm,
             addedAt: Date.now(),
           };
 
       const rawProgressMs = data.progressMs !== undefined ? data.progressMs : data.currentTime * 1000;
-      const bpm = data.bpm || data.tempo || state.spotifyBpm || 124;
       const energy = data.energy !== undefined ? data.energy : (state.spotifyEnergy || 0.85);
       const danceability = data.danceability !== undefined ? data.danceability : (state.spotifyDanceability || 0.75);
 
@@ -1666,6 +1294,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         duration: data.duration || state.duration,
         isPlaying: data.isPlaying,
         isSpotifyConnected: true,
+        bpm,
         spotifyBpm: bpm,
         spotifyEnergy: energy,
         spotifyDanceability: danceability,
@@ -1744,3 +1373,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 if (typeof window !== 'undefined') {
   (window as unknown as { __ZUSTAND_STORE__: typeof usePlayerStore }).__ZUSTAND_STORE__ = usePlayerStore;
 }
+
+// Persistencia de la cola: con debounce, porque se reescribe entera en cada cambio
+let queueSaveTimer: ReturnType<typeof setTimeout> | undefined;
+usePlayerStore.subscribe((state, prev) => {
+  if (state.queue === prev.queue && state.queueIndex === prev.queueIndex) return;
+  clearTimeout(queueSaveTimer);
+  queueSaveTimer = setTimeout(() => StorageService.saveQueue(state.queue, state.queueIndex), 500);
+});

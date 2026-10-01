@@ -10,10 +10,11 @@ import {
   Activity,
 } from 'lucide-react';
 import { BeatTapGame } from './BeatTapGame';
+import { useShallow } from 'zustand/react/shallow';
 
 export const GamificationHUD: React.FC = () => {
   const { gameState, genrePrediction } = useGamification();
-  const { totalListeningTime, isLucid, lucidTheme, hasStarted } = usePlayerStore();
+  const { totalListeningTime, isLucid, lucidTheme, hasStarted } = usePlayerStore(useShallow((s) => ({ totalListeningTime: s.totalListeningTime, isLucid: s.isLucid, lucidTheme: s.lucidTheme, hasStarted: s.hasStarted })));
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBeatTapOpen, setIsBeatTapOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

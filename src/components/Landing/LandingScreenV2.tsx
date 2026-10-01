@@ -14,7 +14,7 @@ import React, { useRef, useState, useEffect, useCallback, Suspense, lazy } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Sparkles, Volume2, AudioWaveform } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { useLenis } from '../../hooks/useLenis';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
 import { SectionWrapper } from './shared/SectionWrapper';
@@ -54,7 +54,7 @@ const SECTIONS: ProgressRailSection[] = [
 export const LandingScreenV2: React.FC = () => {
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
-  const { unlockAudio } = useAudioEngine();
+  const { unlockAudio } = useAudioPlayerActions();
 
   const [isTransitioningOut, setIsTransitioningOut] = useState<boolean>(false);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });

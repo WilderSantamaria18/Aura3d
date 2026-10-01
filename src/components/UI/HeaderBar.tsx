@@ -29,111 +29,40 @@ import {
   MousePointer,
   Tv,
   Clock,
-  Waves,
-  Music2,
-  CloudRain,
-  Flame,
-  Coffee,
-  Volume2,
-  VolumeX,
-  Activity,
   SlidersHorizontal,
-  ExternalLink,
   Globe,
   Sun,
   Moon,
   Palette,
   Image,
+  Orbit,
+  Aperture,
+  Atom,
+  CircleDot,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../../i18n';
 import { useThemeManager } from '../../services/themeService';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { LucidToggle } from './LucidToggle';
 import { BackgroundAtmospherePopover } from './BackgroundAtmospherePopover';
 import { CaptureStudioButton } from '../../capture/components/CaptureStudioButton';
 import { useRecorderStore } from '../../store/recorderStore';
 import { BpmMeter } from './BpmMeter';
-import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
-import { AuraMindRadar } from './AuraMindRadar';
+import { SoundscapesHub } from './SoundscapesHub';
 import { MiniSpectrumBars } from './MiniSpectrumBars';
 import { RADIO_STATIONS } from '../../config/radioStations';
-import { soundscapeEngine, type SoundscapeType, type SoundscapesConfig } from '../../services/soundscapeEngine';
-import { harmonicAnalysisService, type HarmonicKeyResult } from '../../services/harmonicAnalysisService';
 import { pictureInPictureService } from '../../services/pictureInPictureService';
+import { useShallow } from 'zustand/react/shallow';
 
 const VISUALIZERS = [
   { id: 'blob', name: 'Rainbow Void', icon: Sparkles, desc: 'Núcleo 2D Shaders reactivo' },
   { id: 'synthwave', name: 'Synthwave 3D', icon: Grid, desc: 'Carretera neón retrofuturista' },
-  { id: 'warp', name: 'Túnel Warp', icon: Zap, desc: 'Túnel hipersónico 3D reactivo' },
   { id: 'terrain', name: 'Terreno 3D', icon: Mountain, desc: 'Ondas Cyberpunk en relieve' },
 ] as const;
-
-const CIRCLE_OF_FIFTHS = [
-  { major: 'C', minor: 'Am', camelotMaj: '8B', camelotMin: '8A' },
-  { major: 'G', minor: 'Em', camelotMaj: '9B', camelotMin: '9A' },
-  { major: 'D', minor: 'Bm', camelotMaj: '10B', camelotMin: '10A' },
-  { major: 'A', minor: 'F#m', camelotMaj: '11B', camelotMin: '11A' },
-  { major: 'E', minor: 'C#m', camelotMaj: '12B', camelotMin: '12A' },
-  { major: 'B', minor: 'G#m', camelotMaj: '1B', camelotMin: '1A' },
-  { major: 'F#', minor: 'D#m', camelotMaj: '2B', camelotMin: '2A' },
-  { major: 'Db', minor: 'Bbm', camelotMaj: '3B', camelotMin: '3A' },
-  { major: 'Ab', minor: 'Fm', camelotMaj: '4B', camelotMin: '4A' },
-  { major: 'Eb', minor: 'Cm', camelotMaj: '5B', camelotMin: '5A' },
-  { major: 'Bb', minor: 'Gm', camelotMaj: '6B', camelotMin: '6A' },
-  { major: 'F', minor: 'Dm', camelotMaj: '7B', camelotMin: '7A' },
-];
-
-function getCompatibleCamelots(camelot: string): string[] {
-  const match = camelot?.match(/^(\d+)([AB])$/);
-  if (!match) return [];
-  const num = parseInt(match[1], 10);
-  const letter = match[2];
-  const oppositeLetter = letter === 'A' ? 'B' : 'A';
-  const plusOne = num === 12 ? 1 : num + 1;
-  const minusOne = num === 1 ? 12 : num - 1;
-  return [`${num}${letter}`, `${num}${oppositeLetter}`, `${plusOne}${letter}`, `${minusOne}${letter}`];
-}
-
-const SOUNDSCAPE_CHANNELS: Array<{
-  type: SoundscapeType;
-  title: string;
-  subtitle: string;
-  icon: React.FC<{ className?: string }>;
-  accentColor: string;
-}> = [
-  {
-    type: 'rain',
-    title: 'Lluvia en Ventana',
-    subtitle: 'Ruido rosa 750Hz y gotas suaves',
-    icon: CloudRain,
-    accentColor: 'text-sky-400',
-  },
-  {
-    type: 'fire',
-    title: 'Crepitar de Fogata',
-    subtitle: 'Retumbe 140Hz y chispas Poisson',
-    icon: Flame,
-    accentColor: 'text-orange-400',
-  },
-  {
-    type: 'cafe',
-    title: 'Cafetería de Noche',
-    subtitle: 'Formantes 520Hz/1350Hz acústicos',
-    icon: Coffee,
-    accentColor: 'text-amber-400',
-  },
-  {
-    type: 'ocean',
-    title: 'Olas del Mar',
-    subtitle: 'Oleaje sinusoidal continuo de 8.5s',
-    icon: Waves,
-    accentColor: 'text-teal-400',
-  },
-];
 
 export const HeaderBar: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -142,6 +71,8 @@ export const HeaderBar: React.FC = () => {
   const {
     visualizerMode,
     setVisualizerMode,
+    toggleVisualizerSettings,
+    isVisualizerSettingsOpen,
     isMicActive,
     vrMode,
     toggleVrMode,
@@ -212,17 +143,90 @@ export const HeaderBar: React.FC = () => {
     toggleCaptureStudio,
     captureAspectRatio,
     captureQuality,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      visualizerMode: s.visualizerMode,
+      setVisualizerMode: s.setVisualizerMode,
+      toggleVisualizerSettings: s.toggleVisualizerSettings,
+      isVisualizerSettingsOpen: s.isVisualizerSettingsOpen,
+      isMicActive: s.isMicActive,
+      vrMode: s.vrMode,
+      toggleVrMode: s.toggleVrMode,
+      vrTrackingMode: s.vrTrackingMode,
+      toggleAdminModal: s.toggleAdminModal,
+      isEqualizerOpen: s.isEqualizerOpen,
+      setEqualizerOpen: s.setEqualizerOpen,
+      isLyricsOpen: s.isLyricsOpen,
+      setLyricsOpen: s.setLyricsOpen,
+      isSidebarOpen: s.isSidebarOpen,
+      setSidebarOpen: s.setSidebarOpen,
+      currentTrack: s.currentTrack,
+      queue: s.queue,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      isSpotifyConnected: s.isSpotifyConnected,
+      toggleShortcutsModal: s.toggleShortcutsModal,
+      isAirInstrumentsActive: s.isAirInstrumentsActive,
+      setAirInstrumentsActive: s.setAirInstrumentsActive,
+      isCameraStudioOpen: s.isCameraStudioOpen,
+      toggleCameraStudio: s.toggleCameraStudio,
+      setVrMode: s.setVrMode,
+      setVrTrackingMode: s.setVrTrackingMode,
+      userProfile: s.userProfile,
+      performanceTier: s.performanceTier,
+      cyclePerformanceTier: s.cyclePerformanceTier,
+      mouseEffectsEnabled: s.mouseEffectsEnabled,
+      toggleMouseEffects: s.toggleMouseEffects,
+      toggleProfileModal: s.toggleProfileModal,
+      is8DAudioActive: s.is8DAudioActive,
+      eightDSpeed: s.eightDSpeed,
+      toggle8DAudio: s.toggle8DAudio,
+      set8DSpeed: s.set8DSpeed,
+      reverbPreset: s.reverbPreset,
+      setReverbPreset: s.setReverbPreset,
+      isRgbGlitchActive: s.isRgbGlitchActive,
+      toggleRgbGlitch: s.toggleRgbGlitch,
+      isCrossfadeActive: s.isCrossfadeActive,
+      toggleCrossfade: s.toggleCrossfade,
+      blobSettings: s.blobSettings,
+      updateBlobSettings: s.updateBlobSettings,
+      isRetroCrtActive: s.isRetroCrtActive,
+      toggleRetroCrt: s.toggleRetroCrt,
+      showAudioRibbons: s.showAudioRibbons,
+      toggleAudioRibbons: s.toggleAudioRibbons,
+      isUnderwaterActive: s.isUnderwaterActive,
+      toggleUnderwater: s.toggleUnderwater,
+      dspSpeedMode: s.dspSpeedMode,
+      setDspSpeedMode: s.setDspSpeedMode,
+      binauralMode: s.binauralMode,
+      setBinauralMode: s.setBinauralMode,
+      sleepTimerMinutes: s.sleepTimerMinutes,
+      sleepTimerRemainingSec: s.sleepTimerRemainingSec,
+      setSleepTimer: s.setSleepTimer,
+      masteringPreset: s.masteringPreset,
+      setMasteringPreset: s.setMasteringPreset,
+      isHarmonicSyncActive: s.isHarmonicSyncActive,
+      toggleHarmonicSync: s.toggleHarmonicSync,
+      setCommandPaletteOpen: s.setCommandPaletteOpen,
+      setSessionStatsOpen: s.setSessionStatsOpen,
+      vocalMode: s.vocalMode,
+      setVocalMode: s.setVocalMode,
+      setStoryCardOpen: s.setStoryCardOpen,
+      isBlobPanelOpen: s.isBlobPanelOpen,
+      setBlobPanelOpen: s.setBlobPanelOpen,
+      isCaptureStudioOpen: s.isCaptureStudioOpen,
+      toggleCaptureStudio: s.toggleCaptureStudio,
+      captureAspectRatio: s.captureAspectRatio,
+      captureQuality: s.captureQuality,
+    }))
+  );
 
-  const { toggleMicrophone, startSystemCapture, isCapturing, playRadioStation } = useAudioEngine();
+  const { toggleMicrophone, startSystemCapture, isCapturing, playRadioStation } = useAudioPlayerActions();
   const { connectSpotify, disconnectSpotify } = useSpotifyPlayer();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isAuraMindOpen, setIsAuraMindOpen] = useState(false);
   const [isAtmosphereOpen, setIsAtmosphereOpen] = useState(false);
-  const [soundscapeConfig, setSoundscapeConfig] = useState<SoundscapesConfig>(soundscapeEngine.getConfig());
-  const [soundscapeActiveCount, setSoundscapeActiveCount] = useState(0);
-  const [harmonicKey, setHarmonicKey] = useState<HarmonicKeyResult>(harmonicAnalysisService.getLastResult());
   const [isPipActive, setIsPipActive] = useState(false);
 
   const hasActiveBg =
@@ -233,9 +237,8 @@ export const HeaderBar: React.FC = () => {
   type HeaderMenuType = 'visualizers' | 'dsp' | 'intel_hub' | 'studio' | 'settings' | 'timer' | 'recorder' | 'lucid' | null;
   const [activeMenu, setActiveMenu] = useState<HeaderMenuType>(null);
   const [dspTab, setDspTab] = useState<'master' | 'spatial' | 'modulation'>('master');
-  const [intelTab, setIntelTab] = useState<'harmonic' | 'soundscapes' | 'auramind'>('harmonic');
 
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
 
   // Exclusive single-card policy: opening any card closes any other card
   const handleToggleMenu = (menu: 'visualizers' | 'dsp' | 'intel_hub' | 'studio' | 'settings' | 'timer' | 'recorder' | 'lucid') => {
@@ -264,22 +267,6 @@ export const HeaderBar: React.FC = () => {
 
   useEffect(() => {
     return pictureInPictureService.subscribe(setIsPipActive);
-  }, []);
-
-  useEffect(() => {
-    const unsub = soundscapeEngine.subscribe((cfg) => {
-      setSoundscapeConfig(cfg);
-      const count = [cfg.rain.enabled, cfg.fire.enabled, cfg.cafe.enabled, cfg.ocean.enabled].filter(Boolean).length;
-      setSoundscapeActiveCount(count);
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const unsub = harmonicAnalysisService.subscribe((res) => {
-      setHarmonicKey(res);
-    });
-    return unsub;
   }, []);
 
   useEffect(() => {
@@ -341,14 +328,6 @@ export const HeaderBar: React.FC = () => {
 
   const activeAccent = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
 
-  const { mood, dominantPitch, beatPulse, primaryColor: aiColor } = useAIAudioEngine();
-  const moodLabels: Record<string, { label: string }> = {
-    energetic: { label: 'Energético' },
-    happy: { label: 'Alegre' },
-    chill: { label: 'Relajado' },
-    melancholic: { label: 'Melancólico' },
-  };
-
   const isAnyDspActive =
     is8DAudioActive ||
     reverbPreset !== 'off' ||
@@ -367,7 +346,7 @@ export const HeaderBar: React.FC = () => {
       className="w-full flex items-center justify-start px-3 sm:px-6 md:px-8 pt-2 sm:pt-3 pointer-events-none select-none font-sans"
     >
       <div className="w-full flex flex-wrap items-start justify-between gap-2 sm:gap-3">
-      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 max-sm:!px-2 max-sm:gap-1 pointer-events-auto">
         {/* ── CLUSTER 1 (Left): Brand Identity, Track Info & Search ── */}
         <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
           <div
@@ -382,10 +361,10 @@ export const HeaderBar: React.FC = () => {
               <span className="font-semibold tracking-[0.1em] font-display text-[13px] uppercase text-white/95">
                 Auralis
               </span>
-              <span className="text-[7.5px] tracking-wider uppercase font-mono px-1 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
+              <span className="max-sm:hidden text-[7.5px] tracking-wider uppercase font-mono px-1 py-0.2 rounded border border-white/[0.08] text-white/50 bg-white/[0.03]">
                 Studio
               </span>
-              <MiniSpectrumBars />
+              <span className="max-sm:hidden"><MiniSpectrumBars /></span>
             </div>
 
             {currentTrack && (
@@ -440,7 +419,7 @@ export const HeaderBar: React.FC = () => {
           })}
         </div>
       </div>
-      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 max-sm:!px-2 max-sm:gap-1 pointer-events-auto">
 
         {/* ── CLUSTER 2 (Center): Stage, DSP Studio & Live Harmony Hub ── */}
         <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
@@ -464,7 +443,7 @@ export const HeaderBar: React.FC = () => {
               >
                 <VizIcon className={`w-3.5 h-3.5 ${activeMenu === 'visualizers' ? 'text-cyan-400' : 'text-cyan-400/90'}`} />
                 <span className="font-medium text-[12px]">{currentViz.name}</span>
-                <ChevronDown className="w-3 h-3 $1" />
+                <ChevronDown className={`w-3 h-3 transition-transform ${activeMenu === 'visualizers' ? 'rotate-180' : ''}`} />
               </button>
             );
           })()}
@@ -529,6 +508,22 @@ export const HeaderBar: React.FC = () => {
           )}
         </div>
 
+        {/* 1b. Ajustes del visualizador activo (Rainbow Void tiene su propio personalizador) */}
+        {visualizerMode !== 'blob' && (
+          <button
+            type="button"
+            onClick={() => toggleVisualizerSettings()}
+            aria-label="Ajustes del visualizador"
+            aria-pressed={isVisualizerSettingsOpen}
+            title="Ajustes del visualizador"
+            className={`flex items-center justify-center glass-btn w-8 h-8 cursor-pointer active:scale-95 border ${
+              isVisualizerSettingsOpen ? 'is-active text-white [--glass-accent:0,229,255]' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </button>
+        )}
+
         {/* 2. Spatial Camera Studio */}
         <div className="relative">
           <button
@@ -547,322 +542,24 @@ export const HeaderBar: React.FC = () => {
           </button>
         </div>
 
-        {/* 3. Hub Unificado de Inteligencia Musical & Armonía */}
-        <div className="relative">
-          <button
-            onClick={() => handleToggleMenu('intel_hub')}
-            className={`flex items-center gap-1.5 glass-btn px-3 py-1 h-8 text-[12px] font-medium transition-all duration-200 cursor-pointer active:scale-95 border ${
-              activeMenu === 'intel_hub' || soundscapeActiveCount > 0
-                ? 'is-active text-white [--glass-accent:168,85,247]'
-                : 'text-white/85 hover:text-white shadow-sm'
-            }`}
-            title="Hub de Inteligencia Musical: Tonalidad Camelot DJ, Ambientes Relajantes Lo-Fi y Radar AuraMind"
-          >
-            {/* Camelot Badge */}
-            <span className="text-[8px] text-purple-300 font-bold bg-purple-500/20 px-1 py-0.2 rounded-[3px] border border-purple-500/30">
-              {harmonicKey.camelot}
-            </span>
-            <span className="hidden min-[1700px]:inline text-[12px] font-medium text-white/80">
-              {harmonicKey.shortKey !== '--' ? harmonicKey.shortKey : 'Tonalidad'}
-            </span>
-
-            <span className="text-white/20 hidden min-[1700px]:inline">|</span>
-
-            {/* Soundscapes indicator */}
-            <span className="text-[11px] flex items-center gap-1 text-cyan-300">
-              <Waves className="w-3.5 h-3.5 text-cyan-400" />
-              {soundscapeActiveCount > 0 && (
-                <span className="text-[9px] px-1 bg-cyan-400 text-black font-bold rounded-full">
-                  {soundscapeActiveCount}
-                </span>
-              )}
-            </span>
-
-            <span className="text-white/20 hidden min-[1700px]:inline">|</span>
-
-            {/* Mood indicator */}
-            <span className="hidden min-[1700px]:flex items-center gap-1 text-[11px] text-amber-300">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-white/80">{moodLabels[mood]?.label}</span>
-            </span>
-
-            <ChevronDown className="w-3 h-3 $1 ml-0.5" />
-          </button>
-
-          {/* Popover Unificado del Hub de Inteligencia */}
-          {activeMenu === 'intel_hub' && (
-            <div className="fixed inset-x-3 top-14 max-w-[400px] mx-auto sm:mx-0 sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:mt-2.5 sm:w-[400px] max-h-[75vh] overflow-y-auto liquid-glass-scrollbar liquid-glass liquid-glass--card z-50 flex flex-col gap-3 animate-in fade-in zoom-in-95 select-none text-white font-sans">
-              {/* Header */}
-              <div className="flex items-center justify-between pb-1 border-b border-white/[0.08]">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  <span className="text-xs font-bold text-white tracking-tight">Hub de Inteligencia & Armonía</span>
-                </div>
-                <span className="text-[9px] font-mono font-bold text-purple-300 bg-purple-500/15 px-2 py-0.5 rounded-full border border-purple-500/25">
-                  IA DJ
-                </span>
-              </div>
-
-              {/* Selector de Pestañas del Hub (Apple Segmented Control) */}
-              <div className="glass-input !rounded-2xl p-1 grid grid-cols-3 gap-1">
-                <button
-                  onClick={() => setIntelTab('harmonic')}
-                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    intelTab === 'harmonic'
-                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
-                      : 'text-white/50 hover:text-white/80'
-                  }`}
-                >
-                  <Radio className="w-3.5 h-3.5" />
-                  <span>Tonalidad & DJ</span>
-                </button>
-                <button
-                  onClick={() => setIntelTab('soundscapes')}
-                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    intelTab === 'soundscapes'
-                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
-                      : 'text-white/50 hover:text-white/80'
-                  }`}
-                >
-                  <CloudRain className="w-3.5 h-3.5" />
-                  <span>Ambientes Lo-Fi</span>
-                </button>
-                <button
-                  onClick={() => setIntelTab('auramind')}
-                  className={`py-1.5 px-2 rounded-xl text-[11px] min-h-[32px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    intelTab === 'auramind'
-                      ? 'bg-gradient-to-b from-white/30 to-white/10 text-white border border-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_6px_14px_-4px_rgba(0,0,0,0.5)]'
-                      : 'text-white/50 hover:text-white/80'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>AuraMind AI</span>
-                </button>
-              </div>
-
-              {/* ── SUB-TAB 1: TONALIDAD & CAMELOT DJ ── */}
-              {intelTab === 'harmonic' && (
-                <div className="flex flex-col gap-2.5 animate-in fade-in duration-150">
-                  {/* Banner Tonalidad Detectada */}
-                  {/* Banner Tonalidad Detectada */}
-                  {(() => {
-                    const compatibleCamelots = getCompatibleCamelots(harmonicKey.camelot);
-                    return (
-                      <>
-                        <div className="flex items-center justify-between glass-item [--glass-accent:168,85,247] is-active p-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-lg font-bold text-purple-300">
-                              {harmonicKey.camelot}
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-white">
-                                {harmonicKey.rootNote} {harmonicKey.mode === 'minor' ? 'Menor (Minor)' : 'Mayor (Major)'}
-                              </div>
-                              <div className="text-[9px] text-purple-300/80 font-sans">
-                                {harmonicKey.key || 'Rueda de Quintas Armónica DJ'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-bold">
-                              {Math.round(harmonicKey.confidence * 100)}% certeza
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Mezclas Armónicas Compatibles */}
-                        <div className="glass-item p-2.5">
-                          <div className="text-[10px] text-white/70 font-semibold mb-1 flex items-center gap-1">
-                            <Music2 className="w-3.5 h-3.5 text-purple-400" />
-                            <span>Transiciones Armónicas Compatibles:</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {compatibleCamelots.map((cam) => (
-                              <span
-                                key={cam}
-                                className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[10px] font-bold"
-                              >
-                                {cam}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Rueda de Quintas Interactiva */}
-                        <div className="glass-item p-2.5">
-                          <div className="text-[10px] text-white/50 mb-1.5 uppercase tracking-wider">
-                            Círculo de Quintas
-                          </div>
-                          <div className="grid grid-cols-4 gap-1 text-[10px]">
-                            {CIRCLE_OF_FIFTHS.map((sector) => {
-                              const isCurrent =
-                                harmonicKey.camelot === sector.camelotMin || harmonicKey.camelot === sector.camelotMaj;
-                              const isCompatible =
-                                compatibleCamelots.includes(sector.camelotMin) ||
-                                compatibleCamelots.includes(sector.camelotMaj);
-
-                              return (
-                                <div
-                                  key={sector.major}
-                                  className={`p-1.5 rounded-lg border text-center transition-all ${
-                                    isCurrent
-                                      ? 'bg-purple-500 text-white border-purple-400 font-bold shadow-sm'
-                                      : isCompatible
-                                      ? 'bg-purple-500/20 text-purple-200 border-purple-500/40'
-                                      : 'bg-white/[0.02] text-white/40 border-white/[0.04]'
-                                  }`}
-                                >
-                                  <div className="font-bold text-[10px]">{sector.major} / {sector.minor}</div>
-                                  <div className="text-[8px] opacity-70">{sector.camelotMaj} • {sector.camelotMin}</div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {/* ── SUB-TAB 2: AMBIENTES RELAJANTES LO-FI ── */}
-              {intelTab === 'soundscapes' && (
-                <div className="flex flex-col gap-2 animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between pb-1">
-                    <span className="text-[10px] text-white/50 uppercase tracking-wider">
-                      Mezclador de Fondos Relajantes
-                    </span>
-                    <button
-                      onClick={() => soundscapeEngine.toggleMasterMute()}
-                      className={`p-1 px-2 rounded-lg text-[9px] border transition-all flex items-center gap-1 ${
-                        soundscapeConfig.masterMuted
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
-                          : 'bg-white/[0.05] text-white/60 border-white/[0.08] hover:text-white'
-                      }`}
-                    >
-                      {soundscapeConfig.masterMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                      <span>{soundscapeConfig.masterMuted ? 'Muteado' : 'Mute Todo'}</span>
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    {SOUNDSCAPE_CHANNELS.map((ch) => {
-                      const state = soundscapeConfig[ch.type];
-                      const Icon = ch.icon;
-
-                      return (
-                        <div
-                          key={ch.type}
-                          className={`glass-item p-2.5 ${
-                            state.enabled ? 'is-active' : 'opacity-70'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
-                                <Icon className={`w-3.5 h-3.5 ${ch.accentColor}`} />
-                              </div>
-                              <div>
-                                <div className="text-xs font-semibold text-white/90">{ch.title}</div>
-                                <div className="text-[8px] text-white/40 font-sans">{ch.subtitle}</div>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => soundscapeEngine.toggleChannel(ch.type)}
-                              className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase transition-all ${
-                                state.enabled
-                                  ? 'bg-cyan-500 text-black shadow-sm'
-                                  : 'bg-white/10 text-white/50 hover:text-white'
-                              }`}
-                            >
-                              {state.enabled ? 'ON' : 'OFF'}
-                            </button>
-                          </div>
-
-                          {state.enabled && (
-                            <div className="flex items-center gap-2 pt-1.5 mt-1 border-t border-white/[0.04]">
-                              <Volume2 className="w-3.5 h-3.5 text-cyan-400/80" />
-                              <input
-                                type="range"
-                                min={0}
-                                max={1}
-                                step={0.02}
-                                value={state.volume}
-                                onChange={(e) => soundscapeEngine.setVolume(ch.type, parseFloat(e.target.value))}
-                                className="flex-1 h-1 bg-white/20 rounded appearance-none accent-cyan-400 cursor-pointer"
-                              />
-                              <span className="text-[9px] text-cyan-300 w-7 text-right font-mono">
-                                {Math.round(state.volume * 100)}%
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ── SUB-TAB 3: AURAMIND & TELEMETRÍA AI ── */}
-              {intelTab === 'auramind' && (
-                <div className="flex flex-col gap-2.5 animate-in fade-in duration-150">
-                  <div className="glass-item [--glass-accent:245,158,11] is-active p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className="w-3.5 h-3.5 rounded-full transition-transform"
-                        style={{
-                          backgroundColor: aiColor,
-                          boxShadow: `0 0 12px ${aiColor}`,
-                          transform: `scale(${1.0 + beatPulse * 0.5})`,
-                        }}
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Estado: {moodLabels[mood]?.label || 'Analizando'}</span>
-                        </div>
-                        <div className="text-[9px] text-amber-300/80 font-sans">
-                          Tono dominante: {dominantPitch} • Pulso: {Math.round(beatPulse * 100)}%
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="glass-item p-3 text-xs text-white/70 space-y-1.5 font-sans leading-relaxed">
-                    <p>
-                      El motor de Inteligencia Artificial analiza el espectro FFT en tiempo real para clasificar la valencia emocional, la tonalidad y sincronizar el campo de energía visual.
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setIsAuraMindOpen(true);
-                      setActiveMenu(null);
-                    }}
-                    className="glass-btn is-active w-full min-h-[40px] py-2 px-4 text-white text-xs font-mono font-bold flex items-center justify-center gap-2"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Abrir Radar 3D AuraMind Completo</span>
-                    <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* 3. Ambientes de audio */}
+        <SoundscapesHub
+          isOpen={activeMenu === 'intel_hub'}
+          onToggle={() => handleToggleMenu('intel_hub')}
+          onClose={() => setActiveMenu(null)}
+        />
       </div>
 
       </div>
-      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 pointer-events-auto">
+      <div className="liquid-glass liquid-glass--pill flex items-center !px-3 !py-1.5 gap-2 max-sm:!px-2 max-sm:gap-1 pointer-events-auto">
 
       {/* ── CLUSTER 3 (Right): Grabador, Estudio & Entradas, Ajustes & Lúcido ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         {/* 1. Grabador de Clips & Snapshot 4K */}
         <div className="flex items-center gap-1 glass-item !rounded-full !p-0.5 !transform-none">
-          <BpmMeter />
+          <div className="max-sm:hidden"><BpmMeter /></div>
           <div className="w-px h-5 bg-white/10 mx-0.5 hidden sm:block" />
-          <CaptureStudioButton />
+          <div className="max-sm:hidden"><CaptureStudioButton /></div>
 
           {/* Aura Wallpaper & Atmosphere Studio */}
           <button
@@ -877,7 +574,7 @@ export const HeaderBar: React.FC = () => {
           {/* Auralis Story Card 9:16 Social Export & Studio */}
           <button
             onClick={() => useRecorderStore.getState().openModal('cards')}
-            className="w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
+            className="max-sm:hidden w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-purple-300 hover:text-purple-100 hover:bg-purple-500/20"
             title="Aura3D Social Content Studio (Grabación 9:16 y Story Cards para Instagram/TikTok)"
             aria-label="Aura3D Social Studio"
           >
@@ -887,7 +584,7 @@ export const HeaderBar: React.FC = () => {
           {/* Ayuda & Atajos de Teclado (?) */}
           <button
             onClick={() => toggleShortcutsModal()}
-            className="w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
+            className="max-sm:hidden w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center active:scale-95 text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
             title="Ayuda y Atajos de Teclado (?)"
             aria-label="Ayuda y Atajos de Teclado"
           >
@@ -911,7 +608,7 @@ export const HeaderBar: React.FC = () => {
             {(isMicActive || isCapturing || isSpotifyConnected || vrMode || isAirInstrumentsActive || isPipActive) && (
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             )}
-            <ChevronDown className="w-3 h-3 $1" />
+            <ChevronDown className={`w-3 h-3 transition-transform ${activeMenu === 'dsp' ? 'rotate-180' : ''}`} />
           </button>
 
           {activeMenu === 'studio' && (
@@ -1148,7 +845,7 @@ export const HeaderBar: React.FC = () => {
                 {Math.floor(sleepTimerRemainingSec / 60)}m
               </span>
             )}
-            <ChevronDown className="w-3 h-3 $1" />
+            <ChevronDown className={`w-3 h-3 transition-transform ${activeMenu === 'settings' ? 'rotate-180' : ''}`} />
           </button>
 
           {activeMenu === 'settings' && (
@@ -1428,9 +1125,6 @@ export const HeaderBar: React.FC = () => {
       </div>
       </div>
       </div>
-
-      {/* Modal AuraMind Radar si se abre */}
-      <AuraMindRadar isOpen={isAuraMindOpen} onClose={() => setIsAuraMindOpen(false)} />
     </header>
   );
 };

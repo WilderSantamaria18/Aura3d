@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+// i18n ya no se inicializa en main.tsx (i18next pesa ~80 kB y la landing no lo usa): se inicializa
+// al cargarse los componentes que lo necesitan, que solo aparecen tras empezar.
+import '../../i18n';
 import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * AudioAnnouncer
@@ -26,7 +30,17 @@ export const AudioAnnouncer: React.FC = () => {
     volume,
     isShuffled,
     repeatMode,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      currentTrack: s.currentTrack,
+      isPlaying: s.isPlaying,
+      masteringPreset: s.masteringPreset,
+      visualizerMode: s.visualizerMode,
+      volume: s.volume,
+      isShuffled: s.isShuffled,
+      repeatMode: s.repeatMode,
+    }))
+  );
 
   // 1. Anuncio de cambio de pista
   useEffect(() => {
@@ -78,6 +92,10 @@ export const AudioAnnouncer: React.FC = () => {
         synthwave: 'Synthwave 3D Grid',
         warp: 'Hypersonic Warp Tunnel',
         terrain: 'Cyberpunk 3D Terrain',
+        orb: 'Orb Plasma',
+        blackhole: 'Black Hole',
+        sphere3d: 'Esfera de partículas',
+        liquid: 'Liquid Void',
       };
       setAnnouncement(
         t('announcer.visualizerMode', {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Cast, FolderOpen, Mic, Square, Play, Pause, Radio } from 'lucide-react';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { RADIO_STATIONS } from '../../config/radioStations';
 
 interface AudioSourceSelectorProps {
@@ -23,7 +23,7 @@ export const AudioSourceSelector: React.FC<AudioSourceSelectorProps> = ({
   isPlaying,
 }) => {
   const [isRadioOpen, setIsRadioOpen] = useState(false);
-  const { playRadioStation } = useAudioEngine();
+  const { playRadioStation } = useAudioPlayerActions();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

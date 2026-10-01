@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import Lenis from 'lenis';
 import { ArrowRight, Sparkles, SlidersHorizontal, Palette, AlignLeft, Image as ImageIcon, Layers } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import './sections/ConicStation.css';
 import {
   AmbientOrbs,
@@ -22,7 +22,7 @@ import {
 export const LandingMinimal: React.FC = () => {
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
-  const { unlockAudio } = useAudioEngine();
+  const { unlockAudio } = useAudioPlayerActions();
   const [isTransitioning, setIsTransitioningLocal] = useState(false);
 
   const handleEnter = useCallback(() => {
@@ -165,6 +165,17 @@ export const LandingMinimal: React.FC = () => {
       heroR = isMobile ? heroWidth * 0.35 : Math.min(heroWidth, heroHeight) * 0.24;
       heroCenterX = heroWidth / 2;
       heroCenterY = heroHeight * 0.46;
+
+      if (isMobile) {
+        // En móvil el texto ocupa la parte baja: el aro vive en el hueco entre la etiqueta y el título
+        const title = heroSectionRef.current?.querySelector('h1');
+        const textTop = title ? title.getBoundingClientRect().top - (parent?.getBoundingClientRect().top ?? 0) : heroHeight * 0.55;
+        const freeTop = 112;
+        const free = Math.max(120, textTop - freeTop - 12);
+        heroR = Math.min(heroWidth * 0.3, free * 0.3);
+        heroCenterX = heroWidth / 2;
+        heroCenterY = freeTop + free / 2;
+      }
 
       heroCtx.fillStyle = '#050710';
       heroCtx.fillRect(0, 0, heroWidth, heroHeight);
@@ -736,6 +747,8 @@ export const LandingMinimal: React.FC = () => {
 
     // Initial resize setup
     resizeAll();
+    // El título entra animado y las fuentes cargan después: se vuelve a medir para ubicar el aro
+    const remeasureTimer = setTimeout(resizeAll, 1800);
 
     // ==========================================
     // VISIBILIDAD: solo se dibuja lo que está en pantalla
@@ -970,6 +983,7 @@ export const LandingMinimal: React.FC = () => {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleWindowResize);
+      clearTimeout(remeasureTimer);
       window.removeEventListener('scroll', updateScrollState);
       if (resizeTimer) clearTimeout(resizeTimer);
       if (tiltBox) {

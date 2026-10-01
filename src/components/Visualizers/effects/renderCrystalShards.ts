@@ -58,8 +58,10 @@ export function renderCrystalShards(
     shard.x += shard.vx * dt;
     shard.y += shard.vy * dt;
     shard.vy += 35 * u * dt; // subtle gravity
-    shard.rotation += shard.rotationSpeed;
-    shard.alpha *= 0.95;
+    // Calibrados por frame a 60 FPS; escalados por dt para que duren lo mismo a cualquier tasa
+    const frames = dt * 60;
+    shard.rotation += shard.rotationSpeed * frames;
+    shard.alpha *= Math.pow(0.95, frames);
 
     if (shard.alpha < 0.04) continue;
 
@@ -77,7 +79,8 @@ export function renderCrystalShards(
     const displayAlpha = Math.min(1.0, shard.alpha * intensity);
     ctx.fillStyle = `rgba(255, 255, 255, ${displayAlpha.toFixed(3)})`;
     ctx.shadowColor = shard.color;
-    ctx.shadowBlur = 8 * u * displayAlpha;
+    // El resplandor solo compensa cuando la esquirla aún es visible; apagado cuando se desvanece (es lo más caro del canvas)
+    ctx.shadowBlur = displayAlpha > 0.35 ? 8 * u * displayAlpha : 0;
     ctx.fill();
 
     ctx.restore();

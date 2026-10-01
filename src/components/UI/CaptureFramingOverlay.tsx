@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { EyeOff, Maximize2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 interface FrameRect {
   x: number;
@@ -22,7 +23,18 @@ export const CaptureFramingOverlay: React.FC = () => {
     isLucid,
     lucidTheme,
     lucidPrimaryColor,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isFramingGuideActive: s.isFramingGuideActive,
+      isCaptureStudioOpen: s.isCaptureStudioOpen,
+      captureAspectRatio: s.captureAspectRatio,
+      captureQuality: s.captureQuality,
+      toggleFramingGuide: s.toggleFramingGuide,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+    }))
+  );
 
   const [windowSize, setWindowSize] = useState({
     w: typeof window !== 'undefined' ? window.innerWidth : 1920,

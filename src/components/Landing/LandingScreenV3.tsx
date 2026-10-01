@@ -18,7 +18,7 @@ import {
   Waves,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { useLandingProgress } from '../../hooks/useLandingProgress';
 import { RevealWrapper } from './shared/RevealWrapper';
 import { Aura3DSphere } from './sections/Aura3DSphere';
@@ -64,7 +64,7 @@ export const LandingScreenV3: React.FC = () => {
   const { progress, activeSection, lenisRef } = useLandingProgress(TOTAL_ACTS);
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
-  const { unlockAudio } = useAudioEngine();
+  const { unlockAudio } = useAudioPlayerActions();
 
   const [isTransitioningLocal, setIsTransitioningLocal] = useState(false);
   const [activeLyricsIndex, setActiveLyricsIndex] = useState(1);

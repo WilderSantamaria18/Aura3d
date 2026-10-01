@@ -1,66 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, CircleDot, Clock, Square, Timer, X } from 'lucide-react';
 import { useRecorderStore } from '../../store/recorderStore';
 import { useScreenRecorder } from '../../hooks/useScreenRecorder';
-import { Timer, Play, Square, Clock, CircleDot } from 'lucide-react';
+import { FOCUS_RING, Section, Segmented } from '../Cards/controls';
+
+const DURATIONS = [
+  { label: '15 s · Reel', value: '15' },
+  { label: '30 s · Historia', value: '30' },
+  { label: '60 s · Short', value: '60' },
+  { label: 'Sin límite', value: '0' },
+];
+
+const formatSeconds = (sec: number) =>
+  `${Math.floor(sec / 60).toString().padStart(2, '0')}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+
+/** Cancelar el diálogo de captura del navegador no es un error que haya que enseñar */
+const isCancel = (err: unknown) =>
+  err instanceof DOMException && (err.name === 'NotAllowedError' || err.name === 'AbortError');
 
 export const DurationControl: React.FC = () => {
-  const isRecording = useRecorderStore((state) => state.isRecording);
-  const recordingDuration = useRecorderStore((state) => state.recordingDuration);
-  const maxDuration = useRecorderStore((state) => state.maxDuration);
-  const setMaxDuration = useRecorderStore((state) => state.setMaxDuration);
-  const countdown = useRecorderStore((state) => state.countdown);
-  const setCountdown = useRecorderStore((state) => state.setCountdown);
+  const isRecording = useRecorderStore((s) => s.isRecording);
+  const recordingDuration = useRecorderStore((s) => s.recordingDuration);
+  const maxDuration = useRecorderStore((s) => s.maxDuration);
+  const setMaxDuration = useRecorderStore((s) => s.setMaxDuration);
+  const countdown = useRecorderStore((s) => s.countdown);
+  const setCountdown = useRecorderStore((s) => s.setCountdown);
 
   const { startRecording, stopRecording } = useScreenRecorder();
   const [countdownActive, setCountdownActive] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<number | null>(null);
 
-  const DURATIONS = [
-    { label: '15s (Reel)', value: 15 },
-    { label: '30s (Story)', value: 30 },
-    { label: '60s (Short)', value: 60 },
-    { label: 'Unlimited', value: 0 },
-  ];
-
-  const handleStartWithCountdown = async () => {
-    if (countdown > 0) {
-      setCountdownActive(countdown);
-      let rem = countdown;
-      const timer = setInterval(() => {
-        rem -= 1;
-        if (rem <= 0) {
-          clearInterval(timer);
-          setCountdownActive(null);
-          startRecording();
-        } else {
-          setCountdownActive(rem);
-        }
-      }, 1000);
-    } else {
-      await startRecording();
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
     }
+  }, []);
+
+  // Si el estudio se cierra o se cambia de pestaña durante la cuenta atrás, no debe empezar a grabar sola después
+  useEffect(() => clearTimer, [clearTimer]);
+
+  const begin = useCallback(async () => {
+    setError(null);
+    try {
+      await startRecording();
+    } catch (err) {
+      if (!isCancel(err)) {
+        setError(err instanceof Error ? err.message : 'No se pudo empezar a grabar.');
+      }
+    }
+  }, [startRecording]);
+
+  const cancelCountdown = () => {
+    clearTimer();
+    setCountdownActive(null);
   };
 
-  const formatSeconds = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const start = () => {
+    if (countdown <= 0) {
+      void begin();
+      return;
+    }
+    let remaining = countdown;
+    setCountdownActive(remaining);
+    timerRef.current = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearTimer();
+        setCountdownActive(null);
+        void begin();
+      } else {
+        setCountdownActive(remaining);
+      }
+    }, 1000);
   };
 
   return (
-    <div className="flex flex-col gap-4 text-white">
-      {/* Duration and Countdown configuration (when not recording) */}
-      {!isRecording && (
-        <div className="grid grid-cols-2 gap-3">
-          {/* Max Duration Preset */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-purple-400" />
-              <span>Target Length</span>
-            </label>
+    <div className="space-y-6 text-white">
+      {!isRecording && countdownActive === null && (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <Section title="Duración" icon={<Clock className="h-3.5 w-3.5" />}>
             <select
-              value={maxDuration}
+              aria-label="Duración de la grabación"
+              value={String(maxDuration)}
               onChange={(e) => setMaxDuration(Number(e.target.value))}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-purple-500/60"
+              className={`w-full rounded-2xl border border-white/12 bg-white/[0.05] px-3.5 py-3 text-xs font-semibold text-white ${FOCUS_RING}`}
             >
               {DURATIONS.map((d) => (
                 <option key={d.value} value={d.value} className="bg-zinc-900 text-white">
@@ -68,78 +93,84 @@ export const DurationControl: React.FC = () => {
                 </option>
               ))}
             </select>
-          </div>
+          </Section>
 
-          {/* Countdown */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-              <Timer className="w-3.5 h-3.5 text-purple-400" />
-              <span>Countdown</span>
-            </label>
-            <div className="grid grid-cols-3 gap-1">
-              {[0, 3, 5].map((sec) => (
-                <button
-                  key={sec}
-                  onClick={() => setCountdown(sec)}
-                  className={`py-2 rounded-xl text-xs font-mono font-medium border transition-all ${
-                    countdown === sec
-                      ? 'bg-purple-500/20 text-white border-purple-500/60'
-                      : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {sec === 0 ? 'None' : `${sec}s`}
-                </button>
-              ))}
-            </div>
-          </div>
+          <Section title="Cuenta atrás" icon={<Timer className="h-3.5 w-3.5" />}>
+            <Segmented<'0' | '3' | '5'>
+              label="Cuenta atrás"
+              value={String(countdown) as '0' | '3' | '5'}
+              onChange={(v) => setCountdown(Number(v))}
+              options={[
+                { value: '0', label: 'No' },
+                { value: '3', label: '3 s' },
+                { value: '5', label: '5 s' },
+              ]}
+            />
+          </Section>
         </div>
       )}
 
-      {/* Live recording indicator */}
       {isRecording && (
-        <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-red-500/10 border border-red-500/30 gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
-            <span className="text-xs font-mono tracking-widest text-red-400 uppercase font-semibold">
-              Recording in Progress
-            </span>
-          </div>
-          <div className="text-3xl font-mono font-bold text-white tracking-wider">
+        <div
+          role="status"
+          className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-red-400/30 bg-red-500/10 p-5"
+        >
+          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-red-300">
+            <span className="h-2.5 w-2.5 animate-ping rounded-full bg-red-500" />
+            Grabando
+          </span>
+          <span className="font-mono text-3xl font-bold tracking-wider text-white">
             {formatSeconds(recordingDuration)}
-            {maxDuration > 0 && (
-              <span className="text-sm font-normal text-white/40 ml-1">
-                / {formatSeconds(maxDuration)}
-              </span>
-            )}
-          </div>
+            {maxDuration > 0 && <span className="ml-1.5 text-sm font-normal text-white/40">/ {formatSeconds(maxDuration)}</span>}
+          </span>
         </div>
       )}
 
-      {/* Main Action Trigger */}
-      <div>
-        {countdownActive !== null ? (
-          <div className="w-full py-3.5 rounded-2xl font-bold text-base flex items-center justify-center gap-2 bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-            <CircleDot className="w-5 h-5 animate-spin" />
-            <span>Starting in {countdownActive}s...</span>
+      {error && (
+        <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2.5 text-xs text-rose-200">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {error}
+        </p>
+      )}
+
+      {countdownActive !== null ? (
+        <div className="space-y-2">
+          <div
+            role="status"
+            aria-live="assertive"
+            className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-amber-400/40 bg-amber-500/15 py-3.5 text-sm font-bold text-amber-200"
+          >
+            <CircleDot className="h-5 w-5 animate-spin" />
+            Empieza en {countdownActive} s…
           </div>
-        ) : isRecording ? (
           <button
-            onClick={stopRecording}
-            className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-lg shadow-red-500/30 transition-all active:scale-[0.99]"
+            type="button"
+            onClick={cancelCountdown}
+            className={`flex w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.05] py-3 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 ${FOCUS_RING}`}
           >
-            <Square className="w-4 h-4 fill-white" />
-            <span>Stop & Preview Recording</span>
+            <X className="h-3.5 w-3.5" />
+            Cancelar
           </button>
-        ) : (
-          <button
-            onClick={handleStartWithCountdown}
-            className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-lg shadow-purple-500/30 transition-all active:scale-[0.99]"
-          >
-            <div className="w-3 h-3 rounded-full bg-red-500 border border-white/40" />
-            <span>Start Recording</span>
-          </button>
-        )}
-      </div>
+        </div>
+      ) : isRecording ? (
+        <button
+          type="button"
+          onClick={() => void stopRecording()}
+          className={`flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-900/40 transition-all hover:brightness-110 active:scale-[0.99] ${FOCUS_RING}`}
+        >
+          <Square className="h-4 w-4 fill-white" />
+          Detener y ver el resultado
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={start}
+          className={`flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-900/40 transition-all hover:brightness-110 active:scale-[0.99] ${FOCUS_RING}`}
+        >
+          <span className="h-3 w-3 rounded-full border border-white/50 bg-red-500" />
+          Empezar a grabar
+        </button>
+      )}
     </div>
   );
 };

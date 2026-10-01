@@ -1,4 +1,5 @@
 import { usePlayerStore } from '../stores/playerStore';
+import { getPlaybackTime } from './playbackClock';
 
 class BpmDetectorService {
   private isRunning = false;
@@ -9,6 +10,17 @@ class BpmDetectorService {
   private lastBeatTime = 0;
   private smoothedBpm = 0;
   private beatPulseTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastClockBeat = -1;
+
+  private pulse(): void {
+    const state = usePlayerStore.getState();
+    state.triggerBeatPulse();
+    if (this.beatPulseTimeout) clearTimeout(this.beatPulseTimeout);
+    this.beatPulseTimeout = setTimeout(() => {
+      usePlayerStore.getState().resetBeatPulse();
+      this.beatPulseTimeout = null;
+    }, 90);
+  }
 
   public start(): void {
     if (this.isRunning) return;
@@ -22,6 +34,12 @@ class BpmDetectorService {
       cancelAnimationFrame(this.animId);
       this.animId = null;
     }
+    if (this.beatPulseTimeout) {
+      clearTimeout(this.beatPulseTimeout);
+      this.beatPulseTimeout = null;
+    }
+    this.lastClockBeat = -1;
+    usePlayerStore.getState().resetBeatPulse();
   }
 
   private loop = (): void => {
@@ -31,7 +49,7 @@ class BpmDetectorService {
     const analyser = state.analyser;
     const isPlaying = state.isPlaying;
 
-    if (analyser && isPlaying) {
+    if (analyser && isPlaying && state.currentTrack?.sourceType !== 'spotify') {
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       analyser.getByteFrequencyData(dataArray);
@@ -63,6 +81,7 @@ class BpmDetectorService {
 
       // Minimum 260ms between beats (<= 230 BPM), maximum 1500ms (>= 40 BPM)
       if (currentBassEnergy > threshold && flux > 15 && timeSinceLastBeat > 260) {
+        this.pulse();
         if (this.lastBeatTime > 0 && timeSinceLastBeat < 1500) {
           const rawBpm = 60000 / timeSinceLastBeat;
 
@@ -97,6 +116,21 @@ class BpmDetectorService {
       }
 
       this.prevBassEnergy = currentBassEnergy;
+      this.lastClockBeat = -1;
+    } else if (
+      isPlaying &&
+      state.currentTrack?.sourceType === 'spotify' &&
+      state.bpm >= 40
+    ) {
+      // Spotify remoto no expone su audio al AnalyserNode. El reloj interpolado mantiene
+      // el LED y el pulso de la interfaz alineados entre los sondeos de reproducción.
+      const beat = Math.floor(getPlaybackTime() * state.bpm / 60);
+      if (beat !== this.lastClockBeat) {
+        this.lastClockBeat = beat;
+        this.pulse();
+      }
+    } else {
+      this.lastClockBeat = -1;
     }
 
     this.animId = requestAnimationFrame(this.loop);

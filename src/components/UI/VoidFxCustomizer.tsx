@@ -12,9 +12,11 @@ interface SliderProps {
   step: number;
   format?: (v: number) => string;
   onChange: (v: number) => void;
+  /** Qué cambia al moverlo, en una línea */
+  hint?: string;
 }
 
-const Slider: React.FC<SliderProps> = ({ label, value, min, max, step, format, onChange }) => (
+const Slider: React.FC<SliderProps> = ({ label, value, min, max, step, format, onChange, hint }) => (
   <label className="block space-y-1">
     <div className="flex items-center justify-between text-[11px]">
       <span className="text-white/70">{label}</span>
@@ -29,6 +31,7 @@ const Slider: React.FC<SliderProps> = ({ label, value, min, max, step, format, o
       onChange={(e) => onChange(parseFloat(e.target.value))}
       className="w-full h-1 bg-white/[0.1] rounded-full cursor-pointer accent-cyan-400"
     />
+    {hint && <span className="block text-[10.5px] leading-snug text-white/45">{hint}</span>}
   </label>
 );
 
@@ -44,8 +47,8 @@ interface VoidFxCustomizerProps {
 }
 
 /**
- * Personalización del contorno del kick sobre la Mándala Sagrada: estilo, tamaño,
- * intensidad, alcance, brillo, cantidad, color y capas internas.
+ * Ajustes de la forma elegida: acabado, tamaño, reacción, alcance, resplandor, cantidad,
+ * color y borde interior.
  */
 export const VoidFxCustomizer: React.FC<VoidFxCustomizerProps> = ({ showShockwave = false }) => {
   const blobShape = usePlayerStore((s) => s.blobShape);
@@ -91,7 +94,7 @@ export const VoidFxCustomizer: React.FC<VoidFxCustomizerProps> = ({ showShockwav
 
       {isContour && (
         <div className="space-y-2">
-          <span className="text-[11px] text-white/70">Acabado del contorno</span>
+          <span className="text-[11px] text-white/70">Acabado</span>
           <div className="flex gap-1.5">
             {KICK_FORM_STYLES.map((st) => (
               <button
@@ -106,13 +109,13 @@ export const VoidFxCustomizer: React.FC<VoidFxCustomizerProps> = ({ showShockwav
               </button>
             ))}
           </div>
-          <Slider label="Tamaño del contorno" value={fx.formScale} min={0.5} max={1.7} step={0.05} format={(v) => `${v.toFixed(2)}x`} onChange={(v) => set({ formScale: v })} />
+          <Slider label="Tamaño de la forma" hint="Escala toda la forma alrededor del disco." value={fx.formScale} min={0.5} max={1.7} step={0.05} format={(v) => `${v.toFixed(2)}×`} onChange={(v) => set({ formScale: v })} />
         </div>
       )}
 
-      <Slider label="Intensidad" value={fx.intensity} min={0.4} max={2} step={0.05} format={(v) => `${v.toFixed(2)}x`} onChange={(v) => set({ intensity: v })} />
-      <Slider label="Alcance" value={fx.reach} min={0.6} max={1.8} step={0.05} format={(v) => `${v.toFixed(2)}x`} onChange={(v) => set({ reach: v })} />
-      <Slider label="Brillo" value={fx.glow} min={0} max={1.5} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => set({ glow: v })} />
+      <Slider label="Reacción" hint="Cuánto responde la forma a la música." value={fx.intensity} min={0.4} max={2} step={0.05} format={(v) => `${v.toFixed(2)}×`} onChange={(v) => set({ intensity: v })} />
+      <Slider label="Alcance" hint="Qué tan lejos del disco llega el dibujo." value={fx.reach} min={0.6} max={1.8} step={0.05} format={(v) => `${v.toFixed(2)}×`} onChange={(v) => set({ reach: v })} />
+      <Slider label="Resplandor" hint="Luz suave alrededor del trazo." value={fx.glow} min={0} max={1.5} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => set({ glow: v })} />
       {param && (
         <Slider
           label={param.label}
@@ -125,7 +128,7 @@ export const VoidFxCustomizer: React.FC<VoidFxCustomizerProps> = ({ showShockwav
       )}
 
       <div className="space-y-1.5">
-        <span className="text-[11px] text-white/70">Color</span>
+        <span className="text-[11px] text-white/70">Color de la forma</span>
         <div className="flex gap-1.5">
           {COLOR_MODES.map((m) => (
             <button
@@ -142,8 +145,8 @@ export const VoidFxCustomizer: React.FC<VoidFxCustomizerProps> = ({ showShockwav
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {isContour && toggle('mandala', 'Mándala de fondo', 'Apágala para ver solo el contorno del kick')}
-        {toggle('inner', 'Capas internas')}
+        {blobShape === 'crystal' && toggle('mandala', 'Mándala de fondo', 'Los anillos de pétalos detrás del Cristal')}
+        {toggle('inner', 'Borde interior', 'Un borde luminoso dentro del disco')}
         {showShockwave && toggle('shockwave', 'Ondas de choque', 'Anillo expansivo con cada golpe de bombo')}
       </div>
     </div>

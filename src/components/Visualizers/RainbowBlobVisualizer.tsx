@@ -26,9 +26,24 @@ import {
   Disc,
 } from 'lucide-react';
 import { LogoCropFilterModal } from '../UI/LogoCropFilterModal';
-import { RAINBOW_VOID_EFFECTS, ATMOSPHERE_OPTIONS, DEFAULT_VOID_EFFECT, isVoidEffectId, resolveVoidFx } from '../../config/visualPresets';
+import { LogoDisc } from '../UI/LogoDisc';
+import { useActiveLogo } from '../../hooks/useActiveLogo';
+import { useTrackLogoStore } from '../../stores/trackLogoStore';
+import { clampDelta, decayForDt, frameScale, rateForDt } from '../../utils/frameTiming';
+import { AuraRenderer } from './aura/auraRenderer';
+import { buildAuraPalette, DEFAULT_AURA_PARAMS, type AuraSignals } from './aura/auraLayout';
+import {
+  KICK_MAX_PEAK,
+  applyKickImpulse,
+  createKickSpring,
+  kickPeakForStrength,
+  stepKickSpring,
+} from '../../utils/kickSpring';
+import { DEFAULT_VOID_EFFECT, isVoidEffectId, migrateVoidEffectId, resolveVoidFx } from '../../config/visualPresets';
+import { RainbowCalibrationBody } from './calibration/RainbowCalibrationBody';
 import { VoidFxCustomizer } from '../UI/VoidFxCustomizer';
 import { drawVoidEffect, createVoidFxState, type VoidFxState } from './voidEffects';
+import { QUALITY_PROFILES, canvasDprFor } from '../../utils/qualityProfile';
 import type { VisualizerShape, BackgroundAtmosphere } from '../../types/audio';
 import { DEFAULT_BLOB_SETTINGS } from '../../services/storageService';
 import { useFPSMonitor } from '../../hooks/useFPSMonitor';
@@ -47,6 +62,7 @@ import {
   renderHolographicScanlines,
 } from './effects';
 import type { Shockwave, CrystalShard, ApexTrail } from './effects';
+import { useShallow } from 'zustand/react/shallow';
 
 // Preset Vector Logo Styles
 const LOGO_PRESETS = [
@@ -81,6 +97,14 @@ interface VoidStar {
 const clamp = (val: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, val));
 
+const followAudioBand = (
+  current: number,
+  target: number,
+  attack: number,
+  release: number,
+  dt: number
+): number => current + (target - current) * rateForDt(target > current ? attack : release, dt);
+
 const computeScaleFactor = (): number => {
   if (typeof window === 'undefined') return 0.80;
   const minDim = Math.min(window.innerWidth, window.innerHeight);
@@ -113,16 +137,45 @@ export const RainbowBlobVisualizer: React.FC = () => {
     lucidTheme,
     lucidPrimaryColor,
     isUiIdle,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      blobSettings: s.blobSettings,
+      updateBlobSettings: s.updateBlobSettings,
+      isBlobPanelOpen: s.isBlobPanelOpen,
+      setBlobPanelOpen: s.setBlobPanelOpen,
+      blobShape: s.blobShape,
+      setBlobShape: s.setBlobShape,
+      blobWaveMode: s.blobWaveMode,
+      blobWaveIntensity: s.blobWaveIntensity,
+      blobBassBoomThreshold: s.blobBassBoomThreshold,
+      setBlobBassBoomThreshold: s.setBlobBassBoomThreshold,
+      blobBassBoomIntensity: s.blobBassBoomIntensity,
+      setBlobBassBoomIntensity: s.setBlobBassBoomIntensity,
+      blobScale: s.blobScale,
+      musicSensitivity: s.musicSensitivity,
+      currentTrack: s.currentTrack,
+      isMicActive: s.isMicActive,
+      isPlaying: s.isPlaying,
+      autoMode: s.autoMode,
+      dynamicColor: s.dynamicColor,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      isUiIdle: s.isUiIdle,
+    }))
+  );
 
   // Smoothing 0.2 synchronized with audio engine
-  const { getSmoothedData } = useVisualizer(0.2);
+  // timeBased: suavizado, auto-gain y detector de bombo en función del tiempo real (no del nº de frames)
+  const { getSmoothedData } = useVisualizer(0.2, { timeBased: true });
 
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [tempImageForCrop, setTempImageForCrop] = useState<string | null>(null);
   const [openedFromSettings, setOpenedFromSettings] = useState(false);
+  // Logo de la canción actual: carátula propia de la canción + estilo guardado (no una sola imagen global)
+  const activeLogo = useActiveLogo();
+  const clearTrackLogo = useTrackLogoStore((s) => s.clearOverride);
   const [savedPresetSuccess, setSavedPresetSuccess] = useState(false);
-  const [calibTab, setCalibTab] = useState<'shapes' | 'kick' | 'style' | 'atmosphere' | 'pro'>('shapes');
   const [proEffectToast, setProEffectToast] = useState<string | null>(null);
 
   const blobSettingsRef = useRef(blobSettings);
@@ -140,10 +193,17 @@ export const RainbowBlobVisualizer: React.FC = () => {
     setTimeout(() => setProEffectToast(null), 3200);
   });
 
+  // Calidad efectiva (elección del usuario limitada por la calidad automática por FPS)
+  const effectiveTier = usePlayerStore((s) => s.effectiveTier);
+  const qualityRef = useRef(QUALITY_PROFILES[effectiveTier]);
+  qualityRef.current = QUALITY_PROFILES[effectiveTier];
+
   const { recordFrame } = useFPSMonitor({
     thresholdFps: 45,
     lowFpsDurationMs: 2000,
     onPerformanceDrop: () => {
+      // Primero lo barato de perder: menos resolución del aura (conserva la respuesta al kick)
+      auraStateRef.current.res = Math.max(96, Math.round(auraStateRef.current.res * 0.75));
       const dropped = deactivateHeaviestEffects(2);
       if (dropped.length > 0) {
         setProEffectToast(`Efectos desactivados por rendimiento (<45 FPS): ${dropped.join(', ')}`);
@@ -164,6 +224,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
     const memory = (navigator as any).deviceMemory || 4;
     if (cores < 4 || memory < 4) {
       hardwareMultiplier.current = 0.5;
+      auraStateRef.current.res = 160;
     }
   }, []);
 
@@ -205,7 +266,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
   // Migra formas guardadas que ya no existen en el catálogo
   useEffect(() => {
-    if (!isVoidEffectId(blobShape)) setBlobShape(DEFAULT_VOID_EFFECT);
+    if (!isVoidEffectId(blobShape)) setBlobShape(migrateVoidEffectId(blobShape));
   }, [blobShape, setBlobShape]);
 
   // Audio smoothing refs
@@ -217,11 +278,31 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const peakHoldCaps = useRef<number[]>(new Array(64).fill(0));
 
   // Kick Spring Physics & Parametric Morphing
-  const kickSpringRef = useRef({
-    displacement: 0,
-    velocity: 0,
-    prevBass: 0,
-  });
+  const kickSpringRef = useRef(createKickSpring());
+
+  // Aura cromática: canvas de baja resolución detrás del disco + estado compartido de sus capas
+  const auraCanvasRef = useRef<HTMLCanvasElement>(null);
+  const auraRendererRef = useRef<AuraRenderer | null>(null);
+  // body/bloom siguen al kick con distinto desfase; res es la resolución actual del buffer (baja si hay poco rendimiento)
+  const auraStateRef = useRef({ body: 0, bloom: 0, res: 256, paletteKey: '', palette: [] as string[] });
+  const auraBodySignals = useRef<AuraSignals>({ time: 0, kick: 0, kickEnv: 0, bass: 0, mids: 0, treble: 0, energy: 0, chroma: [] });
+  const auraBloomSignals = useRef<AuraSignals>({ time: 0, kick: 0, kickEnv: 0, bass: 0, mids: 0, treble: 0, energy: 0, chroma: [] });
+  const reducedMotionRef = useRef(false);
+
+  useEffect(() => {
+    auraRendererRef.current = new AuraRenderer();
+    const mq = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    reducedMotionRef.current = !!mq?.matches;
+    const onChange = (e: MediaQueryListEvent) => {
+      reducedMotionRef.current = e.matches;
+    };
+    mq?.addEventListener?.('change', onChange);
+    return () => {
+      mq?.removeEventListener?.('change', onChange);
+      auraRendererRef.current?.dispose();
+      auraRendererRef.current = null;
+    };
+  }, []);
   const morphNRef = useRef(blobSettings.catEarsCount ?? 2);
 
   // Envolvente del kick + medidores de calibración en vivo
@@ -237,7 +318,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       const canvas = canvasRef.current;
       if (canvas) {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = canvasDprFor(qualityRef.current, window.devicePixelRatio);
         const displaySize = Math.round(700 * u);
         canvas.width = Math.round(displaySize * dpr);
         canvas.height = Math.round(displaySize * dpr);
@@ -249,7 +330,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    // effectiveTier: al cambiar la calidad automática el canvas se redimensiona con el nuevo DPR
+  }, [effectiveTier]);
 
   const isSunset = blobSettings.backgroundAtmosphere === 'sunset';
 
@@ -258,70 +340,74 @@ export const RainbowBlobVisualizer: React.FC = () => {
     let animId: number;
     let phase = 0;
     let angle = 0;
+    let lastFrame = performance.now();
 
     const render = () => {
       const bs = blobSettingsRef.current;
       const now = performance.now();
       const timeSec = now * 0.001;
+      // Intervalo real acotado: una pestaña reanudada o un tirón no teletransporta la animación
+      const dt = clampDelta((now - lastFrame) / 1000);
+      lastFrame = now;
+      const frames = frameScale(dt);
       const u = scaleURef.current;
 
-      // Sensibilidad del bombo (control de calibración): 0.32 → 3.0, el valor medido con música real
-      const { bass, mids, energy, raw, chroma, kick, kickStrength } = getSmoothedData(1.5 + (bs.kickThreshold ?? 0.32) * 4.7);
+      // Calibración adaptativa del bombo: respuesta inmediata y musical
+      const kickCalibSens = 1.0 + (bs.kickThreshold ?? 0.32) * 2.8;
+      const { bass, mids, highs, energy, raw, chroma, kick, kickStrength } = getSmoothedData(kickCalibSens);
       const audioSens = musicSensitivity ?? 1.0;
       const isAudioActive = energy > 0.005 || isPlaying || isMicActive;
 
-      // Exponential moving average filter
+      // Exponential moving average filter con ganancia de sensibilidad
       const effectiveBass = bass * audioSens;
       const effectiveMids = mids * audioSens;
+      const effectiveHighs = highs * audioSens;
       const effectiveEnergy = energy * audioSens;
 
-      smoothedBassRef.current += (effectiveBass - smoothedBassRef.current) * 0.28;
-      smoothedMidsRef.current += (effectiveMids - smoothedMidsRef.current) * 0.28;
-      smoothedEnergyRef.current += (effectiveEnergy - smoothedEnergyRef.current) * 0.28;
+      // Seguimiento ágil y orgánico: respuesta rápida a transitorios sin retardo
+      smoothedBassRef.current = followAudioBand(smoothedBassRef.current, effectiveBass, 0.90, 0.22, dt);
+      smoothedMidsRef.current = followAudioBand(smoothedMidsRef.current, effectiveMids, 0.82, 0.20, dt);
+      smoothedTrebleRef.current = followAudioBand(smoothedTrebleRef.current, effectiveHighs, 0.92, 0.28, dt);
+      smoothedEnergyRef.current = followAudioBand(smoothedEnergyRef.current, effectiveEnergy, 0.85, 0.18, dt);
 
       const sBass = smoothedBassRef.current;
       const sMids = smoothedMidsRef.current;
+      const sTreble = smoothedTrebleRef.current;
       const sEnergy = smoothedEnergyRef.current;
 
       const rotSpeed = bs.rotationSpeed ?? 1.0;
       const rotDir = bs.rotationDirection === 'counter_clockwise' ? -1 : 1;
+      // Incrementos calibrados por frame a 60 FPS; multiplicar por `frames` los hace por segundo
       if (isAudioActive) {
-        phase += (0.03 + sBass * 0.1) * rotSpeed;
-        angle += (0.25 + sMids * 1.2) * rotSpeed * rotDir;
+        // Cada banda mueve una dimensión distinta: los graves deforman el contorno,
+        // los medios gobiernan el giro y los agudos añaden microvariación rápida.
+        phase += (0.016 + sBass * 0.035 + sTreble * 0.045) * rotSpeed * frames;
+        angle += (0.16 + sMids * 0.72 + sTreble * 0.2) * rotSpeed * rotDir * frames;
       } else {
-        phase += 0.015 * rotSpeed;
-        angle += 0.1 * rotSpeed * rotDir;
+        phase += 0.015 * rotSpeed * frames;
+        angle += 0.1 * rotSpeed * rotDir * frames;
       }
 
       // Morphing for Cat-Ears / Sacred Geometry
       const targetN = bs.catEarsCount ?? 2;
-      morphNRef.current += (targetN - morphNRef.current) * 0.12;
-
-      // Smooth Treble energy for Chromatic Ring & Diamond Nodes
-      let trebleEnergy = 0;
-      if (raw && raw.length > 0) {
-        const trebleSlice = raw.slice(Math.floor(raw.length * 0.65));
-        trebleEnergy = trebleSlice.length > 0
-          ? (trebleSlice.reduce((a, b) => a + b, 0) / (trebleSlice.length * 255)) * audioSens
-          : 0;
-      }
-      smoothedTrebleRef.current += (trebleEnergy - smoothedTrebleRef.current) * 0.28;
-      const sTreble = smoothedTrebleRef.current;
+      morphNRef.current += (targetN - morphNRef.current) * rateForDt(0.12, dt);
 
       // ── Kick Transient & iOS Spring Damping Integration ──
-      const kickThresh = bs.kickThreshold ?? 0.32;
       const kPower = bs.kickPower ?? 1.6;
 
       // El bombo lo detecta el hook (flujo positivo de graves en amplitud lineal)
-      kickSpringRef.current.prevBass = sBass;
       const isKickTriggered = isAudioActive && kick;
       const boomStrength = isKickTriggered ? kickStrength : 0;
       if (isKickTriggered) {
-        // Impulso elástico proporcional a la fuerza real del golpe
-        kickSpringRef.current.velocity += Math.min(0.38, (0.08 + boomStrength * 0.3) * kPower * 0.8);
+        // El pico de expansión sale de la fuerza real del golpe (curva 1.4: suave ≠ fuerte),
+        // escalado por «Intensidad» y «Potencia». 1.6 es la potencia neutra histórica.
+        applyKickImpulse(
+          kickSpringRef.current,
+          kickPeakForStrength(boomStrength, bs.kickIntensity ?? 1.0, kPower / 1.6)
+        );
         kickEnvRef.current = Math.max(kickEnvRef.current, boomStrength);
       }
-      kickEnvRef.current *= 0.9;
+      kickEnvRef.current *= decayForDt(0.9, dt);
 
       // Medidores de calibración (solo existen con el panel abierto)
       const mt = meterRefs.current;
@@ -330,16 +416,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
       if (mt.treble) mt.treble.style.transform = `scaleX(${Math.min(1, sTreble)})`;
       if (mt.kick) mt.kick.style.opacity = String(Math.min(1, kickEnvRef.current * 1.4));
 
-      // Spring physics step (stiffness 140, damping 0.78 for iOS-like elastic return)
-      const springDt = 0.016;
-      const springK = 140;
-      const springDampingFactor = 0.78;
-      const springForce = -springK * kickSpringRef.current.displacement;
-      kickSpringRef.current.velocity = (kickSpringRef.current.velocity + springForce * springDt) * springDampingFactor;
-      kickSpringRef.current.displacement += kickSpringRef.current.velocity * springDt;
-      if (kickSpringRef.current.displacement < 0) kickSpringRef.current.displacement = 0;
+      // Resorte elástico con solución analítica: la misma curva a 30, 60 o 144 FPS
+      stepKickSpring(kickSpringRef.current, dt);
 
-      const kickSpringRebound = kickSpringRef.current.displacement * 0.25; // Up to +25% spring expansion on Kick
+      // Fracción de escala extra del núcleo (0.09 = +9 % con el golpe más fuerte a intensidad 1)
+      const kickSpringRebound = kickSpringRef.current.displacement;
 
       // Smooth audio-reactive scale calibration
       const isEarLikeShape = isVoidEffectId(blobShape);
@@ -351,13 +432,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
       const sens = (bs.scaleSensitivity ?? 1.40) * audioSens;
       const baseScale = 0.75 + idleBreathing;
 
-      // In Ear-Like Shapes & Sacred Minimalism: Pure spring rebound + smooth bass (no jitter/stutter)
+      // El pulso continuo y el resorte del kick entregan una respuesta dinámica completa
       const bassContribution = isEarLikeShape
-        ? (sBass * 0.12 * kickIntensity + kickSpringRebound)
-        : (Math.pow(nivel, 1.2) * (0.35 + boostVal * 0.18));
+        ? (sBass * 0.085 * kickIntensity + sMids * 0.025 + sTreble * 0.015 + kickSpringRebound)
+        : (sBass * (0.09 + boostVal * 0.025) + kickSpringRebound);
 
       const totalScale = (baseScale + bassContribution) * sens;
-      const clampedScale = Math.min(1.85, Math.max(0.40, totalScale));
+      const clampedScale = Math.min(1.95, Math.max(0.40, totalScale));
       const escala = clampedScale * 0.5;
 
       const borderRadius = '50%';
@@ -373,10 +454,12 @@ export const RainbowBlobVisualizer: React.FC = () => {
         if (isSunset) {
           haloRef.current.style.opacity = `${blobSettings.dhonkioOpacity ?? 0.42}`;
         } else if (isTransparentHalo || isEarLikeShape) {
-          // Zero-Noise Transparent Halo (Subtle, non-invasive rim)
-          haloRef.current.style.opacity = isAudioActive ? `${0.06 + sBass * 0.10}` : '0.03';
-          haloRef.current.style.boxShadow = 'none';
-          haloRef.current.style.backdropFilter = 'none';
+          // Halo reactivo con presencia luminosa nítida que acompaña el bajo y el kick
+          haloRef.current.style.opacity = isAudioActive ? `${0.12 + sBass * 0.28}` : '0.04';
+          haloRef.current.style.boxShadow = isAudioActive
+            ? `0 0 ${Math.round(24 + sBass * 32)}px rgba(0, 242, 254, ${0.15 + sBass * 0.25}), 0 0 ${Math.round(40 + sBass * 45)}px rgba(255, 8, 138, ${0.12 + sBass * 0.20})`
+            : 'none';
+          haloRef.current.style.backdropFilter = isAudioActive ? 'blur(12px) saturate(140%)' : 'none';
         } else {
           haloRef.current.style.opacity = '1.0';
           haloRef.current.style.backdropFilter = 'blur(18px) saturate(160%)';
@@ -387,9 +470,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
         haloGlowRef.current.style.borderRadius = borderRadius;
         haloGlowRef.current.style.transform = `scale(${escala * 1.15}) rotate(${-angle * 0.5}deg)`;
         if (isTransparentHalo || isEarLikeShape) {
-          // Completely eliminates background wash-out
-          haloGlowRef.current.style.opacity = '0';
-          haloGlowRef.current.style.filter = 'none';
+          // Resplandor vivo y expansivo sin opacar el contenido central
+          haloGlowRef.current.style.opacity = `${isAudioActive ? 0.20 + sBass * 0.38 : 0.08}`;
+          haloGlowRef.current.style.filter = `blur(${isAudioActive ? (16 + sBass * 22) * u : 14 * u}px)`;
         } else {
           haloGlowRef.current.style.opacity = `${isAudioActive ? 0.4 + nivel * 0.4 : 0.25}`;
           haloGlowRef.current.style.filter = `blur(${isAudioActive ? (20 + nivel * 24) * u : 18 * u}px)`;
@@ -397,8 +480,11 @@ export const RainbowBlobVisualizer: React.FC = () => {
       }
 
       if (auroraRef.current) {
-        if (isSunset || (isEarLikeShape && isTransparentHalo)) {
+        if (isSunset) {
           auroraRef.current.style.opacity = '0';
+        } else if (isEarLikeShape && isTransparentHalo) {
+          auroraRef.current.style.transform = `rotate(${timeSec * 8}deg) scale(${1 + sBass * 0.12})`;
+          auroraRef.current.style.opacity = isAudioActive ? `${0.15 + sEnergy * 0.35}` : '0.05';
         } else {
           auroraRef.current.style.transform = `rotate(${timeSec * 8}deg) scale(${1 + sBass * 0.1})`;
           auroraRef.current.style.opacity = `${isAudioActive ? 0.3 + sBass * 0.35 : 0.2}`;
@@ -410,7 +496,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
       if (canvas) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const dpr = canvasDprFor(qualityRef.current, window.devicePixelRatio);
           const displaySize = 700 * u;
           ctx.save();
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -449,9 +535,73 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
           const hwMult = hardwareMultiplier.current;
 
+          // ── Aura cromática (detrás del disco) ──────────────────────────────
+          {
+            const auraCanvas = auraCanvasRef.current;
+            const auraRenderer = auraRendererRef.current;
+            const auraOn = !!auraCanvas && !!auraRenderer && bs.auraEnabled !== false && !isSunset;
+            if (auraCanvas) auraCanvas.style.display = auraOn ? 'block' : 'none';
+            if (auraOn && auraCanvas && auraRenderer) {
+              const st = auraStateRef.current;
+              if (auraCanvas.width !== st.res) {
+                auraCanvas.width = st.res;
+                auraCanvas.height = st.res;
+              }
+              const actx = auraCanvas.getContext('2d');
+              if (actx) {
+                // Señal compartida del kick: el mismo resorte que mueve el núcleo (1 ≈ golpe más fuerte)
+                const kickNorm = kickSpringRef.current.displacement / KICK_MAX_PEAK;
+                // Cada capa sigue al núcleo con su desfase: cuerpo ~40 ms, bloom ~90 ms
+                st.body += (kickNorm - st.body) * rateForDt(0.33, dt);
+                st.bloom += (kickNorm - st.bloom) * rateForDt(0.17, dt);
+
+                const reduced = reducedMotionRef.current;
+                const params = {
+                  intensity: bs.auraIntensity ?? DEFAULT_AURA_PARAMS.intensity,
+                  reach: bs.auraReach ?? DEFAULT_AURA_PARAMS.reach,
+                  softness: bs.auraSoftness ?? DEFAULT_AURA_PARAMS.softness,
+                  kickResponse: (bs.auraKickResponse ?? DEFAULT_AURA_PARAMS.kickResponse) * (reduced ? 0.4 : 1),
+                  motion: (bs.auraMotion ?? DEFAULT_AURA_PARAMS.motion) * (reduced ? 0.25 : 1),
+                };
+
+                const rainbow = (bs.sacredPalette ?? 'neon') === 'neon' && bs.isRainbowMode !== false;
+                const key = `${rainbow}|${primaryColor}|${secondaryColor}`;
+                if (st.paletteKey !== key) {
+                  st.paletteKey = key;
+                  st.palette = buildAuraPalette(rainbow, primaryColor, secondaryColor);
+                }
+
+                const body = auraBodySignals.current;
+                const bloom = auraBloomSignals.current;
+                body.time = bloom.time = timeSec;
+                body.kick = st.body;
+                bloom.kick = st.bloom;
+                body.kickEnv = bloom.kickEnv = kickEnvRef.current;
+                body.bass = bloom.bass = sBass;
+                body.mids = bloom.mids = sMids;
+                body.treble = bloom.treble = sTreble;
+                body.energy = bloom.energy = sEnergy;
+                body.chroma = bloom.chroma = chroma;
+
+                const discRadiusBuf = (baseCircleRadius / (displaySize / 2)) * (st.res / 2);
+                auraRenderer.draw(actx, st.res, discRadiusBuf, st.palette, body, bloom, params);
+              }
+            }
+          }
+
+          // Efecto activo y sus parámetros (se resuelven una sola vez por frame y los usan el disparo y el dibujo)
+          const activeEffect = isVoidEffectId(blobShape) ? blobShape : DEFAULT_VOID_EFFECT;
+          const resolvedVoidFx = resolveVoidFx(bs.voidFx, activeEffect);
+          // Los halos (shadowBlur) son lo más caro del canvas 2D: el nivel de calidad los escala o los apaga
+          const glowK = qualityRef.current.glow;
+          const voidFxParams =
+            glowK === 1 ? resolvedVoidFx : { ...resolvedVoidFx, glow: resolvedVoidFx.glow * glowK };
+
           // Disparo de eventos en Kick
           if (isKickTriggered) {
-            if (bs.shockwaveEnabled) {
+            // Un solo dueño de la onda evita dibujar dos colas para el mismo golpe.
+            const boomOwnsWave = voidFxParams.boom;
+            if (bs.shockwaveEnabled && !boomOwnsWave) {
               shockwavesRef.current.push({
                 radius: baseCircleRadius,
                 maxRadius: baseCircleRadius * 2.5,
@@ -481,7 +631,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
               ctx,
               crystalShardsRef.current,
               u,
-              0.016,
+              dt,
               (bs.crystalShardsIntensity ?? 1.0) * hwMult
             );
           }
@@ -495,7 +645,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               cy,
               baseCircleRadius,
               u,
-              (bs.pulseGridIntensity ?? 1.0) * hwMult
+              (bs.pulseGridIntensity ?? 1.0) * hwMult,
+              secondaryColor
             );
           }
 
@@ -509,7 +660,9 @@ export const RainbowBlobVisualizer: React.FC = () => {
               u,
               timeSec,
               sEnergy,
-              (bs.auroraRibbonsIntensity ?? 1.0) * hwMult
+              (bs.auroraRibbonsIntensity ?? 1.0) * hwMult,
+              primaryColor,
+              secondaryColor
             );
           }
 
@@ -619,7 +772,6 @@ export const RainbowBlobVisualizer: React.FC = () => {
           // EFECTO ACTIVO — catálogo minimalista (voidEffects.ts)
           // ─────────────────────────────────────────────────────────────────
           {
-            const activeEffect = isVoidEffectId(blobShape) ? blobShape : DEFAULT_VOID_EFFECT;
             currentFrameTips = drawVoidEffect(
               activeEffect,
               {
@@ -629,16 +781,18 @@ export const RainbowBlobVisualizer: React.FC = () => {
                 r: baseCircleRadius,
                 u,
                 t: timeSec,
-                bass: sBass,
-                mids: sMids,
-                treble: sTreble,
-                energy: sEnergy,
+                // El hook ya aplica ataque/caída. Usar aquí la señal previa al segundo EMA evita
+                // retrasar INNER y las formas; el resto del visual conserva el suavizado adicional.
+                bass: Math.min(1, Math.max(0, effectiveBass)),
+                mids: Math.min(1, Math.max(0, effectiveMids)),
+                treble: Math.min(1, Math.max(0, effectiveHighs)),
+                energy: Math.min(1, Math.max(0, effectiveEnergy)),
                 kickStrength: kickEnvRef.current,
                 boom: boomStrength,
                 active: isAudioActive,
                 chroma,
                 raw,
-                fx: resolveVoidFx(bs.voidFx, activeEffect),
+                fx: voidFxParams,
                 primary: primaryColor,
                 secondary: secondaryColor,
                 accent: '#FFFFFF',
@@ -673,7 +827,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               currentFrameTips,
               u,
               sEnergy,
-              (bs.constellationIntensity ?? 1.0) * hwMult
+              (bs.constellationIntensity ?? 1.0) * hwMult,
+              secondaryColor
             );
           }
 
@@ -685,7 +840,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               apexTrailsRef.current,
               u,
               primaryColor,
-              (bs.mercuryTrailsIntensity ?? 1.0) * hwMult
+              (bs.mercuryTrailsIntensity ?? 1.0) * hwMult,
+              timeSec
             );
           }
 
@@ -742,7 +898,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
               baseCircleRadius,
               u,
               timeSec,
-              (bs.holographicScanlinesIntensity ?? 1.0) * hwMult
+              (bs.holographicScanlinesIntensity ?? 1.0) * hwMult,
+              primaryColor
             );
           }
 
@@ -831,7 +988,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
   };
 
   const handleRemoveCustomLogo = () => {
-    updateBlobSettings({ customLogoUrl: null });
+    updateBlobSettings({ customLogoUrl: null, logoAppearance: null });
+    if (activeLogo.key) clearTrackLogo(activeLogo.key);
   };
 
   const handleSaveFavoritePreset = () => {
@@ -887,7 +1045,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
   const renderCenterLogo = () => {
     if (isSunset) return null; // In DHONKIO mode, the void renders city + text + equalizer
 
-    const activeImage = blobSettings.customLogoUrl || currentTrack?.coverUrl;
+    const activeImage = activeLogo.src;
     const discSize = Math.round(circleDimension * 0.86);
 
     if (activeImage) {
@@ -911,7 +1069,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
           {/* Crisp center circular disc with vinyl grooves */}
           <div
             onClick={() => {
-              setTempImageForCrop(activeImage);
+              setTempImageForCrop(null);
               setOpenedFromSettings(false);
               setIsCropModalOpen(true);
             }}
@@ -926,11 +1084,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
             className="relative rounded-full overflow-hidden border shadow-2xl animate-[spin_48s_linear_infinite] group-hover:scale-[1.02] transition-transform"
             title="Haz clic para recortar, aplicar filtros y efectos al logo/carátula"
           >
-            <img
-              src={activeImage}
-              alt="Carátula / Logo"
-              className="w-full h-full object-cover rounded-full"
-            />
+            <LogoDisc src={activeImage} size={discSize} appearance={activeLogo.appearance} />
             {/* Proportional Vinyl inner groove rings overlay */}
             <div className="absolute inset-0 rounded-full border border-white/20 pointer-events-none" />
             <div className="absolute inset-[15%] rounded-full border border-white/10 pointer-events-none" />
@@ -965,7 +1119,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
         }}
         className="rounded-full bg-gradient-to-br from-white/[0.08] to-white/[0.02] border flex items-center justify-center transform hover:scale-105 transition-transform z-10 backdrop-blur-md cursor-pointer"
         onClick={() => {
-          setTempImageForCrop(currentTrack?.coverUrl || null);
+          setTempImageForCrop(null);
           setOpenedFromSettings(false);
           setIsCropModalOpen(true);
         }}
@@ -1001,6 +1155,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
           zIndex: 10,
         }}
       >
+        {/* Aura cromática: buffer de baja resolución ampliado por el navegador (bilineal = difusión suave) */}
+        <canvas
+          ref={auraCanvasRef}
+          aria-hidden="true"
+          className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2 z-0"
+          style={{ width: `${Math.round(700 * scaleU)}px`, height: `${Math.round(700 * scaleU)}px` }}
+        />
+
         {/* Dynamic Canvas for 3D Shapes & Wave Effects in Rainbow Void */}
         <canvas
           id="rainbow-void-canvas"
@@ -1096,7 +1258,7 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
       {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes (Se auto-oculta en reposo) */}
       <div
-        className={`fixed top-20 sm:top-24 right-3 sm:right-5 z-40 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
+        className={`fixed top-[11.25rem] sm:top-24 right-3 sm:right-5 z-40 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
           isUiIdle && !isBlobPanelOpen ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
         }`}
       >
@@ -1212,840 +1374,28 @@ export const RainbowBlobVisualizer: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-3.5 text-xs text-white/80">
-            {/* 5 Píldoras de Navegación visionOS (Regla: Sin Emojis) */}
-            <div className="grid grid-cols-5 gap-1 p-1 bg-white/[0.04] rounded-xl border border-white/[0.06]">
-              {[
-                { id: 'shapes', label: 'Formas', icon: Sliders },
-                { id: 'kick', label: 'Bombo', icon: Activity },
-                { id: 'style', label: 'Estilo', icon: Palette },
-                { id: 'atmosphere', label: 'Fondo', icon: Sparkles },
-                { id: 'pro', label: 'Pro', icon: Zap },
-              ].map((tab) => {
-                const Icon = tab.icon;
-                const isActive = calibTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setCalibTab(tab.id as any)}
-                    className={`py-2 px-1 rounded-lg text-center transition-all flex flex-col items-center gap-1 border ${
-                      isActive
-                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 font-semibold shadow-sm'
-                        : 'bg-transparent text-white/40 border-transparent hover:text-white hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span className="text-[9px] font-mono leading-none tracking-tight">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Medidores de calibración en vivo */}
-            <div className="glass-card !rounded-xl !p-3 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-white/60">
-                <span>Señal en vivo</span>
-                <span
-                  ref={(el) => {
-                    meterRefs.current.kick = el;
-                  }}
-                  className="text-cyan-300 font-bold opacity-0"
-                >
-                  ● KICK
-                </span>
-              </div>
-              {(
-                [
-                  ['Graves', 'bass'],
-                  ['Medios', 'mids'],
-                  ['Agudos', 'treble'],
-                ] as const
-              ).map(([label, key]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="w-12 text-[10px] font-mono text-white/55">{label}</span>
-                  <div className="relative flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      ref={(el) => {
-                        meterRefs.current[key] = el;
-                      }}
-                      className="absolute inset-0 origin-left bg-gradient-to-r from-cyan-400 to-violet-400"
-                      style={{ transform: 'scaleX(0)' }}
-                    />
-                  </div>
-                </div>
-              ))}
-              <p className="text-[10px] leading-snug text-white/45">
-                Sube o baja «Sensibilidad del Bombo» hasta que KICK parpadee solo con el bombo.
-              </p>
-            </div>
-
-            {/* Banner de Notificación Pro Effects (Límites o Circuit Breaker) */}
-            {proEffectToast && (
-              <div className="p-2.5 bg-amber-500/15 border border-amber-400/35 rounded-xl text-amber-200 text-[10px] font-mono flex items-center gap-2 animate-in fade-in duration-200">
-                <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="leading-tight">{proEffectToast}</span>
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {/* PESTAÑA 1: GEOMETRÍA & FORMAS PERIFÉRICAS                       */}
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {calibTab === 'shapes' && (
-              <div className="space-y-3 animate-in fade-in-50 duration-150">
-                {/* 1. Control de Tamaño del Núcleo Void (Regulación Segura Proporcional) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                  <div className="flex justify-between items-center text-[10px] font-mono">
-                    <span className="text-white/80 font-medium">Tamaño del Núcleo Void:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.circleSize || 340} px ({Math.round(((blobSettings.circleSize || 340) / 340) * 100)}%)
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="160"
-                    max="500"
-                    step="1"
-                    value={blobSettings.circleSize || 340}
-                    onChange={(e) => updateBlobSettings({ circleSize: parseInt(e.target.value, 10) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="grid grid-cols-3 gap-1 pt-0.5">
-                    {[
-                      { size: 240, label: 'Compacto (240px)' },
-                      { size: 340, label: 'Estándar (340px)' },
-                      { size: 430, label: 'Amplio (430px)' },
-                    ].map((preset) => {
-                      const isActive = (blobSettings.circleSize || 340) === preset.size;
-                      return (
-                        <button
-                          key={preset.size}
-                          type="button"
-                          onClick={() => updateBlobSettings({ circleSize: preset.size })}
-                          className={`py-1 rounded-lg text-[8px] font-mono transition-all border ${
-                            isActive
-                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. Selector de efecto */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between px-0.5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-white/70">Efecto</span>
-                    <span className="text-[10px] font-mono text-cyan-300">
-                      {RAINBOW_VOID_EFFECTS.find((e) => e.id === blobShape)?.tag}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {RAINBOW_VOID_EFFECTS.map((fx) => {
-                      const isSelected = blobShape === fx.id;
-                      return (
-                        <button
-                          key={fx.id}
-                          type="button"
-                          onClick={() => setBlobShape(fx.id)}
-                          className={`glass-item !rounded-xl px-3 py-2.5 text-left flex flex-col gap-0.5 cursor-pointer ${
-                            isSelected ? 'is-active text-white' : 'text-white/75'
-                          }`}
-                          title={fx.desc}
-                        >
-                          <span className="text-[12px] font-semibold tracking-tight">{fx.name}</span>
-                          <span className="text-[10px] leading-snug text-white/55 line-clamp-2">{fx.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3. Personalización del efecto */}
-                <VoidFxCustomizer />
-
-                {/* 4. Grosor de Línea Hairline (0.75px, 1.00px, 1.50px) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Grosor de Trazo Hairline:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {(blobSettings.strokeHairline || blobSettings.catEarsStrokeWidth || 1.0).toFixed(2)} px
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1">
-                    {[0.75, 1.0, 1.5].map((w) => {
-                      const active = (blobSettings.strokeHairline ?? blobSettings.catEarsStrokeWidth ?? 1.0) === w;
-                      return (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={() => updateBlobSettings({ strokeHairline: w as any, catEarsStrokeWidth: w })}
-                          className={`py-1.5 rounded-lg text-[9px] font-mono transition-all border ${
-                            active
-                              ? 'bg-cyan-500/25 border-cyan-400 text-white font-bold shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white'
-                          }`}
-                        >
-                          {w === 0.75 ? '0.75px (Ultrafino)' : w === 1.0 ? '1.00px (Preciso)' : '1.50px (Nítido)'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {/* PESTAÑA 2: RESPUESTA AL BOMBO (KICK & SPRING PHYSICS)           */}
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {calibTab === 'kick' && (
-              <div className="space-y-3 animate-in fade-in-50 duration-150">
-                {/* 1. Intensidad de Rebote Elástico (Física de Resorte iOS) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Intensidad del Kick (Elastic Rebound):</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {(blobSettings.kickIntensity ?? 1.0).toFixed(2)}x (+{Math.round((blobSettings.kickIntensity ?? 1.0) * 12)}%)
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="1.5"
-                    step="0.05"
-                    value={blobSettings.kickIntensity ?? 1.0}
-                    onChange={(e) => updateBlobSettings({ kickIntensity: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>0.5x (Sutil)</span>
-                    <span>1.0x (Calibrado visionOS)</span>
-                    <span>1.5x (Enérgico)</span>
-                  </div>
-                  <span className="text-[8px] text-white/35 block pt-0.5">
-                    Física de segundo orden (stiffness: 180, damping: 12) con rebote elástico.
-                  </span>
-                </div>
-
-                {/* 2. Sensibilidad Global de Escala */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Sensibilidad de Escala al Audio:</span>
-                    <span className="text-white/90 font-bold tabular-nums">{(blobSettings.scaleSensitivity ?? 1.40).toFixed(2)}x</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.4"
-                    max="2.2"
-                    step="0.05"
-                    value={blobSettings.scaleSensitivity ?? 1.40}
-                    onChange={(e) => updateBlobSettings({ scaleSensitivity: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>0.4x (Fijo)</span>
-                    <span>1.4x (Estándar)</span>
-                    <span>2.2x (Reactivo)</span>
-                  </div>
-                </div>
-
-                {/* 3. Umbral de Disparo del Sub-Bass */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Sensibilidad del Bombo (menor = más golpes):</span>
-                    <span className="text-white/90 font-bold tabular-nums">{Math.round((blobSettings.kickThreshold ?? 0.32) * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.10"
-                    max="0.70"
-                    step="0.02"
-                    value={blobSettings.kickThreshold ?? 0.32}
-                    onChange={(e) => updateBlobSettings({ kickThreshold: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <span className="text-[8px] text-white/35 block">
-                    Cuánto debe sobresalir un golpe de graves para contar como kick. Guíate por el indicador KICK de arriba.
-                  </span>
-                </div>
-
-                {/* 4. Potencia del Subwoofer */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Potencia Subwoofer (Inercia):</span>
-                    <span className="text-white/90 font-bold tabular-nums">{Math.round((blobSettings.kickPower ?? 1.60) * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.8"
-                    max="2.5"
-                    step="0.05"
-                    value={blobSettings.kickPower ?? 1.60}
-                    onChange={(e) => updateBlobSettings({ kickPower: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {/* PESTAÑA 3: ESTILO, PALETA & HALO TRANSPARENTE                   */}
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {calibTab === 'style' && (
-              <div className="space-y-3 animate-in fade-in-50 duration-150">
-                {/* 1. Paleta de Color Sagrada & Modo Personalizado Pro */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/70 block font-semibold">Paleta del Aro & Crestas:</span>
-                    <span className="text-[9px] font-mono text-cyan-300 uppercase font-bold">
-                      {blobSettings.sacredPalette || 'neon'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { id: 'neon', name: 'Neón Líquido', desc: 'Cian & Violeta', colors: ['#00F0FF', '#8C38FF'] },
-                      { id: 'gold', name: 'Oro Champán', desc: 'Lujo & Obsidiana', colors: ['#E2C889', '#FFF2CE'] },
-                      { id: 'crystal', name: 'Cristal Esmerilado', desc: 'Blanco visionOS', colors: ['#FFFFFF', '#B0C4DE'] },
-                      { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Magenta & Cian', colors: ['#ff007f', '#00f2fe'] },
-                      { id: 'aurora', name: 'Aurora Boreal', desc: 'Verde & Aguamarina', colors: ['#00ff87', '#60efff'] },
-                      { id: 'lucid', name: 'Sincro Lúcido', desc: 'Color del reproductor', colors: [lucidTheme.primary, lucidTheme.secondary] },
-                      { id: 'custom', name: 'Personalizado Pro', desc: 'Colores a medida', colors: [blobSettings.haloColor1 || '#00f0ff', blobSettings.haloColor2 || '#ffd166'] },
-                    ].map((pal) => {
-                      const isSel = (blobSettings.sacredPalette || 'neon') === pal.id;
-                      return (
-                        <button
-                          key={pal.id}
-                          type="button"
-                          onClick={() => updateBlobSettings({ sacredPalette: pal.id as any })}
-                          className={`p-2 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
-                            isSel
-                              ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-sm'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white hover:bg-white/[0.05]'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-[10px] font-bold leading-tight">{pal.name}</div>
-                            <div className="text-[8px] text-white/40">{pal.desc}</div>
-                          </div>
-                          <div className="flex gap-0.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pal.colors[0] }} />
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: pal.colors[1] }} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Selectores de Color Personalizado Pro si está activo */}
-                  {blobSettings.sacredPalette === 'custom' && (
-                    <div className="pt-2 border-t border-white/[0.08] space-y-2 animate-in fade-in-50 duration-150">
-                      <span className="text-[9.5px] font-mono text-cyan-300 block font-semibold">
-                        Ajuste Fino de Colores (HEX):
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
-                          <span className="text-[9px] font-mono text-white/70">Halo 1</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={blobSettings.haloColor1 || '#00f0ff'}
-                              onChange={(e) => updateBlobSettings({ haloColor1: e.target.value })}
-                              className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
-                            />
-                            <span className="text-[8.5px] font-mono uppercase text-white/60">
-                              {blobSettings.haloColor1 || '#00F0FF'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
-                          <span className="text-[9px] font-mono text-white/70">Halo 2</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={blobSettings.haloColor2 || '#ffd166'}
-                              onChange={(e) => updateBlobSettings({ haloColor2: e.target.value })}
-                              className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
-                            />
-                            <span className="text-[8.5px] font-mono uppercase text-white/60">
-                              {blobSettings.haloColor2 || '#FFD166'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Color de Fondo del Núcleo Abisal */}
-                      <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
-                        <div>
-                          <span className="text-[9.5px] font-mono text-white/80 block">Fondo del Núcleo Void</span>
-                          <span className="text-[7.5px] text-white/40 block">Tono de profundidad interna</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="color"
-                            value={blobSettings.circleColor || '#070a16'}
-                            onChange={(e) => updateBlobSettings({ circleColor: e.target.value })}
-                            className="w-5 h-5 rounded-full cursor-pointer border-0 p-0 bg-transparent"
-                          />
-                          <span className="text-[8.5px] font-mono uppercase text-white/60">
-                            {blobSettings.circleColor || '#070A16'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Grosor & Difusión del Aro (haloSize) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Grosor y Difusión del Aro:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {blobSettings.haloSize || 382} px (+{Math.max(0, (blobSettings.haloSize || 382) - (blobSettings.circleSize || 340))}px difusión)
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="220"
-                    max="520"
-                    step="2"
-                    value={blobSettings.haloSize || 382}
-                    onChange={(e) => updateBlobSettings({ haloSize: parseInt(e.target.value, 10) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>220px (Línea Fina)</span>
-                    <span>382px (Estándar)</span>
-                    <span>520px (Aura Gruesa)</span>
-                  </div>
-                </div>
-
-                {/* 3. Resplandor / Bloom Intensity */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-white/70">Resplandor Neón & Bloom:</span>
-                    <span className="text-cyan-300 font-bold tabular-nums">
-                      {(blobSettings.bloomIntensity ?? 1.0).toFixed(2)}x
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.3"
-                    max="2.2"
-                    step="0.05"
-                    value={blobSettings.bloomIntensity ?? 1.0}
-                    onChange={(e) => updateBlobSettings({ bloomIntensity: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>0.3x (Minimalista)</span>
-                    <span>1.0x (Calibrado)</span>
-                    <span>2.2x (Supernova)</span>
-                  </div>
-                </div>
-
-                {/* 4. Velocidad & Dirección de Rotación Orbital */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                  <div className="flex justify-between items-center text-[10px] font-mono">
-                    <span className="text-white/70">Giro Orbital del Aro:</span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateBlobSettings({
-                            rotationDirection:
-                              blobSettings.rotationDirection === 'counter_clockwise'
-                                ? 'clockwise'
-                                : 'counter_clockwise',
-                          })
-                        }
-                        className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[8px] font-mono text-cyan-300 cursor-pointer"
-                        title="Cambiar dirección de giro"
-                      >
-                        {blobSettings.rotationDirection === 'counter_clockwise' ? '↺ Antihorario' : '↻ Horario'}
-                      </button>
-                      <span className="text-cyan-300 font-bold tabular-nums">
-                        {(blobSettings.rotationSpeed ?? 1.0).toFixed(2)}x
-                      </span>
-                    </div>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.0"
-                    max="2.5"
-                    step="0.05"
-                    value={blobSettings.rotationSpeed ?? 1.0}
-                    onChange={(e) => updateBlobSettings({ rotationSpeed: parseFloat(e.target.value) })}
-                    className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                  />
-                  <div className="flex justify-between text-[8px] font-mono text-white/40">
-                    <span>0.0x (Estático)</span>
-                    <span>1.0x (Suave)</span>
-                    <span>2.5x (Rápido)</span>
-                  </div>
-                </div>
-
-                {/* 5. Halo Transparente (Cero Ruido) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono text-white/80 block font-semibold">Halo Transparente visionOS</span>
-                    <span className="text-[8px] text-white/40 block">Elimina el blur difuso y mantiene el negro abisal #05070E</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => updateBlobSettings({ transparentHalo: !blobSettings.transparentHalo })}
-                    className={`px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold transition-all border cursor-pointer ${
-                      blobSettings.transparentHalo !== false
-                        ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/40 shadow-sm'
-                        : 'bg-white/[0.05] text-white/40 border-white/[0.08]'
-                    }`}
-                  >
-                    {blobSettings.transparentHalo !== false ? 'TRANSPARENTE' : 'CLÁSICO DIFUSO'}
-                  </button>
-                </div>
-
-                {/* 3. Logotipo Vectorial del Void */}
-                {!isSunset && (
-                  <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                    <label className="block text-[10px] font-mono text-white/60">Logotipo Central del Void:</label>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {LOGO_PRESETS.map((preset) => {
-                        const Icon = preset.icon;
-                        const isSelected = blobSettings.logoStyle === preset.id && !blobSettings.customLogoUrl;
-                        return (
-                          <button
-                            key={preset.id}
-                            onClick={() => updateBlobSettings({ logoStyle: preset.id, customLogoUrl: null })}
-                            className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition-colors ${
-                              isSelected
-                                ? 'bg-white/[0.1] border-white text-white shadow-sm'
-                                : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                            }`}
-                            title={preset.name}
-                          >
-                            <Icon className="w-4 h-4" />
-                            <span className="text-[8px] font-mono truncate max-w-full">{preset.name.split(' ')[0]}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="pt-1 flex gap-2">
-                      <label className="flex-1 py-1.5 px-2.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg text-center cursor-pointer transition-all flex items-center justify-center gap-1.5 text-[10px] font-mono text-white/80 hover:text-white">
-                        <Upload className="w-3 h-3 text-white/60" />
-                        <span>{blobSettings.customLogoUrl ? 'Cambiar Imagen' : 'Subir PNG / SVG'}</span>
-                        <input type="file" accept="image/*" onChange={handleCustomLogoUpload} className="hidden" />
-                      </label>
-                      {blobSettings.customLogoUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveCustomLogo}
-                          className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg transition-colors"
-                          title="Eliminar logo personalizado"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Botón de acceso directo al Card de Edición & Filtros iOS desde Ajustes */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetImg = blobSettings.customLogoUrl || currentTrack?.coverUrl || null;
-                        setTempImageForCrop(targetImg);
-                        setOpenedFromSettings(true);
-                        setBlobPanelOpen(false);
-                        setIsCropModalOpen(true);
-                      }}
-                      className="w-full py-2 px-3 bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 hover:from-cyan-500/25 hover:via-indigo-500/25 hover:to-purple-500/25 border border-cyan-400/30 rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 text-[10px] font-mono text-cyan-200 font-semibold shadow-sm active:scale-95"
-                    >
-                      <Palette className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Editar Logo & Filtros Neón (iOS Card)</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {/* PESTAÑA 4: ATMÓSFERA DE FONDO & PANTALLA COMPLETA                */}
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {calibTab === 'atmosphere' && (
-              <div className="space-y-3 animate-in fade-in-50 duration-150">
-                {/* 1. Selector de Fondos Ambientales (SIN EMOJIS) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-white/70 font-medium flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      Ambiente de Pantalla Completa:
-                    </span>
-                    <span className="text-[9px] font-mono text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase font-bold">
-                      {ATMOSPHERE_OPTIONS.find((a) => a.id === (blobSettings.backgroundAtmosphere || 'none'))?.tag || 'LIMPIO'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                    {[
-                      { id: 'none', label: 'Limpio', desc: 'Negro abisal puro' },
-                      { id: 'sunset', label: 'Atardecer', desc: 'Silueta acantilado' },
-                      { id: 'rain', label: 'Lluvia Neón', desc: 'Trazos verticales' },
-                      { id: 'sand', label: 'Mareas Sub', desc: 'Partículas fluidas' },
-                      { id: 'stars', label: 'Estrellas 3D', desc: 'Campo estelar' },
-                      { id: 'radial_burst', label: 'Estallido', desc: 'Partículas del núcleo' },
-                      { id: 'stardust_drift', label: 'Polvo Cósmico', desc: 'Bruma estelar' },
-                      { id: 'light_beams', label: 'Haces Luz', desc: 'Rayos radiantes zen' },
-                      { id: 'quantum_waves', label: 'Ondas', desc: 'Anillos concéntricos' },
-                    ].map((atm) => {
-                      const isActive = (blobSettings.backgroundAtmosphere || 'none') === atm.id;
-                      return (
-                        <button
-                          key={atm.id}
-                          type="button"
-                          onClick={() => updateBlobSettings({ backgroundAtmosphere: atm.id as BackgroundAtmosphere })}
-                          className={`p-2 rounded-xl text-center border transition-all flex flex-col items-center gap-0.5 cursor-pointer ${
-                            isActive
-                              ? 'bg-amber-500/20 border-amber-400 text-white font-bold shadow-[0_0_12px_rgba(245,158,11,0.2)]'
-                              : 'bg-white/[0.02] border-white/[0.06] text-white/40 hover:text-white hover:bg-white/[0.05]'
-                          }`}
-                          title={atm.desc}
-                        >
-                          <span className="text-[9px] font-mono font-bold leading-tight">{atm.label}</span>
-                          <span className="text-[7px] text-white/30 truncate max-w-full">{atm.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Mezcla Secundaria de Atmósfera (Blend) */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-purple-300 font-semibold flex items-center gap-1.5">
-                      Mezcla con Segundo Efecto:
-                    </span>
-                    <span className="text-[9px] font-mono text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 uppercase font-bold">
-                      {blobSettings.atmosphereBlend || 'none'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-                    {[
-                      { id: 'none', label: 'Sin Mezcla' },
-                      { id: 'radial_burst', label: 'Estallido' },
-                      { id: 'stars', label: 'Estrellas' },
-                      { id: 'stardust_drift', label: 'Polvo' },
-                      { id: 'light_beams', label: 'Haces Luz' },
-                      { id: 'quantum_waves', label: 'Ondas' },
-                      { id: 'sunset', label: 'Atardecer' },
-                      { id: 'rain', label: 'Lluvia' },
-                      { id: 'sand', label: 'Arena' },
-                    ].map((blend) => {
-                      const isSel = (blobSettings.atmosphereBlend || 'none') === blend.id;
-                      return (
-                        <button
-                          key={blend.id}
-                          type="button"
-                          onClick={() => updateBlobSettings({ atmosphereBlend: blend.id as BackgroundAtmosphere | 'none' })}
-                          className={`py-1.5 px-1 rounded-xl text-[9px] font-mono transition-all text-center border cursor-pointer active:scale-95 ${
-                            isSel
-                              ? 'bg-purple-500/25 text-purple-200 border-purple-400 font-bold shadow-sm'
-                              : 'bg-white/[0.02] text-white/50 hover:text-white hover:bg-white/[0.06] border-white/[0.06]'
-                          }`}
-                        >
-                          {blend.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. Sliders de Velocidad e Intensidad de la Atmósfera */}
-                {blobSettings.backgroundAtmosphere && blobSettings.backgroundAtmosphere !== 'none' && (
-                  <div className="p-3 bg-amber-500/[0.04] rounded-xl border border-amber-500/20 space-y-2.5">
-                    <span className="text-[10px] font-mono text-amber-300 font-semibold block">Dinámica del Entorno:</span>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-mono">
-                        <span className="text-white/60">Velocidad de Movimiento:</span>
-                        <span className="text-amber-300 tabular-nums">{(blobSettings.atmosphereSpeed ?? 1.0).toFixed(2)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.3"
-                        max="2.5"
-                        step="0.05"
-                        value={blobSettings.atmosphereSpeed ?? 1.0}
-                        onChange={(e) => updateBlobSettings({ atmosphereSpeed: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] font-mono">
-                        <span className="text-white/60">Brillo & Resplandor (Glow):</span>
-                        <span className="text-amber-300 tabular-nums">{(blobSettings.atmosphereGlow ?? 1.0).toFixed(2)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.2"
-                        max="2.0"
-                        step="0.05"
-                        value={blobSettings.atmosphereGlow ?? 1.0}
-                        onChange={(e) => updateBlobSettings({ atmosphereGlow: parseFloat(e.target.value) })}
-                        className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. Opacidad & Desenfoque de Fondo y Atmósfera */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-2.5">
-                  <span className="text-[10px] font-mono text-amber-300 font-semibold block">
-                    Opacidad & Difusión de Fondo:
-                  </span>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-white/60">Opacidad de Fondo:</span>
-                      <span className="text-amber-300 font-bold tabular-nums">
-                        {Math.round((blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85) * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.10"
-                      max="1.00"
-                      step="0.05"
-                      value={blobSettings.backgroundOpacity !== undefined ? blobSettings.backgroundOpacity : 0.85}
-                      onChange={(e) => updateBlobSettings({ backgroundOpacity: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-white/60">Desenfoque de Fondo (Blur):</span>
-                      <span className="text-amber-300 font-bold tabular-nums">
-                        {blobSettings.backgroundBlur ?? 0} px
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="30"
-                      step="1"
-                      value={blobSettings.backgroundBlur ?? 0}
-                      onChange={(e) => updateBlobSettings({ backgroundBlur: parseInt(e.target.value, 10) })}
-                      className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-amber-400"
-                    />
-                    <div className="flex justify-between text-[8px] font-mono text-white/35">
-                      <span>0px (Nítido)</span>
-                      <span>15px (Medio)</span>
-                      <span>30px (Seda)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {/* PESTAÑA 5: EFECTOS PRO (VISIONOS LIQUID GLASS LAYERS)           */}
-            {/* ═════════════════════════════════════════════════════════════════ */}
-            {calibTab === 'pro' && (
-              <div className="space-y-3 animate-in fade-in-50 duration-150">
-                {/* Header informativo visionOS y contador de cuota */}
-                <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.08] space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-white/90 font-semibold flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                      Capas Pro Activas:
-                    </span>
-                    <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full border font-bold tabular-nums ${
-                        proActiveCount >= maxProEffects
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 shadow-sm'
-                          : proActiveCount > 0
-                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40 shadow-sm'
-                          : 'bg-white/[0.04] text-white/40 border-white/[0.08]'
-                      }`}
-                    >
-                      {proActiveCount} / {maxProEffects} ACTIVOS
-                    </span>
-                  </div>
-                  <p className="text-[8px] text-white/40 font-mono leading-tight">
-                    Máximo 4 capas simultáneas. Desactivación automática por rendimiento si el framerate cae de 45 FPS.
-                  </p>
-                </div>
-
-                {/* Lista de los 10 Efectos Pro */}
-                <div className="space-y-2">
-                  {proEffectsList.map((eff) => {
-                    const isEnabled = Boolean(blobSettings[eff.enabledKey]);
-                    const intensity = (blobSettings[eff.intensityKey] as number) ?? 1.0;
-
-                    return (
-                      <div
-                        key={eff.id}
-                        className={`p-3 rounded-xl border transition-all space-y-2 ${
-                          isEnabled
-                            ? 'bg-white/[0.05] border-cyan-500/30 shadow-[0_0_15px_rgba(0,242,254,0.06)]'
-                            : 'bg-white/[0.02] border-white/[0.06]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-[11px] font-mono text-white/90 font-semibold block truncate">
-                              {eff.name}
-                            </span>
-                            <span className="text-[8px] text-white/40 block leading-tight">
-                              {eff.desc}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => toggleEffect(eff.id)}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-mono font-bold transition-all border shrink-0 cursor-pointer active:scale-95 ${
-                              isEnabled
-                                ? 'bg-cyan-500/25 text-cyan-300 border-cyan-400/50 shadow-sm'
-                                : 'bg-white/[0.04] text-white/40 border-white/[0.08] hover:text-white/70 hover:bg-white/[0.08]'
-                            }`}
-                          >
-                            {isEnabled ? 'ACTIVADO' : 'DESACTIVADO'}
-                          </button>
-                        </div>
-
-                        {isEnabled && (
-                          <div className="space-y-1 pt-1 border-t border-white/[0.06]">
-                            <div className="flex justify-between items-center text-[10px] font-mono">
-                              <span className="text-white/60">Intensidad:</span>
-                              <span className="text-cyan-300 font-bold tabular-nums">
-                                {intensity.toFixed(2)}x
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0.0"
-                              max="2.0"
-                              step="0.05"
-                              value={intensity}
-                              onChange={(e) => setEffectIntensity(eff.id, parseFloat(e.target.value))}
-                              className="w-full h-1 bg-white/[0.08] rounded-full cursor-pointer accent-cyan-400"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <RainbowCalibrationBody
+            registerMeter={(key, el) => {
+              meterRefs.current[key] = el;
+            }}
+            isSunset={isSunset}
+            logoPresets={LOGO_PRESETS}
+            activeLogo={activeLogo}
+            onUploadLogo={handleCustomLogoUpload}
+            onRemoveLogo={handleRemoveCustomLogo}
+            onEditLogo={() => {
+              setTempImageForCrop(null);
+              setOpenedFromSettings(true);
+              setBlobPanelOpen(false);
+              setIsCropModalOpen(true);
+            }}
+            proToast={proEffectToast}
+            proEffects={proEffectsList}
+            proActiveCount={proActiveCount}
+            proMax={maxProEffects}
+            onToggleEffect={toggleEffect}
+            onEffectIntensity={setEffectIntensity}
+          />
         </div>
       )}
 
@@ -2054,12 +1404,13 @@ export const RainbowBlobVisualizer: React.FC = () => {
         isOpen={isCropModalOpen}
         onClose={() => {
           setIsCropModalOpen(false);
+          setTempImageForCrop(null);
           if (openedFromSettings) {
             setBlobPanelOpen(true);
             setOpenedFromSettings(false);
           }
         }}
-        imageSrc={tempImageForCrop || blobSettings.customLogoUrl || currentTrack?.coverUrl || null}
+        pendingImage={tempImageForCrop}
       />
     </div>
   );

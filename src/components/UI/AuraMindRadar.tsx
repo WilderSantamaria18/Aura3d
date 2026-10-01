@@ -2,6 +2,7 @@ import React from 'react';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
 import { Sparkles, Activity, X, Zap, HeartPulse, Disc, Music2, Wind, Moon } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 interface AuraMindRadarProps {
   isOpen: boolean;
@@ -12,7 +13,15 @@ const PITCH_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#',
 
 export const AuraMindRadar: React.FC<AuraMindRadarProps> = ({ isOpen, onClose }) => {
   const { features, palette, mood, dominantPitch, beatPulse } = useAIAudioEngine();
-  const { bpm, isBeatPulse, isPlaying, isLucid, lucidTheme } = usePlayerStore();
+  const { bpm, isBeatPulse, isPlaying, isLucid, lucidTheme } = usePlayerStore(
+    useShallow((s) => ({
+      bpm: s.bpm,
+      isBeatPulse: s.isBeatPulse,
+      isPlaying: s.isPlaying,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+    }))
+  );
 
   if (!isOpen) return null;
 

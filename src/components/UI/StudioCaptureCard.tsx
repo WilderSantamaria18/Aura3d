@@ -16,6 +16,7 @@ import {
 import { usePlayerStore } from '../../stores/playerStore';
 import { captureVisualizerSnapshot, type SnapshotAspectRatio } from '../../utils/snapshotCapture';
 import { videoRecorder, type VideoAspectRatio, type VideoQuality, type VideoSourceMode } from '../../services/videoRecorderService';
+import { useShallow } from 'zustand/react/shallow';
 
 interface AspectRatioOption {
   id: '16:9' | '9:16' | '1:1' | '4:5';
@@ -73,7 +74,25 @@ export const StudioCaptureCard: React.FC = () => {
     lucidTheme,
     lucidPrimaryColor,
     currentTrack,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isCaptureStudioOpen: s.isCaptureStudioOpen,
+      setCaptureStudioOpen: s.setCaptureStudioOpen,
+      captureAspectRatio: s.captureAspectRatio,
+      setCaptureAspectRatio: s.setCaptureAspectRatio,
+      isFramingGuideActive: s.isFramingGuideActive,
+      setFramingGuideActive: s.setFramingGuideActive,
+      toggleFramingGuide: s.toggleFramingGuide,
+      captureQuality: s.captureQuality,
+      setCaptureQuality: s.setCaptureQuality,
+      captureSourceMode: s.captureSourceMode,
+      setCaptureSourceMode: s.setCaptureSourceMode,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      currentTrack: s.currentTrack,
+    }))
+  );
 
   const [isRecording, setIsRecording] = useState(videoRecorder.isRecording());
   const [elapsedSec, setElapsedSec] = useState(videoRecorder.getElapsedSeconds());

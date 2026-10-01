@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { DEFAULT_CARD_CONFIG, type CardConfig, type CardElements, type CardProfile } from '../services/storyCard/config';
+import { loadCardConfig, saveCardConfig } from '../services/storyCard/prefs';
 
 export type RecorderTab = 'record' | 'preview' | 'cards' | 'export';
 export type CaptureSource = 'visualizer' | 'screen' | 'window' | 'tab';
@@ -7,48 +9,18 @@ export type AspectRatio = '9:16' | '1:1' | '4:5' | '16:9';
 export type ResolutionPreset = 'story' | 'feed' | 'post' | 'shorts' | 'youtube' | 'custom';
 export type DurationMode = 'manual' | 'song_end' | 'continuous';
 
-export type CardTemplateId = 'pure-void' | 'pure_void' | 'aesthetic' | 'studio' | 'vinyl';
-export type CardTemplate = CardTemplateId;
-export type CardPaletteId = 'rainbow' | 'neon' | 'pastel' | 'mono' | 'custom';
-export type CardTypographyId = 'inter' | 'playfair' | 'caveat' | 'jetbrains' | 'orbitron';
-export type CardFontFamily = 'sans' | 'serif' | 'mono';
-export type CardLayoutId = 'center' | 'bottom-left' | 'top-right' | 'split';
-
-export interface CardFilters {
-  bloom: boolean;
-  grain: boolean;
-  vignette: boolean;
-}
-
-export interface CardElements {
-  showLogo: boolean;
-  showMetadata: boolean;
-  showDate: boolean;
-  showCover: boolean;
-  showQr: boolean;
-}
-
-export interface CardConfig {
-  template: CardTemplateId;
-  aspectRatio: '9:16' | '1:1';
-  resolution: { width: number; height: number };
-  palette: CardPaletteId;
-  typography: CardTypographyId;
-  layout: CardLayoutId;
-  filters: CardFilters;
-  elements: CardElements;
-  customText?: string;
-  title?: string;
-  artist?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  fontFamily?: CardFontFamily;
-  bloom?: number;
-  grain?: number;
-  vignette?: number;
-}
+// El modelo de la tarjeta vive en services/storyCard (lo comparten la vista previa y la exportación)
+export type {
+  CardConfig,
+  CardElements,
+  CardProfile,
+  CardFormat,
+  CardTemplate,
+  CardFontId,
+  CardLayout,
+  CardArtSource,
+  CardProfileStyle,
+} from '../services/storyCard/config';
 
 export interface ResolutionConfig {
   label: string;
@@ -161,14 +133,21 @@ export interface RecorderState {
   recordedUrl: string | null;
   recordedBlobUrl: string | null;
   recordedFileName: string | null;
+  /** Duración real del vídeo grabado (el archivo no la declara: la calcula la vista previa). 0 = aún no se sabe */
+  recordedDuration: number;
+  setRecordedDuration: (seconds: number) => void;
+  /** Resultado de aplicar el recorte. Se descarta si cambia el tramo o la grabación */
+  trimmedBlob: Blob | null;
+  setTrimmedBlob: (blob: Blob | null) => void;
   setRecordedVideo: (blob: Blob | null, fileName?: string) => void;
   resetRecording: () => void;
 
   // Social Story Cards State
   cardConfig: CardConfig;
   updateCardConfig: (partial: Partial<CardConfig>) => void;
-  updateCardFilters: (partial: Partial<CardFilters>) => void;
   updateCardElements: (partial: Partial<CardElements>) => void;
+  updateCardProfile: (partial: Partial<CardProfile>) => void;
+  resetCardConfig: () => void;
   generatedCardBlob: Blob | null;
   generatedCardUrl: string | null;
   setGeneratedCard: (blob: Blob | null) => void;
@@ -279,6 +258,10 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   recordingDuration: 0,
 
   recordedBlob: null,
+  recordedDuration: 0,
+  trimmedBlob: null,
+  setRecordedDuration: (recordedDuration) => set({ recordedDuration }),
+  setTrimmedBlob: (trimmedBlob) => set({ trimmedBlob }),
   recordedUrl: null,
   recordedBlobUrl: null,
   recordedFileName: null,
@@ -290,6 +273,8 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     const newUrl = blob ? URL.createObjectURL(blob) : null;
     set({
       recordedBlob: blob,
+      recordedDuration: 0,
+      trimmedBlob: null,
       recordedUrl: newUrl,
       recordedBlobUrl: newUrl,
       recordedFileName: fileName || (blob ? `aura3d-${Date.now()}.mp4` : null),
@@ -305,6 +290,8 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     }
     set({
       recordedBlob: null,
+      recordedDuration: 0,
+      trimmedBlob: null,
       recordedUrl: null,
       recordedBlobUrl: null,
       recordedFileName: null,
@@ -316,54 +303,14 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     });
   },
 
-  cardConfig: {
-    template: 'pure-void',
-    aspectRatio: '9:16',
-    resolution: { width: 1080, height: 1920 },
-    palette: 'rainbow',
-    typography: 'inter',
-    layout: 'bottom-left',
-    title: 'Aura3D Soundscape',
-    artist: 'Aura Spatial Audio',
-    primaryColor: '#8b5cf6',
-    secondaryColor: '#3b82f6',
-    backgroundColor: '#08080c',
-    textColor: '#f8fafc',
-    fontFamily: 'sans',
-    bloom: 0.6,
-    grain: 0.1,
-    vignette: 0.4,
-    filters: {
-      bloom: true,
-      grain: false,
-      vignette: true,
-    },
-    elements: {
-      showLogo: true,
-      showMetadata: true,
-      showDate: true,
-      showCover: true,
-      showQr: false,
-    },
-  },
-  updateCardConfig: (partial) =>
-    set((s) => ({
-      cardConfig: { ...s.cardConfig, ...partial },
-    })),
-  updateCardFilters: (partial) =>
-    set((s) => ({
-      cardConfig: {
-        ...s.cardConfig,
-        filters: { ...s.cardConfig.filters, ...partial },
-      },
-    })),
+  cardConfig: loadCardConfig(),
+  updateCardConfig: (partial) => set((s) => ({ cardConfig: { ...s.cardConfig, ...partial } })),
   updateCardElements: (partial) =>
-    set((s) => ({
-      cardConfig: {
-        ...s.cardConfig,
-        elements: { ...s.cardConfig.elements, ...partial },
-      },
-    })),
+    set((s) => ({ cardConfig: { ...s.cardConfig, elements: { ...s.cardConfig.elements, ...partial } } })),
+  updateCardProfile: (partial) =>
+    set((s) => ({ cardConfig: { ...s.cardConfig, profile: { ...s.cardConfig.profile, ...partial } } })),
+  // Restablecer el diseño conserva el perfil: la foto y el usuario son del usuario, no del diseño
+  resetCardConfig: () => set((s) => ({ cardConfig: { ...DEFAULT_CARD_CONFIG, profile: s.cardConfig.profile } })),
 
   generatedCardBlob: null,
   generatedCardUrl: null,
@@ -378,5 +325,19 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   trimEndSec: 0,
   trimRange: { start: 0, end: 0 },
   setTrimRange: (trimStartSec, trimEndSec) =>
-    set({ trimStartSec, trimEndSec, trimRange: { start: trimStartSec, end: trimEndSec } }),
+    set((s) => ({
+      trimStartSec,
+      trimEndSec,
+      trimRange: { start: trimStartSec, end: trimEndSec },
+      // Un recorte generado con otro tramo ya no corresponde a lo que muestran las marcas
+      trimmedBlob: s.trimStartSec === trimStartSec && s.trimEndSec === trimEndSec ? s.trimmedBlob : null,
+    })),
 }));
+
+// Las preferencias de la tarjeta se guardan solas (con debounce: los sliders disparan muchos cambios)
+let cardSaveTimer: ReturnType<typeof setTimeout> | undefined;
+useRecorderStore.subscribe((state, prev) => {
+  if (state.cardConfig === prev.cardConfig) return;
+  clearTimeout(cardSaveTimer);
+  cardSaveTimer = setTimeout(() => saveCardConfig(state.cardConfig), 400);
+});

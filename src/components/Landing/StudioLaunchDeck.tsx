@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Zap, Upload, Mic, ArrowRight, Sparkles } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useShallow } from 'zustand/react/shallow';
 
 interface StudioLaunchDeckProps {
   onStartExperience: () => void;
@@ -29,7 +30,7 @@ export const StudioLaunchDeck: React.FC<StudioLaunchDeckProps> = ({
   onMicStart,
   onFileLoaded,
 }) => {
-  const { blobSettings, updateBlobSettings } = usePlayerStore();
+  const { blobSettings, updateBlobSettings } = usePlayerStore(useShallow((s) => ({ blobSettings: s.blobSettings, updateBlobSettings: s.updateBlobSettings })));
   const [kickIntensity, setKickIntensity] = useState<number>(
     blobSettings?.kickIntensity ? Math.round(blobSettings.kickIntensity * 100) : 75
   );

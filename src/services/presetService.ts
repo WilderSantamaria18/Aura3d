@@ -572,7 +572,7 @@ export class PresetService {
     const store = usePlayerStore.getState();
 
     // 1. Set mode & geometry
-    const safeMode = preset.visualizerMode === 'sphere' ? 'blob' : preset.visualizerMode;
+    const safeMode = preset.visualizerMode === 'synthwave' || preset.visualizerMode === 'terrain' ? preset.visualizerMode : 'blob';
     store.setVisualizerMode(safeMode);
     store.setVisualizerShape(preset.visualizerShape);
     // La forma 3D conserva su id original; Rainbow Void usa el efecto equivalente del catálogo nuevo

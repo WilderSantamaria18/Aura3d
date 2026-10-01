@@ -4,6 +4,7 @@ import { CircleDot, Sun, Bot, Shapes, Link2, Unlink, Zap, Lock } from 'lucide-re
 import type { VisualizerShape } from '../../types/audio';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { useAIDirectorPhase } from '../../services/aiSceneDirectorService';
+import { useShallow } from 'zustand/react/shallow';
 
 interface VisualizerQuickControlsProps {
   className?: string;
@@ -38,15 +39,47 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
     setAudioSpeed,
     musicSensitivity,
     setMusicSensitivity,
-  } = usePlayerStore();
+    blobSettings,
+    updateBlobSettings,
+  } = usePlayerStore(
+    useShallow((s) => ({
+      visualizerMode: s.visualizerMode,
+      blobShape: s.blobShape,
+      setBlobShape: s.setBlobShape,
+      autoMode: s.autoMode,
+      dynamicColor: s.dynamicColor,
+      toggleAutoMode: s.toggleAutoMode,
+      autoSensitivity: s.autoSensitivity,
+      setAutoSensitivity: s.setAutoSensitivity,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      lucidSecondaryColor: s.lucidSecondaryColor,
+      setLucidPrimaryColor: s.setLucidPrimaryColor,
+      setLucidSecondaryColor: s.setLucidSecondaryColor,
+      sphereScale: s.sphereScale,
+      setSphereScale: s.setSphereScale,
+      blobScale: s.blobScale,
+      setBlobScale: s.setBlobScale,
+      linkScales: s.linkScales,
+      setLinkScales: s.setLinkScales,
+      sphereOpacity: s.sphereOpacity,
+      setSphereOpacity: s.setSphereOpacity,
+      audioSpeed: s.audioSpeed,
+      setAudioSpeed: s.setAudioSpeed,
+      musicSensitivity: s.musicSensitivity,
+      setMusicSensitivity: s.setMusicSensitivity,
+      blobSettings: s.blobSettings,
+      updateBlobSettings: s.updateBlobSettings,
+    }))
+  );
 
   const isBlob = visualizerMode === 'blob';
-  const isWarp = visualizerMode === 'warp';
   const isSynthwave = visualizerMode === 'synthwave';
   const isTerrain = visualizerMode === 'terrain';
   const currentScale = isBlob ? blobScale : sphereScale;
   const setScale = isBlob ? setBlobScale : setSphereScale;
-  const scaleLabel = isBlob ? 'Blob' : isWarp ? 'Warp' : isSynthwave ? 'Highway' : isTerrain ? 'Terrain' : '3D';
+  const scaleLabel = isBlob ? 'Blob' : isSynthwave ? 'Highway' : isTerrain ? 'Terrain' : 'Visualizador';
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
   const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#ffffff';
@@ -62,13 +95,13 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
       } ${className}`}
       style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
     >
-      {/* ── 1. Selector de Geometría / Efecto (Rainbow Void vs Warp vs Synthwave vs Terrain) ── */}
+      {/* ── 1. Selector de Geometría / Efecto / Estilo según Visualizador Activo ── */}
       <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors border border-white/[0.04]">
         <Shapes className="w-3.5 h-3.5 text-white/40" />
         <span className="text-[9px] font-mono tracking-[0.16em] px-1 py-0.2 rounded bg-white/[0.04] text-white/60 font-medium uppercase">
-          {isBlob ? '2D VOID' : isWarp ? '3D WARP' : isSynthwave ? '3D ROAD' : '3D TERRAIN'}
+          {isBlob ? '2D VOID' : isSynthwave ? '3D ROAD' : '3D TERRAIN'}
         </span>
-        {isBlob ? (
+        {isBlob && (
           <select
             value={blobShape}
             onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
@@ -81,10 +114,32 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
               </option>
             ))}
           </select>
-        ) : (
-          <span className="text-[11px] font-medium text-white/80 px-1">
-            {isWarp ? 'Túnel Hiperespacio' : isSynthwave ? 'Retrowave Grid' : 'Terreno Cyberpunk'}
-          </span>
+        )}
+        {isSynthwave && (
+          <select
+            value={blobSettings?.synthwaveTheme ?? 'outrun'}
+            onChange={(e) => updateBlobSettings({ synthwaveTheme: e.target.value as any })}
+            className="bg-transparent text-white/90 font-medium text-[11px] focus:outline-none cursor-pointer"
+            title="Tema y Paleta de la Carretera Retrowave"
+          >
+            <option value="outrun" className="bg-[#090d18] text-white">Outrun Neon</option>
+            <option value="cyber" className="bg-[#090d18] text-white">Cyber Matrix</option>
+            <option value="vaporwave" className="bg-[#090d18] text-white">Vaporwave Sunset</option>
+            <option value="sunset_overdrive" className="bg-[#090d18] text-white">Sunset Overdrive</option>
+          </select>
+        )}
+        {isTerrain && (
+          <select
+            value={blobSettings?.terrainStyle ?? 'wireframe'}
+            onChange={(e) => updateBlobSettings({ terrainStyle: e.target.value as any })}
+            className="bg-transparent text-white/90 font-medium text-[11px] focus:outline-none cursor-pointer"
+            title="Estilo de Malla del Terreno Cyberpunk"
+          >
+            <option value="wireframe" className="bg-[#090d18] text-white">Malla Wireframe</option>
+            <option value="dual_mesh" className="bg-[#090d18] text-white">Dual Tron Shaded</option>
+            <option value="surface" className="bg-[#090d18] text-white">Superficie Metálica</option>
+            <option value="points" className="bg-[#090d18] text-white">Matriz de Puntos</option>
+          </select>
         )}
       </div>
 
@@ -181,34 +236,30 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
         </div>
       )}
 
-      {/* ── 5. Sensibilidad / Velocidad de Audio (Solo visible en modo Blob) ── */}
-      {isBlob && (
-        <>
-          <div className="h-4 w-px bg-white/[0.06] hidden sm:block" />
-          <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors"
-            title="Sensibilidad de Audio fija (Rango óptimo 0.60x - 0.85x, valor nominal 0.75x)"
-          >
-            <Zap className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden sm:inline text-[11px] text-white/50">
-              Audio <span className="font-mono tabular-nums text-cyan-300 font-medium">{currentSpeed.toFixed(2)}x</span>
-            </span>
-            <input
-              type="range"
-              min="0.60"
-              max="0.85"
-              step="0.05"
-              value={Math.min(0.85, Math.max(0.60, currentSpeed))}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                setAudioSpeed(val);
-                setMusicSensitivity(val);
-              }}
-              className="w-14 h-1 rounded cursor-pointer accent-cyan-400"
-            />
-          </div>
-        </>
-      )}
+      {/* ── 5. Sensibilidad / Velocidad de Audio ── */}
+      <div className="h-4 w-px bg-white/[0.06] hidden sm:block" />
+      <div
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors"
+        title="Sensibilidad reactiva de Audio (0.40x - 1.80x, nominal 1.00x)"
+      >
+        <Zap className="w-3.5 h-3.5 text-cyan-400" />
+        <span className="hidden sm:inline text-[11px] text-white/50">
+          Audio <span className="font-mono tabular-nums text-cyan-300 font-medium">{currentSpeed.toFixed(2)}x</span>
+        </span>
+        <input
+          type="range"
+          min="0.40"
+          max="1.80"
+          step="0.05"
+          value={Math.min(1.80, Math.max(0.40, currentSpeed))}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            setAudioSpeed(val);
+            setMusicSensitivity(val);
+          }}
+          className="w-14 h-1 rounded cursor-pointer accent-cyan-400"
+        />
+      </div>
 
       <div className="h-4 w-px bg-white/[0.06] hidden sm:block" />
 

@@ -3,7 +3,8 @@ import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, Heart, Mu
 import { useShallow } from 'zustand/react/shallow';
 import { AudioEngine } from '../../services/audioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
+import { isSpotifyActiveSource } from '../../utils/spotifyRouting';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
 import { VolumeControl } from './VolumeControl';
 
@@ -46,10 +47,11 @@ export const Controls: React.FC = React.memo(() => {
       toggleMiniPlayer: s.toggleMiniPlayer,
     }))
   );
+  const spotifyActive = isSpotifyActiveSource({ isSpotifyConnected, currentTrack });
   // Booleano: no depende de la identidad de la lista de favoritos
   const isFav = usePlayerStore((s) => (s.currentTrack ? s.favorites.some((t) => t.id === s.currentTrack!.id) : false));
 
-  const { togglePlayPause: engineTogglePlayPause, playNext: enginePlayNext, playPrevious: enginePlayPrevious } = useAudioEngine();
+  const { togglePlayPause: engineTogglePlayPause, playNext: enginePlayNext, playPrevious: enginePlayPrevious } = useAudioPlayerActions();
   const {
     togglePlayPause: spotifyTogglePlayPause,
     playNext: spotifyPlayNext,
@@ -57,19 +59,19 @@ export const Controls: React.FC = React.memo(() => {
   } = useSpotifyPlayer();
 
   const handlePlayPause = useCallback(() => {
-    if (isSpotifyConnected) spotifyTogglePlayPause();
+    if (spotifyActive) spotifyTogglePlayPause();
     else engineTogglePlayPause();
-  }, [isSpotifyConnected, spotifyTogglePlayPause, engineTogglePlayPause]);
+  }, [spotifyActive, spotifyTogglePlayPause, engineTogglePlayPause]);
 
   const handleNext = useCallback(() => {
-    if (isSpotifyConnected) spotifyPlayNext();
+    if (spotifyActive) spotifyPlayNext();
     else enginePlayNext();
-  }, [isSpotifyConnected, spotifyPlayNext, enginePlayNext]);
+  }, [spotifyActive, spotifyPlayNext, enginePlayNext]);
 
   const handlePrevious = useCallback(() => {
-    if (isSpotifyConnected) spotifyPlayPrevious();
+    if (spotifyActive) spotifyPlayPrevious();
     else enginePlayPrevious();
-  }, [isSpotifyConnected, spotifyPlayPrevious, enginePlayPrevious]);
+  }, [spotifyActive, spotifyPlayPrevious, enginePlayPrevious]);
 
   const cycleRepeat = useCallback(() => {
     if (repeatMode === 'off') setRepeatMode('all');

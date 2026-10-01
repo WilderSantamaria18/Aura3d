@@ -1,49 +1,79 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Disc3, PlaySquare, Share2, Sparkles, Video, X } from 'lucide-react';
 import { useRecorderStore, type RecorderTab } from '../../store/recorderStore';
 import { ScreenCaptureSelector } from './ScreenCaptureSelector';
 import { ResolutionSelector } from './ResolutionSelector';
 import { DurationControl } from './DurationControl';
 import { PreviewPlayer } from './PreviewPlayer';
 import { ExportPanel } from './ExportPanel';
-import { CardPreview } from '../Cards/CardPreview';
-import { CardEditor } from '../Cards/CardEditor';
-import { 
-  X, 
-  Video, 
-  PlaySquare, 
-  Sparkles, 
-  Share2, 
-  Radio, 
-  Disc3 
-} from 'lucide-react';
+import { CardStudio } from '../Cards/CardStudio';
+import { FOCUS_RING } from '../Cards/controls';
+
+const formatClock = (sec: number) =>
+  `${Math.floor(sec / 60).toString().padStart(2, '0')}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
+
+/** Indicador de grabación en la cabecera: visible desde cualquier pestaña y lleva a detenerla */
+const RecordingBadge: React.FC = () => {
+  const isRecording = useRecorderStore((s) => s.isRecording);
+  const elapsed = useRecorderStore((s) => s.elapsedSeconds);
+  const setActiveTab = useRecorderStore((s) => s.setActiveTab);
+  if (!isRecording) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => setActiveTab('record')}
+      className={`flex items-center gap-2 rounded-full border border-red-400/40 bg-red-500/15 px-3 py-1.5 text-[11px] font-semibold text-red-200 transition-colors hover:bg-red-500/25 ${FOCUS_RING}`}
+      title="Ir a la pestaña Grabar para detener"
+    >
+      <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+      <span className="font-mono">REC {formatClock(elapsed)}</span>
+      <span className="hidden text-red-200/70 sm:inline">· Detener</span>
+    </button>
+  );
+};
 
 export const RecorderPanel: React.FC = () => {
-  const isModalOpen = useRecorderStore((state) => state.isModalOpen);
-  const closeModal = useRecorderStore((state) => state.closeModal);
-  const activeTab = useRecorderStore((state) => state.activeTab);
-  const setActiveTab = useRecorderStore((state) => state.setActiveTab);
-  const isRecording = useRecorderStore((state) => state.isRecording);
-  const recordedBlob = useRecorderStore((state) => state.recordedBlob);
+  const isModalOpen = useRecorderStore((s) => s.isModalOpen);
+  const closeModal = useRecorderStore((s) => s.closeModal);
+  const activeTab = useRecorderStore((s) => s.activeTab);
+  const setActiveTab = useRecorderStore((s) => s.setActiveTab);
+  const isRecording = useRecorderStore((s) => s.isRecording);
+  const hasVideo = useRecorderStore((s) => s.recordedBlob !== null);
+  const hasCard = useRecorderStore((s) => s.generatedCardBlob !== null);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // El foco entra en el diálogo al abrirlo (lectores de pantalla y teclado)
+  useEffect(() => {
+    if (isModalOpen) dialogRef.current?.focus();
+  }, [isModalOpen]);
 
   if (!isModalOpen) return null;
 
-  const TABS: { id: RecorderTab; label: string; icon: React.ReactNode; badge?: string }[] = [
-    { id: 'record', label: 'Record', icon: <Video className="w-3.5 h-3.5" /> },
-    { 
-      id: 'preview', 
-      label: 'Preview', 
-      icon: <PlaySquare className="w-3.5 h-3.5" />,
-      badge: recordedBlob ? 'Ready' : undefined
-    },
-    { id: 'cards', label: 'Story Cards', icon: <Sparkles className="w-3.5 h-3.5" /> },
-    { id: 'export', label: 'Export & Share', icon: <Share2 className="w-3.5 h-3.5" /> },
+  const tabs: { id: RecorderTab; label: string; icon: React.ReactNode; badge?: string }[] = [
+    { id: 'record', label: 'Grabar', icon: <Video className="h-3.5 w-3.5" /> },
+    { id: 'preview', label: 'Vista previa', icon: <PlaySquare className="h-3.5 w-3.5" />, badge: hasVideo ? 'Listo' : undefined },
+    { id: 'cards', label: 'Tarjetas', icon: <Sparkles className="h-3.5 w-3.5" /> },
+    { id: 'export', label: 'Exportar', icon: <Share2 className="h-3.5 w-3.5" />, badge: hasVideo || hasCard ? '●' : undefined },
   ];
+
+  const onTabKeys = (e: React.KeyboardEvent) => {
+    const i = tabs.findIndex((t) => t.id === activeTab);
+    let next = i;
+    if (e.key === 'ArrowRight') next = (i + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') next = (i - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    setActiveTab(tabs[next].id);
+    document.getElementById(`studio-tab-${tabs[next].id}`)?.focus();
+  };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none">
-        {/* Dark blurred backdrop */}
+      <div className="fixed inset-0 z-[70] flex select-none items-center justify-center p-3 sm:p-6">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -52,72 +82,93 @@ export const RecorderPanel: React.FC = () => {
           className="absolute inset-0 bg-black/70 backdrop-blur-md"
         />
 
-        {/* Modal Window */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="studio-title"
+          tabIndex={-1}
+          initial={{ opacity: 0, scale: 0.96, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-          className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-3xl overflow-hidden bg-zinc-950/85 backdrop-blur-2xl border border-white/20 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.2)]"
+          exit={{ opacity: 0, scale: 0.96, y: 14 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          className="relative flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-white/15 bg-zinc-950/90 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl focus-visible:!outline-none"
         >
-          {/* Header Bar */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <Disc3 className="w-4 h-4 text-white animate-[spin_8s_linear_infinite]" />
+          {/* Resplandor de marca */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-violet-600/20 blur-3xl"
+          />
+
+          <header className="relative flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-500 to-sky-400 shadow-lg shadow-violet-600/30">
+                <Disc3 className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <h2 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
-                  <span>Aura3D Social Content Studio</span>
-                  {isRecording && (
-                    <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-                      REC
-                    </span>
-                  )}
+              <div className="min-w-0">
+                <h2 id="studio-title" className="truncate text-[15px] font-bold tracking-tight text-white">
+                  Aura Social Studio
                 </h2>
-                <p className="text-[11px] text-white/50">
-                  Spatial Visualizer Capture, Video Editor & Story Cards
+                <p className="truncate text-xs text-white/45">
+                  Graba, diseña y comparte para Instagram, TikTok y Shorts
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={() => !isRecording && closeModal()}
-              disabled={isRecording}
-              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <RecordingBadge />
+              <button
+                type="button"
+                onClick={() => !isRecording && closeModal()}
+                disabled={isRecording}
+                aria-label="Cerrar el estudio"
+                title={isRecording ? 'Detén la grabación para cerrar' : 'Cerrar (Esc)'}
+                className={`flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/60 transition-all hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 ${FOCUS_RING}`}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </header>
 
-          {/* Segmented Tab Navigation */}
-          <div className="px-6 pt-3 pb-2">
-            <div className="relative flex items-center gap-1 p-1 rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl shadow-inner">
-              {TABS.map((tab) => {
-                const isActive = activeTab === tab.id;
+          <div className="relative px-5 pb-1 pt-4 sm:px-6">
+            <div
+              role="tablist"
+              aria-label="Secciones del estudio"
+              onKeyDown={onTabKeys}
+              className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.04] p-1"
+            >
+              {tabs.map((tab) => {
+                const active = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`studio-tab-${tab.id}`}
+                    aria-selected={active}
+                    aria-controls={`studio-panel-${tab.id}`}
+                    // En pantallas pequeñas solo se ve el icono: sin esto el botón no tendría nombre accesible
+                    aria-label={tab.label}
+                    tabIndex={active ? 0 : -1}
                     onClick={() => setActiveTab(tab.id)}
-                    className="relative flex-1 py-2 px-3 rounded-xl text-xs font-semibold tracking-tight transition-colors flex items-center justify-center gap-2 cursor-pointer focus:outline-none"
+                    className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-xs font-semibold tracking-tight transition-colors sm:px-3 ${FOCUS_RING}`}
                   >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeRecorderTab"
-                        className="absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.18] to-white/[0.06] border border-white/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_2px_8px_rgba(0,0,0,0.4)]"
-                        transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                    {active && (
+                      <motion.span
+                        layoutId="studio-active-tab"
+                        className="absolute inset-0 rounded-xl border border-white/25 bg-gradient-to-b from-white/[0.18] to-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2px_8px_rgba(0,0,0,0.4)]"
+                        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                       />
                     )}
                     <span
                       className={`relative z-10 flex items-center gap-1.5 transition-colors ${
-                        isActive ? 'text-white' : 'text-white/50 hover:text-white/80'
+                        active ? 'text-white' : 'text-white/50 hover:text-white/80'
                       }`}
                     >
                       {tab.icon}
-                      <span>{tab.label}</span>
+                      <span className="max-sm:hidden">{tab.label}</span>
                       {tab.badge && (
-                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">
+                        <span className="rounded-full border border-violet-300/30 bg-violet-500/30 px-1.5 text-[9px] font-semibold text-violet-100">
                           {tab.badge}
                         </span>
                       )}
@@ -128,14 +179,16 @@ export const RecorderPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Tab Content Container */}
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          <div
+            role="tabpanel"
+            id={`studio-panel-${activeTab}`}
+            aria-labelledby={`studio-tab-${activeTab}`}
+            className="custom-scrollbar relative flex-1 overflow-y-auto p-5 sm:p-6"
+          >
             {activeTab === 'record' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                <div className="space-y-6">
-                  <ScreenCaptureSelector />
-                </div>
-                <div className="space-y-6">
+              <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2">
+                <ScreenCaptureSelector />
+                <div className="space-y-8">
                   <ResolutionSelector />
                   <DurationControl />
                 </div>
@@ -143,24 +196,15 @@ export const RecorderPanel: React.FC = () => {
             )}
 
             {activeTab === 'preview' && (
-              <div className="max-w-2xl mx-auto">
+              <div className="mx-auto max-w-2xl">
                 <PreviewPlayer />
               </div>
             )}
 
-            {activeTab === 'cards' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                <div className="lg:col-span-5 flex items-center justify-center">
-                  <CardPreview />
-                </div>
-                <div className="lg:col-span-7 bg-white/[0.02] border border-white/10 rounded-2xl">
-                  <CardEditor />
-                </div>
-              </div>
-            )}
+            {activeTab === 'cards' && <CardStudio />}
 
             {activeTab === 'export' && (
-              <div className="max-w-xl mx-auto">
+              <div className="mx-auto max-w-xl">
                 <ExportPanel />
               </div>
             )}

@@ -26,10 +26,18 @@ export interface AdminMetrics {
   timestamp: string;
 }
 
-const SERVER_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:4000'
-    : 'http://localhost:4000';
+/**
+ * Servidor de métricas/administración. Solo se usa si hay uno configurado:
+ * - `VITE_BACKEND_URL` (la misma variable que usa el generador de fondos), o
+ * - en desarrollo, el servidor local del proyecto (localhost:4000).
+ * En producción sin variable no se abre ninguna conexión ni se envía ningún dato.
+ */
+const SERVER_URL: string = (import.meta.env.VITE_BACKEND_URL as string | undefined) || (import.meta.env.DEV ? 'http://localhost:4000' : '');
+const SERVER_ENABLED = SERVER_URL !== '';
+
+/** fetch al servidor; si no hay servidor configurado falla de inmediato (los llamadores ya tienen respaldo) */
+const serverFetch = (input: string, init?: RequestInit): Promise<Response> =>
+  SERVER_ENABLED ? fetch(input, init) : Promise.reject(new Error('Servidor no configurado'));
 
 class SocketService {
   private socket: Socket | null = null;
@@ -47,18 +55,24 @@ class SocketService {
   } | null = null;
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private fpsRaf = 0;
+
   constructor() {
-    this.initSocket();
-    this.initFpsReporter();
+    if (SERVER_ENABLED) this.initSocket();
   }
 
-  private initFpsReporter() {
-    if (typeof window === 'undefined') return;
+  /** Mide FPS solo mientras hay conexión con el servidor (se detiene al desconectar) */
+  private startFpsReporter() {
+    if (typeof window === 'undefined' || this.fpsRaf) return;
     let frameCount = 0;
     let lastTime = performance.now();
     let lastReport = performance.now();
 
     const frameLoop = (now: number) => {
+      if (!this.isConnected) {
+        this.fpsRaf = 0;
+        return;
+      }
       frameCount++;
       if (now - lastReport >= 2000) {
         const elapsed = (now - lastTime) / 1000;
@@ -77,9 +91,9 @@ class SocketService {
           });
         });
       }
-      requestAnimationFrame(frameLoop);
+      this.fpsRaf = requestAnimationFrame(frameLoop);
     };
-    requestAnimationFrame(frameLoop);
+    this.fpsRaf = requestAnimationFrame(frameLoop);
   }
 
   private initSocket() {
@@ -94,7 +108,7 @@ class SocketService {
 
       this.socket.on('connect', () => {
         this.isConnected = true;
-        console.log('[SocketService] Conectado al servidor de Auralis:', this.socket?.id);
+        this.startFpsReporter();
       });
 
       this.socket.on('disconnect', () => {
@@ -103,6 +117,10 @@ class SocketService {
 
       this.socket.on('connect_error', () => {
         this.isConnected = false;
+      });
+      // Sin servidor, tras agotar los reintentos se deja de insistir
+      this.socket.io.on('reconnect_failed', () => {
+        this.socket?.disconnect();
       });
 
       this.socket.on('admin:metrics_update', (metrics: AdminMetrics) => {
@@ -242,7 +260,7 @@ class SocketService {
     username: string,
     password: string
   ): Promise<{ token: string; user: { username: string; email: string; role: string } }> {
-    const response = await fetch(`${SERVER_URL}/api/auth/login`, {
+    const response = await serverFetch(`${SERVER_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -268,7 +286,7 @@ class SocketService {
     if (!token) return false;
 
     try {
-      const response = await fetch(`${SERVER_URL}/api/auth/verify`, {
+      const response = await serverFetch(`${SERVER_URL}/api/auth/verify`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) return false;
@@ -290,7 +308,7 @@ class SocketService {
     const token = this.getAdminToken();
     if (!token) throw new Error('No autorizado. Inicia sesión como administrador.');
 
-    const res = await fetch(`${SERVER_URL}/api/admin/users/${userId}/toggle-status`, {
+    const res = await serverFetch(`${SERVER_URL}/api/admin/users/${userId}/toggle-status`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -313,7 +331,7 @@ class SocketService {
     const token = this.getAdminToken();
     if (!token) throw new Error('No autorizado. Inicia sesión como administrador.');
 
-    const res = await fetch(`${SERVER_URL}/api/admin/users/${userId}`, {
+    const res = await serverFetch(`${SERVER_URL}/api/admin/users/${userId}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -334,7 +352,7 @@ class SocketService {
   public async fetchUsers(): Promise<AdminUserRecord[]> {
     try {
       const token = this.getAdminToken();
-      const res = await fetch(`${SERVER_URL}/api/admin/users`, {
+      const res = await serverFetch(`${SERVER_URL}/api/admin/users`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -405,7 +423,7 @@ class SocketService {
   public async fetchSessions(): Promise<AdminSessionRecord[]> {
     try {
       const token = this.getAdminToken();
-      const res = await fetch(`${SERVER_URL}/api/admin/sessions`, {
+      const res = await serverFetch(`${SERVER_URL}/api/admin/sessions`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -473,7 +491,7 @@ class SocketService {
   public async fetchPerformance(): Promise<PerformanceStats> {
     try {
       const token = this.getAdminToken();
-      const res = await fetch(`${SERVER_URL}/api/admin/performance`, {
+      const res = await serverFetch(`${SERVER_URL}/api/admin/performance`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -500,7 +518,7 @@ class SocketService {
   public exportCSV(type: 'users' | 'sessions', data: any[]) {
     const token = this.getAdminToken();
     if (token) {
-      fetch(`${SERVER_URL}/api/admin/export/csv?type=${type}`, {
+      serverFetch(`${SERVER_URL}/api/admin/export/csv?type=${type}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then(async (res) => {

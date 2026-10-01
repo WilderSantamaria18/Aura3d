@@ -1,24 +1,21 @@
 import React, { useState } from 'react';
+import { ArrowRight, Eye, Film, Pause, Play, RotateCcw, Scissors, Volume2, VolumeX } from 'lucide-react';
 import { useRecorderStore } from '../../store/recorderStore';
 import { useVideoPreview } from '../../hooks/useVideoPreview';
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  RotateCcw, 
-  ArrowRight, 
-  Scissors, 
-  Eye, 
-  Film,
-  Sparkles
-} from 'lucide-react';
+import { FOCUS_RING } from '../Cards/controls';
+
+const formatTime = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  const d = Math.floor((sec % 1) * 10);
+  return `${m}:${s.toString().padStart(2, '0')}.${d}`;
+};
 
 export const PreviewPlayer: React.FC = () => {
-  const recordedBlob = useRecorderStore((state) => state.recordedBlob);
-  const setActiveTab = useRecorderStore((state) => state.setActiveTab);
-  const resetRecording = useRecorderStore((state) => state.resetRecording);
-  const aspectRatio = useRecorderStore((state) => state.aspectRatio);
+  const recordedBlob = useRecorderStore((s) => s.recordedBlob);
+  const setActiveTab = useRecorderStore((s) => s.setActiveTab);
+  const resetRecording = useRecorderStore((s) => s.resetRecording);
+  const aspectRatio = useRecorderStore((s) => s.aspectRatio);
 
   const {
     videoRef,
@@ -43,216 +40,197 @@ export const PreviewPlayer: React.FC = () => {
 
   if (!recordedBlob) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center text-white/50 gap-3">
-        <Film className="w-12 h-12 stroke-[1.2] text-white/30" />
-        <p className="text-sm font-medium">No recorded video available yet.</p>
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-white/50">
+        <Film className="h-12 w-12 stroke-[1.2] text-white/30" />
+        <p className="text-sm font-medium text-white/70">Todavía no hay ninguna grabación.</p>
+        <p className="text-xs text-white/40">Graba un clip y aparecerá aquí para revisarlo.</p>
         <button
+          type="button"
           onClick={() => setActiveTab('record')}
-          className="mt-2 px-4 py-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 text-xs font-semibold hover:bg-purple-500/30 transition-all"
+          className={`mt-2 rounded-xl border border-violet-400/40 bg-violet-500/15 px-4 py-2 text-xs font-semibold text-violet-200 transition-colors hover:bg-violet-500/25 ${FOCUS_RING}`}
         >
-          Go to Record Tab
+          Ir a Grabar
         </button>
       </div>
     );
   }
 
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    const ms = Math.floor((sec % 1) * 10);
-    return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
-  };
-
   const isPortrait = aspectRatio === '9:16' || aspectRatio === '4:5';
+  const chip = `inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${FOCUS_RING}`;
 
   return (
-    <div className="flex flex-col gap-4 text-white">
-      {/* Top action row */}
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-5 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowSafeZones(!showSafeZones)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+            type="button"
+            aria-pressed={showSafeZones}
+            onClick={() => setShowSafeZones((v) => !v)}
+            className={`${chip} ${
               showSafeZones
-                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
-                : 'bg-white/5 text-white/60 border-white/10 hover:text-white'
+                ? 'border-violet-400/50 bg-violet-500/20 text-violet-200'
+                : 'border-white/12 bg-white/[0.05] text-white/65 hover:bg-white/10 hover:text-white'
             }`}
           >
-            <Eye className="w-3.5 h-3.5" />
-            <span>IG Safe Zone</span>
+            <Eye className="h-3.5 w-3.5" />
+            Zonas de Instagram
           </button>
-
           <button
+            type="button"
             onClick={resetTrim}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white/5 text-white/60 border border-white/10 hover:text-white transition-all"
+            className={`${chip} border-white/12 bg-white/[0.05] text-white/65 hover:bg-white/10 hover:text-white`}
           >
-            <Scissors className="w-3.5 h-3.5" />
-            <span>Reset Trim</span>
+            <Scissors className="h-3.5 w-3.5" />
+            Quitar marcas
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-white/60">
-          <span>Speed:</span>
+        <div className="flex items-center gap-1.5 text-xs text-white/55">
+          <span>Velocidad</span>
           {[1, 1.5, 2].map((rate) => (
             <button
               key={rate}
+              type="button"
+              aria-pressed={playbackRate === rate}
               onClick={() => setPlaybackRate(rate)}
-              className={`px-2 py-0.5 rounded-md text-[11px] font-mono border transition-all ${
+              className={`rounded-md border px-2 py-1 font-mono text-[11px] transition-colors ${FOCUS_RING} ${
                 playbackRate === rate
-                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                  : 'bg-white/5 text-white/50 border-white/10 hover:text-white'
+                  ? 'border-violet-400/50 bg-violet-500/20 text-violet-200'
+                  : 'border-white/10 bg-white/[0.04] text-white/50 hover:text-white'
               }`}
             >
-              {rate}x
+              {rate}×
             </button>
           ))}
         </div>
       </div>
 
-      {/* Video Preview Frame */}
-      <div className="relative w-full flex items-center justify-center bg-black/60 rounded-2xl overflow-hidden border border-white/15 p-2 shadow-2xl min-h-[300px] max-h-[460px]">
+      <div className="flex max-h-[460px] min-h-[300px] items-center justify-center rounded-3xl border border-white/12 bg-black/60 p-3 shadow-2xl">
         <div
-          className={`relative overflow-hidden rounded-xl bg-black flex items-center justify-center ${
-            isPortrait ? 'w-[230px] aspect-[9/16]' : 'w-full aspect-video'
+          className={`relative flex items-center justify-center overflow-hidden rounded-2xl bg-black ${
+            isPortrait ? 'aspect-[9/16] w-[230px]' : 'aspect-video w-full'
           }`}
         >
-          <video
-            ref={videoRef}
-            playsInline
-            className="w-full h-full object-contain"
-            onClick={togglePlay}
-          />
-
-          {/* Safe zone overlay */}
+          <video ref={videoRef} playsInline className="h-full w-full object-contain" onClick={togglePlay} />
           {showSafeZones && (
-            <div className="absolute inset-0 pointer-events-none flex flex-col justify-between z-20">
-              <div className="h-[14%] w-full bg-red-500/20 border-b border-red-500/40 flex items-center justify-center">
-                <span className="text-[9px] font-mono uppercase tracking-widest text-red-300">
-                  Header Safe Area
-                </span>
+            <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between" aria-hidden="true">
+              <div className="flex h-[13.5%] items-end justify-center border-b border-dashed border-rose-300/60 bg-rose-500/20 pb-1">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-rose-100">Perfil y progreso</span>
               </div>
-              <div className="h-[20%] w-full bg-red-500/20 border-t border-red-500/40 flex items-center justify-center">
-                <span className="text-[9px] font-mono uppercase tracking-widest text-red-300">
-                  Controls Safe Area
-                </span>
+              <div className="flex h-[20%] items-start justify-center border-t border-dashed border-rose-300/60 bg-rose-500/20 pt-1">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-rose-100">Responder</span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Scrubber & Trim Sliders */}
-      <div className="space-y-2 bg-white/5 p-3 rounded-2xl border border-white/10">
-        <div className="flex items-center justify-between text-xs font-mono text-white/70">
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <div className="flex items-center justify-between font-mono text-xs text-white/70">
           <span>{formatTime(currentTime)}</span>
-          <span className="text-[10px] text-white/40">
-            Trim: {formatTime(trimStart)} - {formatTime(trimEnd)}
-          </span>
           <span>{formatTime(duration)}</span>
         </div>
-
-        {/* Playhead Seek Slider */}
         <input
           type="range"
+          aria-label="Posición del vídeo"
           min="0"
           max={duration || 1}
           step="0.05"
           value={currentTime}
           onChange={(e) => seek(parseFloat(e.target.value))}
-          className="w-full accent-purple-400 h-1.5 bg-white/20 rounded-lg cursor-pointer"
+          className={`h-1.5 w-full cursor-pointer rounded-lg accent-violet-400 ${FOCUS_RING}`}
         />
 
-        {/* Trim In/Out Sliders */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-2 gap-4 pt-1">
           <div>
-            <div className="flex justify-between text-[11px] text-white/50 mb-0.5">
-              <span>Trim Start</span>
+            <div className="mb-1 flex justify-between text-[11px] text-white/50">
+              <span>Marca de inicio</span>
               <span className="font-mono">{formatTime(trimStart)}</span>
             </div>
             <input
               type="range"
+              aria-label="Marca de inicio"
               min="0"
               max={Math.max(0, trimEnd - 0.5)}
               step="0.1"
               value={trimStart}
               onChange={(e) => setTrimRange(parseFloat(e.target.value), trimEnd)}
-              className="w-full accent-indigo-400 h-1 bg-white/20 rounded-lg cursor-pointer"
+              className={`h-1 w-full cursor-pointer accent-indigo-400 ${FOCUS_RING}`}
             />
           </div>
-
           <div>
-            <div className="flex justify-between text-[11px] text-white/50 mb-0.5">
-              <span>Trim End</span>
+            <div className="mb-1 flex justify-between text-[11px] text-white/50">
+              <span>Marca de fin</span>
               <span className="font-mono">{formatTime(trimEnd)}</span>
             </div>
             <input
               type="range"
+              aria-label="Marca de fin"
               min={Math.min(duration, trimStart + 0.5)}
               max={duration || 1}
               step="0.1"
               value={trimEnd}
               onChange={(e) => setTrimRange(trimStart, parseFloat(e.target.value))}
-              className="w-full accent-indigo-400 h-1 bg-white/20 rounded-lg cursor-pointer"
+              className={`h-1 w-full cursor-pointer accent-indigo-400 ${FOCUS_RING}`}
             />
           </div>
         </div>
+        <p className="text-[11px] leading-relaxed text-white/40">
+          Marca el tramo que quieres conservar. Para guardarlo recortado, ve a Exportar y pulsa «Aplicar recorte».
+        </p>
       </div>
 
-      {/* Transport Controls */}
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={togglePlay}
-            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg"
+            aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
+            className={`flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform hover:scale-105 active:scale-95 ${FOCUS_RING}`}
           >
-            {isPlaying ? (
-              <Pause className="w-5 h-5 fill-current" />
-            ) : (
-              <Play className="w-5 h-5 fill-current ml-0.5" />
-            )}
+            {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
           </button>
-
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={toggleMute}
-              className="text-white/70 hover:text-white transition-colors"
+              aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
+              className={`text-white/70 transition-colors hover:text-white ${FOCUS_RING}`}
             >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-4 h-4" />
-              ) : (
-                <Volume2 className="w-4 h-4" />
-              )}
+              {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             <input
               type="range"
+              aria-label="Volumen"
               min="0"
               max="1"
               step="0.05"
               value={isMuted ? 0 : volume}
               onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="w-16 accent-white h-1 bg-white/20 rounded-lg cursor-pointer"
+              className={`h-1 w-20 cursor-pointer accent-white ${FOCUS_RING}`}
             />
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => {
               resetRecording();
               setActiveTab('record');
             }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white text-xs font-semibold transition-all"
+            className={`flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.05] px-3.5 py-2.5 text-xs font-semibold text-white/75 transition-colors hover:bg-white/10 hover:text-white ${FOCUS_RING}`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Re-record</span>
+            <RotateCcw className="h-3.5 w-3.5" />
+            Grabar de nuevo
           </button>
-
           <button
+            type="button"
             onClick={() => setActiveTab('export')}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-500/25 hover:from-purple-400 hover:to-indigo-400 transition-all active:scale-[0.99]"
+            className={`flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-900/40 transition-all hover:brightness-110 active:scale-[0.99] ${FOCUS_RING}`}
           >
-            <span>Proceed to Export</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Ir a exportar
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>

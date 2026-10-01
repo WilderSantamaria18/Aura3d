@@ -1,11 +1,12 @@
 import React from 'react';
 import { Sparkles, Volume2 } from 'lucide-react';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useShallow } from 'zustand/react/shallow';
 
 export const AudioUnlockBanner: React.FC = () => {
-  const { unlockAudio } = useAudioEngine();
-  const { isAudioUnlocked, togglePlay } = usePlayerStore();
+  const { unlockAudio } = useAudioPlayerActions();
+  const { isAudioUnlocked, togglePlay } = usePlayerStore(useShallow((s) => ({ isAudioUnlocked: s.isAudioUnlocked, togglePlay: s.togglePlay })));
 
   if (isAudioUnlocked) return null;
 

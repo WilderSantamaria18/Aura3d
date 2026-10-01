@@ -1,19 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
-import {
-  Camera,
-  Music,
-  Sliders,
-  Sparkles,
-  X,
-  Zap,
-  Activity,
-  Maximize2,
-  Volume2,
-  VolumeX,
-  Crosshair,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { CalibrationModal } from '../../spatial/calibration/CalibrationModal';
-import { PerformanceManager, type PerformanceMetrics } from '../../spatial/performance/PerformanceManager';
+import { PerformanceManager, type PerformanceMetrics, type SpatialQualityMode } from '../../spatial/performance/PerformanceManager';
 import {
   SpatialVisionService,
   type VisionTelemetry,
@@ -27,6 +15,7 @@ import { SpatialInstrumentEngine } from '../../spatial/instruments/SpatialInstru
 import { LandmarkOverlay } from './LandmarkOverlay';
 import { CameraControls } from './CameraControls';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const AR_KEYS = [
   { name: 'C4', freq: 261.63 },
@@ -38,21 +27,70 @@ const AR_KEYS = [
   { name: 'D5', freq: 587.33 },
 ];
 
+type TabId = 'camera' | 'instrument' | 'calibrate' | 'visual';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'camera', label: 'Cámara' },
+  { id: 'instrument', label: 'Instrumentos' },
+  { id: 'calibrate', label: 'Calibrar' },
+  { id: 'visual', label: 'Visual' },
+];
+
+// Cada instrumento tiene su color de LED; la consola entera lo adopta como acento
+const INSTRUMENTS = [
+  { id: 'synth', name: 'Sintetizador', desc: 'Siete teclas flotantes en arco', spec: '7 teclas', color: '#38e8ff', hint: 'Suena al entrar en la tecla con la punta del índice. Mantener el dedo dentro sostiene la nota.' },
+  { id: 'drums', name: 'Batería', desc: 'Kick, snare, hi-hat y clap por golpe', spec: '4 pads', color: '#ff3d8b', hint: 'Cada pad suena una vez al entrar. Sal del pad y vuelve a entrar para repetir el golpe.' },
+  { id: 'theremin', name: 'Theremin', desc: 'X es el tono, Y el volumen, Z el filtro', spec: '3 ejes', color: '#ffc23d', hint: 'Mueve la mano de lado a lado para cambiar el tono y de arriba abajo para el volumen.' },
+  { id: 'pads', name: 'Launchpad', desc: 'Rejilla armónica sin contacto', spec: '4 × 4', color: '#8b7bff', hint: 'Este instrumento todavía no tiene vista en la escena 3D.' },
+  { id: 'pose', name: 'Danza', desc: 'Seguimiento del cuerpo completo', spec: '33 puntos', color: '#5dea8c', hint: 'Este modo todavía no tiene vista en la escena 3D.' },
+];
+
+const QUALITY_MODES: { id: SpatialQualityMode; label: string }[] = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'LOW', label: 'Eco' },
+  { id: 'MEDIUM', label: 'Medio' },
+  { id: 'HIGH', label: 'Alto' },
+];
+const TIER_LABEL = { LOW: 'Eco', MEDIUM: 'Medio', HIGH: 'Alto' } as const;
+
+const GESTURE_LABEL: Record<string, string> = {
+  fist: 'puño',
+  pinch: 'pellizco',
+  open: 'palma abierta',
+  pointing: 'índice',
+  peace: 'paz',
+  unknown: 'ninguno',
+};
+
+// El estado visual de las teclas AR se marca por atributo: cero re-renders de React por muestra
+const setArKey = (idx: number, on: boolean) => {
+  const el = document.getElementById(`ar-key-${idx}`);
+  if (el) el.dataset.on = on ? 'true' : 'false';
+};
+
 export const CameraStudioPanel: React.FC = () => {
   const {
     isCameraStudioOpen,
     setCameraStudioOpen,
-    isLucid,
-    lucidTheme,
-    lucidPrimaryColor,
     airInstrumentType,
     setAirInstrumentType,
     setAirInstrumentsActive,
     isAirInstrumentsActive,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isCameraStudioOpen: s.isCameraStudioOpen,
+      setCameraStudioOpen: s.setCameraStudioOpen,
+      airInstrumentType: s.airInstrumentType,
+      setAirInstrumentType: s.setAirInstrumentType,
+      setAirInstrumentsActive: s.setAirInstrumentsActive,
+      isAirInstrumentsActive: s.isAirInstrumentsActive,
+    }))
+  );
 
-  const [activeTab, setActiveTab] = useState<'camera' | 'instrument' | 'calibrate' | 'visual'>('camera');
+  const [activeTab, setActiveTab] = useState<TabId>('camera');
+  const [mounted, setMounted] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState<VisionTelemetry>({
     videoFps: 0,
     detectionFps: 0,
@@ -75,7 +113,11 @@ export const CameraStudioPanel: React.FC = () => {
   const lastGestureTimeRef = useRef(0);
   const currentGestureRef = useRef('unknown');
   const activeKeysRef = useRef<Set<number>>(new Set());
-  const activeColor = isLucid ? (lucidPrimaryColor || lucidTheme.primary || '#00e5ff') : '#00e5ff';
+  const nextKeysRef = useRef<Set<number>>(new Set());
+  const activeTabRef = useRef<TabId>('camera');
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   // Suscripción a telemetría y gestos (Throttled para CERO re-renders a 60 FPS)
   useEffect(() => {
@@ -103,8 +145,11 @@ export const CameraStudioPanel: React.FC = () => {
       }
 
       // ── Detección de Colisión AR sobre las 7 Teclas del Panel (Zero Allocations) ──
-      const currentActive = new Set<number>();
-      hands.forEach((hand) => {
+      // Las teclas AR del preview solo existen en la pestaña Cámara
+      if (activeTabRef.current !== 'camera' && activeKeysRef.current.size === 0) return;
+      const currentActive = nextKeysRef.current;
+      currentActive.clear();
+      if (activeTabRef.current === 'camera') hands.forEach((hand) => {
         const tip = hand.landmarks[8]; // Punta del índice
         const thumb = hand.landmarks[4]; // Pulgar
         [tip, thumb].forEach((pt) => {
@@ -125,24 +170,14 @@ export const CameraStudioPanel: React.FC = () => {
         const isActive = currentActive.has(idx);
         if (isActive && !wasActive) {
           engine.triggerNoteOn(idx, key.freq, 0.9);
-          const el = document.getElementById(`ar-key-${idx}`);
-          if (el) {
-            el.style.backgroundColor = 'rgba(0, 229, 255, 0.6)';
-            el.style.borderColor = '#00e5ff';
-            el.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.6)';
-            el.style.transform = 'translateY(4px)';
-          }
+          setArKey(idx, true);
         } else if (!isActive && wasActive) {
           engine.triggerNoteOff(idx);
-          const el = document.getElementById(`ar-key-${idx}`);
-          if (el) {
-            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-            el.style.boxShadow = 'none';
-            el.style.transform = 'none';
-          }
+          setArKey(idx, false);
         }
       });
+      // Intercambio de sets: cero asignaciones por muestra
+      nextKeysRef.current = activeKeysRef.current;
       activeKeysRef.current = currentActive;
     });
 
@@ -157,19 +192,44 @@ export const CameraStudioPanel: React.FC = () => {
     };
   }, [isCameraStudioOpen]);
 
+  // Entrada suave y cierre con Escape (panel anclado, no modal)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCameraStudioOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [setCameraStudioOpen]);
+
   // Manejador de activación/desactivación de cámara
   const handleToggleCamera = async () => {
     const vision = SpatialVisionService.getInstance();
     if (!isCameraActive) {
+      setCameraError(null);
       try {
         await vision.startCamera(videoRef.current || undefined);
         setIsCameraActive(true);
         setAirInstrumentsActive(true);
       } catch (err) {
         console.error('No se pudo activar la cámara:', err);
+        const name = err instanceof DOMException ? err.name : '';
+        setCameraError(
+          name === 'NotAllowedError'
+            ? 'Permiso de cámara denegado. Habilítalo en el candado de la barra de direcciones y reintenta.'
+            : name === 'NotFoundError'
+            ? 'No se encontró ninguna cámara conectada.'
+            : name === 'NotReadableError'
+            ? 'La cámara está siendo usada por otra aplicación.'
+            : 'No se pudo iniciar la cámara o cargar los modelos de seguimiento. Revisa tu conexión e inténtalo de nuevo.'
+        );
       }
     } else {
-      vision.destroy();
+      // stopCamera conserva los modelos de MediaPipe cargados (destroy() los descartaba y obligaba a re-descargarlos)
+      vision.stopCamera();
       setIsCameraActive(false);
       AirInstrumentsAudioEngine.getInstance().cleanup();
       SpatialInstrumentEngine.getInstance().cleanup();
@@ -205,378 +265,293 @@ export const CameraStudioPanel: React.FC = () => {
 
   if (!isCameraStudioOpen) return null;
 
+  const inst = INSTRUMENTS.find((i) => i.id === airInstrumentType) ?? INSTRUMENTS[0];
+  const accent = inst.color;
+  const tierLabel = TIER_LABEL[perfMetrics.currentTier];
+  const trackingHz = telemetry.detectionFps;
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/45 backdrop-blur-[32px] saturate-[140%] pointer-events-auto select-none font-sans animate-aura-backdrop"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setCameraStudioOpen(false);
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="camera-studio-title"
+    <aside
+      aria-label="Estudio espacial"
+      style={{ '--inst': accent } as React.CSSProperties}
+      className={`fixed z-40 pointer-events-auto select-none font-sans text-[#e8ecf4]
+        inset-x-2 bottom-24 max-h-[64vh]
+        lg:inset-x-auto lg:right-4 lg:top-[84px] lg:bottom-4 lg:max-h-none lg:w-[380px]
+        flex flex-col rounded-2xl bg-[#0d1016] border border-white/[0.09]
+        shadow-[0_2px_4px_rgba(0,0,0,0.45),0_18px_48px_rgba(0,0,0,0.55)]
+        transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none
+        selection:bg-white/20 ${mounted ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}
     >
-      <div
-        className="w-full max-w-2xl rounded-[28px] p-4 sm:p-5 relative flex flex-col max-h-[92vh] overflow-hidden transition-all duration-300 animate-aura-modal"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(18, 20, 28, 0.65) 50%, rgba(8, 10, 16, 0.85) 100%)',
-          backdropFilter: 'blur(48px) saturate(190%) contrast(105%)',
-          WebkitBackdropFilter: 'blur(48px) saturate(190%) contrast(105%)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.28)',
-          boxShadow: '0 32px 80px -12px rgba(0, 0, 0, 0.85), inset 0 1px 1.5px rgba(255, 255, 255, 0.25)',
-        }}
-      >
-        {/* Specular Liquid Top Line */}
-        <div
-          className="absolute top-0 inset-x-10 h-px pointer-events-none"
+      {/* ── Cabecera: título, lectura de seguimiento y cierre ── */}
+      <header className="flex items-center gap-3 px-4 pt-3.5 pb-3">
+        <span
+          aria-hidden="true"
+          className="w-2 h-2 rounded-full shrink-0 transition-colors duration-300"
           style={{
-            background: `linear-gradient(to right, transparent, ${activeColor}99, transparent)`,
+            backgroundColor: isCameraActive ? 'var(--inst)' : '#3a4152',
+            boxShadow: isCameraActive ? '0 0 8px var(--inst)' : 'none',
           }}
         />
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] flex-1 truncate">Estudio espacial</h2>
+        <p
+          className="font-mono text-[11px] tabular-nums text-[#8a93a8] whitespace-nowrap"
+          aria-label="Lectura de seguimiento"
+        >
+          {isCameraActive ? `${trackingHz} Hz · ${telemetry.latencyMs} ms` : 'en espera'}
+        </p>
+        <button
+          onClick={() => setCameraStudioOpen(false)}
+          className="w-7 h-7 -mr-1 rounded-lg flex items-center justify-center text-[#8a93a8] hover:text-white hover:bg-white/[0.08] active:bg-white/[0.14] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--inst)]"
+          aria-label="Cerrar estudio espacial"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </header>
 
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-lg border border-white/15"
-              style={{
-                backgroundColor: `${activeColor}18`,
-                color: activeColor,
-              }}
+      {/* ── Pestañas: texto con subrayado del color del instrumento ── */}
+      <div role="tablist" aria-label="Secciones" className="flex px-2 border-y border-white/[0.07]">
+        {TABS.map((tab) => {
+          const selected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex-1 py-2.5 text-[12.5px] font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--inst)] ${
+                selected ? 'text-white' : 'text-[#7d869a] hover:text-[#c5cbd9]'
+              }`}
             >
-              <Camera className="w-4 h-4" />
+              {tab.label}
+              <span
+                aria-hidden="true"
+                className={`absolute left-3 right-3 -bottom-px h-0.5 rounded-full bg-[var(--inst)] transition-opacity duration-200 ${
+                  selected ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Contenido ── */}
+      <div
+        role="tabpanel"
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]"
+      >
+        {activeTab === 'camera' && (
+          <div className="space-y-3">
+            {/* Visor 4:3 con marcas de encuadre en las esquinas */}
+            <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                className={`w-full h-full object-cover transition-opacity duration-200 ${
+                  isCameraActive ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ transform: 'scaleX(-1)' }}
+              />
+
+              {isCameraActive && (
+                <LandmarkOverlay width={640} height={480} accentColor={accent} showTrails={showTrails} />
+              )}
+
+              {/* Marcas de encuadre */}
+              {[
+                'top-2 left-2 border-t border-l',
+                'top-2 right-2 border-t border-r',
+                'bottom-2 left-2 border-b border-l',
+                'bottom-2 right-2 border-b border-r',
+              ].map((pos) => (
+                <span
+                  key={pos}
+                  aria-hidden="true"
+                  className={`absolute w-3.5 h-3.5 border-white/40 pointer-events-none ${pos}`}
+                />
+              ))}
+
+              {/* Teclado AR: 7 teclas táctiles sobre el visor, con LED inferior */}
+              {isCameraActive && (
+                <div className="absolute bottom-3 inset-x-3 h-[72px] flex gap-1 z-20">
+                  {AR_KEYS.map((k, idx) => (
+                    <button
+                      key={k.name}
+                      id={`ar-key-${idx}`}
+                      data-on="false"
+                      aria-label={`Nota ${k.name}`}
+                      onPointerDown={() => {
+                        SpatialInstrumentEngine.getInstance().triggerNoteOn(idx, k.freq, 0.9);
+                        setArKey(idx, true);
+                      }}
+                      onPointerUp={() => {
+                        SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
+                        setArKey(idx, false);
+                      }}
+                      onPointerLeave={() => {
+                        SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
+                        setArKey(idx, false);
+                      }}
+                      className="group flex-1 h-full rounded-md bg-[#0d1016]/85 border border-white/25 flex flex-col items-center justify-end gap-1.5 pb-1.5 cursor-pointer transition-[background-color,transform] duration-75 data-[on=true]:bg-[var(--inst)] data-[on=true]:translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--inst)]"
+                    >
+                      <span className="font-mono text-[10px] text-white/80 group-data-[on=true]:text-black">{k.name}</span>
+                      <span className="w-3/5 h-[3px] rounded-full bg-[var(--inst)] opacity-40 group-data-[on=true]:opacity-100 group-data-[on=true]:bg-black/70" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Estado apagado */}
+              {!isCameraActive && (
+                <div className="absolute inset-0 flex flex-col items-start justify-end gap-3 p-5">
+                  <div>
+                    <p className="text-[15px] font-semibold text-white">Cámara apagada</p>
+                    <p className="text-[12.5px] text-[#8a93a8] mt-1 max-w-[30ch] leading-relaxed">
+                      Enciéndela para tocar teclas, pads y theremin en el aire con la mano.
+                    </p>
+                  </div>
+                  {cameraError && (
+                    <p role="alert" className="text-[12.5px] text-[#ff8fa3] max-w-[34ch] leading-relaxed">
+                      {cameraError}
+                    </p>
+                  )}
+                  <button
+                    onClick={handleToggleCamera}
+                    className="h-9 px-4 rounded-lg text-[13px] font-semibold text-[#06080c] bg-[var(--inst)] hover:brightness-110 active:brightness-95 active:translate-y-px transition-[filter,transform] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
+                    Encender cámara
+                  </button>
+                </div>
+              )}
             </div>
-            <div>
+
+            {/* Fila de estado bajo el visor (fuera del video: no tapa las manos) */}
+            {isCameraActive && (
               <div className="flex items-center gap-2">
-                <h2 id="camera-studio-title" className="text-white font-bold text-sm sm:text-base tracking-tight">
-                  Spatial Camera Studio
-                </h2>
-                {isCameraActive && (
-                  <span className="flex items-center gap-1 text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    DETECCIÓN ACTIVA
-                  </span>
-                )}
+                <p className="font-mono text-[11px] text-[#8a93a8] flex-1 truncate">
+                  Gesto <span className="text-white">{GESTURE_LABEL[currentGesture] ?? currentGesture}</span>
+                </p>
+                <button
+                  onClick={handleToggleCamera}
+                  className="h-8 px-3 rounded-lg text-[12.5px] font-medium text-[#ff8fa3] border border-white/[0.09] hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--inst)]"
+                >
+                  Apagar
+                </button>
               </div>
-              <p className="text-white/60 text-[11px] font-sans mt-0.5">
-                Realidad Aumentada Musical · MediaPipe GPU & Three.js
+            )}
+          </div>
+        )}
+
+        {activeTab === 'instrument' && (
+          <div>
+            <ul role="radiogroup" aria-label="Instrumento" className="divide-y divide-white/[0.06] -mx-1">
+              {INSTRUMENTS.map((it) => {
+                const selected = airInstrumentType === it.id;
+                return (
+                  <li key={it.id}>
+                    <button
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => handleSelectInstrument(it.id as InstrumentMode)}
+                      className={`w-full flex items-center gap-3 px-2 py-3 rounded-lg text-left transition-colors cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--inst)] ${
+                        selected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.035]'
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="w-2.5 h-2.5 rounded-full shrink-0 transition-[background-color,box-shadow] duration-200"
+                        style={{
+                          backgroundColor: selected ? it.color : '#2a3040',
+                          boxShadow: selected ? `0 0 8px ${it.color}` : 'none',
+                        }}
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span className={`block text-[13.5px] font-medium ${selected ? 'text-white' : 'text-[#c5cbd9]'}`}>
+                          {it.name}
+                        </span>
+                        <span className="block text-[12px] text-[#7d869a] mt-0.5 leading-snug">{it.desc}</span>
+                      </span>
+                      <span className="font-mono text-[10.5px] tabular-nums text-[#7d869a] shrink-0">{it.spec}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-[12px] text-[#7d869a] mt-4 leading-relaxed max-w-[42ch]">
+              {inst.hint}
+            </p>
+          </div>
+        )}
+
+        {activeTab === 'calibrate' && (
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13.5px] font-medium text-white">Calibración guiada</p>
+              <p className="text-[12px] text-[#7d869a] mt-0.5 leading-snug">
+                Cinco pasos para ajustar profundidad y bordes del área de juego.
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Telemetry HUD Badge */}
-            <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-black/40 border border-white/10 text-[10px] font-mono text-white/70">
-              <span className="text-white font-bold">{telemetry.videoFps || perfMetrics.fps || 60} FPS</span>
-              <span className="text-white/30">•</span>
-              <span className="text-cyan-300">{perfMetrics.frameTimeMs || 16.6}ms</span>
-              <span className="text-white/30">•</span>
-              <span className={`px-1.5 py-0.2 rounded font-bold ${
-                perfMetrics.currentTier === 'HIGH' ? 'text-emerald-400 bg-emerald-500/15' :
-                perfMetrics.currentTier === 'MEDIUM' ? 'text-cyan-400 bg-cyan-500/15' :
-                'text-amber-400 bg-amber-500/15'
-              }`}>
-                {perfMetrics.currentTier}
-              </span>
-            </div>
-
-            {/* Close Button */}
             <button
-              onClick={() => setCameraStudioOpen(false)}
-              className="w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.18] text-white/70 hover:text-white flex items-center justify-center border border-white/10 active:scale-95 transition-all cursor-pointer"
-              aria-label="Cerrar Camera Studio"
+              onClick={() => setIsCalibrationOpen(true)}
+              className="h-9 px-4 rounded-lg text-[13px] font-semibold text-[#06080c] bg-[var(--inst)] hover:brightness-110 active:translate-y-px transition-[filter,transform] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <X className="w-4 h-4" />
+              Iniciar
             </button>
           </div>
-        </div>
+        )}
 
-        {/* ── Apple Segmented Control ── */}
-        <div className="my-3 p-1 rounded-2xl bg-black/35 border border-white/10 backdrop-blur-md grid grid-cols-4 gap-1 flex-shrink-0">
-          {[
-            { id: 'camera', label: 'Cámara', icon: Camera },
-            { id: 'instrument', label: 'Instrumentos', icon: Music },
-            { id: 'calibrate', label: 'Calibrar', icon: Sliders },
-            { id: 'visual', label: 'Visual', icon: Sparkles },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
+        {(activeTab === 'calibrate' || activeTab === 'visual') && (
+          <CameraControls
+            sensitivity={sensitivity}
+            onSensitivityChange={setSensitivity}
+            targetDistance={targetDistance}
+            onTargetDistanceChange={setTargetDistance}
+            activeScale={activeScale}
+            onScaleChange={handleScaleChange}
+            waveform={waveform}
+            onWaveformChange={handleWaveformChange}
+            showTrails={showTrails}
+            onToggleTrails={setShowTrails}
+            enablePose={enablePose}
+            onTogglePose={handleTogglePose}
+            accentColor={accent}
+          />
+        )}
+      </div>
+
+      {/* ── Calidad: siempre visible, con modo automático para GPU integrada ── */}
+      <footer className="px-4 py-3 border-t border-white/[0.07]">
+        <div className="flex items-baseline justify-between gap-3 mb-2">
+          <p className="text-[12px] font-medium text-[#c5cbd9]">Calidad</p>
+          <p className="font-mono text-[10.5px] text-[#7d869a] truncate">
+            {perfMetrics.gpuClass === 'integrated' ? 'GPU integrada · ' : ''}
+            {perfMetrics.qualityMode === 'auto' ? `auto → ${tierLabel}` : tierLabel}
+            {perfMetrics.preferCpuVision ? ' · manos en CPU' : ''}
+          </p>
+        </div>
+        <div role="radiogroup" aria-label="Calidad gráfica" className="grid grid-cols-4 gap-1 p-1 rounded-lg bg-black/40">
+          {QUALITY_MODES.map((q) => {
+            const selected = perfMetrics.qualityMode === q.id;
             return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`py-1.5 px-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? 'bg-white/20 text-white font-semibold shadow-sm border border-white/20'
-                    : 'text-white/60 hover:text-white'
+                key={q.id}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => PerformanceManager.getInstance().setQualityMode(q.id)}
+                className={`h-7 rounded-md text-[12px] font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--inst)] ${
+                  selected ? 'bg-white/[0.13] text-white' : 'text-[#7d869a] hover:text-[#c5cbd9]'
                 }`}
-                style={
-                  isSelected
-                    ? {
-                        backgroundColor: `${activeColor}25`,
-                        borderColor: `${activeColor}60`,
-                        color: '#ffffff',
-                      }
-                    : undefined
-                }
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="truncate">{tab.label}</span>
+                {q.label}
               </button>
             );
           })}
         </div>
+      </footer>
 
-        {/* ── Tab Content ── */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin scrollbar-thumb-white/10">
-          {/* TAB 1: CÁMARA */}
-          {activeTab === 'camera' && (
-            <div className="space-y-3">
-              {/* Webcam Mirror Preview Frame con proporción 4:3 nativa (640x480) */}
-              <div className="relative w-full aspect-[4/3] max-h-[380px] rounded-2xl overflow-hidden bg-black/85 border border-white/15 shadow-2xl flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover transition-opacity duration-200 ${
-                    isCameraActive ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ transform: 'scaleX(-1)' }}
-                />
-
-                {/* 2D Landmark Overlay alineado 1:1 con las manos */}
-                {isCameraActive && (
-                  <LandmarkOverlay
-                    width={640}
-                    height={480}
-                    accentColor={activeColor}
-                    showTrails={showTrails}
-                  />
-                )}
-
-                {/* ── AR Virtual Instrument Keyboard Overlay (Teclas Táctiles Aéreas) ── */}
-                {isCameraActive && (
-                  <div className="absolute bottom-12 inset-x-2 h-20 z-20 flex gap-1 pointer-events-auto">
-                    {AR_KEYS.map((k, idx) => (
-                      <div
-                        key={k.name}
-                        id={`ar-key-${idx}`}
-                        onPointerDown={() => {
-                          SpatialInstrumentEngine.getInstance().triggerNoteOn(idx, k.freq, 0.9);
-                          const el = document.getElementById(`ar-key-${idx}`);
-                          if (el) {
-                            el.style.backgroundColor = 'rgba(0, 229, 255, 0.6)';
-                            el.style.borderColor = '#00e5ff';
-                            el.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.6)';
-                            el.style.transform = 'translateY(4px)';
-                          }
-                        }}
-                        onPointerUp={() => {
-                          SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
-                          const el = document.getElementById(`ar-key-${idx}`);
-                          if (el) {
-                            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-                            el.style.boxShadow = 'none';
-                            el.style.transform = 'none';
-                          }
-                        }}
-                        onPointerLeave={() => {
-                          SpatialInstrumentEngine.getInstance().triggerNoteOff(idx);
-                          const el = document.getElementById(`ar-key-${idx}`);
-                          if (el) {
-                            el.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                            el.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-                            el.style.boxShadow = 'none';
-                            el.style.transform = 'none';
-                          }
-                        }}
-                        className="flex-1 h-full rounded-xl bg-white/[0.12] border border-white/25 backdrop-blur-md flex flex-col justify-between p-1.5 select-none cursor-pointer transition-all duration-75"
-                        style={{
-                          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                        }}
-                      >
-                        <div className="w-2 h-2 rounded-full bg-white/40 mx-auto" />
-                        <span className="text-[11px] font-mono font-bold text-center text-white/90 drop-shadow">
-                          {k.name}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Placeholder cuando la cámara está apagada */}
-                {!isCameraActive && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/50 p-4 text-center">
-                    <div className="w-14 h-14 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white/70">
-                      <Camera className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">Cámara Espacial Desactivada</p>
-                      <p className="text-xs text-white/50 max-w-xs mt-0.5">
-                        Activa la cámara para tocar sintetizadores, piano y theremin en el aire con tus manos.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleToggleCamera}
-                      className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-black transition-transform active:scale-95 shadow-lg cursor-pointer"
-                      style={{ backgroundColor: activeColor }}
-                    >
-                      Activar Cámara Web
-                    </button>
-                  </div>
-                )}
-
-                {/* HUD Overlay cuando está activa */}
-                {isCameraActive && (
-                  <div className="absolute bottom-2 inset-x-2 flex items-center justify-between pointer-events-none z-30">
-                    <div className="px-2.5 py-1 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 text-[10px] font-mono text-white/90 shadow-lg flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                      <span>Gesto: {currentGesture.toUpperCase()}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 pointer-events-auto">
-                      <button
-                        onClick={() => {
-                          setAirInstrumentsActive(true);
-                          setCameraStudioOpen(false);
-                        }}
-                        className="px-2.5 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/35 text-cyan-300 border border-cyan-400/30 backdrop-blur-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                        title="Jugar en el espacio 3D a pantalla completa"
-                      >
-                        <Maximize2 className="w-3 h-3" />
-                        <span>Espacio 3D</span>
-                      </button>
-
-                      <button
-                        onClick={handleToggleCamera}
-                        className="px-2.5 py-1 rounded-xl bg-black/70 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-white/15 backdrop-blur-md text-[10px] font-bold transition-all cursor-pointer"
-                      >
-                        Detener
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: INSTRUMENTOS */}
-          {activeTab === 'instrument' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  {
-                    id: 'synth',
-                    name: 'Sintetizador 3D',
-                    desc: '7 teclas flotantes con colisión en plano Z',
-                    badge: 'POLIFÓNICO',
-                  },
-                  {
-                    id: 'drums',
-                    name: 'Batería Gestual',
-                    desc: 'Kick 808, Snare, Hi-Hat y Clap por velocidad',
-                    badge: 'DINÁMICO',
-                  },
-                  {
-                    id: 'theremin',
-                    name: 'Theremin Espacial',
-                    desc: 'Eje X: Tono • Eje Y: Volumen • Eje Z: Filtro',
-                    badge: 'CONTINUO',
-                  },
-                  {
-                    id: 'pads',
-                    name: 'Pads 4x4 Launchpad',
-                    desc: 'Matriz armónica interactiva sin contacto',
-                    badge: 'LOOP & FX',
-                  },
-                  {
-                    id: 'pose',
-                    name: 'Danza / Pose 3D',
-                    desc: 'Trackeo cinemático corporal de 33 puntos',
-                    badge: 'CUERPO',
-                  },
-                ].map((inst) => {
-                  const isSelected = airInstrumentType === inst.id;
-                  return (
-                    <button
-                      key={inst.id}
-                      onClick={() => handleSelectInstrument(inst.id as any)}
-                      className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer backdrop-blur-md ${
-                        isSelected
-                          ? 'bg-white/20 border-white/40 text-white shadow-md ring-1 ring-white/30'
-                          : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08] text-white/80 hover:text-white'
-                      }`}
-                      style={
-                        isSelected
-                          ? {
-                              backgroundColor: `${activeColor}25`,
-                              borderColor: `${activeColor}70`,
-                            }
-                          : undefined
-                      }
-                    >
-                      <div>
-                        <span className="text-[9px] font-mono tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-bold uppercase">
-                          {inst.badge}
-                        </span>
-                        <h4 className="text-xs font-bold mt-2 text-white">{inst.name}</h4>
-                        <p className="text-[10px] text-white/50 mt-1 leading-snug">{inst.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: CALIBRAR & TAB 4: VISUAL */}
-          {activeTab === 'calibrate' && (
-            <div className="mb-3 p-3 rounded-2xl bg-gradient-to-r from-[#00e5ff]/10 via-[#ffbd00]/10 to-[#ff088a]/10 border border-[#00e5ff]/30 flex items-center justify-between backdrop-blur-md">
-              <div>
-                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Crosshair className="w-3.5 h-3.5 text-[#00e5ff] animate-spin-slow" />
-                  Calibración Espacial AURA (5 Pasos)
-                </h4>
-                <p className="text-[10px] text-white/60 mt-0.5">
-                  Mapea la profundidad neutra y los 4 bordes del frustum de interacción
-                </p>
-              </div>
-              <button
-                onClick={() => setIsCalibrationOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-[#00e5ff] text-black font-bold text-xs hover:bg-[#00e5ff]/90 transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] active:scale-95 cursor-pointer"
-              >
-                Iniciar
-              </button>
-            </div>
-          )}
-
-          {(activeTab === 'calibrate' || activeTab === 'visual') && (
-            <CameraControls
-              sensitivity={sensitivity}
-              onSensitivityChange={setSensitivity}
-              targetDistance={targetDistance}
-              onTargetDistanceChange={setTargetDistance}
-              activeScale={activeScale}
-              onScaleChange={handleScaleChange}
-              waveform={waveform}
-              onWaveformChange={handleWaveformChange}
-              showTrails={showTrails}
-              onToggleTrails={setShowTrails}
-              enablePose={enablePose}
-              onTogglePose={handleTogglePose}
-              accentColor={activeColor}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Modal de Calibración Espacial Guiada */}
-      <CalibrationModal
-        isOpen={isCalibrationOpen}
-        onClose={() => setIsCalibrationOpen(false)}
-      />
-    </div>
+      {/* Calibración espacial guiada */}
+      <CalibrationModal isOpen={isCalibrationOpen} onClose={() => setIsCalibrationOpen(false)} />
+    </aside>
   );
 };
 

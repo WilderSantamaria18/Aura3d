@@ -3,6 +3,7 @@ import { usePlayerStore } from '../../stores/playerStore';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { audioEngine } from '../../services/audioEngine';
 import { fftWorkerService } from '../../services/fftWorkerService';
+import { ambientDustEnabled } from '../../config/vizAtmosphere';
 
 interface Particle {
   x: number;
@@ -145,7 +146,7 @@ export const AmbientGlow: React.FC = React.memo(() => {
       }
 
       // ── Draw Ambient Floating Space Dust (Only in 3D scenes, disabled in 2D Rainbow Void) ──
-      if (visualizerMode !== 'blob') {
+      if (visualizerMode !== 'blob' && ambientDustEnabled(visualizerMode)) {
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           p.x += p.vx;

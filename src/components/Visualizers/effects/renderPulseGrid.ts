@@ -1,3 +1,5 @@
+import { parseColor } from './color';
+
 export function renderPulseGrid(
   ctx: CanvasRenderingContext2D,
   rawAudioData: Uint8Array | number[],
@@ -5,7 +7,8 @@ export function renderPulseGrid(
   cy: number,
   baseCircleRadius: number,
   u: number,
-  intensity = 1.0
+  intensity = 1.0,
+  color = '#ffffff'
 ): void {
   ctx.save();
   const gridSize = 8;
@@ -13,6 +16,10 @@ export function renderPulseGrid(
   const gridStart = -((gridSize - 1) * spacing) / 2;
   const maxBound = baseCircleRadius * 1.55;
   const dataLen = rawAudioData.length || 128;
+
+  // Color fijo y opacidad por punto con globalAlpha: evita construir 64 cadenas rgba() por frame
+  const [r, g, b] = parseColor(color);
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
 
   for (let gx = 0; gx < gridSize; gx++) {
     for (let gy = 0; gy < gridSize; gy++) {
@@ -27,11 +34,10 @@ export function renderPulseGrid(
 
       const pulseScale = 0.8 + gridFreq * 0.7 * intensity;
       const dotSize = Math.max(0.8, 1.5 * u * pulseScale);
-      const alpha = Math.min(0.65, (0.08 + gridFreq * 0.18) * intensity);
 
+      ctx.globalAlpha = Math.min(0.65, (0.08 + gridFreq * 0.18) * intensity);
       ctx.beginPath();
       ctx.arc(px, py, dotSize, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
       ctx.fill();
     }
   }

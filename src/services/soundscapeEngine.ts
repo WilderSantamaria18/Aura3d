@@ -28,8 +28,6 @@ const DEFAULT_CONFIG: SoundscapesConfig = {
 class SoundscapeEngine {
   private static instance: SoundscapeEngine | null = null;
   private config: SoundscapesConfig = { ...DEFAULT_CONFIG };
-  private isInitialized = false;
-
   // Audio nodes per soundscape
   private masterGain: GainNode | null = null;
   private channelGains: Record<SoundscapeType, GainNode | null> = {
@@ -39,8 +37,14 @@ class SoundscapeEngine {
     ocean: null,
   };
 
-  // Node references for cleanup / loops
-  private activeSources: (AudioNode | number)[] = [];
+  // Sources are tracked per channel so disabling a soundscape actually stops
+  // its synthesis instead of merely disconnecting the gain node.
+  private channelSources: Record<SoundscapeType, AudioScheduledSourceNode[]> = {
+    rain: [],
+    fire: [],
+    cafe: [],
+    ocean: [],
+  };
   private oceanLfoTimer: number | null = null;
   private fireCrackleTimer: number | null = null;
   private listeners: ((cfg: SoundscapesConfig) => void)[] = [];
@@ -99,20 +103,35 @@ class SoundscapeEngine {
    * Initializes master bus and starts synthesis for active channels
    */
   public async init(): Promise<boolean> {
+    const engine = AudioEngine.getInstance();
+
+    try {
+      // Soundscapes can be the first audio feature the user activates. Ensure
+      // the shared graph exists instead of assuming a track initialized it.
+      await engine.init();
+    } catch (error) {
+      console.warn('[SoundscapeEngine] No se pudo iniciar el motor de audio.', error);
+      return false;
+    }
+
     const ctx = this.getAudioContext();
     if (!ctx) return false;
 
     if (ctx.state === 'suspended') {
       try {
         await ctx.resume();
-      } catch {}
+      } catch (error) {
+        console.warn('[SoundscapeEngine] No se pudo reanudar el audio.', error);
+        return false;
+      }
     }
+
+    if (ctx.state !== 'running') return false;
 
     if (!this.masterGain) {
       this.masterGain = ctx.createGain();
       this.masterGain.gain.setValueAtTime(this.config.masterMuted ? 0 : 1, ctx.currentTime);
 
-      const engine = AudioEngine.getInstance();
       if (engine.masterGain) {
         this.masterGain.connect(engine.masterGain);
       } else {
@@ -120,25 +139,27 @@ class SoundscapeEngine {
       }
     }
 
-    this.isInitialized = true;
     return true;
   }
 
   /**
    * Toggle a specific soundscape on or off
    */
-  public async toggleChannel(type: SoundscapeType): Promise<void> {
+  public async toggleChannel(type: SoundscapeType): Promise<boolean> {
     const willEnable = !this.config[type].enabled;
-    this.config[type].enabled = willEnable;
 
     if (willEnable) {
-      await this.init();
+      const ready = await this.init();
+      if (!ready) return false;
+      this.config[type].enabled = true;
       this.startChannel(type);
     } else {
+      this.config[type].enabled = false;
       this.stopChannel(type);
     }
 
     this.notify();
+    return true;
   }
 
   /**
@@ -240,6 +261,16 @@ class SoundscapeEngine {
   }
 
   private stopChannel(type: SoundscapeType): void {
+    this.channelSources[type].forEach((source) => {
+      try {
+        source.stop();
+      } catch {}
+      try {
+        source.disconnect();
+      } catch {}
+    });
+    this.channelSources[type] = [];
+
     const chGain = this.channelGains[type];
     if (chGain) {
       try {
@@ -282,7 +313,7 @@ class SoundscapeEngine {
     highPass.connect(targetNode);
     source.start();
 
-    this.activeSources.push(source);
+    this.channelSources.rain.push(source);
   }
 
   /**
@@ -303,7 +334,7 @@ class SoundscapeEngine {
     rumbleSource.connect(lowpass);
     lowpass.connect(targetNode);
     rumbleSource.start();
-    this.activeSources.push(rumbleSource);
+    this.channelSources.fire.push(rumbleSource);
 
     // 2. High-frequency sporadic crackle clicks
     const crackleGain = ctx.createGain();
@@ -366,7 +397,7 @@ class SoundscapeEngine {
     cafeGain.connect(targetNode);
     source.start();
 
-    this.activeSources.push(source);
+    this.channelSources.cafe.push(source);
   }
 
   /**
@@ -392,7 +423,7 @@ class SoundscapeEngine {
     swellGain.connect(targetNode);
     source.start();
 
-    this.activeSources.push(source);
+    this.channelSources.ocean.push(source);
 
     // 8.5s sinusoidal wave swell modulation
     let phase = 0;

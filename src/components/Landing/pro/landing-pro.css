@@ -214,3 +214,14 @@
 /* Aviso de efectos reducidos (footer) */
 .lp-motion-toggle { background: none; border: 0; padding: 0; color: var(--lp-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font: inherit; }
 .lp-motion-toggle:hover { color: #fff; }
+
+/* ── Entrada del hero con movimiento reducido: el aro aparece con un fundido ── */
+@media (prefers-reduced-motion: reduce) {
+  .lp-root:not([data-motion='on']) #hero-canvas-container {
+    animation: lp-fade-in 1.6s var(--lp-ease) 0.2s both;
+  }
+}
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

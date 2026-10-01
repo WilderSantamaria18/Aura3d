@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Gauge, SunMedium, RotateCcw, Check } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import type { BackgroundAtmosphere } from '../../types/audio';
+import { useShallow } from 'zustand/react/shallow';
 
 const ATMOSPHERE_MODES: { id: BackgroundAtmosphere; label: string; desc: string }[] = [
   { id: 'none', label: 'Sin Efecto', desc: 'Fondo limpio y minimalista' },
@@ -16,7 +17,7 @@ const ATMOSPHERE_MODES: { id: BackgroundAtmosphere; label: string; desc: string 
 ];
 
 export const WallpaperAtmospheres: React.FC = () => {
-  const { blobSettings, updateBlobSettings } = usePlayerStore();
+  const { blobSettings, updateBlobSettings } = usePlayerStore(useShallow((s) => ({ blobSettings: s.blobSettings, updateBlobSettings: s.updateBlobSettings })));
 
   const currentAtmosphere = blobSettings?.backgroundAtmosphere || 'none';
   const currentBlend = blobSettings?.atmosphereBlend || 'none';

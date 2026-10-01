@@ -1,3 +1,5 @@
+import { getActiveLogoSrc, getActiveLogoAppearance } from '../../hooks/useActiveLogo';
+import { logoFilter, tintColor } from '../../utils/logoAppearance';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { calculateCenterCrop } from './captureGeometry';
@@ -56,8 +58,7 @@ export async function loadActiveWallpaperImage(): Promise<HTMLImageElement | nul
 
 /** Portada o logo que se muestra en el disco central de Rainbow Void */
 export async function loadActiveCoverImage(): Promise<HTMLImageElement | null> {
-  const s = usePlayerStore.getState();
-  const url = s.blobSettings?.customLogoUrl || s.currentTrack?.coverUrl || null;
+  const url = getActiveLogoSrc();
   return url ? loadImage(url) : null;
 }
 
@@ -117,9 +118,42 @@ function drawVoidDisc(
     ctx.clip();
     ctx.translate(cx, cy);
     ctx.rotate(((performance.now() / 48000) % 1) * TAU);
+    // Mismo encuadre y filtros que LogoDisc en pantalla (pan en fracciones del diámetro)
+    const look = getActiveLogoAppearance();
+    const diameter = rr * 2;
+    ctx.translate(look.panX * diameter, look.panY * diameter);
+    ctx.rotate((look.rotation * Math.PI) / 180);
+    ctx.scale(look.zoom, look.zoom);
+    ctx.filter = logoFilter(look);
     const side = Math.min(cover.width, cover.height);
-    ctx.drawImage(cover, (cover.width - side) / 2, (cover.height - side) / 2, side, side, -rr, -rr, rr * 2, rr * 2);
+    ctx.drawImage(cover, (cover.width - side) / 2, (cover.height - side) / 2, side, side, -rr, -rr, diameter, diameter);
+    ctx.filter = 'none';
     ctx.restore();
+
+    const tint = tintColor(look.tint);
+    if (tint) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, TAU);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'color';
+      ctx.globalAlpha = 0.8;
+      ctx.fillStyle = tint;
+      ctx.fillRect(cx - rr, cy - rr, diameter, diameter);
+      ctx.restore();
+    }
+    if (look.neonBorder) {
+      ctx.save();
+      const ring = tint || '#00f2fe';
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, TAU);
+      ctx.strokeStyle = ring;
+      ctx.lineWidth = Math.max(2, rr * 0.02);
+      ctx.shadowColor = ring;
+      ctx.shadowBlur = rr * 0.12;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Surcos de vinilo y agujero central
     ctx.lineWidth = Math.max(1, R * 0.008);

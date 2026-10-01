@@ -1,6 +1,7 @@
 import React from 'react';
 import { Heart, Disc, Radio, ChevronRight, ChevronLeft } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { useShallow } from 'zustand/react/shallow';
 
 export const NowPlayingPanel: React.FC = () => {
   const {
@@ -14,7 +15,20 @@ export const NowPlayingPanel: React.FC = () => {
     isNowPlayingExpanded,
     setNowPlayingExpanded,
     isSpotifyConnected,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      currentTrack: s.currentTrack,
+      isPlaying: s.isPlaying,
+      isMicActive: s.isMicActive,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      favorites: s.favorites,
+      toggleFavorite: s.toggleFavorite,
+      isNowPlayingExpanded: s.isNowPlayingExpanded,
+      setNowPlayingExpanded: s.setNowPlayingExpanded,
+      isSpotifyConnected: s.isSpotifyConnected,
+    }))
+  );
 
   const isFav = currentTrack ? favorites.some((t) => t.id === currentTrack.id) : false;
 

@@ -3,9 +3,10 @@ import { Clock, Music, Radio, X, RotateCcw, Sparkles, BarChart2 } from 'lucide-r
 import { usePlayerStore } from '../../stores/playerStore';
 import { sessionStatsService } from '../../services/sessionStatsService';
 import type { SessionStatsData } from '../../types/audio';
+import { useShallow } from 'zustand/react/shallow';
 
 export const SessionStatsModal: React.FC = () => {
-  const { isSessionStatsOpen, setSessionStatsOpen } = usePlayerStore();
+  const { isSessionStatsOpen, setSessionStatsOpen } = usePlayerStore(useShallow((s) => ({ isSessionStatsOpen: s.isSessionStatsOpen, setSessionStatsOpen: s.setSessionStatsOpen })));
   const [stats, setStats] = useState<SessionStatsData>(sessionStatsService.getStats());
 
   useEffect(() => {

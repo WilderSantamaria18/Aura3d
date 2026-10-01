@@ -1,5 +1,5 @@
 export type AudioSourceType = 'local' | 'spotify' | 'youtube' | 'demo' | 'mic' | 'system' | 'radio';
-export type VisualizerMode = 'sphere' | 'blob' | 'synthwave' | 'warp' | 'terrain';
+export type VisualizerMode = 'blob' | 'synthwave' | 'terrain';
 export type VocalMode = 'off' | 'karaoke' | 'acappella';
 export type ReverbPreset = 'off' | 'studio' | 'club' | 'concert' | 'cathedral';
 export type VisualizerShape =
@@ -39,7 +39,20 @@ export type VisualizerShape =
   | 'radar_heartbeat';
 /** Efectos 2D minimalistas de Rainbow Void */
 /** La Mándala Sagrada es siempre la base; cada efecto es un contorno del kick que reacciona a la música ('fractal' = solo la mándala) */
-export type VoidEffectId = 'fractal' | 'cat' | 'bunny' | 'horns' | 'crown' | 'flame' | 'wings' | 'notes' | 'spikes';
+export type VoidEffectId =
+  | 'fractal'
+  | 'spectrum'
+  | 'wave'
+  | 'particles'
+  | 'geometry'
+  | 'radar'
+  | 'electro'
+  | 'laser'
+  | 'spiro'
+  | 'tunnel'
+  | 'hive'
+  | 'spiral'
+  | 'crystal';
 export type VoidColorMode = 'palette' | 'spectrum' | 'mono';
 /** Acabado de la forma: neón (trazo + brillo), cristal (translúcido) o tinta (sólido) */
 export type KickFormStyle = 'neon' | 'glass' | 'ink';
@@ -338,6 +351,25 @@ export type BackgroundAtmosphere =
   | 'light_beams'
   | 'quantum_waves';
 
+/**
+ * Estilo del logo central (encuadre + filtros). Es un conjunto de parámetros, no una imagen horneada:
+ * se aplica en vivo sobre la carátula de cada canción, así que sigue funcionando al cambiar de tema.
+ * panX/panY son fracciones del diámetro del disco (independientes del tamaño en pantalla).
+ */
+export interface LogoAppearance {
+  zoom: number;
+  panX: number;
+  panY: number;
+  rotation: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  grayscale: boolean;
+  invert: boolean;
+  tint: string;
+  neonBorder: boolean;
+}
+
 export interface BlobCustomSettings {
   circleColor: string;
   haloColor1: string;
@@ -351,6 +383,8 @@ export interface BlobCustomSettings {
   backgroundBlur: number;
   logoStyle: string;
   customLogoUrl: string | null;
+  /** Estilo global del logo: se aplica a la carátula de cualquier canción que no tenga el suyo */
+  logoAppearance?: LogoAppearance | null;
   scaleSensitivity?: number;
   // Background Custom Image & Opacity & Proportional Fit
   customBackgroundImage?: string | null;
@@ -385,6 +419,13 @@ export interface BlobCustomSettings {
   catEarsSharpness?: number;
   sacredPalette?: 'neon' | 'gold' | 'crystal' | 'lucid' | 'custom' | 'cyberpunk' | 'aurora';
   transparentHalo?: boolean;
+  // Aura cromática por capas (Rainbow Void). Todos opcionales: los presets antiguos usan los valores por defecto
+  auraEnabled?: boolean;
+  auraIntensity?: number;
+  auraReach?: number;
+  auraSoftness?: number;
+  auraKickResponse?: number;
+  auraMotion?: number;
   isAdvancedMode?: boolean;
   // LiquidVoidCircle Minimalist & Peripheral Shape Settings
   showPeripheralShapes?: boolean;
@@ -411,7 +452,7 @@ export interface BlobCustomSettings {
     | 'lotus_mandala'
     | 'radar_heartbeat';
   peripheralShapeCount?: 2 | 4;
-  strokeHairline?: 0.75 | 1.0 | 1.5;
+  strokeHairline?: number;
   kickIntensity?: number;
   /** Personalización de los efectos 2D de Rainbow Void */
   voidFx?: VoidFxSettings;
@@ -446,6 +487,58 @@ export interface BlobCustomSettings {
   crystalShardsIntensity?: number;
   holographicScanlinesEnabled?: boolean;
   holographicScanlinesIntensity?: number;
+  // ── Synthwave Highway Visualizer Settings ──
+  synthwaveTheme?: 'outrun' | 'cyber' | 'vaporwave' | 'sunset_overdrive';
+  synthwaveSunStyle?: 'venetian' | 'corona' | 'wireframe' | 'eclipse';
+  synthwaveMountains?: boolean;
+  synthwaveCurveIntensity?: number;
+  synthwaveSpeed?: number;
+  synthwavePalms?: boolean;
+  // ── Warp Tunnel Visualizer Settings ──
+  warpGeometry?: 'octagon' | 'hexagon' | 'triangle' | 'circle' | 'star';
+  warpRingCount?: number;
+  warpTunnelSpeed?: number;
+  warpStarCount?: number;
+  warpFovKick?: number;
+  warpTwist?: number;
+  // ── Cyber Terrain Visualizer Settings ──
+  terrainStyle?: 'wireframe' | 'surface' | 'points' | 'dual_mesh';
+  terrainElevation?: number;
+  terrainRoughness?: number;
+  terrainSunStyle?: 'classic' | 'corona' | 'grid_orb' | 'none';
+  terrainSpeed?: number;
+  terrainReactivity?: number;
+  // ── Synthwave (ajustes nuevos) ──
+  synthwaveCursor?: number;
+  synthwaveCity?: boolean;
+  synthwaveStars?: number;
+  synthwaveParticles?: number;
+  synthwaveScanlines?: number;
+  // ── Warp (ajustes nuevos) ──
+  warpCameraSway?: number;
+  warpFovLimit?: number;
+  // ── Orb ──
+  orbDeform?: number;
+  orbCore?: number;
+  orbRings?: number;
+  orbParticles?: number;
+  orbFollowCursor?: boolean;
+  orbColorResponse?: number;
+  // ── Black Hole ──
+  bhGain?: number;
+  bhExtent?: number;
+  bhTurbulence?: number;
+  bhLens?: number;
+  bhJets?: number;
+  bhJetSpeed?: number;
+  bhDistance?: number;
+  bhTilt?: number;
+  bhSweep?: number;
+  bhPalette?: 'warm' | 'theme';
+  // ── Esfera de partículas ──
+  sphereDensity?: number;
+  /** Movimiento reducido en los visualizadores 3D/2D (excepto Rainbow Void). undefined = seguir al sistema */
+  vizReducedMotion?: boolean;
 }
 export const BlobCustomSettings = {} as any;
 

@@ -9,7 +9,8 @@ test.describe('Aura3D Critical User Flows', () => {
     await page.goto('/');
     // Wait for the app shell to hydrate
     await page.waitForLoadState('domcontentloaded');
-    const startButton = page.locator('button:has-text("INICIAR MOTOR 3D")').first();
+    // La landing dice «Iniciar motor» (antes «INICIAR MOTOR 3D»): se busca sin depender del texto exacto
+    const startButton = page.getByRole('button', { name: /iniciar motor/i }).first();
     if (await startButton.isVisible({ timeout: 3000 }).catch(() => false)) {
       await startButton.click();
       await page.waitForTimeout(700);
@@ -17,7 +18,8 @@ test.describe('Aura3D Critical User Flows', () => {
   });
 
   test('Audio Controls: Toggle Play, Pause, Next, and Previous', async ({ page }) => {
-    const playButton = page.locator('button[aria-label*="reproducción"]');
+    // .dock-play es el botón principal; por aria-label chocaba con «Biblioteca y lista de reproducción»
+    const playButton = page.locator('button.dock-play');
     await expect(playButton).toBeVisible();
 
     // Toggle Play

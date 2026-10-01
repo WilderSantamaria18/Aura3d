@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from 'framer-motion';
 import './landing-pro.css';
 
-/* Política de movimiento: se respeta prefers-reduced-motion, salvo que el usuario
-   fuerce los efectos (?motion=on o el interruptor del pie de página). */
+/* Política de movimiento: con prefers-reduced-motion se elimina el MOVIMIENTO (desplazamientos,
+   giros, parallax, scroll suave) pero se conservan las transiciones de opacidad, que no marean:
+   así la página sigue sintiéndose viva. El usuario puede forzar todo con ?motion=on o con el
+   interruptor del pie de página. */
 export const motionForced = (): boolean => {
   try {
     return new URLSearchParams(window.location.search).get('motion') === 'on' || localStorage.getItem('aura-force-motion') === '1';
@@ -69,7 +71,20 @@ export const Scene3D: React.FC<Scene3DProps> = ({ children, className = '', inte
   const y = useTransform(scrollYProgress, [0, 1], [70 * intensity, 0]);
   const scale = useTransform(scrollYProgress, [0, 1], [0.96, 1]);
 
-  if (reduce) return <div className={className}>{children}</div>;
+  if (reduce) {
+    // Solo aparece con un fundido al entrar al viewport (sin desplazamiento)
+    return (
+      <motion.div
+        className={className}
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, margin: '0px 0px -12% 0px' }}
+        transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
 
   return (
     <div ref={ref} className={className} style={{ perspective: 1400 }}>
@@ -148,10 +163,8 @@ const Word: React.FC<{ word: string; range: [number, number]; progress: MotionVa
 
 export const WordReveal: React.FC<{ text: string; className?: string }> = ({ text, className = '' }) => {
   const ref = useRef<HTMLParagraphElement | null>(null);
-  const reduce = useMotionReduced();
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 0.85', 'end 0.5'] });
   const words = text.split(' ');
-  if (reduce) return <p className={className}>{text}</p>;
   return (
     <p ref={ref} className={className}>
       {words.map((w, i) => (

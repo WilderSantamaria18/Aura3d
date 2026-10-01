@@ -109,11 +109,11 @@ export const QuickstartStudioModal: React.FC = () => {
               Elige tu motor visual de inicio (puedes alternar en cualquier momento con la tecla <kbd className="px-1.5 py-0.5 rounded-[4px] bg-white/10 font-mono text-cyan-400">V</kbd>):
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {[
                 { id: 'blob', name: 'Rainbow Void', desc: 'Orgánico cromático con deformación FFT' },
                 { id: 'synthwave', name: 'Synthwave 3D', desc: 'Carretera retro y atardecer neón' },
-                { id: 'warp', name: 'Túnel Warp', desc: 'Túnel hipersónico 3D reactivo' },
+                { id: 'terrain', name: 'Terreno 3D', desc: 'Ondas Cyberpunk en relieve' },
               ].map((v) => (
                 <button
                   key={v.id}

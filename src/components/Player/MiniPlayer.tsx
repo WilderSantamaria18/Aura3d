@@ -274,6 +274,7 @@ export const MiniPlayer: React.FC = () => {
     loadYouTubeTrack,
     loadAudioFile,
     playTrack,
+    playSavedTrack,
     searchYouTube,
     loadYouTubePlaylist,
     fetchRelatedTracks,
@@ -301,6 +302,8 @@ export const MiniPlayer: React.FC = () => {
   const setBlobPanelOpen = usePlayerStore((s) => s.setBlobPanelOpen);
   const isSpotifyConnected = usePlayerStore((s) => s.isSpotifyConnected);
   const spotifyBpm = usePlayerStore((s) => s.spotifyBpm);
+  const playbackStatus = usePlayerStore((s) => s.playbackStatus);
+  const playbackMessage = usePlayerStore((s) => s.playbackMessage);
 
   const { isCapturing: isSystemCapturing, toggleCapture: toggleSystemAudio } = useSystemAudio();
 
@@ -443,6 +446,7 @@ export const MiniPlayer: React.FC = () => {
         }
       });
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return; // la reemplazó otra selección
       console.error('[MiniPlayer] Error playing search result:', err);
     } finally {
       setLoadingTrackId(null);
@@ -1477,20 +1481,29 @@ export const MiniPlayer: React.FC = () => {
                           <div
                             key={fav.id}
                             onClick={async () => {
-                              const q = usePlayerStore.getState().queue;
-                              const existingIdx = q.findIndex(
-                                (t) =>
-                                  t.id === fav.id ||
-                                  (Boolean(fav.youtubeId) && t.youtubeId === fav.youtubeId)
-                              );
-                              if (existingIdx >= 0) {
-                                usePlayerStore.setState({ queueIndex: existingIdx });
-                              } else {
-                                usePlayerStore.setState({ queue: [fav, ...q], queueIndex: 0 });
+                              if (loadingTrackId === fav.id) return;
+                              setLoadingTrackId(fav.id);
+                              try {
+                                await playSavedTrack(fav);
+                                setActiveTab('player');
+                              } catch (err) {
+                                if (err instanceof DOMException && err.name === 'AbortError') return;
+                                console.error('[MiniPlayer] Error playing favorite:', err);
+                              } finally {
+                                setLoadingTrackId(null);
                               }
-                              await playTrack(fav);
                             }}
                             className="group flex items-center justify-between p-2 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.04] transition-all cursor-pointer"
+                            role="button"
+                            tabIndex={0}
+                            aria-busy={loadingTrackId === fav.id}
+                            aria-label={`Buscar y reproducir ${fav.title} de ${fav.artist}`}
+                            onKeyDown={(event) => {
+                              if ((event.key === 'Enter' || event.key === ' ') && loadingTrackId !== fav.id) {
+                                event.preventDefault();
+                                event.currentTarget.click();
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                               <div className="relative w-8 h-8 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
@@ -1503,6 +1516,11 @@ export const MiniPlayer: React.FC = () => {
                                       'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=100&fit=crop&q=80';
                                   }}
                                 />
+                                {loadingTrackId === fav.id && (
+                                  <span className="absolute inset-0 grid place-items-center bg-black/70" aria-hidden="true">
+                                    <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-rose-300" />
+                                  </span>
+                                )}
                               </div>
                               <div className="flex flex-col min-w-0 pr-1">
                                 <span className="text-xs font-semibold text-white truncate group-hover:text-rose-300 transition-colors">
@@ -1531,10 +1549,25 @@ export const MiniPlayer: React.FC = () => {
                   </div>
                 )}
 
-                {/* Error Banner */}
-                {audioError && (
-                  <div className="p-2 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono text-rose-300">
-                    {audioError}
+                {(playbackStatus === 'resolving' ||
+                  playbackStatus === 'buffering' ||
+                  playbackMessage?.startsWith('Versión encontrada')) &&
+                  playbackMessage && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center gap-2 rounded-xl bg-cyan-400/[0.08] px-3 py-2 text-[11px] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                  >
+                    {(playbackStatus === 'resolving' || playbackStatus === 'buffering') && (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 truncate">{playbackMessage}</span>
+                  </div>
+                )}
+
+                {(audioError || playbackStatus === 'error') && (
+                  <div role="alert" className="p-2 rounded-xl bg-rose-500/15 text-[11px] text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    {audioError || playbackMessage || 'No se pudo reproducir la canción. Inténtalo otra vez.'}
                   </div>
                 )}
               </div>

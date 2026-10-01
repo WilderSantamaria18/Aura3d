@@ -131,6 +131,10 @@ export class SpatialState {
   /**
    * Actualiza el modo activo y notifica a los oyentes de UI discretos
    */
+  public getMode(): 'navigate' | 'synth' | 'drums' | 'theremin' | 'manipulate' {
+    return this.activeMode;
+  }
+
   public setMode(mode: 'navigate' | 'synth' | 'drums' | 'theremin' | 'manipulate'): void {
     if (this.activeMode !== mode) {
       this.activeMode = mode;

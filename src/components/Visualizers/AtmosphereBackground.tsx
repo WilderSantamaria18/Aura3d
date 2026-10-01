@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
+import { QUALITY_PROFILES, canvasDprFor } from '../../utils/qualityProfile';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
 import { hexToRgba } from '../../types/audio';
+import { useShallow } from 'zustand/react/shallow';
 
 interface RainDrop {
   x: number;
@@ -93,7 +95,18 @@ export const AtmosphereBackground: React.FC = () => {
     isPlaying,
     isMicActive,
     musicSensitivity,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      blobSettings: s.blobSettings,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      autoMode: s.autoMode,
+      dynamicColor: s.dynamicColor,
+      isPlaying: s.isPlaying,
+      isMicActive: s.isMicActive,
+      musicSensitivity: s.musicSensitivity,
+    }))
+  );
   const { getSmoothedData } = useVisualizer(0.2);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -262,12 +275,17 @@ export const AtmosphereBackground: React.FC = () => {
     quantumRingsRef.current = [];
   }, []);
 
+  // Calidad efectiva (elección del usuario limitada por la calidad automática por FPS)
+  const effectiveTier = usePlayerStore((s) => s.effectiveTier);
+  const qualityRef = useRef(QUALITY_PROFILES[effectiveTier]);
+  qualityRef.current = QUALITY_PROFILES[effectiveTier];
+
   // Window resize handler
   useEffect(() => {
     const handleResize = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = canvasDprFor(qualityRef.current, window.devicePixelRatio);
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = `${window.innerWidth}px`;
@@ -277,7 +295,7 @@ export const AtmosphereBackground: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [effectiveTier]);
 
   // Main Render Loop
   useEffect(() => {
@@ -299,7 +317,7 @@ export const AtmosphereBackground: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = canvasDprFor(qualityRef.current, window.devicePixelRatio);
       const targetW = Math.round(window.innerWidth * dpr);
       const targetH = Math.round(window.innerHeight * dpr);
       if (canvas.width !== targetW || canvas.height !== targetH) {

@@ -16,6 +16,7 @@ import { StudioModal } from './studio/StudioModal';
 import { StudioButton } from './studio/StudioButton';
 import { usePlayerStore } from '../../stores/playerStore';
 import { StorageService } from '../../services/storageService';
+import { useShallow } from 'zustand/react/shallow';
 
 const AVAILABLE_GENRES = [
   'Electrónica / EDM',
@@ -36,10 +37,28 @@ export const UserProfileModal: React.FC = () => {
     setUserProfile,
     performanceTier,
     setPerformanceTier,
+    autoQuality,
+    setAutoQuality,
+    effectiveTier,
     setSysReqModalOpen,
     toggleVisualizerSettings,
     setEqualizerOpen,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isProfileModalOpen: s.isProfileModalOpen,
+      setProfileModalOpen: s.setProfileModalOpen,
+      userProfile: s.userProfile,
+      setUserProfile: s.setUserProfile,
+      performanceTier: s.performanceTier,
+      setPerformanceTier: s.setPerformanceTier,
+      autoQuality: s.autoQuality,
+      setAutoQuality: s.setAutoQuality,
+      effectiveTier: s.effectiveTier,
+      setSysReqModalOpen: s.setSysReqModalOpen,
+      toggleVisualizerSettings: s.toggleVisualizerSettings,
+      setEqualizerOpen: s.setEqualizerOpen,
+    }))
+  );
 
   const [activeTab, setActiveTab] = useState<'profile' | 'performance' | 'auth'>('profile');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -563,6 +582,28 @@ export const UserProfileModal: React.FC = () => {
                 </div>
               </button>
             </div>
+
+            {/* Calidad automática: baja el nivel solo si los FPS se hunden, y lo recupera */}
+            <label className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoQuality}
+                onChange={(e) => setAutoQuality(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-cyan-400"
+              />
+              <div className="flex-1">
+                <div className="text-xs font-medium text-white">Calidad automática</div>
+                <div className="text-[11px] font-mono text-white/50">
+                  Si la animación va a menos de 40 FPS de forma sostenida, reduce los efectos de luz y la resolución;
+                  cuando vuelve a ir sobrada, la recupera. Nunca supera el nivel que elijas arriba.
+                </div>
+                {autoQuality && effectiveTier !== performanceTier && (
+                  <div className="mt-1.5 text-[11px] font-mono text-amber-300">
+                    Ahora aplicando: {({ high: 'Gráficos altos', medium: 'Gráficos medios', eco: 'Rendimiento alto' } as Record<string, string>)[effectiveTier]} (reducido automáticamente)
+                  </div>
+                )}
+              </div>
+            </label>
 
             {/* System Requirements Recommendation Button */}
             <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">

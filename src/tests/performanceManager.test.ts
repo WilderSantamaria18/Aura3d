@@ -92,3 +92,32 @@ describe('PerformanceManager — Sprint 10 Adaptive Quality & Tiers', () => {
     expect(flags.adaptiveQualityEnabled).toBe(false);
   });
 });
+
+describe('PerformanceManager — GPU integrada y modos de calidad', () => {
+  it('clasifica renderers de GPU integrada y dedicada', async () => {
+    const { classifyGpuRenderer } = await import('../spatial/performance/PerformanceManager');
+    expect(classifyGpuRenderer('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0)')).toBe('integrated');
+    expect(classifyGpuRenderer('ANGLE (AMD, AMD Radeon(TM) Graphics Direct3D11)')).toBe('integrated');
+    expect(classifyGpuRenderer('Apple M2')).toBe('integrated');
+    expect(classifyGpuRenderer('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11)')).toBe('discrete');
+    expect(classifyGpuRenderer('ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11)')).toBe('discrete');
+    expect(classifyGpuRenderer('')).toBe('unknown');
+  });
+
+  it('un tier manual desactiva la adaptación y "auto" la reactiva', () => {
+    const manager = PerformanceManager.getInstance();
+    manager.setQualityMode('LOW');
+    expect(manager.getTier()).toBe('LOW');
+    expect(manager.getMetrics().qualityMode).toBe('LOW');
+    expect(manager.getFeatureFlags().adaptiveQualityEnabled).toBe(false);
+
+    // Con calidad fija, 3 s de frames lentos no degradan el tier
+    manager.setQualityMode('HIGH');
+    for (let t = 0; t < 300; t++) manager.recordFrame(0.05, t * 50);
+    expect(manager.getTier()).toBe('HIGH');
+
+    manager.setQualityMode('auto');
+    expect(manager.getMetrics().qualityMode).toBe('auto');
+    expect(manager.getFeatureFlags().adaptiveQualityEnabled).toBe(true);
+  });
+});

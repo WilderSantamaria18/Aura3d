@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Disc, Play, Pause, Flame, ArrowRight } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
+import { useShallow } from 'zustand/react/shallow';
 
 // Mismos efectos que el visualizador Rainbow Void
 const SHAPE_PRESETS = RAINBOW_VOID_EFFECTS.slice(0, 4).map((fx) => ({ id: fx.id, label: fx.name }));
@@ -19,7 +20,7 @@ interface StudioTurntableDeckProps {
  * - Controles de pitch DJ y deformador espectral en cápsulas de vidrio
  */
 export const StudioTurntableDeck: React.FC<StudioTurntableDeckProps> = ({ onStartExperience }) => {
-  const { blobShape, setBlobShape } = usePlayerStore();
+  const { blobShape, setBlobShape } = usePlayerStore(useShallow((s) => ({ blobShape: s.blobShape, setBlobShape: s.setBlobShape })));
   const [bpm, setBpm] = useState<number>(128.0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 

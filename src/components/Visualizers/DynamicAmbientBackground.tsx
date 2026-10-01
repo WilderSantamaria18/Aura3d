@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useVisualizer } from '../../hooks/useVisualizer';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * DynamicAmbientBackground
@@ -8,7 +9,15 @@ import { useVisualizer } from '../../hooks/useVisualizer';
  * Proporciona el efecto de "colores difuminados / ambient blur" para todos los visualizadores.
  */
 export const DynamicAmbientBackground: React.FC = () => {
-  const { isLucid, lucidTheme, autoMode, dynamicColor, hasStarted } = usePlayerStore();
+  const { isLucid, lucidTheme, autoMode, dynamicColor, hasStarted } = usePlayerStore(
+    useShallow((s) => ({
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      autoMode: s.autoMode,
+      dynamicColor: s.dynamicColor,
+      hasStarted: s.hasStarted,
+    }))
+  );
   const { getSmoothedData } = useVisualizer(0.18);
 
   const orb1Ref = useRef<HTMLDivElement>(null);

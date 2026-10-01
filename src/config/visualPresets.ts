@@ -465,62 +465,95 @@ export const SPHERE_3D_GEOMETRIES: EffectOption[] = [
  */
 export const RAINBOW_VOID_EFFECTS: EffectOption[] = [
   {
-    id: 'cat',
-    name: 'Orejas de gato',
-    desc: 'Con cada nota de bajo el contorno se eleva y forma dos orejas; el interior brilla con los medios.',
-    tag: 'GATO',
+    id: 'spectrum',
+    name: 'Espectro',
+    desc: 'Ecualizador radial simétrico con picos retenidos; por dentro, barras que apuntan al centro.',
+    tag: 'ESPECTRO',
+    category: 'Contorno del kick',
+    param: { label: 'Barras', min: 48, max: 160, step: 8, def: 96 },
+  },
+  {
+    id: 'wave',
+    name: 'Onda',
+    desc: 'Osciloscopio circular de tres curvas que se deforman con graves, medios y agudos; otra onda gira por dentro.',
+    tag: 'ONDA',
     category: 'Contorno del kick',
   },
   {
-    id: 'bunny',
-    name: 'Orejas de conejo',
-    desc: 'Dos orejas largas y redondeadas que se estiran con cada golpe.',
-    tag: 'CONEJO',
+    id: 'particles',
+    name: 'Partículas',
+    desc: 'Enjambre orbital que el bombo empuja hacia afuera y los agudos hacen brillar; otras giran dentro del disco.',
+    tag: 'PARTÍCULAS',
+    category: 'Contorno del kick',
+    param: { label: 'Partículas', min: 120, max: 420, step: 20, def: 320 },
+  },
+  {
+    id: 'geometry',
+    name: 'Geometría',
+    desc: 'Polígonos concéntricos que giran en sentidos opuestos; los vértices brillan con las notas.',
+    tag: 'GEOMETRÍA',
+    category: 'Contorno del kick',
+    param: { label: 'Capas', min: 2, max: 4, step: 1, def: 4 },
+  },
+  {
+    id: 'radar',
+    name: 'Radar',
+    desc: 'Bisel de marcas con haz giratorio: el espectro alarga las marcas y cada nota deja un destello.',
+    tag: 'RADAR',
     category: 'Contorno del kick',
   },
   {
-    id: 'horns',
-    name: 'Cuernos',
-    desc: 'Cuernos curvados hacia adentro que crecen con la energía del bajo.',
-    tag: 'CUERNOS',
+    id: 'electro',
+    name: 'Electro',
+    desc: 'Arcos eléctricos entre 24 nodos con rayos en los más fuertes; se agita con los agudos y el bombo.',
+    tag: 'ELECTRO',
     category: 'Contorno del kick',
   },
   {
-    id: 'crown',
-    name: 'Corona',
-    desc: 'Una diadema de picos; cada pico escucha un grupo de notas.',
-    tag: 'CORONA',
+    id: 'laser',
+    name: 'Láser',
+    desc: 'Haces de luz que se abren en tijera con cada golpe; su largo sigue el espectro y por dentro giran rayos cortos.',
+    tag: 'LÁSER',
     category: 'Contorno del kick',
-    param: { label: 'Picos', min: 3, max: 9, step: 1, def: 5 },
+    param: { label: 'Haces', min: 6, max: 24, step: 2, def: 12 },
   },
   {
-    id: 'flame',
-    name: 'Flama',
-    desc: 'Lenguas de fuego que se inclinan hacia arriba; cada una sigue una zona del espectro.',
-    tag: 'FLAMA',
-    category: 'Contorno del kick',
-    param: { label: 'Lenguas', min: 6, max: 24, step: 1, def: 12 },
-  },
-  {
-    id: 'wings',
-    name: 'Alas',
-    desc: 'Plumas que se abren a los lados con el ritmo del bombo.',
-    tag: 'ALAS',
+    id: 'spiro',
+    name: 'Espirógrafo',
+    desc: 'Curvas guilloché que se funden de un patrón al siguiente con la energía de la música.',
+    tag: 'ESPIRÓGRAFO',
     category: 'Contorno del kick',
   },
   {
-    id: 'notes',
-    name: 'Reloj de Notas',
-    desc: 'El contorno se hincha en el ángulo de cada una de las 12 notas.',
-    tag: 'NOTAS',
+    id: 'tunnel',
+    name: 'Túnel',
+    desc: 'Anillos que nacen con cada golpe y viajan hacia afuera llevando una foto del espectro.',
+    tag: 'TÚNEL',
     category: 'Contorno del kick',
   },
   {
-    id: 'spikes',
-    name: 'Púas',
-    desc: 'Cuarenta púas simétricas que siguen el espectro del audio.',
-    tag: 'PÚAS',
+    id: 'hive',
+    name: 'Panal',
+    desc: 'Celdas hexagonales que se encienden por zona del espectro y se contagian con el bombo; una por nota dentro.',
+    tag: 'PANAL',
     category: 'Contorno del kick',
+    param: { label: 'Anillos', min: 2, max: 4, step: 1, def: 3 },
+  },
+  {
+    id: 'spiral',
+    name: 'Espiral',
+    desc: 'Brazos en espiral hechos de barras: los graves junto al disco y los agudos en la punta.',
+    tag: 'ESPIRAL',
+    category: 'Contorno del kick',
+    param: { label: 'Brazos', min: 1, max: 4, step: 1, def: 2 },
+  },
+  {
+    id: 'crystal',
+    name: 'Cristal',
+    desc: 'Esquirlas facetadas e irregulares que siguen el espectro; por dentro, facetas que reaccionan con cada cristal.',
+    tag: 'CRISTAL',
+    category: 'Contorno del kick',
+    param: { label: 'Cristales', min: 4, max: 12, step: 1, def: 7 },
   },
   {
     id: 'fractal',
@@ -539,7 +572,7 @@ export const KICK_FORM_STYLES: Array<{ id: KickFormStyle; name: string; desc: st
   { id: 'ink', name: 'Tinta', desc: 'Sólido' },
 ];
 
-export const DEFAULT_VOID_EFFECT: BlobShape = 'cat';
+export const DEFAULT_VOID_EFFECT: BlobShape = 'spectrum';
 
 /** Valores por defecto de la personalización de efectos */
 export const DEFAULT_VOID_FX_SETTINGS: VoidFxSettings = {
@@ -580,29 +613,53 @@ export const resolveVoidFx = (settings: Partial<VoidFxSettings> | undefined, id:
  * Cada una se traduce al efecto nuevo más parecido en carácter.
  */
 const LEGACY_SHAPE_TO_VOID: Record<string, BlobShape> = {
-  icosahedron: 'crown',
-  octahedron: 'horns',
-  nebula: 'wings',
-  wave: 'notes',
-  rings: 'notes',
-  torus: 'notes',
-  cloud: 'wings',
-  spikes: 'spikes',
-  bars: 'spikes',
-  laser: 'spikes',
-  sphere: 'cat',
-  vortex: 'flame',
-  kaleidoscope: 'flame',
+  icosahedron: 'crystal',
+  octahedron: 'crystal',
+  nebula: 'particles',
+  wave: 'wave',
+  rings: 'geometry',
+  torus: 'geometry',
+  cloud: 'particles',
+  spikes: 'spectrum',
+  bars: 'spectrum',
+  laser: 'electro',
+  sphere: 'spectrum',
+  vortex: 'particles',
+  kaleidoscope: 'geometry',
+};
+
+/**
+ * Las formas del contorno anteriores (gato, conejo, cuernos, corona, flama, alas, notas, púas) se
+ * reemplazaron por las nuevas. Lo guardado con un id antiguo pasa a la forma más parecida en carácter.
+ */
+export const LEGACY_VOID_EFFECT_RENAMES: Record<string, BlobShape> = {
+  // Primera generación (gato, conejo, cuernos…)
+  cat: 'crystal',
+  bunny: 'wave',
+  horns: 'crystal',
+  crown: 'spectrum',
+  flame: 'electro',
+  wings: 'particles',
+  notes: 'radar',
+  spikes: 'spectrum',
+  // Segunda generación (reemplazada por el rediseño profesional)
+  sun: 'spectrum',
+  galaxy: 'particles',
+  orbits: 'geometry',
+  storm: 'electro',
+  ribbon: 'wave',
+  constellation: 'radar',
+  tides: 'wave',
 };
 
 /** Presets de fábrica cuyo nombre pide un contorno concreto */
 const PRESET_EFFECT_OVERRIDES: Record<string, BlobShape> = {
-  factory_ethereal_aurora: 'wings',
-  factory_zenith_tidal_ripples: 'notes',
-  factory_retro_synthwave: 'crown',
-  factory_crimson_blood_horizon: 'flame',
-  factory_midnight_cyber_rain: 'horns',
-  factory_rainbow_void: 'cat',
+  factory_ethereal_aurora: 'wave',
+  factory_zenith_tidal_ripples: 'radar',
+  factory_retro_synthwave: 'spectrum',
+  factory_crimson_blood_horizon: 'electro',
+  factory_midnight_cyber_rain: 'geometry',
+  factory_rainbow_void: 'spectrum',
 };
 
 /** Efecto de Rainbow Void que corresponde a un preset (propio o guardado por el usuario) */
@@ -615,6 +672,15 @@ export const voidEffectForPreset = (preset: { id?: string; visualizerShape: stri
 /** true si el id pertenece al catálogo actual de Rainbow Void (descarta ids antiguos guardados) */
 export const isVoidEffectId = (id: unknown): id is BlobShape =>
   typeof id === 'string' && RAINBOW_VOID_EFFECTS.some((fx) => fx.id === id);
+
+/** Devuelve un efecto válido: el mismo si existe, su reemplazo si era una forma antigua, o el efecto por defecto */
+export const migrateVoidEffectId = (id: unknown): BlobShape => {
+  if (isVoidEffectId(id)) return id;
+  if (typeof id === 'string') {
+    return LEGACY_VOID_EFFECT_RENAMES[id] ?? LEGACY_SHAPE_TO_VOID[id] ?? DEFAULT_VOID_EFFECT;
+  }
+  return DEFAULT_VOID_EFFECT;
+};
 
 export interface AtmosphereOption {
   id: BackgroundAtmosphere;

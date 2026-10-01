@@ -13,92 +13,34 @@
  * elementos, capas internas, boom y modo de color.
  */
 
-import type { VoidFxParams } from '../../types/audio';
+import {
+  TAU,
+  UP,
+  blur,
+  clampInt,
+  colAt,
+  createVoidFxState,
+  drive,
+  hash01,
+  line,
+  mixRGB,
+  noteColor,
+  parseColor,
+  rgba,
+  spec,
+  updateEnvelope,
+  wrapPi,
+  type RGB,
+  type Tip,
+  type VoidFxFrame,
+  type VoidFxParams,
+  type VoidFxState,
+} from './voidFxKit';
+import { CUSTOM_FORMS } from './voidForms';
 
-export type { VoidFxParams };
-
-export interface VoidFxFrame {
-  ctx: CanvasRenderingContext2D;
-  cx: number;
-  cy: number;
-  /** Radio del disco central en px (ya escalado por u y por el rebote de bajos) */
-  r: number;
-  /** Factor de escala responsivo (solo para grosores mínimos) */
-  u: number;
-  /** Tiempo en segundos */
-  t: number;
-  bass: number;
-  mids: number;
-  treble: number;
-  energy: number;
-  /** Envolvente del kick: sube al golpear y decae (0..1) */
-  kickStrength: number;
-  /** Fuerza del golpe en el frame en que se detecta (0 si no hay kick) */
-  boom: number;
-  /** Hay señal de audio real */
-  active: boolean;
-  /** Energía de las 12 notas (0 = Do … 11 = Si), 0..1 */
-  chroma: Float32Array;
-  /** Espectro crudo (0..255) */
-  raw: Uint8Array;
-  primary: string;
-  secondary: string;
-  accent: string;
-  /** Rotación acumulada en grados (velocidad y sentido elegidos por el usuario) */
-  angleDeg: number;
-  /** Multiplicador de grosor de trazo (0.75 – 1.5) */
-  stroke: number;
-  fx: VoidFxParams;
-}
-
-export interface VoidFxState {
-  booms: Array<{ born: number; s: number }>;
-  lastIdle: number;
-  /** Estado de la forma del bombo: envolvente suavizada y rebote del golpe */
-  form: { env: number; pop: number; last: number };
-}
-
-export const createVoidFxState = (): VoidFxState => ({ booms: [], lastIdle: 0, form: { env: 0, pop: 0, last: 0 } });
-
-export type Tip = { x: number; y: number };
-
-const TAU = Math.PI * 2;
-
-/* ── utilidades de color ─────────────────────────────────────────────────── */
-type RGB = [number, number, number];
-const parseColor = (c: string): RGB => {
-  const m = c.trim();
-  if (m.startsWith('#')) {
-    const h = m.length === 4 ? m.slice(1).split('').map((x) => x + x).join('') : m.slice(1, 7);
-    const n = parseInt(h, 16);
-    if (!Number.isNaN(n)) return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  const rgb = m.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i);
-  if (rgb) return [parseInt(rgb[1], 10), parseInt(rgb[2], 10), parseInt(rgb[3], 10)];
-  return [255, 255, 255];
-};
-const mixRGB = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const rgba = (c: RGB, a: number) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
-const hsl = (h: number, s: number, l: number): RGB => {
-  const a = s * Math.min(l, 1 - l);
-  const k = (n: number) => (n + h / 30) % 12;
-  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [f(0) * 255, f(8) * 255, f(4) * 255];
-};
-
-/** Color en la posición x (0..1) según el modo elegido. */
-const colAt = (f: VoidFxFrame, x: number): RGB => {
-  const p = parseColor(f.primary);
-  if (f.fx.colorMode === 'mono') return p;
-  if (f.fx.colorMode === 'spectrum') return hsl(170 + Math.max(0, Math.min(1, x)) * 150, 0.85, 0.62);
-  return mixRGB(p, parseColor(f.secondary), Math.max(0, Math.min(1, x)));
-};
-const noteColor = (f: VoidFxFrame, pc: number): RGB => colAt(f, pc / 11);
-
-const line = (f: VoidFxFrame, w = 1) => Math.max(0.8, w * f.stroke * f.u);
-const blur = (f: VoidFxFrame, base: number) => Math.max(0, base * f.fx.glow);
-const spec = (f: VoidFxFrame, idx: number, gamma = 1.3) => Math.pow(Math.min(1.4, ((f.raw[Math.max(0, Math.min(f.raw.length - 1, idx))] || 0) / 255) * f.fx.intensity), gamma);
-const drive = (f: VoidFxFrame, v: number) => Math.min(1.6, v * f.fx.intensity);
+// Tipos y fábrica de estado: se reexportan para no romper a quien los importaba de aquí
+export { createVoidFxState };
+export type { VoidFxFrame, VoidFxParams, VoidFxState, Tip };
 
 /* ──────────────────────────────────────────────────────────────────────────
    INNER — bisel luminoso dentro del borde del disco
@@ -108,26 +50,37 @@ function drawInner(f: VoidFxFrame) {
   const { ctx, cx, cy, r } = f;
   const p = parseColor(f.primary);
   const s = parseColor(f.secondary);
+  const bass = drive(f, f.bass);
+  const mids = drive(f, f.mids);
+  const treble = drive(f, f.treble);
+  const kick = f.kickStrength;
   ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
 
-  const glow = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r);
-  glow.addColorStop(0, rgba(p, 0));
-  glow.addColorStop(0.75, rgba(p, (0.03 + f.bass * 0.06) * f.fx.glow));
-  glow.addColorStop(1, rgba(p, (0.12 + f.bass * 0.22 + f.kickStrength * 0.3) * f.fx.glow));
-  ctx.fillStyle = glow;
+  // Graves: el borde exterior responde en el mismo frame y concentra el destello del kick.
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, TAU);
-  ctx.fill();
-
-  ctx.lineWidth = line(f, 1.1);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.94, 0, TAU);
-  ctx.strokeStyle = rgba(p, 0.32 + f.bass * 0.4);
+  ctx.arc(cx, cy, r * (0.945 + kick * 0.012), 0, TAU);
+  ctx.strokeStyle = rgba(p, Math.min(0.92, 0.18 + bass * 0.46 + kick * 0.28));
+  ctx.lineWidth = line(f, 1.15) + r * (0.008 + bass * 0.012 + kick * 0.014);
+  ctx.shadowColor = rgba(p, 0.75);
+  ctx.shadowBlur = blur(f, 4 + kick * 7);
   ctx.stroke();
 
+  // Medios: una capa separada para que voces y caja no muevan el anillo de graves.
+  ctx.shadowBlur = 0;
   ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.86, 0, TAU);
-  ctx.strokeStyle = rgba(s, 0.16 + f.mids * 0.3);
+  ctx.arc(cx, cy, r * (0.865 + mids * 0.008), 0, TAU);
+  ctx.strokeStyle = rgba(s, Math.min(0.72, 0.1 + mids * 0.48));
+  ctx.lineWidth = line(f, 0.9 + mids * 0.55);
+  ctx.stroke();
+
+  // Agudos: aro fino y segmentado; la fase sigue la rotación musical sin crear partículas nuevas.
+  ctx.setLineDash([Math.max(2, r * 0.025), Math.max(3, r * 0.045)]);
+  ctx.lineDashOffset = -f.angleDeg * 0.08;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * (0.785 + treble * 0.006), 0, TAU);
+  ctx.strokeStyle = rgba(mixRGB(p, [255, 255, 255], 0.42), Math.min(0.68, 0.08 + treble * 0.5));
+  ctx.lineWidth = line(f, 0.72 + treble * 0.35);
   ctx.stroke();
   ctx.restore();
 }
@@ -142,40 +95,43 @@ function drawBoom(f: VoidFxFrame, state: VoidFxState) {
     return;
   }
   if (f.boom > 0) {
-    state.booms.push({ born: t, s: f.boom });
-    if (state.booms.length > 4) state.booms.shift();
+    state.booms.push({ born: t, s: f.boom, r });
+    if (state.booms.length > 2) state.booms.shift();
   }
 
   const p = parseColor(f.primary);
   const s = parseColor(f.secondary);
   ctx.save();
-  state.booms = state.booms.filter((b) => t - b.born < 1.6);
+  ctx.globalCompositeOperation = 'lighter';
+  // Eliminación in-place: evita crear un array nuevo en cada frame.
+  for (let i = state.booms.length - 1; i >= 0; i--) {
+    const b = state.booms[i];
+    if (t - b.born >= 0.46) state.booms.splice(i, 1);
+  }
   for (const b of state.booms) {
-    const life = 0.8 + b.s * 0.7;
-    const k = (t - b.born) / life;
+    const life = 0.3 + b.s * 0.14;
+    const k = Math.max(0, (t - b.born) / life);
     if (k >= 1) continue;
-    const ease = 1 - Math.pow(1 - k, 3);
-    const rad = r * (1.04 + ease * (0.7 + b.s * 1.7) * f.fx.reach);
-    const alpha = Math.pow(1 - k, 1.5) * (0.3 + b.s * 0.55);
+    const ease = 1 - Math.pow(1 - k, 4);
+    const rad = b.r * (1.015 + ease * (0.55 + b.s * 1.2) * f.fx.reach);
+    const alpha = Math.pow(1 - k, 2.25) * (0.38 + b.s * 0.58);
 
     ctx.beginPath();
     ctx.arc(cx, cy, rad, 0, TAU);
-    ctx.strokeStyle = rgba(s, alpha * 0.35 * f.fx.glow);
-    ctx.lineWidth = Math.max(2, r * 0.09 * (1 - k)) * f.stroke;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, rad, 0, TAU);
-    ctx.strokeStyle = rgba(p, alpha);
-    ctx.lineWidth = line(f, 1.4) * (1.2 - k * 0.6);
+    ctx.strokeStyle = rgba(mixRGB(p, s, Math.min(1, k * 1.4)), alpha);
+    ctx.lineWidth = line(f, 1.2) + b.r * 0.025 * (1 - k) * b.s;
+    ctx.shadowColor = rgba(p, alpha * 0.8);
+    ctx.shadowBlur = blur(f, 8 * (1 - k));
     ctx.stroke();
   }
 
-  if (f.kickStrength > 0.02) {
+  // Flash de ataque: solo existe en el frame del onset, no sigue una envolvente retrasada.
+  if (f.boom > 0) {
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 1.005, 0, TAU);
-    ctx.strokeStyle = rgba([255, 255, 255], f.kickStrength * 0.75);
-    ctx.lineWidth = line(f, 1.2) + r * 0.02 * f.kickStrength;
+    ctx.strokeStyle = rgba([255, 255, 255], Math.min(0.9, 0.38 + f.boom * 0.52));
+    ctx.lineWidth = line(f, 1.1) + r * 0.018 * f.boom;
     ctx.stroke();
   }
   ctx.restore();
@@ -251,8 +207,6 @@ interface FormLayer {
   accent?: boolean;
 }
 
-const UP = -Math.PI / 2;
-const wrapPi = (a: number) => ((((a + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
 
 function lobeProfile(l: Lobe, d: number, hwScale: number): number {
   const u = d / (l.hw * hwScale);
@@ -263,85 +217,44 @@ function lobeProfile(l: Lobe, d: number, hwScale: number): number {
   return Math.pow(1 - au, s);
 }
 
-/** Lóbulos de cada forma, ya escalados por la altura viva */
+/** Lóbulos de las formas construidas sobre el anillo, ya escalados por la altura viva (H en radios del disco) */
 function buildLobes(id: string, f: VoidFxFrame, H: number): Lobe[] {
   const lobes: Lobe[] = [];
-  const chroma = f.chroma;
   switch (id) {
-    case 'cat': {
-      const twitch = 1 + 0.25 * f.mids;
-      for (const s of [-1, 1]) {
-        lobes.push({ a: UP + s * 0.74, hw: 0.31, h: 0.9 * H * twitch, sIn: s < 0 ? 1.7 : 0.95, sOut: s < 0 ? 0.95 : 1.7, lean: -s * 0.1 });
-      }
-      break;
-    }
-    case 'bunny': {
-      for (const s of [-1, 1]) {
-        lobes.push({ a: UP + s * 0.34, hw: 0.21, h: 1.55 * H * (1 + 0.2 * f.mids), round: true, lean: s * 0.06 });
-      }
-      break;
-    }
-    case 'horns': {
-      for (const s of [-1, 1]) {
-        lobes.push({ a: UP + s * 1.08, hw: 0.34, h: 1.15 * H, sIn: 1.0, sOut: 1.0, lean: -s * 0.55 });
-      }
-      break;
-    }
-    case 'crown': {
-      const n = Math.max(3, Math.round(f.fx.count));
-      const span = 1.75;
+    case 'sun': {
+      // Corona de rayos finos y alternos: los largos siguen los graves y el espectro, los cortos los medios
+      const n = clampInt(f.fx.count, 12, 48) & ~1; // par, para alternar largo/corto
+      const turn = f.t * 0.05 + ((f.angleDeg * Math.PI) / 180) * 0.01;
       for (let i = 0; i < n; i++) {
-        const x = n === 1 ? 0 : i / (n - 1) - 0.5;
-        const note = chroma[Math.round((i / Math.max(1, n - 1)) * 11)] || 0;
-        const centre = 1 - 0.28 * Math.abs(x) * 2;
-        lobes.push({ a: UP + x * span, hw: (span / Math.max(1, n - 1)) * 0.62, h: 1.3 * H * centre * (0.85 + 0.55 * note), sIn: 1.05, sOut: 1.05 });
-      }
-      break;
-    }
-    case 'flame': {
-      const n = Math.max(6, Math.round(f.fx.count));
-      for (let i = 0; i < n; i++) {
-        const a = UP + (i / n) * TAU;
-        const note = chroma[Math.min(11, Math.floor((i / n) * 12))] || 0;
-        // Cada lengua escucha su propia zona del espectro (nada se mueve sin música)
-        const bin = 2 + Math.floor((i / n) * Math.min(64, f.raw.length * 0.3));
-        const flick = 0.45 + 0.75 * spec(f, bin, 1.0);
-        // hacia arriba: las lenguas se inclinan hacia el punto más alto del anillo
-        const towardUp = Math.sin(UP - a);
+        const long = i % 2 === 0;
+        const bin = 2 + Math.floor((i / n) * Math.min(72, f.raw.length * 0.3));
+        const sp = spec(f, bin, 1.0);
         lobes.push({
-          a,
-          hw: (TAU / n) * 0.64,
-          h: 1.5 * H * flick * (0.6 + 0.9 * note) * (1 + 0.35 * Math.max(0, Math.sin(-a))),
-          sIn: 1.6,
-          sOut: 1.6,
-          lean: 0.55 * towardUp,
+          a: UP + (i / n) * TAU + turn,
+          hw: (TAU / n) * (long ? 0.3 : 0.36),
+          h: long ? 1.35 * H * (0.7 + 0.6 * sp) : 0.6 * H * (0.45 + 0.9 * f.mids + 0.5 * sp),
+          sIn: 2.0,
+          sOut: 2.0,
         });
       }
       break;
     }
-    case 'wings': {
-      const flap = 1 + 0.28 * Math.min(1, f.kickStrength + f.energy * 0.5);
-      for (const s of [-1, 1]) {
-        for (let j = 0; j < 4; j++) {
-          lobes.push({ a: UP + s * (1.1 + j * 0.36), hw: 0.2, h: (1.5 - j * 0.3) * H * flap, sIn: 1.15, sOut: 1.15, lean: -s * 0.5 });
-        }
-      }
-      break;
-    }
-    case 'notes': {
-      // Reloj de Notas: el contorno se hincha en el ángulo de cada una de las 12 notas
-      for (let k = 0; k < 12; k++) {
-        lobes.push({ a: UP + (k / 12) * TAU, hw: (TAU / 12) * 0.5, h: H * (0.1 + 1.15 * (chroma[k] || 0)), round: true });
-      }
-      break;
-    }
-    case 'spikes': {
-      // Púas: cada una sigue un tramo del espectro; simétrico para que se vea equilibrado
-      const n = 36;
+    case 'crystal': {
+      // Esquirlas irregulares y asimétricas; cada una escucha un tramo del espectro. La variación es fija
+      // (hash por índice): cambia la forma de cada cristal, no parpadea entre frames.
+      const n = clampInt(f.fx.count, 4, 12);
       for (let i = 0; i < n; i++) {
-        const m = Math.min(i, n - i);
-        const bin = 2 + Math.floor((m / (n / 2)) * Math.min(80, f.raw.length * 0.35));
-        lobes.push({ a: UP + (i / n) * TAU, hw: (TAU / n) * 0.46, h: H * (0.18 + 1.4 * spec(f, bin, 1.05)), sIn: 1.3, sOut: 1.3 });
+        const h1 = hash01(i, 1);
+        const h2 = hash01(i, 2);
+        const bin = 2 + Math.floor((i / n) * Math.min(72, f.raw.length * 0.3));
+        lobes.push({
+          a: UP + ((i + (h1 - 0.5) * 0.7) / n) * TAU,
+          hw: (TAU / n) * (0.28 + 0.2 * h1),
+          h: (0.65 + 0.7 * h2) * 1.45 * H * (0.35 + 1.15 * spec(f, bin, 1.0)),
+          sIn: 0.75 + h2 * 0.5,
+          sOut: 1.6 - h2 * 0.6,
+          lean: (h1 - 0.5) * 0.35,
+        });
       }
       break;
     }
@@ -355,53 +268,112 @@ function formLayers(id: string, f: VoidFxFrame): FormLayer[] {
   const c0 = colAt(f, 0.05);
   const c1 = colAt(f, 0.95);
   switch (id) {
-    case 'cat':
-    case 'bunny':
+    case 'sun':
       return [
-        { hs: 1, ws: 1, color: c0, fill: 0.16, stroke: 0.95 },
-        { hs: id === 'cat' ? 0.62 : 0.72, ws: id === 'cat' ? 0.52 : 0.5, color: c1, fill: 0.5 + f.mids * 0.35, stroke: 0.5, accent: true },
+        { hs: 1, ws: 1, color: c0, fill: 0.3, stroke: 0.9 },
+        { hs: 0.52, ws: 0.6, color: mixRGB(c1, [255, 255, 255], 0.45), fill: 0.55, stroke: 0.45, accent: true },
       ];
-    case 'flame':
+    case 'crystal':
       return [
-        { hs: 1, ws: 1, color: c0, fill: 0.34, stroke: 0.9 },
-        { hs: 0.68, ws: 0.78, color: mixRGB(c0, c1, 0.6), fill: 0.5, stroke: 0.6 },
-        { hs: 0.4, ws: 0.55, color: mixRGB(c1, [255, 255, 255], 0.55), fill: 0.7, stroke: 0.4, accent: true },
-      ];
-    case 'notes':
-    case 'spikes':
-      return [{ hs: 1, ws: 1, color: c0, fill: 0.2, stroke: 0.95 }, { hs: 0.55, ws: 0.8, color: c1, fill: 0.32, stroke: 0.5, accent: true }];
-    case 'wings':
-      return [
-        { hs: 1, ws: 1, color: c0, fill: 0.14, stroke: 0.95 },
-        { hs: 0.66, ws: 0.62, color: c1, fill: 0.36, stroke: 0.5, accent: true },
+        { hs: 1, ws: 1, color: c0, fill: 0.18, stroke: 0.95 },
+        { hs: 0.6, ws: 0.52, color: mixRGB(c1, [255, 255, 255], 0.35), fill: 0.45, stroke: 0.55, accent: true },
+        { hs: 0.3, ws: 0.3, color: [255, 255, 255], fill: 0.4, stroke: 0.3, accent: true },
       ];
     default:
       return [{ hs: 1, ws: 1, color: c0, fill: 0.16, stroke: 0.95 }];
   }
 }
 
+/**
+ * Facetas interiores del Cristal. Un vértice por cristal, en su mismo ángulo, cuyo radio sube con la altura
+ * viva de ese cristal; se unen en un polígono, una estrella de diagonales y triángulos translúcidos.
+ * Todo queda entre 0.5 y 0.92 del radio del disco: el centro (logo/carátula) no se toca.
+ */
+function drawCrystalInner(f: VoidFxFrame, lobes: Lobe[], Hrel: number, pop: number) {
+  const { ctx, cx, cy, r, u, t } = f;
+  const n = lobes.length;
+  if (n < 3) return;
+  const spin = t * 0.12;
+  const col0 = colAt(f, 0.15);
+  const col1 = colAt(f, 0.85);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const hs: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const l = lobes[i];
+    // altura relativa del cristal (0..~1): el vértice interior crece con ella
+    const k = Math.min(1, l.h / Math.max(0.0001, Hrel * 1.6));
+    const rr = r * (0.52 + 0.4 * k + pop * 0.03);
+    const a = l.a + spin;
+    xs.push(cx + Math.cos(a) * rr);
+    ys.push(cy + Math.sin(a) * rr);
+    hs.push(k);
+  }
+
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // Triángulos entre vértices consecutivos y el anillo interior: facetas de cristal
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const mx = cx + (xs[i] + xs[j] - 2 * cx) * 0.5 * 0.55;
+    const my = cy + (ys[i] + ys[j] - 2 * cy) * 0.5 * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(xs[i], ys[i]);
+    ctx.lineTo(xs[j], ys[j]);
+    ctx.lineTo(mx, my);
+    ctx.closePath();
+    ctx.fillStyle = rgba(mixRGB(col0, col1, i / n), 0.05 + 0.2 * (hs[i] + hs[j]) * 0.5);
+    ctx.fill();
+  }
+
+  // Polígono exterior de las facetas
+  ctx.beginPath();
+  ctx.moveTo(xs[0], ys[0]);
+  for (let i = 1; i < n; i++) ctx.lineTo(xs[i], ys[i]);
+  ctx.closePath();
+  ctx.strokeStyle = rgba(col0, 0.5 + 0.4 * f.mids);
+  ctx.lineWidth = line(f, 1);
+  ctx.stroke();
+
+  // Diagonales: estrella que se enciende con la altura de los cristales que une
+  ctx.beginPath();
+  const skip = n >= 7 ? 3 : 2;
+  for (let i = 0; i < n; i++) {
+    const j = (i + skip) % n;
+    ctx.moveTo(xs[i], ys[i]);
+    ctx.lineTo(xs[j], ys[j]);
+  }
+  ctx.strokeStyle = rgba(mixRGB(col1, [255, 255, 255], 0.35), 0.16 + 0.35 * f.treble);
+  ctx.lineWidth = Math.max(0.7, 0.8 * u);
+  ctx.stroke();
+
+  // Vértices brillantes
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.arc(xs[i], ys[i], Math.max(1.2 * u, r * (0.012 + 0.03 * hs[i])), 0, TAU);
+    ctx.fillStyle = rgba(mixRGB(col1, [255, 255, 255], 0.5), 0.55 + 0.4 * hs[i]);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawKickForm(id: string, f: VoidFxFrame, state: VoidFxState): Tip[] {
-  const form = state.form;
   if (id === 'fractal') {
-    form.env = 0;
-    form.pop = 0;
+    state.form.env = 0;
+    state.form.pop = 0;
     return [];
   }
-  const { ctx, cx, cy, r, t } = f;
-  const dt = Math.max(0, Math.min(0.06, t - form.last));
-  form.last = t;
+  const { ctx, cx, cy, r } = f;
+  const e = updateEnvelope(f, state);
 
-  // Envolvente: sube rápido con el bajo, baja despacio; el golpe añade un rebote
-  // Sin música la forma queda en reposo: no hay movimiento propio
-  const target = f.active ? drive(f, f.bass * 0.85) + f.kickStrength * 0.55 : 0;
-  const rate = target > form.env ? 32 : 5.5;
-  form.env += (target - form.env) * (1 - Math.exp(-dt * rate));
-  if (f.boom > 0) form.pop = Math.max(form.pop, f.boom);
-  form.pop *= Math.exp(-dt * 7);
+  // Formas dibujadas a medida (galaxia, órbitas, tormenta, cinta, constelación, mareas)
+  const custom = CUSTOM_FORMS[id];
+  if (custom) return custom(f, state, e);
 
-  const life = 0.22 + Math.min(1.25, form.env) * 0.85 + form.pop * 0.34;
-  const H = r * f.fx.formScale * Math.sqrt(f.fx.reach) * life;
-  const rb = r * (1.03 + f.kickStrength * 0.03);
+  const { rb, H } = e;
   const lobes = buildLobes(id, f, H / r);
   if (lobes.length === 0) return [];
 
@@ -462,28 +434,21 @@ function drawKickForm(id: string, f: VoidFxFrame, state: VoidFxState): Tip[] {
       ctx.strokeStyle = rgba(layer.color, layer.stroke);
       ctx.lineWidth = line(f, li === 0 ? 1.6 : 1.1);
       ctx.shadowColor = rgba(layer.color, 1);
-      ctx.shadowBlur = blur(f, Math.max(6, r * 0.09) * (0.6 + form.env * 0.6));
+      ctx.shadowBlur = blur(f, Math.max(6, r * 0.09) * (0.6 + e.env * 0.6));
       ctx.stroke();
     }
     ctx.shadowBlur = 0;
   });
 
-  // Joyas de la corona y puntas visibles (para chispas)
+  // ── INTERIOR del Cristal: facetas dentro del disco que reaccionan con cada cristal ──
+  if (id === 'crystal') drawCrystalInner(f, lobes, H / r, e.pop);
+
+  // Puntas visibles (para chispas y constelación de los efectos Pro)
   for (const l of lobes) {
+    if (e.env <= 0.45 || tips.length >= 4) break;
     const tipR = rb + l.h * r * 0.98;
     const ang = l.a + (l.lean || 0) * l.h * 0.98;
-    const px = cx + Math.cos(ang) * tipR;
-    const py = cy + Math.sin(ang) * tipR;
-    if (id === 'crown') {
-      ctx.beginPath();
-      ctx.arc(px, py, Math.max(1.6, r * 0.028), 0, TAU);
-      ctx.fillStyle = rgba(mixRGB(colAt(f, 0.5), [255, 255, 255], 0.5), 0.95);
-      ctx.shadowColor = f.primary;
-      ctx.shadowBlur = blur(f, 8);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    if (form.env > 0.45 && tips.length < 4) tips.push({ x: px, y: py });
+    tips.push({ x: cx + Math.cos(ang) * tipR, y: cy + Math.sin(ang) * tipR });
   }
   ctx.restore();
   return tips;
@@ -496,7 +461,7 @@ export function drawVoidEffect(id: string, f: VoidFxFrame, state: VoidFxState): 
   drawInner(f);
   drawBoom(f, state);
   // Anillos de la mándala: los elige el usuario solo cuando la mándala es el efecto
-  const tips = id === 'fractal' || f.fx.mandala ? drawMandala(f, id === 'fractal' ? Math.round(f.fx.count) : 4) : [];
+  const tips = id === 'fractal' || (id === 'crystal' && f.fx.mandala) ? drawMandala(f, id === 'fractal' ? Math.round(f.fx.count) : 4) : [];
   const contour = drawKickForm(id, f, state);
   return contour.length ? tips.concat(contour) : tips;
 }

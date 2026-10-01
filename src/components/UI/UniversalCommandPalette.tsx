@@ -33,6 +33,7 @@ import { AudioEngine } from '../../services/audioEngine';
 import { pictureInPictureService } from '../../services/pictureInPictureService';
 import { soundscapeEngine } from '../../services/soundscapeEngine';
 import { EmptyState } from '../Common/EmptyState';
+import { useShallow } from 'zustand/react/shallow';
 
 interface CommandItem {
   id: string;
@@ -85,7 +86,49 @@ export const UniversalCommandPalette: React.FC = () => {
     vocalMode,
     setVocalMode,
     setStoryCardOpen,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isCommandPaletteOpen: s.isCommandPaletteOpen,
+      setCommandPaletteOpen: s.setCommandPaletteOpen,
+      is8DAudioActive: s.is8DAudioActive,
+      toggle8DAudio: s.toggle8DAudio,
+      isUnderwaterActive: s.isUnderwaterActive,
+      toggleUnderwater: s.toggleUnderwater,
+      dspSpeedMode: s.dspSpeedMode,
+      setDspSpeedMode: s.setDspSpeedMode,
+      binauralMode: s.binauralMode,
+      setBinauralMode: s.setBinauralMode,
+      masteringPreset: s.masteringPreset,
+      setMasteringPreset: s.setMasteringPreset,
+      isRetroCrtActive: s.isRetroCrtActive,
+      toggleRetroCrt: s.toggleRetroCrt,
+      showAudioRibbons: s.showAudioRibbons,
+      toggleAudioRibbons: s.toggleAudioRibbons,
+      visualizerMode: s.visualizerMode,
+      setVisualizerMode: s.setVisualizerMode,
+      setEqualizerOpen: s.setEqualizerOpen,
+      setSidebarOpen: s.setSidebarOpen,
+      toggleShuffle: s.toggleShuffle,
+      isShuffled: s.isShuffled,
+      repeatMode: s.repeatMode,
+      setRepeatMode: s.setRepeatMode,
+      isMuted: s.isMuted,
+      volume: s.volume,
+      setVolume: s.setVolume,
+      setSessionStatsOpen: s.setSessionStatsOpen,
+      setLoopPointA: s.setLoopPointA,
+      setLoopPointB: s.setLoopPointB,
+      clearLoop: s.clearLoop,
+      isLoopActive: s.isLoopActive,
+      toggleHarmonicSync: s.toggleHarmonicSync,
+      isHarmonicSyncActive: s.isHarmonicSyncActive,
+      toggleInfiniteRadio: s.toggleInfiniteRadio,
+      isInfiniteRadioActive: s.isInfiniteRadioActive,
+      vocalMode: s.vocalMode,
+      setVocalMode: s.setVocalMode,
+      setStoryCardOpen: s.setStoryCardOpen,
+    }))
+  );
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -364,14 +407,6 @@ export const UniversalCommandPalette: React.FC = () => {
       icon: Grid,
       action: () => setVisualizerMode('synthwave'),
       badge: visualizerMode === 'synthwave' ? 'Activo' : '',
-    },
-    {
-      id: 'viz_warp',
-      title: 'Visualizador: Túnel Warp Hipersónico',
-      category: 'Visualizadores',
-      icon: Zap,
-      action: () => setVisualizerMode('warp'),
-      badge: visualizerMode === 'warp' ? 'Activo' : '',
     },
     {
       id: 'viz_terrain',

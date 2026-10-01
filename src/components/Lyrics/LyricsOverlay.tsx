@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LyricsPanel } from './LyricsPanel';
 import { useLyrics } from '../../hooks/useLyrics';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
+import { isSpotifyActiveSource } from '../../utils/spotifyRouting';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useSpotifyPlayer } from '../../hooks/useSpotifyPlayer';
@@ -45,13 +46,14 @@ export const LyricsOverlay: React.FC = () => {
     }))
   );
 
+  const spotifyActive = isSpotifyActiveSource({ isSpotifyConnected, currentTrack });
   const { lyricsData, loadLrcFile, isLoading } = useLyrics();
   const {
     seek,
     togglePlayPause: engineTogglePlayPause,
     playNext: enginePlayNext,
     playPrevious: enginePlayPrevious,
-  } = useAudioEngine();
+  } = useAudioPlayerActions();
   const {
     seek: spotifySeek,
     togglePlayPause: spotifyTogglePlayPause,
@@ -60,28 +62,28 @@ export const LyricsOverlay: React.FC = () => {
   } = useSpotifyPlayer();
 
   const handlePlayPause = useCallback(() => {
-    if (isSpotifyConnected) {
+    if (spotifyActive) {
       spotifyTogglePlayPause();
     } else {
       engineTogglePlayPause();
     }
-  }, [isSpotifyConnected, spotifyTogglePlayPause, engineTogglePlayPause]);
+  }, [spotifyActive, spotifyTogglePlayPause, engineTogglePlayPause]);
 
   const handleSkipNext = useCallback(() => {
-    if (isSpotifyConnected) {
+    if (spotifyActive) {
       spotifyPlayNext();
     } else {
       enginePlayNext();
     }
-  }, [isSpotifyConnected, spotifyPlayNext, enginePlayNext]);
+  }, [spotifyActive, spotifyPlayNext, enginePlayNext]);
 
   const handleSkipPrev = useCallback(() => {
-    if (isSpotifyConnected) {
+    if (spotifyActive) {
       spotifyPlayPrevious();
     } else {
       enginePlayPrevious();
     }
-  }, [isSpotifyConnected, spotifyPlayPrevious, enginePlayPrevious]);
+  }, [spotifyActive, spotifyPlayPrevious, enginePlayPrevious]);
 
   const activeColor = isLucid ? (lucidTheme?.primary || '#00f0ff') : '#00f0ff';
 
@@ -355,7 +357,7 @@ export const LyricsOverlay: React.FC = () => {
               }}
               onToggleZenMode={() => setPanelState('collapsed')}
               onSeek={(time) => {
-                if (isSpotifyConnected) {
+                if (spotifyActive) {
                   spotifySeek(Math.round(time * 1000));
                 } else {
                   seek(time);

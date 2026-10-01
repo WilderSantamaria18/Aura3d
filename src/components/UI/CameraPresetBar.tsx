@@ -7,8 +7,8 @@ export const CameraPresetBar: React.FC = React.memo(() => {
   const setCameraPreset = usePlayerStore((s) => s.setCameraPreset);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
 
-  // Only show on 3D visualizers
-  if (visualizerMode === 'blob') return null;
+  // Solo donde la cámara responde al preset: Terreno. En el resto los botones no hacían nada.
+  if (visualizerMode !== 'terrain') return null;
 
   const presets: { id: CameraPreset; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'front', label: 'Frontal', icon: Eye },

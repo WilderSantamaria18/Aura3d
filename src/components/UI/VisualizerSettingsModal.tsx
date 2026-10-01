@@ -12,19 +12,37 @@ import {
   Unlink,
   Zap,
   Lock,
+  Sun,
+  Mountain,
+  Orbit,
+  Sparkles,
+  Camera,
+  Palmtree,
 } from 'lucide-react';
-import { usePlayerStore } from '../../stores/playerStore';
-import { PROFESSIONAL_PALETTES, LUCID_THEMES } from '../../types/audio';
+import { usePlayerStore, type CameraPreset } from '../../stores/playerStore';
+import { PROFESSIONAL_PALETTES, LUCID_THEMES, type VisualizerMode } from '../../types/audio';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { VoidFxCustomizer } from './VoidFxCustomizer';
+import { useShallow } from 'zustand/react/shallow';
+
+const VISUALIZER_MODES = [
+  { id: 'blob' as VisualizerMode, label: 'Rainbow Void', icon: Sparkles, tag: 'Canvas 2D' },
+  { id: 'synthwave' as VisualizerMode, label: 'Synthwave Grid', icon: Sun, tag: 'Outrun 3D' },
+  { id: 'terrain' as VisualizerMode, label: 'Cyber Terrain', icon: Mountain, tag: 'Topografía 3D' },
+];
 
 export const VisualizerSettingsModal: React.FC = () => {
   const {
     isVisualizerSettingsOpen,
     setVisualizerSettingsOpen,
     visualizerMode,
+    setVisualizerMode,
     blobShape,
     setBlobShape,
+    blobSettings,
+    updateBlobSettings,
+    cameraPreset,
+    setCameraPreset,
     sphereScale,
     setSphereScale,
     linkScales,
@@ -43,23 +61,58 @@ export const VisualizerSettingsModal: React.FC = () => {
     lucidTheme,
     setLucidTheme,
     toggleLucidMode,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isVisualizerSettingsOpen: s.isVisualizerSettingsOpen,
+      setVisualizerSettingsOpen: s.setVisualizerSettingsOpen,
+      visualizerMode: s.visualizerMode,
+      setVisualizerMode: s.setVisualizerMode,
+      blobShape: s.blobShape,
+      setBlobShape: s.setBlobShape,
+      blobSettings: s.blobSettings,
+      updateBlobSettings: s.updateBlobSettings,
+      cameraPreset: s.cameraPreset,
+      setCameraPreset: s.setCameraPreset,
+      sphereScale: s.sphereScale,
+      setSphereScale: s.setSphereScale,
+      linkScales: s.linkScales,
+      setLinkScales: s.setLinkScales,
+      sphereOpacity: s.sphereOpacity,
+      setSphereOpacity: s.setSphereOpacity,
+      audioSpeed: s.audioSpeed,
+      setAudioSpeed: s.setAudioSpeed,
+      musicSensitivity: s.musicSensitivity,
+      setMusicSensitivity: s.setMusicSensitivity,
+      showFrequencyBars: s.showFrequencyBars,
+      setShowFrequencyBars: s.setShowFrequencyBars,
+      currentPaletteIndex: s.currentPaletteIndex,
+      setCurrentPaletteIndex: s.setCurrentPaletteIndex,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      setLucidTheme: s.setLucidTheme,
+      toggleLucidMode: s.toggleLucidMode,
+    }))
+  );
 
   const [activeTab, setActiveTab] = useState<'shapes' | 'params' | 'colors'>('shapes');
 
   if (!isVisualizerSettingsOpen) return null;
 
   const isBlob = visualizerMode === 'blob';
+  const isSynthwave = visualizerMode === 'synthwave';
+  const isTerrain = visualizerMode === 'terrain';
   const currentSpeed = audioSpeed || musicSensitivity || 0.75;
 
+  const currentModeInfo = VISUALIZER_MODES.find((m) => m.id === visualizerMode) || VISUALIZER_MODES[0];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-md pointer-events-auto select-none font-sans animate-aura-backdrop">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/60 backdrop-blur-md pointer-events-auto select-none font-sans animate-aura-backdrop">
       <div
-        className="w-full max-w-2xl liquid-glass liquid-glass--modal relative flex flex-col max-h-[90vh] overflow-hidden animate-aura-modal"
+        className="w-full max-w-2xl liquid-glass liquid-glass--modal relative flex flex-col max-h-[92vh] overflow-hidden animate-aura-modal"
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] flex-shrink-0">
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="glass-item is-active !rounded-2xl w-9 h-9 flex items-center justify-center text-cyan-300">
               <Sliders className="w-4 h-4" />
@@ -68,8 +121,12 @@ export const VisualizerSettingsModal: React.FC = () => {
               <h2 className="text-white font-bold text-sm sm:text-base tracking-tight">
                 Calibración del Visualizador
               </h2>
-              <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
-                Modo Activo: Rainbow Void (Canvas 2D Ultra HD)
+              <p className="text-cyan-300/80 text-[11px] font-mono tracking-wider mt-0.5 flex items-center gap-1.5">
+                <span>Modo Activo:</span>
+                <span className="font-semibold text-white">{currentModeInfo.label}</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  {currentModeInfo.tag}
+                </span>
               </p>
             </div>
           </div>
@@ -83,8 +140,33 @@ export const VisualizerSettingsModal: React.FC = () => {
           </button>
         </div>
 
+        {/* ── Selector de Visualizador Activo (Pills Superiores) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-3 pb-1 flex-shrink-0">
+          {VISUALIZER_MODES.map((mode) => {
+            const Icon = mode.icon;
+            const isSelected = visualizerMode === mode.id;
+            return (
+              <button
+                key={mode.id}
+                onClick={() => setVisualizerMode(mode.id)}
+                className={`flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-all border ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-cyan-400/40 text-white shadow-[0_0_15px_rgba(0,229,255,0.15)]'
+                    : 'bg-white/[0.02] border-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.05]'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? 'text-cyan-300' : 'text-white/40'}`} />
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold tracking-tight truncate leading-tight">{mode.label}</div>
+                  <div className="text-[9px] font-mono text-white/40 truncate">{mode.tag}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
         {/* ── Segmented Tab Switcher ── */}
-        <div className="glass-input !rounded-2xl flex items-center p-1 my-3 flex-shrink-0">
+        <div className="glass-input !rounded-2xl flex items-center p-1 my-2 flex-shrink-0">
           <button
             onClick={() => setActiveTab('shapes')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium transition-colors ${
@@ -94,7 +176,7 @@ export const VisualizerSettingsModal: React.FC = () => {
             }`}
           >
             <Shapes className="w-3.5 h-3.5" />
-            <span>Geometrías & Efectos</span>
+            <span>Diseño & Estilo</span>
           </button>
           <button
             onClick={() => setActiveTab('params')}
@@ -105,7 +187,7 @@ export const VisualizerSettingsModal: React.FC = () => {
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Parámetros</span>
+            <span>Dinámica & Audio</span>
           </button>
           <button
             onClick={() => setActiveTab('colors')}
@@ -116,43 +198,371 @@ export const VisualizerSettingsModal: React.FC = () => {
             }`}
           >
             <Palette className="w-3.5 h-3.5" />
-            <span>Paletas & Lucid</span>
+            <span>Paletas & Lúcido</span>
           </button>
         </div>
 
         {/* ── Scrollable Tab Content ── */}
         <div className="flex-1 overflow-y-auto space-y-4 py-1 scrollbar-thin scrollbar-thumb-white/10 pr-1">
-          {/* TAB 1: GEOMETRÍAS Y EFECTOS */}
+          {/* TAB 1: DISEÑO Y GEOMETRÍA (Específico de cada visualizador) */}
           {activeTab === 'shapes' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {RAINBOW_VOID_EFFECTS.map((fx) => {
-                  const isSelected = blobShape === fx.id;
-                  return (
-                    <button
-                      key={fx.id}
-                      onClick={() => setBlobShape(fx.id)}
-                      className={`glass-item !rounded-2xl px-3.5 py-3 min-h-[92px] text-left flex flex-col justify-between gap-2 cursor-pointer ${
-                        isSelected ? 'is-active text-white' : 'text-white/75'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
-                          <span className="text-[13px] font-semibold tracking-tight text-white">{fx.name}</span>
+            <div className="space-y-4">
+              {/* ── OPCIONES RAINBOW VOID 2D ── */}
+              {isBlob && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {RAINBOW_VOID_EFFECTS.map((fx) => {
+                      const isSelected = blobShape === fx.id;
+                      return (
+                        <button
+                          key={fx.id}
+                          onClick={() => setBlobShape(fx.id)}
+                          className={`glass-item !rounded-2xl px-3.5 py-3 min-h-[92px] text-left flex flex-col justify-between gap-2 cursor-pointer ${
+                            isSelected ? 'is-active text-white' : 'text-white/75'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                              <span className="text-[13px] font-semibold tracking-tight text-white">{fx.name}</span>
+                            </div>
+                            <p className="text-[11px] text-white/55 leading-snug mt-1 line-clamp-2">{fx.desc}</p>
+                          </div>
+                          <span className="text-[9px] font-mono tracking-[0.14em] uppercase text-white/45">{fx.tag}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <VoidFxCustomizer showShockwave />
+                </div>
+              )}
+
+              {/* ── OPCIONES SYNTHWAVE GRID 3D ── */}
+              {isSynthwave && (
+                <div className="space-y-4">
+                  {/* Temas Retrowave */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Temas de Color Retrowave
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'outrun', name: 'Outrun Neon', colors: ['#ff007f', '#00f0ff', '#ffe600'], desc: 'Rosa neón y cian cyberpunk clásico' },
+                        { id: 'cyber', name: 'Cyber Matrix', colors: ['#00ff66', '#00e5ff', '#003311'], desc: 'Líneas esmeralda y atmósfera oscura' },
+                        { id: 'vaporwave', name: 'Vaporwave Sunset', colors: ['#ff71ce', '#01cdfe', '#b967ff'], desc: 'Púrpura y rosas pastel etéreos' },
+                        { id: 'sunset_overdrive', name: 'Sunset Overdrive', colors: ['#ff3b00', '#ff0078', '#ffaa00'], desc: 'Atardecer ardiente magenta y naranja' },
+                      ].map((t) => {
+                        const isSelected = (blobSettings?.synthwaveTheme ?? 'outrun') === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => updateBlobSettings({ synthwaveTheme: t.id as any })}
+                            className={`glass-item !rounded-2xl p-3 text-left flex flex-col justify-between gap-1.5 cursor-pointer ${
+                              isSelected ? 'is-active text-white' : 'text-white/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center -space-x-1">
+                                  {t.colors.map((c, i) => (
+                                    <span key={i} className="w-3 h-3 rounded-full border border-black/40" style={{ backgroundColor: c }} />
+                                  ))}
+                                </div>
+                                <span className="text-xs font-semibold text-white">{t.name}</span>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                            </div>
+                            <p className="text-[10px] text-white/50 leading-tight">{t.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Estilo del Sol 80s */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Estilo del Sol Audio-Reactivo
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'venetian', name: 'Sol Veneciano', desc: 'Ranuras horizontales con escaneo hacia abajo' },
+                        { id: 'corona', name: 'Corona Solar', desc: 'Llamaradas y explosiones solares con graves y agudos' },
+                        { id: 'wireframe', name: 'Esfera Wireframe', desc: 'Orbe 3D vectorial en rotación con líneas de latitud' },
+                        { id: 'eclipse', name: 'Eclipse Total', desc: 'Sol de obsidiana negra con fulgor exterior de neón' },
+                      ].map((s) => {
+                        const isSelected = (blobSettings?.synthwaveSunStyle ?? 'venetian') === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => updateBlobSettings({ synthwaveSunStyle: s.id as any })}
+                            className={`glass-item !rounded-2xl p-3 text-left flex flex-col justify-between gap-1.5 cursor-pointer ${
+                              isSelected ? 'is-active text-white' : 'text-white/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-white">{s.name}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                            </div>
+                            <p className="text-[10px] text-white/50 leading-tight">{s.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Físicas y Elementos del Entorno */}
+                  <div className="glass-card !p-3.5 space-y-3">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Física de Carretera y Elementos 3D
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Velocidad */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Velocidad de Carretera</span>
+                          <span className="font-mono text-cyan-300 text-xs">
+                            {(blobSettings?.synthwaveSpeed ?? 1.0).toFixed(1)}x
+                          </span>
                         </div>
-                        <p className="text-[11px] text-white/55 leading-snug mt-1 line-clamp-2">{fx.desc}</p>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="3.0"
+                          step="0.1"
+                          value={blobSettings?.synthwaveSpeed ?? 1.0}
+                          onChange={(e) => updateBlobSettings({ synthwaveSpeed: parseFloat(e.target.value) })}
+                          className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                        />
                       </div>
-                      <span className="text-[9px] font-mono tracking-[0.14em] uppercase text-white/45">{fx.tag}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <VoidFxCustomizer showShockwave />
+
+                      {/* Curvatura S */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Curvatura Dinámica S</span>
+                          <span className="font-mono text-cyan-300 text-xs">
+                            {(blobSettings?.synthwaveCurveIntensity ?? 1.0).toFixed(1)}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.0"
+                          max="2.5"
+                          step="0.1"
+                          value={blobSettings?.synthwaveCurveIntensity ?? 1.0}
+                          onChange={(e) => updateBlobSettings({ synthwaveCurveIntensity: parseFloat(e.target.value) })}
+                          className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => updateBlobSettings({ synthwaveMountains: !(blobSettings?.synthwaveMountains ?? true) })}
+                        className={`glass-item !rounded-xl p-2.5 flex items-center justify-between cursor-pointer ${
+                          (blobSettings?.synthwaveMountains ?? true) ? 'is-active text-white' : 'text-white/70'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Mountain className="w-3.5 h-3.5 text-cyan-300" />
+                          <span className="text-xs font-medium">Montañas Wireframe</span>
+                        </div>
+                        <span className="text-[9px] font-mono uppercase text-white/50">
+                          {(blobSettings?.synthwaveMountains ?? true) ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => updateBlobSettings({ synthwavePalms: !(blobSettings?.synthwavePalms ?? true) })}
+                        className={`glass-item !rounded-xl p-2.5 flex items-center justify-between cursor-pointer ${
+                          (blobSettings?.synthwavePalms ?? true) ? 'is-active text-white' : 'text-white/70'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Palmtree className="w-3.5 h-3.5 text-pink-400" />
+                          <span className="text-xs font-medium">Palmeras Retro</span>
+                        </div>
+                        <span className="text-[9px] font-mono uppercase text-white/50">
+                          {(blobSettings?.synthwavePalms ?? true) ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
+              {/* ── OPCIONES CYBER TERRAIN 3D ── */}
+              {isTerrain && (
+                <div className="space-y-4">
+                  {/* Estilo de Malla */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Estilo de Renderizado Topográfico
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'wireframe', name: 'Malla Wireframe', desc: 'Líneas vectoriales de alta precisión estilo CAD Tron' },
+                        { id: 'dual_mesh', name: 'Dual Tron Shaded', desc: 'Superficie translúcida + rejilla wireframe brillante' },
+                        { id: 'surface', name: 'Superficie Metálica', desc: 'Polígonos sólidos con reflejo de luz direccional' },
+                        { id: 'points', name: 'Matriz de Puntos', desc: 'Nube de partículas topográficas holográficas' },
+                      ].map((m) => {
+                        const isSelected = (blobSettings?.terrainStyle ?? 'wireframe') === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => updateBlobSettings({ terrainStyle: m.id as any })}
+                            className={`glass-item !rounded-2xl p-3 text-left flex flex-col justify-between gap-1.5 cursor-pointer ${
+                              isSelected ? 'is-active text-white' : 'text-white/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-white">{m.name}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#00e5ff] flex-shrink-0" />}
+                            </div>
+                            <p className="text-[10px] text-white/50 leading-tight">{m.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sol del Horizonte */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Sol del Horizonte
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: 'classic', name: 'Disco Neón', desc: 'Sol con halo estático' },
+                        { id: 'corona', name: 'Corona Pulsante', desc: 'Llamaradas y anillos concéntricos' },
+                        { id: 'grid_orb', name: 'Cyber Orb 3D', desc: 'Orbe vectorial en rotación' },
+                        { id: 'none', name: 'Sin Sol', desc: 'Noche cyber oscura' },
+                      ].map((s) => {
+                        const isSelected = (blobSettings?.terrainSunStyle ?? 'classic') === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => updateBlobSettings({ terrainSunStyle: s.id as any })}
+                            className={`glass-item !rounded-xl p-2.5 text-left flex flex-col justify-between gap-1 cursor-pointer ${
+                              isSelected ? 'is-active text-white' : 'text-white/70'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-white">{s.name}</span>
+                              {isSelected && <Check className="w-3 h-3 text-[#00e5ff] flex-shrink-0" />}
+                            </div>
+                            <p className="text-[9px] text-white/40 leading-tight">{s.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Controles de Elevación y Vuelo */}
+                  <div className="glass-card !p-3.5 space-y-3">
+                    <span className="text-[11px] uppercase tracking-wider font-mono text-cyan-300/80 block">
+                      Parámetros Topográficos y Vuelo
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Elevación */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Altitud Montañas</span>
+                          <span className="font-mono text-cyan-300 text-xs">
+                            {(blobSettings?.terrainElevation ?? 1.0).toFixed(1)}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="2.5"
+                          step="0.1"
+                          value={blobSettings?.terrainElevation ?? 1.0}
+                          onChange={(e) => updateBlobSettings({ terrainElevation: parseFloat(e.target.value) })}
+                          className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                        />
+                      </div>
+
+                      {/* Rugosidad */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Rugosidad / Detalle</span>
+                          <span className="font-mono text-cyan-300 text-xs">
+                            {(blobSettings?.terrainRoughness ?? 1.0).toFixed(1)}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="2.5"
+                          step="0.1"
+                          value={blobSettings?.terrainRoughness ?? 1.0}
+                          onChange={(e) => updateBlobSettings({ terrainRoughness: parseFloat(e.target.value) })}
+                          className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                        />
+                      </div>
+
+                      {/* Velocidad */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-white/60">Velocidad Vuelo</span>
+                          <span className="font-mono text-cyan-300 text-xs">
+                            {(blobSettings?.terrainSpeed ?? 1.0).toFixed(1)}x
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="3.0"
+                          step="0.1"
+                          value={blobSettings?.terrainSpeed ?? 1.0}
+                          onChange={(e) => updateBlobSettings({ terrainSpeed: parseFloat(e.target.value) })}
+                          className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Selector de Ángulos de Cámara de Vuelo */}
+                    <div className="pt-2 border-t border-white/[0.06] space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs text-white/60">
+                        <Camera className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>Perspectiva de Vuelo de Cámara:</span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                        {[
+                          { id: 'front' as CameraPreset, label: 'Frontal' },
+                          { id: 'driver' as CameraPreset, label: 'Cockpit' },
+                          { id: 'drone' as CameraPreset, label: 'Dron Flyby' },
+                          { id: 'orbit' as CameraPreset, label: 'Órbita 360°' },
+                          { id: 'top' as CameraPreset, label: 'Satelital' },
+                        ].map((c) => {
+                          const isSelected = cameraPreset === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => setCameraPreset(c.id)}
+                              className={`py-1.5 px-2 rounded-lg text-center text-xs font-medium transition-colors border ${
+                                isSelected
+                                  ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-sm'
+                                  : 'bg-white/[0.02] border-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.05]'
+                              }`}
+                            >
+                              {c.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 2: PARÁMETROS */}
+          {/* TAB 2: PARÁMETROS GLOBALES DE DINÁMICA & AUDIO */}
           {activeTab === 'params' && (
             <div className="space-y-4">
               {/* Grid 2 Columnas de Sliders de Precisión */}
@@ -208,7 +618,7 @@ export const VisualizerSettingsModal: React.FC = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5 text-white/40" />
-                      Opacidad de Partículas
+                      Opacidad de Partículas / Mallas
                     </span>
                     <span className="font-mono tabular-nums text-white/90 text-xs font-medium">
                       {Math.round(sphereOpacity * 100)}%
@@ -230,18 +640,18 @@ export const VisualizerSettingsModal: React.FC = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/60 flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 text-white/40" />
-                      Sensibilidad de Audio
+                      Sensibilidad de Audio DSP
                     </span>
                     <span className="font-mono tabular-nums text-cyan-300 text-xs font-medium">
-                      {Math.min(0.85, Math.max(0.60, currentSpeed)).toFixed(2)}x
+                      {Math.min(1.80, Math.max(0.40, currentSpeed)).toFixed(2)}x
                     </span>
                   </div>
                   <input
                     type="range"
-                    min="0.60"
-                    max="0.85"
+                    min="0.40"
+                    max="1.80"
                     step="0.05"
-                    value={Math.min(0.85, Math.max(0.60, currentSpeed))}
+                    value={Math.min(1.80, Math.max(0.40, currentSpeed))}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       setAudioSpeed(val);
@@ -250,9 +660,9 @@ export const VisualizerSettingsModal: React.FC = () => {
                     className="w-full h-1 bg-white/10 rounded cursor-pointer accent-[#00e5ff]"
                   />
                   <div className="flex justify-between text-[9px] font-mono text-white/30">
-                    <span>0.60x (Suave)</span>
-                    <span className="text-cyan-400">0.75x (Nominal)</span>
-                    <span>0.85x (Punch)</span>
+                    <span>0.50x (Suave)</span>
+                    <span className="text-cyan-400">1.00x (Nominal)</span>
+                    <span>1.50x (Enérgico)</span>
                   </div>
                 </div>
               </div>

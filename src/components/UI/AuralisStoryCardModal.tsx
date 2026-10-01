@@ -5,9 +5,20 @@ import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { harmonicAnalysisService } from '../../services/harmonicAnalysisService';
 import { sessionStatsService } from '../../services/sessionStatsService';
 import { waveformService } from '../../services/waveformService';
+import { useShallow } from 'zustand/react/shallow';
 
 export const AuralisStoryCardModal: React.FC = () => {
-  const { isStoryCardOpen, setStoryCardOpen, currentTrack, isLucid, lucidTheme, lucidPrimaryColor, bpm } = usePlayerStore();
+  const { isStoryCardOpen, setStoryCardOpen, currentTrack, isLucid, lucidTheme, lucidPrimaryColor, bpm } = usePlayerStore(
+    useShallow((s) => ({
+      isStoryCardOpen: s.isStoryCardOpen,
+      setStoryCardOpen: s.setStoryCardOpen,
+      currentTrack: s.currentTrack,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      bpm: s.bpm,
+    }))
+  );
   const { mood, dominantPitch } = useAIAudioEngine();
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);

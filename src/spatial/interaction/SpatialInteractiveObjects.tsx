@@ -42,8 +42,15 @@ export const SpatialInteractiveObjects: React.FC = () => {
   const prismGroupRef = useRef<THREE.Group>(null);
   const prismMeshRef = useRef<THREE.Mesh>(null);
 
+  const rootRef = useRef<THREE.Group>(null);
+
   useFrame((_, delta) => {
     const spatialState = SpatialState.getInstance();
+    // Los objetos manipulables solo existen en el modo 'manipulate': fuera de él ni se dibujan ni simulan
+    const active = spatialState.getMode() === 'manipulate';
+    if (rootRef.current) rootRef.current.visible = active;
+    if (!active) return;
+
     const domHand = spatialState.getDominantHand();
     const cursorPoint = domHand.isPresent && domHand.confidenceTier !== 'untrusted'
       ? domHand.worldIndexTip
@@ -68,7 +75,7 @@ export const SpatialInteractiveObjects: React.FC = () => {
 
       // Feedback visual reactivo (Hover y Grab)
       if (cubeOuterMeshRef.current) {
-        const mat = cubeOuterMeshRef.current.material as THREE.MeshPhysicalMaterial;
+        const mat = cubeOuterMeshRef.current.material as THREE.MeshStandardMaterial;
         const hover = cubeManipulator.hoverAmount;
         const grab = cubeManipulator.grabEnergy;
 
@@ -89,7 +96,7 @@ export const SpatialInteractiveObjects: React.FC = () => {
       }
 
       if (orbInnerMeshRef.current) {
-        const mat = orbInnerMeshRef.current.material as THREE.MeshPhysicalMaterial;
+        const mat = orbInnerMeshRef.current.material as THREE.MeshStandardMaterial;
         const hover = orbManipulator.hoverAmount;
         const grab = orbManipulator.grabEnergy;
 
@@ -109,7 +116,7 @@ export const SpatialInteractiveObjects: React.FC = () => {
       }
 
       if (prismMeshRef.current) {
-        const mat = prismMeshRef.current.material as THREE.MeshPhysicalMaterial;
+        const mat = prismMeshRef.current.material as THREE.MeshStandardMaterial;
         const hover = prismManipulator.hoverAmount;
         const grab = prismManipulator.grabEnergy;
 
@@ -120,16 +127,14 @@ export const SpatialInteractiveObjects: React.FC = () => {
   });
 
   return (
-    <group>
+    <group ref={rootRef} visible={false}>
       {/* ── OBJETO 1: Hipercubo Cristalino (Cyan / Magenta) ── */}
       <group ref={cubeGroupRef} position={[-0.9, 0.45, -2.6]}>
         {/* Cuerpo exterior translúcido */}
         <mesh ref={cubeOuterMeshRef} castShadow receiveShadow>
           <boxGeometry args={[0.34, 0.34, 0.34]} />
-          <meshPhysicalMaterial
+          <meshStandardMaterial
             color="#00e5ff"
-            transmission={0.85}
-            thickness={0.5}
             roughness={0.15}
             metalness={0.1}
             transparent
@@ -150,9 +155,8 @@ export const SpatialInteractiveObjects: React.FC = () => {
       <group ref={orbGroupRef} position={[0.9, 0.45, -2.6]}>
         <mesh ref={orbInnerMeshRef} castShadow receiveShadow>
           <icosahedronGeometry args={[0.22, 2]} />
-          <meshPhysicalMaterial
+          <meshStandardMaterial
             color="#ff088a"
-            transmission={0.8}
             roughness={0.12}
             metalness={0.2}
             transparent
@@ -173,9 +177,8 @@ export const SpatialInteractiveObjects: React.FC = () => {
       <group ref={prismGroupRef} position={[0.0, 0.85, -2.8]}>
         <mesh ref={prismMeshRef} castShadow receiveShadow>
           <octahedronGeometry args={[0.24, 0]} />
-          <meshPhysicalMaterial
+          <meshStandardMaterial
             color="#34c759"
-            transmission={0.78}
             roughness={0.18}
             metalness={0.15}
             transparent

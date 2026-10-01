@@ -78,6 +78,19 @@ export default defineConfig({
     },
   },
   build: {
+    rollupOptions: {
+      output: {
+        // Las librerías pesadas van en trozos propios: se cachean aparte y no se re-descargan en cada cambio de la app
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/[\/]node_modules[\/](three|@react-three|three-stdlib|troika-[^\/]+|postprocessing)[\/]/.test(id)) return 'vendor-three';
+          if (/[\/]node_modules[\/]@mediapipe[\/]/.test(id)) return 'vendor-mediapipe';
+          if (/[\/]node_modules[\/](framer-motion|motion|motion-dom|motion-utils)[\/]/.test(id)) return 'vendor-motion';
+          if (/[\/]node_modules[\/](react|react-dom|scheduler|zustand)[\/]/.test(id)) return 'vendor-react';
+          return undefined;
+        },
+      },
+    },
     // 3D WebGL vendor bundle is code-split via React.lazy and loaded on demand
     chunkSizeWarningLimit: 1200,
     modulePreload: {

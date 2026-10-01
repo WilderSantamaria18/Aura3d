@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAIAudioEngine } from '../../hooks/useAIAudioEngine';
 import { usePlayerStore } from '../../stores/playerStore';
 import { Trophy, Flame, Zap, X, RotateCcw, Volume2 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 interface BeatTapGameProps {
   isOpen: boolean;
@@ -26,7 +27,7 @@ const STORAGE_KEY_BEAT_TAP_HIGH = 'auralis_beat_tap_high_score';
 
 export const BeatTapGame: React.FC<BeatTapGameProps> = ({ isOpen, onClose }) => {
   const { isBeat, beatPulse, mood } = useAIAudioEngine();
-  const { isPlaying, isLucid, lucidTheme, bpm } = usePlayerStore();
+  const { isPlaying, isLucid, lucidTheme, bpm } = usePlayerStore(useShallow((s) => ({ isPlaying: s.isPlaying, isLucid: s.isLucid, lucidTheme: s.lucidTheme, bpm: s.bpm })));
 
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);

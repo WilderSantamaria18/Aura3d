@@ -1,3 +1,4 @@
+export * from './color';
 export * from './renderKickShockwave';
 export * from './renderChromaticRing';
 export * from './renderPulseGrid';

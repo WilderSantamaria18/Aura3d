@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { audioEngine } from '../services/audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
-import type { Track } from '../types/audio';
+import { startMicrophone as startMic, stopMicrophone as stopMic } from '../services/liveInputs';
 
 export interface UseMicrophoneReturn {
   isMicActive: boolean;
@@ -14,52 +14,23 @@ export interface UseMicrophoneReturn {
 
 export const useMicrophone = (): UseMicrophoneReturn => {
   const isMicActive = usePlayerStore((s) => s.isMicActive);
-  const setIsMicActive = usePlayerStore((s) => s.setIsMicActive);
-  const { setCurrentTrack, setHasStarted, setAudioUnlocked, setIsPlaying } = usePlayerStore();
   const [error, setError] = useState<string | null>(null);
 
   const startMicrophone = useCallback(async () => {
-    try {
-      setError(null);
-      await audioEngine.enableMicrophone();
-      setIsMicActive(true);
-      setIsPlaying(true);
-      setHasStarted(true);
-      setAudioUnlocked(true);
+    setError(null);
+    const result = await startMic();
+    if (!result.ok && !result.cancelled) setError(result.error);
+  }, []);
 
-      const track: Track = {
-        id: 'mic_' + Date.now(),
-        title: 'Micrófono en vivo',
-        artist: 'Entrada acústica externa',
-        duration: 0,
-        sourceType: 'mic',
-        addedAt: Date.now(),
-      };
-      setCurrentTrack(track);
-    } catch (err: unknown) {
-      const isCancel =
-        err instanceof DOMException &&
-        (err.name === 'NotAllowedError' || err.name === 'AbortError');
-      if (!isCancel) {
-        const msg = err instanceof Error ? err.message : 'Error al acceder al micrófono';
-        setError(msg);
-        console.warn('[useMicrophone] Access error:', err);
-      }
-    }
-  }, [setCurrentTrack, setHasStarted, setAudioUnlocked, setIsPlaying, setIsMicActive]);
-
-  const stopMicrophone = useCallback(() => {
-    audioEngine.disableMicrophone();
-    setIsMicActive(false);
-  }, [setIsMicActive]);
+  const stopMicrophone = useCallback(() => stopMic(), []);
 
   const toggleMicrophone = useCallback(async () => {
     if (audioEngine.isMicrophoneActive() || isMicActive) {
-      stopMicrophone();
+      stopMic();
     } else {
       await startMicrophone();
     }
-  }, [isMicActive, stopMicrophone, startMicrophone]);
+  }, [isMicActive, startMicrophone]);
 
   const setMicGain = useCallback((gain: number) => {
     audioEngine.setMicGain(gain);

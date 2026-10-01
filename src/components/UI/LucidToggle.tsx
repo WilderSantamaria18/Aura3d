@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   Loader2,
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 export interface LucidToggleProps {
   isOpen?: boolean;
@@ -43,7 +44,22 @@ export const LucidToggle: React.FC<LucidToggleProps> = ({
     saveCustomLucidTheme,
     deleteCustomLucidTheme,
     combineWithWallpaper,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isLucid: s.isLucid,
+      toggleLucidMode: s.toggleLucidMode,
+      lucidTheme: s.lucidTheme,
+      setLucidTheme: s.setLucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      lucidSecondaryColor: s.lucidSecondaryColor,
+      setLucidPrimaryColor: s.setLucidPrimaryColor,
+      setLucidSecondaryColor: s.setLucidSecondaryColor,
+      customLucidThemes: s.customLucidThemes,
+      saveCustomLucidTheme: s.saveCustomLucidTheme,
+      deleteCustomLucidTheme: s.deleteCustomLucidTheme,
+      combineWithWallpaper: s.combineWithWallpaper,
+    }))
+  );
 
   const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
 

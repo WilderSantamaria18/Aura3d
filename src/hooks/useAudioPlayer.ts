@@ -14,6 +14,30 @@ import { audioEngine } from '../services/audioEngine';
 import { usePlayerStore } from '../stores/playerStore';
 import type { Track } from '../types/audio';
 import { hasNativeStreamBackend, isVercelDeployment } from '../utils/backendCapabilities';
+import { StorageService } from '../services/storageService';
+import type { RadioStation } from '../config/radioStations';
+import {
+  startSystemCapture as liveStartSystemCapture,
+  startMicrophone as liveStartMicrophone,
+  stopMicrophone as liveStopMicrophone,
+} from '../services/liveInputs';
+import {
+  canPlaySavedTrackDirectly,
+  createTrackFromYouTubeCandidate,
+  replaceResolvedFavorite,
+  resolveSavedTrackCandidate,
+  invalidateCachedYouTubeCandidate,
+} from '../utils/savedTrackPlayback';
+
+import { ensureGlobalEngineSubscription } from '../services/playbackSubscription';
+import { activeBlobUrl as activeBlobUrlRef } from '../services/playbackBlob';
+import { fetchRelatedTracks, ytSearchCache, type YouTubeSearchResult } from '../services/youtubeDiscovery';
+import { isAbort } from '../utils/isAbort';
+import { STREAM_START_TIMEOUT_MS, fetchYouTubeInfo, startWithTimeout } from '../services/youtubeLoad';
+
+// Se siguen exportando desde aquí para no romper a quien ya los importa de este hook
+export { fetchRelatedTracks };
+export type { YouTubeSearchResult };
 
 function extractYouTubeId(url?: string): string | undefined {
   if (!url) return undefined;
@@ -21,261 +45,43 @@ function extractYouTubeId(url?: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
-// ── Global Singleton Subscription (Ensures exactly ONE listener) ───────────
-function ensureGlobalEngineSubscription() {
-  if (typeof window === 'undefined') return;
-  if ((window as unknown as { __aura_audio_subscribed?: boolean }).__aura_audio_subscribed) return;
-  (window as unknown as { __aura_audio_subscribed?: boolean }).__aura_audio_subscribed = true;
+// Estado de la reproducción activa, compartido por TODAS las instancias del hook.
+// Antes vivía en refs por instancia y se limpiaba al desmontar: desmontar cualquier componente
+// que usara el hook revocaba el blob de la canción en curso y abortaba búsquedas ajenas.
+const savedTrackRequestRef: { current: AbortController | null } = { current: null };
 
-  audioEngine.onTimeUpdate((currentTime, duration) => {
-    usePlayerStore.setState({
-      currentTime,
-      duration: duration || usePlayerStore.getState().duration || 0,
-    });
-  });
+const setError = (message: string | null) => usePlayerStore.getState().setAudioError(message);
 
-  audioEngine.onStateChange((isPlaying) => {
-    usePlayerStore.setState((state) => ({
-      isPlaying,
-      hasStarted: isPlaying ? true : state.hasStarted,
-      isAudioUnlocked: isPlaying ? true : state.isAudioUnlocked,
-    }));
-  });
+/** Cada carga de YouTube lleva un número: si llega otra mientras tanto, la anterior se descarta */
+let youtubeLoadSeq = 0;
 
-  audioEngine.onEnded(async () => {
-    const state = usePlayerStore.getState();
+/** Duración mostrada hasta conocer la real (el reproductor de YouTube la corrige al arrancar) */
+const FALLBACK_YOUTUBE_DURATION = 210;
 
-    // 1. Repeat ONE: replay current track from start
-    if (state.repeatMode === 'one' && state.currentTrack) {
-      audioEngine.seek(0);
-      await audioEngine.play();
-      usePlayerStore.setState({ isPlaying: true, currentTime: 0 });
-      return;
-    }
+/**
+ * Arranca un stream propio con tiempo máximo. Si no empieza a sonar a tiempo se cancela la carga
+ * pendiente (para que no suene a la vez que el reproductor de reserva) y se lanza un error: quien
+ * llama usa entonces el reproductor oficial de YouTube en vez de dejar la interfaz esperando.
+ */
+const startStream = (url: string): Promise<void> =>
+  startWithTimeout(() => audioEngine.loadTrack(url, true), STREAM_START_TIMEOUT_MS, () => audioEngine.releaseSources());
 
-    // 2. Queue navigation: advance to next song in queue
-    let next = state.nextTrack();
-
-    // 1. Auto-alimentación continua de cola infinita: si quedan menos de 10 canciones por delante, pre-cargar 50+ más
-    const upcomingCount = state.queue.length - (state.queueIndex + 1);
-    if (upcomingCount < 10 && state.currentTrack?.youtubeId) {
-      fetchRelatedTracks(
-        state.currentTrack.youtubeId,
-        state.currentTrack.title,
-        state.currentTrack.artist,
-        state.currentTrack.duration
-      )
-        .then((more) => {
-          if (more && more.length > 0) {
-            const currentQ = usePlayerStore.getState().queue;
-            const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
-            const fresh = more.filter((t) => !existingIds.has(t.id || t.youtubeId));
-            if (fresh.length > 0) {
-              usePlayerStore.setState({ queue: [...currentQ, ...fresh] });
-            }
-          }
-        })
-        .catch(() => {});
-    }
-
-    // 2. Si la cola llegó al final y no hay siguiente, buscar 50+ canciones similares de inmediato y continuar reproduciendo
-    if (!next && state.currentTrack && state.currentTrack.youtubeId) {
-      try {
-        const related = await fetchRelatedTracks(
-          state.currentTrack.youtubeId,
-          state.currentTrack.title,
-          state.currentTrack.artist,
-          state.currentTrack.duration
-        );
-        if (related && related.length > 0) {
-          const currentQ = state.queue;
-          const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
-          const fresh = related.filter((t) => !existingIds.has(t.id || t.youtubeId));
-          const toAdd = fresh.length > 0 ? fresh : related;
-          const nextTrackItem = toAdd[0];
-          const newQueue = [...currentQ, ...toAdd];
-          usePlayerStore.setState({
-            queue: newQueue,
-            queueIndex: currentQ.length,
-            currentTrack: nextTrackItem,
-          });
-          next = nextTrackItem;
-        }
-      } catch (err) {
-        console.warn('[useAudioPlayer] Autoplay infinite queue replenishment error:', err);
-      }
-    }
-
-    if (!next && state.queue.length > 0) {
-      // Loop back to the start of the playlist
-      const first = state.queue[0];
-      usePlayerStore.setState({ queueIndex: 0, currentTrack: first });
-      next = first;
-    }
-
-    if (next) {
-      try {
-        if (next.isIframePlayback || (!next.url && next.youtubeId)) {
-          next.isIframePlayback = true;
-          usePlayerStore.setState({
-            currentTrack: next,
-            isPlaying: true,
-            currentTime: 0,
-            duration: next.duration || 180,
-          });
-        } else {
-          const streamUrl =
-            next.url || (next.youtubeId ? `/api/youtube/stream?v=${next.youtubeId}` : '');
-          if (streamUrl) {
-            try {
-              await audioEngine.loadTrack(streamUrl, true);
-            } catch {
-              next.isIframePlayback = true;
-            }
-          } else if (next.file) {
-            const buf = await next.file.arrayBuffer();
-            await audioEngine.loadArrayBuffer(buf, next.file.name);
-          }
-          usePlayerStore.setState({
-            currentTrack: next,
-            isPlaying: true,
-            currentTime: 0,
-            duration: next.isIframePlayback ? (next.duration || 180) : (audioEngine.getDuration() || next.duration || 0),
-          });
-        }
-      } catch (err) {
-        console.error('[useAudioPlayer] onEnded next track error:', err);
-      }
-    } else if (state.currentTrack) {
-      // Replay current track from beginning if queue only had 1 song
-      audioEngine.seek(0);
-      await audioEngine.play();
-      usePlayerStore.setState({ isPlaying: true, currentTime: 0 });
-    }
-  });
-}
-
-// ── YouTube Search Cache ──────────────────────────────────────────────────────
-export interface YouTubeSearchResult {
-  id: string;
-  title: string;
-  artist: string;
-  duration: number;
-  thumbnail: string;
-  url: string;
-  type?: 'video' | 'playlist';
-  videoCount?: string;
-}
-
-const ytSearchCache = new Map<string, YouTubeSearchResult[]>();
-
-// ── Fetch Related & Similar Tracks (Discovers different songs from same artist/genre) ──
-export const fetchRelatedTracks = async (
-  videoId: string,
-  title = '',
-  artist = '',
-  duration = 0
-): Promise<Track[]> => {
-  const tracksMap = new Map<string, Track>();
-  const cleanTitle = title.toLowerCase().replace(/[[({].*?[\])}]/g, '').trim();
-  const isMixFormat =
-    duration > 900 ||
-    /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|live set|enganchado|compil/i.test(title);
-
-  const addResultsToMap = (results: YouTubeSearchResult[]) => {
-    for (const r of results) {
-      if (!r || !r.id || r.id === videoId) continue;
-      const rTitleClean = (r.title || '').toLowerCase().replace(/[[({].*?[\])}]/g, '').trim();
-      if (cleanTitle.length > 3 && (rTitleClean === cleanTitle || (rTitleClean.includes(cleanTitle) && rTitleClean.length < cleanTitle.length + 8))) {
-        continue;
-      }
-
-      // Descartar mixes de 1 hora si estamos reproduciendo una canción estándar de 3-4 min
-      if (!isMixFormat) {
-        if (
-          r.duration > 720 ||
-          /mix|dj set|sesi[oó]n|1 hora|2 horas|1 hour|2 hours|album completo|full album|compilation|enganchado|non stop|megamix/i.test(
-            r.title
-          )
-        ) {
-          continue;
-        }
-      }
-
-      const uniqueKey = `yt_${r.id}`;
-      const isVercel = isVercelDeployment();
-      if (!tracksMap.has(uniqueKey)) {
-        tracksMap.set(uniqueKey, {
-          id: uniqueKey,
-          title: r.title,
-          artist: r.artist,
-          duration: r.duration,
-          sourceType: 'youtube' as const,
-          youtubeId: r.id,
-          isIframePlayback: isVercel,
-          url: isVercel ? undefined : `/api/youtube/stream?v=${r.id}`,
-          coverUrl: r.thumbnail,
-          addedAt: Date.now(),
-        });
-      }
-    }
-  };
-
-  try {
-    const res = await fetch(
-      `/api/youtube/related?v=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&duration=${Math.round(duration)}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (data.results && Array.isArray(data.results)) {
-        addResultsToMap(data.results);
-      }
-    }
-  } catch (e) {
-    console.debug('[fetchRelatedTracks] Primary related fetch error:', e);
-  }
-
-  // Si tenemos menos de 50 canciones y conocemos el artista, enriquecer con búsquedas del mismo formato
-  if (tracksMap.size < 50 && artist && artist !== 'YouTube Stream' && artist !== 'Artista de YouTube') {
-    try {
-      const queries = isMixFormat
-        ? [
-            `/api/youtube/search?q=${encodeURIComponent(`${artist} mix 1 hora`)}`,
-            `/api/youtube/search?q=${encodeURIComponent(`${artist} dj set live session`)}`,
-          ]
-        : [
-            `/api/youtube/search?q=${encodeURIComponent(`${artist} canciones mejores exitos singles`)}`,
-            `/api/youtube/search?q=${encodeURIComponent(`${artist} canciones oficiales audio`)}`,
-          ];
-
-      const [searchRes1, searchRes2] = await Promise.all([
-        fetch(queries[0]),
-        fetch(queries[1]),
-      ]);
-
-      if (searchRes1.ok) {
-        const d1 = await searchRes1.json();
-        if (d1.results && Array.isArray(d1.results)) addResultsToMap(d1.results);
-      }
-      if (searchRes2.ok) {
-        const d2 = await searchRes2.json();
-        if (d2.results && Array.isArray(d2.results)) addResultsToMap(d2.results);
-      }
-    } catch {}
-  }
-
-  return Array.from(tracksMap.values()).slice(0, 75);
-};
-
-export const useAudioPlayer = () => {
+/**
+ * Acciones de reproducción SIN suscribirse al estado del reproductor: el componente que lo usa
+ * no se vuelve a renderizar cuando cambia la canción, la cola, el volumen, etc.
+ * (Todo lo que necesita leer lo toma del store en el momento de actuar.)
+ * Úsalo en componentes que solo disparan acciones (atajos, botones, landings).
+ */
+export const useAudioPlayerActions = () => {
   ensureGlobalEngineSubscription();
 
-  const [error, setError] = useState<string | null>(null);
+  // Error global (store): lo muestra App aunque la acción la haya lanzado otra pantalla
+  const error = usePlayerStore((st) => st.audioError);
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<YouTubeSearchResult[]>([]);
+  const [isCapturing, setIsCapturing] = useState<boolean>(() => audioEngine.isSystemCaptureActive());
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeBlobUrlRef = useRef<string | null>(null);
 
   // ── Error listener from native audio pipeline ──────────────────────────────
   useEffect(() => {
@@ -286,30 +92,14 @@ export const useAudioPlayer = () => {
     return unsub;
   }, []);
 
-  // ── Clean up blob URL on hook unmount ──────────────────────────────────────
+  // ── Captura de sistema cerrada desde el motor → reset del flag local ───────
   useEffect(() => {
-    return () => {
-      if (activeBlobUrlRef.current) {
-        URL.revokeObjectURL(activeBlobUrlRef.current);
-        activeBlobUrlRef.current = null;
-      }
-    };
+    return audioEngine.onCaptureEnd((kind) => {
+      if (kind === 'system') setIsCapturing(false);
+    });
   }, []);
 
-  // ── Fine-grained Zustand selectors to avoid excessive re-renders ─────────────
-  const currentTrack = usePlayerStore((s) => s.currentTrack);
-  const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const duration = usePlayerStore((s) => s.duration);
-  const volume = usePlayerStore((s) => s.volume);
-  const isMuted = usePlayerStore((s) => s.isMuted);
-  const repeatMode = usePlayerStore((s) => s.repeatMode);
-  const isShuffled = usePlayerStore((s) => s.isShuffled);
-  const queue = usePlayerStore((s) => s.queue);
-  const queueIndex = usePlayerStore((s) => s.queueIndex);
-  const hasStarted = usePlayerStore((s) => s.hasStarted);
-  const isAudioUnlocked = usePlayerStore((s) => s.isAudioUnlocked);
-
-  // Store setters
+  // Store setters (referencias estables: no provocan renders)
   const setCurrentTrack = usePlayerStore((s) => s.setCurrentTrack);
   const setIsPlaying = usePlayerStore((s) => s.setIsPlaying);
   const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
@@ -321,13 +111,10 @@ export const useAudioPlayer = () => {
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const setHasStarted = usePlayerStore((s) => s.setHasStarted);
   const setAudioUnlocked = usePlayerStore((s) => s.setAudioUnlocked);
-
-  // ── Sync volume with AudioEngine GainNode (Web Audio API) ───────────────────
-  useEffect(() => {
-    audioEngine.setVolume(isMuted ? 0 : volume);
-  }, [volume, isMuted]);
+  const setPlaybackStatus = usePlayerStore((s) => s.setPlaybackStatus);
 
   // ── 1. Transport Controls ───────────────────────────────────────────────────
+  // (El volumen se sincroniza con el motor una sola vez, en ensureGlobalEngineSubscription)
   const unlockAudio = useCallback(async () => {
     await audioEngine.init();
     if (audioEngine.audioContext?.state === 'suspended') {
@@ -339,7 +126,7 @@ export const useAudioPlayer = () => {
   const play = useCallback(async () => {
     try {
       await unlockAudio();
-      if (currentTrack?.isIframePlayback) {
+      if (usePlayerStore.getState().currentTrack?.isIframePlayback) {
         setIsPlaying(true);
         setHasStarted(true);
         return;
@@ -350,43 +137,43 @@ export const useAudioPlayer = () => {
     } catch (err) {
       console.warn('[useAudioPlayer] play error:', err);
     }
-  }, [unlockAudio, setIsPlaying, setHasStarted, currentTrack]);
+  }, [unlockAudio, setIsPlaying, setHasStarted]);
 
   const pause = useCallback(() => {
-    if (currentTrack?.isIframePlayback) {
+    if (usePlayerStore.getState().currentTrack?.isIframePlayback) {
       setIsPlaying(false);
       return;
     }
     audioEngine.pause();
     setIsPlaying(false);
-  }, [setIsPlaying, currentTrack]);
+  }, [setIsPlaying]);
 
   const togglePlay = useCallback(async () => {
-    if (isPlaying) {
+    if (usePlayerStore.getState().isPlaying) {
       pause();
     } else {
       await play();
     }
-  }, [isPlaying, pause, play]);
+  }, [pause, play]);
 
   const seek = useCallback(
     (seconds: number) => {
       audioEngine.seek(seconds);
       setCurrentTime(seconds);
-      if (currentTrack?.isIframePlayback) {
+      if (usePlayerStore.getState().currentTrack?.isIframePlayback) {
         window.dispatchEvent(new CustomEvent('aura:youtube-seek', { detail: { seconds } }));
       }
     },
-    [setCurrentTime, currentTrack]
+    [setCurrentTime]
   );
 
   const setVolume = useCallback(
     (newVolume: number) => {
       const clamped = Math.max(0, Math.min(1, newVolume));
       setStoreVolume(clamped);
-      audioEngine.setVolume(isMuted ? 0 : clamped);
+      audioEngine.setVolume(usePlayerStore.getState().isMuted ? 0 : clamped);
     },
-    [setStoreVolume, isMuted]
+    [setStoreVolume]
   );
 
   const stop = useCallback(() => {
@@ -399,6 +186,7 @@ export const useAudioPlayer = () => {
     async (track: Track) => {
       try {
         setError(null);
+        setPlaybackStatus('buffering', `Preparando ${track.title}…`);
         await unlockAudio();
 
         const ytId =
@@ -417,14 +205,7 @@ export const useAudioPlayer = () => {
           }
           const blobUrl = URL.createObjectURL(track.file);
           activeBlobUrlRef.current = blobUrl;
-          try {
-            const arrayBuffer = await track.file.arrayBuffer();
-            const dur = await audioEngine.loadArrayBuffer(arrayBuffer, track.file.name);
-            setDuration(dur);
-          } catch {
-            await audioEngine.loadTrack(blobUrl, true);
-            setDuration(audioEngine.getDuration() || 0);
-          }
+          setDuration(await audioEngine.loadFile(track.file, blobUrl));
           setCurrentTrack({ ...track, url: blobUrl });
         } else if (isYouTube) {
           if (activeBlobUrlRef.current) {
@@ -445,24 +226,25 @@ export const useAudioPlayer = () => {
           };
 
           if (useIframe) {
-            audioEngine.pause();
+            audioEngine.releaseSources();
             setDuration(cleanTrack.duration || 210);
             setCurrentTrack(cleanTrack);
           } else if (cleanTrack.url) {
             try {
-              await audioEngine.loadTrack(cleanTrack.url, true);
+              await startStream(cleanTrack.url);
               setDuration(audioEngine.getDuration() || cleanTrack.duration || 210);
               setCurrentTrack(cleanTrack);
-            } catch {
+            } catch (loadErr) {
+              if (isAbort(loadErr)) return;
               cleanTrack.isIframePlayback = true;
               cleanTrack.url = undefined;
-              audioEngine.pause();
+              audioEngine.releaseSources();
               setDuration(cleanTrack.duration || 210);
               setCurrentTrack(cleanTrack);
             }
           } else {
             cleanTrack.isIframePlayback = true;
-            audioEngine.pause();
+            audioEngine.releaseSources();
             setDuration(cleanTrack.duration || 210);
             setCurrentTrack(cleanTrack);
           }
@@ -471,8 +253,9 @@ export const useAudioPlayer = () => {
             await audioEngine.loadTrack(track.url, true);
             setDuration(audioEngine.getDuration() || track.duration || 0);
             setCurrentTrack(track);
-          } catch {
-            audioEngine.pause();
+          } catch (loadErr) {
+            if (isAbort(loadErr)) return;
+            audioEngine.releaseSources();
             setCurrentTrack(track);
           }
         } else {
@@ -497,17 +280,124 @@ export const useAudioPlayer = () => {
         setCurrentTime(0);
         setIsPlaying(true);
         setHasStarted(true);
+        const activeTrack = usePlayerStore.getState().currentTrack;
+        setPlaybackStatus(
+          activeTrack?.isIframePlayback ? 'buffering' : 'playing',
+          activeTrack?.isIframePlayback
+            ? `Conectando con YouTube: ${activeTrack.title}`
+            : `Reproduciendo: ${activeTrack?.title || track.title}`
+        );
       } catch (err: unknown) {
+        if (isAbort(err)) return; // reemplazada por una fuente más nueva
         console.error('[useAudioPlayer] playTrack error:', err);
-        setError(err instanceof Error ? err.message : 'Error al reproducir pista');
+        const message = err instanceof Error ? err.message : 'Error al reproducir pista';
+        setError(message);
+        setIsPlaying(false);
+        setPlaybackStatus('error', message);
+        throw err;
       }
     },
-    [unlockAudio, setDuration, setCurrentTrack, setCurrentTime, setIsPlaying, setHasStarted]
+    [unlockAudio, setDuration, setCurrentTrack, setCurrentTime, setIsPlaying, setHasStarted, setPlaybackStatus]
+  );
+
+  const playSavedTrack = useCallback(
+    async (
+      track: Track,
+      options: { forceYouTubeSearch?: boolean; excludedIds?: string[] } = {}
+    ): Promise<Track> => {
+      savedTrackRequestRef.current?.abort();
+      const controller = new AbortController();
+      savedTrackRequestRef.current = controller;
+      let didTimeout = false;
+      let timeoutId: number | undefined;
+
+      const queueFavoriteSequence = (playedTrack: Track) => {
+        const state = usePlayerStore.getState();
+        const favorites = state.favorites;
+        const index = favorites.findIndex(
+          (favorite) =>
+            favorite.id === track.id ||
+            favorite.id === playedTrack.id ||
+            (Boolean(playedTrack.youtubeId) && favorite.youtubeId === playedTrack.youtubeId)
+        );
+        if (index < 0) return;
+        const sequence = [...favorites.slice(index), ...favorites.slice(0, index)];
+        const activeTrack = state.currentTrack || playedTrack;
+        sequence[0] = activeTrack;
+        usePlayerStore.setState({ queue: sequence, queueIndex: 0, currentTrack: activeTrack });
+      };
+
+      try {
+        if (canPlaySavedTrackDirectly(track) && !options.forceYouTubeSearch) {
+          await playTrack(track);
+          if (savedTrackRequestRef.current !== controller) return track; // otra petición la reemplazó
+          queueFavoriteSequence(track);
+          return usePlayerStore.getState().currentTrack || track;
+        }
+
+        setError(null);
+        setPlaybackStatus('resolving', `Buscando la mejor versión de ${track.title}…`);
+        if (options.forceYouTubeSearch) invalidateCachedYouTubeCandidate(track);
+        timeoutId = window.setTimeout(() => {
+          didTimeout = true;
+          controller.abort();
+        }, 10000);
+        const candidate = await resolveSavedTrackCandidate(track, {
+          signal: controller.signal,
+          excludedIds: options.excludedIds,
+          forceRefresh: options.forceYouTubeSearch,
+        });
+
+        const resolvedTrack = createTrackFromYouTubeCandidate(candidate, track);
+        await playTrack(resolvedTrack);
+        if (savedTrackRequestRef.current !== controller) return resolvedTrack;
+        setPlaybackStatus(
+          usePlayerStore.getState().currentTrack?.isIframePlayback ? 'buffering' : 'playing',
+          `Versión encontrada en YouTube: ${resolvedTrack.title}`
+        );
+
+        const currentFavorites = usePlayerStore.getState().favorites;
+        const wasFavorite = currentFavorites.some(
+          (favorite) =>
+            favorite.id === track.id ||
+            (Boolean(track.youtubeId) && favorite.youtubeId === track.youtubeId)
+        );
+        if (wasFavorite) {
+          const updatedFavorites = replaceResolvedFavorite(currentFavorites, track, resolvedTrack);
+          StorageService.saveFavorites(updatedFavorites);
+          usePlayerStore.setState({ favorites: updatedFavorites });
+        }
+        queueFavoriteSequence(resolvedTrack);
+
+        return resolvedTrack;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          if (didTimeout) {
+            const message = 'La búsqueda tardó demasiado. Comprueba tu conexión e inténtalo otra vez.';
+            setError(message);
+            setPlaybackStatus('error', message);
+          } else if (savedTrackRequestRef.current === controller) {
+            setPlaybackStatus('idle', null);
+          }
+          throw err;
+        }
+        const message = err instanceof Error ? err.message : 'No se pudo buscar esta canción en YouTube.';
+        setError(message);
+        setPlaybackStatus('error', message);
+        throw err;
+      } finally {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        if (savedTrackRequestRef.current === controller) savedTrackRequestRef.current = null;
+      }
+    },
+    [playTrack, setPlaybackStatus]
   );
 
   const playNext = useCallback(async () => {
     const state = usePlayerStore.getState();
-    if (state.isCrossfadeActive) {
+    if (state.isHarmonicSyncActive) {
+      audioEngine.harmonicCrossfade(2.5);
+    } else if (state.isCrossfadeActive) {
       audioEngine.crossfade(state.crossfadeDuration || 2);
     }
 
@@ -588,14 +478,7 @@ export const useAudioPlayer = () => {
         const blobUrl = URL.createObjectURL(file);
         activeBlobUrlRef.current = blobUrl;
 
-        let durationSecs = 0;
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          durationSecs = await audioEngine.loadArrayBuffer(arrayBuffer, file.name);
-        } catch {
-          await audioEngine.loadTrack(blobUrl, true);
-          durationSecs = audioEngine.getDuration() || 0;
-        }
+        const durationSecs = await audioEngine.loadFile(file, blobUrl);
 
         setDuration(durationSecs);
         setCurrentTime(0);
@@ -615,6 +498,7 @@ export const useAudioPlayer = () => {
         setCurrentTrack(track);
         return track;
       } catch (err: unknown) {
+        if (isAbort(err)) throw err; // reemplazada por otra fuente: sin mensaje de error
         console.error('[useAudioPlayer] loadAudioFile error:', err);
         setError(err instanceof Error ? err.message : 'Error al cargar archivo local');
         throw err;
@@ -657,30 +541,20 @@ export const useAudioPlayer = () => {
   // ── 3. YouTube Stream Loading (Single Web Audio API routing) ─────────────────
   const loadYouTubeTrack = useCallback(
     async (videoId: string, fallbackInfo?: { title?: string; artist?: string; thumbnail?: string }) => {
+      const seq = ++youtubeLoadSeq;
       try {
         setError(null);
+        setPlaybackStatus('buffering', 'Conectando con YouTube…');
         await unlockAudio();
 
-        // 1. Fetch metadata from backend
-        let title = fallbackInfo?.title || 'Canción de YouTube';
-        let artist = fallbackInfo?.artist || 'YouTube Stream';
-        let dur = 0;
-        let coverUrl = fallbackInfo?.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        // La canción se muestra YA con lo que se conoce (el resultado de la búsqueda trae título,
+        // artista y portada). Los metadatos del servidor son un extra: se piden en segundo plano más
+        // abajo. Antes se esperaban sin límite de tiempo (7 s medidos) y la interfaz se quedaba cargando.
+        const title = fallbackInfo?.title || 'Canción de YouTube';
+        const artist = fallbackInfo?.artist || 'YouTube Stream';
+        const coverUrl = fallbackInfo?.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
-        try {
-          const res = await fetch(`/api/youtube/info?v=${videoId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.title) title = data.title;
-            if (data.artist) artist = data.artist;
-            if (data.duration) dur = data.duration;
-            if (data.thumbnail) coverUrl = data.thumbnail;
-          }
-        } catch (e) {
-          console.warn('[useAudioPlayer] Could not fetch YouTube info:', e);
-        }
-
-        // 2. Stream audio: Si estamos en Vercel o sin backend nativo, usar directamente el reproductor oficial sin peticiones 503
+        // Si estamos en Vercel o sin backend nativo, se usa directamente el reproductor oficial
         const isVercel = isVercelDeployment();
         const hasBackend = isVercel ? false : await hasNativeStreamBackend();
         const streamUrl = `/api/youtube/stream?v=${videoId}`;
@@ -688,16 +562,22 @@ export const useAudioPlayer = () => {
 
         if (hasBackend) {
           try {
-            await audioEngine.loadTrack(streamUrl, true);
+            await startStream(streamUrl);
           } catch (streamErr) {
+            if (isAbort(streamErr)) throw streamErr;
             console.warn('[useAudioPlayer] Stream directo no disponible, cambiando al reproductor oficial de YouTube:', streamErr);
             useIframe = true;
           }
         } else {
-          audioEngine.pause();
+          audioEngine.releaseSources();
         }
 
-        const realDur = useIframe ? (dur || 210) : (audioEngine.getDuration() || dur || 0);
+        if (useIframe && hasBackend) audioEngine.releaseSources();
+
+        // Se pidió otra canción mientras esta cargaba: esta ya no corresponde, no debe pisar a la nueva
+        if (seq !== youtubeLoadSeq) throw new DOMException('Carga reemplazada por otra canción', 'AbortError');
+
+        const realDur = useIframe ? FALLBACK_YOUTUBE_DURATION : audioEngine.getDuration() || FALLBACK_YOUTUBE_DURATION;
         setDuration(realDur);
         setCurrentTime(0);
         setIsPlaying(true);
@@ -717,14 +597,40 @@ export const useAudioPlayer = () => {
         };
 
         setCurrentTrack(track);
+        setPlaybackStatus(
+          useIframe ? 'buffering' : 'playing',
+          useIframe ? `Conectando con YouTube: ${track.title}` : `Reproduciendo: ${track.title}`
+        );
+
+        // Metadatos en segundo plano: se aplican solo si la canción sigue siendo esta
+        void fetchYouTubeInfo(videoId).then((info) => {
+          if (!info || seq !== youtubeLoadSeq) return;
+          const state = usePlayerStore.getState();
+          const current = state.currentTrack;
+          if (!current || current.id !== track.id) return;
+          const patch: Partial<Track> = {};
+          if (info.title) patch.title = info.title;
+          if (info.artist) patch.artist = info.artist;
+          if (info.duration && info.duration > 0) patch.duration = info.duration;
+          if (Object.keys(patch).length === 0) return;
+          usePlayerStore.setState({ currentTrack: { ...current, ...patch } });
+          // Mientras el reproductor de YouTube no informe de la duración real, se usa la del servidor
+          if (patch.duration && current.isIframePlayback && state.duration === FALLBACK_YOUTUBE_DURATION) {
+            usePlayerStore.setState({ duration: patch.duration });
+          }
+        });
+
         return track;
       } catch (err: unknown) {
+        if (isAbort(err)) throw err;
         console.error('[useAudioPlayer] loadYouTubeTrack error:', err);
-        setError(err instanceof Error ? err.message : 'Error al conectar el stream de YouTube');
+        const message = err instanceof Error ? err.message : 'Error al conectar el stream de YouTube';
+        setError(message);
+        setPlaybackStatus('error', message);
         throw err;
       }
     },
-    [unlockAudio, setDuration, setCurrentTime, setIsPlaying, setHasStarted, setCurrentTrack]
+    [unlockAudio, setDuration, setCurrentTime, setIsPlaying, setHasStarted, setCurrentTrack, setPlaybackStatus]
   );
 
   // ── 4. Debounced YouTube Search ─────────────────────────────────────────────
@@ -824,8 +730,117 @@ export const useAudioPlayer = () => {
     [playTrack]
   );
 
+  // ── 5. Radio y entradas en vivo (mic / sistema) ─────────────────────────────
+  const playRadioStation = useCallback(
+    async (station: RadioStation) => {
+      await playTrack({
+        id: station.id,
+        title: station.name,
+        artist: `${station.genre} • Live Stream`,
+        duration: 0,
+        sourceType: 'radio',
+        url: station.streamUrl,
+        addedAt: Date.now(),
+      });
+    },
+    [playTrack]
+  );
+
+  const startSystemCapture = useCallback(async () => {
+    setError(null);
+    const result = await liveStartSystemCapture();
+    if (result.ok) {
+      setIsCapturing(true);
+    } else if (!result.cancelled) {
+      setError(result.error);
+    }
+  }, []);
+
+  const startMicrophoneCapture = useCallback(async () => {
+    setError(null);
+    const result = await liveStartMicrophone();
+    if (!result.ok && !result.cancelled) setError(result.error);
+  }, []);
+
+  const toggleMicrophone = useCallback(async () => {
+    if (usePlayerStore.getState().isMicActive) {
+      liveStopMicrophone();
+    } else {
+      await startMicrophoneCapture();
+    }
+  }, [startMicrophoneCapture]);
+
+  /** Detiene todo: reproducción, micrófono y captura de sistema */
+  const stopCapture = useCallback(() => {
+    audioEngine.stop();
+    audioEngine.disableSystemCapture();
+    audioEngine.disableMicrophone();
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [setIsPlaying, setCurrentTime, setDuration]);
+
   return {
-    // State
+    error,
+    isSearching,
+    searchResults,
+    isCapturing: isCapturing || audioEngine.isSystemCaptureActive(),
+
+    // Actions
+    play,
+    pause,
+    togglePlay,
+    togglePlayPause: togglePlay, // alias
+    seek,
+    seekTo: seek, // alias
+    setVolume,
+    toggleMute,
+    playNext,
+    playPrevious,
+    toggleShuffle,
+    setRepeatMode,
+    stop,
+    stopCapture,
+    unlockAudio,
+    loadAudioFile,
+    loadAudioFiles,
+    loadFile: loadAudioFile, // alias
+    loadYouTubeTrack,
+    searchYouTube,
+    loadYouTubePlaylist,
+    fetchRelatedTracks,
+    playTrack,
+    playSavedTrack,
+    playRadioStation,
+    startSystemCapture,
+    startMicrophoneCapture,
+    toggleMicrophone,
+    addToQueue,
+  };
+};
+
+/**
+ * Acciones + estado del reproductor. Se suscribe a varias partes del store: úsalo solo en
+ * componentes que muestran ese estado; para el resto, `useAudioPlayerActions`.
+ */
+export const useAudioPlayer = () => {
+  const actions = useAudioPlayerActions();
+
+  // ── Fine-grained Zustand selectors to avoid excessive re-renders ─────────────
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const duration = usePlayerStore((s) => s.duration);
+  const volume = usePlayerStore((s) => s.volume);
+  const isMuted = usePlayerStore((s) => s.isMuted);
+  const repeatMode = usePlayerStore((s) => s.repeatMode);
+  const isShuffled = usePlayerStore((s) => s.isShuffled);
+  const queue = usePlayerStore((s) => s.queue);
+  const queueIndex = usePlayerStore((s) => s.queueIndex);
+  const hasStarted = usePlayerStore((s) => s.hasStarted);
+  const isAudioUnlocked = usePlayerStore((s) => s.isAudioUnlocked);
+  const isMicActive = usePlayerStore((s) => s.isMicActive);
+
+  return {
     currentTrack,
     isPlaying,
     duration,
@@ -837,31 +852,8 @@ export const useAudioPlayer = () => {
     queueIndex,
     hasStarted,
     isAudioUnlocked,
-    error,
-    isSearching,
-    searchResults,
-
-    // Actions
-    play,
-    pause,
-    togglePlay,
-    seek,
-    setVolume,
-    toggleMute,
-    playNext,
-    playPrevious,
-    toggleShuffle,
-    setRepeatMode,
-    stop,
-    unlockAudio,
-    loadAudioFile,
-    loadAudioFiles,
-    loadYouTubeTrack,
-    searchYouTube,
-    loadYouTubePlaylist,
-    fetchRelatedTracks,
-    playTrack,
-    addToQueue,
+    isMicActive,
+    ...actions,
   };
 };
 

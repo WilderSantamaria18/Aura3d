@@ -1,29 +1,26 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
-import { LandingScreen } from './components/Landing/LandingScreen';
-import { LandingScreenV2 } from './components/Landing/LandingScreenV2';
-import { LandingScreenV3 } from './components/Landing/LandingScreenV3';
 import { LandingMinimal } from './components/Landing/LandingMinimal';
 import { FEATURES } from './constants/features';
-import { HeaderBar } from './components/UI/HeaderBar';
 import { Controls } from './components/Player/Controls';
 import { ProgressBar } from './components/Player/ProgressBar';
-import { MiniPlayer } from './components/Player/MiniPlayer';
 import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
 import { AutoModeToast } from './components/UI/AutoModeToast';
-import { useAudioEngine } from './hooks/useAudioEngine';
+import { useAudioPlayerActions } from './hooks/useAudioPlayer';
 import { useAnalytics } from './hooks/useAnalytics';
 import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
+import { useRecorderStore } from './store/recorderStore';
 import { useCaptureStore } from './capture/store/captureStore';
 import { hexToRgba } from './types/audio';
 import { AlertCircle, Play, Pause } from 'lucide-react';
 import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useMediaSession } from './hooks/useMediaSession';
+import { installAdaptiveQuality } from './services/adaptiveQualityService';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
-import { AtmosphereBackground } from './components/Visualizers/AtmosphereBackground';
 import { RgbGlitchOverlay } from './components/Visualizers/RgbGlitchOverlay';
 import { RetroCrtOverlay } from './components/UI/RetroCrtOverlay';
 import { AmbientGlow } from './components/UI/AmbientGlow';
@@ -31,18 +28,33 @@ import { AmbientGlowLayer } from './components/Effects/AmbientGlowLayer';
 import { CausticsOverlay } from './components/Effects/CausticsOverlay';
 import { CameraPresetBar } from './components/UI/CameraPresetBar';
 import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer';
-import { AudioAnnouncer } from './components/UI/AudioAnnouncer';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 import { WallpaperBackground } from './components/Wallpapers/WallpaperBackground';
-import { WallpaperPanel } from './components/Wallpapers/WallpaperPanel';
+
+// Solo se muestran tras pulsar "empezar" (o al abrir su panel): no hace falta descargarlos para pintar la
+// landing. Los cargadores se reutilizan abajo para precargarlos cuando el navegador está ocioso.
+const loadHeaderBar = () => import('./components/UI/HeaderBar').then((m) => ({ default: m.HeaderBar }));
+const loadMiniPlayer = () => import('./components/Player/MiniPlayer').then((m) => ({ default: m.MiniPlayer }));
+const loadAtmosphereBackground = () =>
+  import('./components/Visualizers/AtmosphereBackground').then((m) => ({ default: m.AtmosphereBackground }));
+const loadWallpaperPanel = () => import('./components/Wallpapers/WallpaperPanel').then((m) => ({ default: m.WallpaperPanel }));
+const loadAudioAnnouncer = () => import('./components/UI/AudioAnnouncer').then((m) => ({ default: m.AudioAnnouncer }));
+const HeaderBar = lazy(loadHeaderBar);
+const AudioAnnouncer = lazy(loadAudioAnnouncer);
+const MiniPlayer = lazy(loadMiniPlayer);
+const AtmosphereBackground = lazy(loadAtmosphereBackground);
+const WallpaperPanel = lazy(loadWallpaperPanel);
 
 // Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
+// Landings alternativas (feature flags): solo se descargan si se activan; arrastran Three.js
+const LandingScreen = lazy(() => import('./components/Landing/LandingScreen').then((m) => ({ default: m.LandingScreen })));
+const LandingScreenV2 = lazy(() => import('./components/Landing/LandingScreenV2').then((m) => ({ default: m.LandingScreenV2 })));
+const LandingScreenV3 = lazy(() => import('./components/Landing/LandingScreenV3').then((m) => ({ default: m.LandingScreenV3 })));
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
-const WarpTunnelVisualizer = lazy(() => import('./components/Visualizers/WarpTunnelVisualizer'));
 const TerrainVisualizer = lazy(() => import('./components/Visualizers/TerrainVisualizer'));
-// BlackHoleVisualizer removed from UI
+const VisualizerPanel = lazy(() => import('./components/UI/VisualizerPanel'));
 const AuralisStoryCardModal = lazy(() => import('./components/UI/AuralisStoryCardModal'));
 const PoseTracker = lazy(() => import('./components/VR/PoseTracker'));
 const AdminModal = lazy(() => import('./components/Admin/AdminModal'));
@@ -57,17 +69,48 @@ const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalComm
 const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
 const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
 const CaptureStudio = lazy(() => import('./capture/components/CaptureStudio'));
+// Estudio social (grabar, tarjetas para historias y exportar): solo se descarga al abrirlo
+const RecorderPanel = lazy(() => import('./components/Recorder/RecorderPanel').then((m) => ({ default: m.RecorderPanel })));
+const SpatialOverlay = lazy(() => import('./spatial/SpatialOverlay'));
 const SpatialHUD = lazy(() =>
   import('./spatial/ui/SpatialHUD').then((m) => ({ default: m.SpatialHUD }))
 );
 
 export const App: React.FC = () => {
-  const { loadAudioFiles, error } = useAudioEngine();
+  const { loadAudioFiles } = useAudioPlayerActions();
+  const error = usePlayerStore((s) => s.audioError);
   useSpotifyPlayer();
   useAnalytics();
   useAutoPalette();
   useKeyboardShortcuts();
+  useMediaSession();
+
+  // Calidad automática: baja el nivel visual si los FPS se hunden de forma sostenida (y lo recupera)
+  useEffect(() => installAdaptiveQuality(), []);
+
+  // Con la landing ya pintada, se descargan en segundo plano los paneles del reproductor para que
+  // aparezcan al instante al pulsar "empezar" (sin esto habría una espera la primera vez).
+  useEffect(() => {
+    const preload = () => {
+      void loadHeaderBar();
+      void loadMiniPlayer();
+      void loadAtmosphereBackground();
+      void loadWallpaperPanel();
+      void loadAudioAnnouncer();
+    };
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    if (idle) idle(preload);
+    else window.setTimeout(preload, 1500);
+  }, []);
+
+  // El aviso de error se retira solo a los 8 s (o al pulsarlo); un error nuevo reinicia la cuenta
+  useEffect(() => {
+    if (!error) return;
+    const t = window.setTimeout(() => usePlayerStore.getState().setAudioError(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [error]);
   const hasStarted = usePlayerStore((s) => s.hasStarted);
+  const isSocialStudioOpen = useRecorderStore((s) => s.isModalOpen);
   const visualizerMode = usePlayerStore((s) => s.visualizerMode);
   const isLucid = usePlayerStore((s) => s.isLucid);
   const lucidTheme = usePlayerStore((s) => s.lucidTheme);
@@ -121,7 +164,7 @@ export const App: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isSpotifyConnected = usePlayerStore((s) => s.isSpotifyConnected);
-  const { togglePlayPause: engineTogglePlayPause } = useAudioEngine();
+  const { togglePlayPause: engineTogglePlayPause } = useAudioPlayerActions();
   const { togglePlayPause: spotifyTogglePlayPause } = useSpotifyPlayer();
 
   const [isDockHovered, setIsDockHovered] = useState(false);
@@ -271,7 +314,11 @@ export const App: React.FC = () => {
     >
       {/* 0. Aura Wallpapers AI & Full-Screen Atmosphere Canvas Background */}
       <WallpaperBackground />
-      {hasStarted && <AtmosphereBackground />}
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <AtmosphereBackground />
+        </Suspense>
+      )}
 
       {/* 0.05 Apple Liquid Glass Master Overlays: Ambient Glow & Caustics */}
       <AmbientGlowLayer />
@@ -303,12 +350,10 @@ export const App: React.FC = () => {
         >
           {FEATURES.LANDING_MINIMAL ? (
             <LandingMinimal />
-          ) : FEATURES.LANDING_V3 ? (
-            <LandingScreenV3 />
-          ) : FEATURES.LANDING_V2 ? (
-            <LandingScreenV2 />
           ) : (
-            <LandingScreen />
+            <Suspense fallback={null}>
+              {FEATURES.LANDING_V3 ? <LandingScreenV3 /> : FEATURES.LANDING_V2 ? <LandingScreenV2 /> : <LandingScreen />}
+            </Suspense>
           )}
         </div>
       )}
@@ -323,8 +368,6 @@ export const App: React.FC = () => {
           <Suspense fallback={<div className="w-full h-full" />}>
             {visualizerMode === 'synthwave' ? (
               <SynthwaveGridVisualizer />
-            ) : visualizerMode === 'warp' ? (
-              <WarpTunnelVisualizer />
             ) : visualizerMode === 'terrain' ? (
               <TerrainVisualizer />
             ) : (
@@ -333,6 +376,20 @@ export const App: React.FC = () => {
           </Suspense>
         )}
       </div>
+
+      {/* Ajustes del visualizador activo (no aplica a Rainbow Void, que tiene su propio personalizador) */}
+      {hasStarted && visualizerMode !== 'blob' && (
+        <Suspense fallback={null}>
+          <VisualizerPanel />
+        </Suspense>
+      )}
+
+      {/* Capa 3D espacial (instrumentos aéreos, cursor, objetos) sobre el visualizador activo */}
+      {hasStarted && (isCameraStudioOpen || isAirInstrumentsActive) && (
+        <Suspense fallback={null}>
+          <SpatialOverlay />
+        </Suspense>
+      )}
 
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
       {hasStarted && <RgbGlitchOverlay />}
@@ -351,7 +408,9 @@ export const App: React.FC = () => {
             shouldHideUI ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
           }`}
         >
-          <HeaderBar />
+          <Suspense fallback={null}>
+            <HeaderBar />
+          </Suspense>
         </div>
       )}
 
@@ -398,7 +457,12 @@ export const App: React.FC = () => {
 
       {/* Error Notification */}
       {error && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-[var(--radius-card)] bg-[var(--surface-card)] border border-rose-500/20 text-rose-200 text-xs flex items-center gap-2 shadow-[var(--shadow-card)] backdrop-blur-xl animate-aura-popover">
+        <div
+          role="alert"
+          onClick={() => usePlayerStore.getState().setAudioError(null)}
+          title="Pulsa para cerrar"
+          className="fixed top-20 right-6 z-50 max-w-sm cursor-pointer p-4 rounded-[var(--radius-card)] bg-[var(--surface-card)] border border-rose-500/20 text-rose-200 text-xs flex items-center gap-2 shadow-[var(--shadow-card)] backdrop-blur-xl animate-aura-popover"
+        >
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -432,9 +496,17 @@ export const App: React.FC = () => {
       )}
 
       {/* Floating Spatial HUD (Mode Selector, Zen Mode, WakeLock & Tier) - Apartado exclusivo AURA Spatial */}
-      {hasStarted && (isCameraStudioOpen || isAirInstrumentsActive) && (
+      {/* El HUD se oculta mientras la consola del estudio está abierta (ya incluye selección de instrumento y salida) */}
+      {hasStarted && !isCameraStudioOpen && isAirInstrumentsActive && (
         <Suspense fallback={null}>
           <SpatialHUD />
+        </Suspense>
+      )}
+
+      {/* Aura Social Studio: grabación, tarjetas de historia con perfil y exportación */}
+      {isSocialStudioOpen && (
+        <Suspense fallback={null}>
+          <RecorderPanel />
         </Suspense>
       )}
 
@@ -444,7 +516,11 @@ export const App: React.FC = () => {
       </Suspense>
 
       {/* Mini Player — panel flotante con visualización de video de YouTube integrada */}
-      {hasStarted && <MiniPlayer />}
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <MiniPlayer />
+        </Suspense>
+      )}
 
       {/* Studio Modals — Lazy Loaded via Suspense for optimal bundle size */}
       <Suspense fallback={null}>
@@ -468,10 +544,12 @@ export const App: React.FC = () => {
       </Suspense>
 
       {/* 3D Air Virtual Instruments Controls HUD */}
-      {hasStarted && <AirInstrumentControls />}
+      {hasStarted && !isCameraStudioOpen && <AirInstrumentControls />}
 
       {/* Aura Wallpapers AI (4K Minimalist & Ghibli) Modal Panel */}
-      <WallpaperPanel />
+      <Suspense fallback={null}>
+        <WallpaperPanel />
+      </Suspense>
 
 
       {/* Global YouTube Player Controller — singleton, no DOM output here */}
@@ -484,7 +562,11 @@ export const App: React.FC = () => {
       <AutoModeToast />
 
       {/* Screen Reader ARIA Live Region Audio Announcer */}
-      <AudioAnnouncer />
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <AudioAnnouncer />
+        </Suspense>
+      )}
     </div>
   );
 };

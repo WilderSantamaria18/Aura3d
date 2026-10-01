@@ -66,8 +66,10 @@ export class SpatialVisionService {
   private visionResolver: any = null;
   private handLandmarker: HandLandmarker | null = null;
   private poseLandmarker: PoseLandmarker | null = null;
-  private isModelLoading = false;
+  private modelsPromise: Promise<void> | null = null;
   private isReady = false;
+  private lastInferenceErrorLog = 0;
+  private smoothedLatencyMs = 0;
   private isInferenceRunning = false;
 
   // Smoothing & Filtering
@@ -130,10 +132,18 @@ export class SpatialVisionService {
   /**
    * Carga de MediaPipe Tasks-Vision con aceleración GPU y Fallback a CPU (WASM).
    */
-  public async loadModels(): Promise<void> {
-    if (this.isReady || this.isModelLoading) return;
-    this.isModelLoading = true;
+  public loadModels(): Promise<void> {
+    if (this.isReady) return Promise.resolve();
+    // Llamadas concurrentes esperan la misma carga (antes retornaban sin modelos listos)
+    if (!this.modelsPromise) {
+      this.modelsPromise = this.doLoadModels().finally(() => {
+        this.modelsPromise = null;
+      });
+    }
+    return this.modelsPromise;
+  }
 
+  private async doLoadModels(): Promise<void> {
     try {
       if (!this.visionResolver) {
         this.visionResolver = await FilesetResolver.forVisionTasks(
@@ -144,37 +154,33 @@ export class SpatialVisionService {
       const perfMetrics = PerformanceManager.getInstance().getMetrics();
       const numHands = perfMetrics.maxTrackedHands;
 
-      // 1. Intentar Hand Landmarker con acelerador GPU
-      try {
-        this.handLandmarker = await HandLandmarker.createFromOptions(this.visionResolver, {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-            delegate: 'GPU',
-          },
+      // 1. Hand Landmarker. Con GPU integrada se prefiere CPU/WASM: MediaPipe-GPU abriría otro
+      //    contexto WebGL y competiría con el render 3D por la misma GPU compartida.
+      const HAND_MODEL =
+        'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+      const createHands = (delegate: 'GPU' | 'CPU', hands: number, conf: number) =>
+        HandLandmarker.createFromOptions(this.visionResolver, {
+          baseOptions: { modelAssetPath: HAND_MODEL, delegate },
           runningMode: 'VIDEO',
-          numHands,
-          minHandDetectionConfidence: 0.5,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          numHands: hands,
+          minHandDetectionConfidence: conf,
+          minHandPresenceConfidence: conf,
+          minTrackingConfidence: conf,
         });
-        this.currentTelemetry.isGpuAccelerated = true;
-      } catch (gpuErr) {
-        console.warn('[SpatialVisionService] Delegate GPU falló; reintentando con fallback CPU/WASM:', gpuErr);
-        // Fallback a CPU (WASM) para garantizar que SIEMPRE funcione
-        this.handLandmarker = await HandLandmarker.createFromOptions(this.visionResolver, {
-          baseOptions: {
-            modelAssetPath:
-              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-            delegate: 'CPU',
-          },
-          runningMode: 'VIDEO',
-          numHands: 1, // CPU: optimizar a 1 mano para evitar caídas de FPS
-          minHandDetectionConfidence: 0.45,
-          minHandPresenceConfidence: 0.45,
-          minTrackingConfidence: 0.45,
-        });
+
+      if (perfMetrics.preferCpuVision) {
+        this.handLandmarker = await createHands('CPU', Math.min(numHands, 2), 0.45);
         this.currentTelemetry.isGpuAccelerated = false;
+      } else {
+        try {
+          this.handLandmarker = await createHands('GPU', numHands, 0.5);
+          this.currentTelemetry.isGpuAccelerated = true;
+        } catch (gpuErr) {
+          console.warn('[SpatialVisionService] Delegate GPU falló; reintentando con fallback CPU/WASM:', gpuErr);
+          // CPU: optimizar a 1 mano para evitar caídas de FPS
+          this.handLandmarker = await createHands('CPU', 1, 0.45);
+          this.currentTelemetry.isGpuAccelerated = false;
+        }
       }
 
       // 2. Pose Landmarker: Cargar perezosamente solo si está habilitado en PerformanceManager
@@ -186,8 +192,7 @@ export class SpatialVisionService {
     } catch (err) {
       console.error('[SpatialVisionService] Error fatal al inicializar MediaPipe:', err);
       this.isReady = false;
-    } finally {
-      this.isModelLoading = false;
+      throw err;
     }
   }
 
@@ -297,7 +302,12 @@ export class SpatialVisionService {
     WakeLockController.getInstance().requestLock();
 
     if (!this.isReady) {
-      await this.loadModels();
+      try {
+        await this.loadModels();
+      } catch (err) {
+        this.stopCamera();
+        throw err;
+      }
     }
 
     this.startDetectionLoop();
@@ -334,20 +344,18 @@ export class SpatialVisionService {
         this.lastVideoTime = video.currentTime;
         this.frameCount++;
 
-        const perfMetrics = PerformanceManager.getInstance().getMetrics();
-        const minInterval = perfMetrics.minInferenceIntervalMs;
+        // La inferencia bloquea el hilo principal: nunca ocupar más de ~40% del tiempo con MediaPipe.
+        // Si el equipo es lento, el intervalo se estira solo (latencia suavizada / 0.4).
+        const minInterval = Math.max(
+          PerformanceManager.getInstance().getMetrics().minInferenceIntervalMs,
+          this.smoothedLatencyMs / 0.4
+        );
         const timeSinceLastInference = now - this.lastInferenceTime;
 
         // Inferencia throttled según el tier de rendimiento
         if (timeSinceLastInference >= minInterval && this.isReady && !this.isInferenceRunning) {
           this.lastInferenceTime = now;
           this.runInference(video, now);
-        } else if (this.previousHands.length > 0 || this.previousPose) {
-          // Frame intermedio: emitir predicciones suavizadas a 60 FPS sin esperar a MediaPipe
-          this.notifyHands(this.previousHands);
-          if (this.previousPose) {
-            this.notifyPose(this.previousPose, 0);
-          }
         }
       }
 
@@ -374,7 +382,8 @@ export class SpatialVisionService {
 
         if (handResults.landmarks && handResults.landmarks.length > 0) {
           handResults.landmarks.forEach((rawPoints, handIdx) => {
-            const handKey = `hand_${handIdx}`;
+            // Clave por lateralidad: si MediaPipe reordena las manos, los filtros no se cruzan
+            const handKey = handResults.handedness?.[handIdx]?.[0]?.categoryName || `hand_${handIdx}`;
             let filters = this.handFilters.get(handKey);
             if (!filters) {
               filters = [];
@@ -479,9 +488,15 @@ export class SpatialVisionService {
       }
 
       this.detectionFpsCounter++;
-      this.currentTelemetry.latencyMs = Math.round(performance.now() - tStart);
-    } catch {
-      // Frame omitido sin bloquear el hilo principal
+      const elapsed = performance.now() - tStart;
+      this.smoothedLatencyMs = this.smoothedLatencyMs === 0 ? elapsed : this.smoothedLatencyMs * 0.8 + elapsed * 0.2;
+      this.currentTelemetry.latencyMs = Math.round(elapsed);
+    } catch (err) {
+      // Frame omitido sin bloquear el hilo principal; se registra como máximo 1 vez cada 5 s
+      if (timestamp - this.lastInferenceErrorLog > 5000) {
+        this.lastInferenceErrorLog = timestamp;
+        console.warn('[SpatialVisionService] Inferencia fallida (frame omitido):', err);
+      }
     } finally {
       this.isInferenceRunning = false;
     }
@@ -505,6 +520,7 @@ export class SpatialVisionService {
 
   private notifyHands(hands: HandTrackingResult[]): void {
     // Pipeline Desacoplado: Tracker -> GestureEngine -> SpatialState
+    // Se invoca solo con muestras nuevas de inferencia (no se reenvían muestras viejas)
     GestureEngine.getInstance().processTracking(hands, performance.now());
     this.handListeners.forEach((fn) => fn(hands));
   }

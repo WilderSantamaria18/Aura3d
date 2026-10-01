@@ -27,6 +27,7 @@ import {
 import { usePlayerStore, DEFAULT_KAWARP_SETTINGS, DEFAULT_LENIS_SETTINGS } from '../../stores/playerStore';
 import type { LyricsFontType } from './LyricsPanel';
 import type { RomanizationMode } from '../../types/lyrics';
+import { useShallow } from 'zustand/react/shallow';
 
 interface LyricsSettingsModalProps {
   isOpen: boolean;
@@ -66,7 +67,20 @@ export const LyricsSettingsModal: React.FC<LyricsSettingsModalProps> = ({
     setLyricsHideDelay,
     lyricsAutoScroll,
     setLyricsAutoScroll,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      kawarpSettings: s.kawarpSettings,
+      updateKawarpSettings: s.updateKawarpSettings,
+      lenisSettings: s.lenisSettings,
+      updateLenisSettings: s.updateLenisSettings,
+      romanizationMode: s.romanizationMode,
+      setRomanizationMode: s.setRomanizationMode,
+      lyricsHideDelay: s.lyricsHideDelay,
+      setLyricsHideDelay: s.setLyricsHideDelay,
+      lyricsAutoScroll: s.lyricsAutoScroll,
+      setLyricsAutoScroll: s.setLyricsAutoScroll,
+    }))
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
 

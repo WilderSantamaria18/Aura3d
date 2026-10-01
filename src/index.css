@@ -1001,6 +1001,36 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.18);
 }
 
+/* Slider del panel de visualizadores: pista con progreso y tirador de 20px legibles en tema claro y oscuro */
+input[type="range"].viz-range {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+      to right,
+      var(--accent-cyan) 0,
+      var(--accent-cyan) var(--viz-fill, 50%),
+      var(--border-medium) var(--viz-fill, 50%),
+      var(--border-medium) 100%
+    );
+}
+input[type="range"].viz-range::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--text-primary);
+  border: 3px solid var(--accent-cyan);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+input[type="range"].viz-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--text-primary);
+  border: 3px solid var(--accent-cyan);
+  border-radius: 50%;
+}
+input[type="range"].viz-range:disabled::-webkit-slider-thumb {
+  border-color: var(--border-highlight);
+}
+
 /* High-Visibility Accessible Focus Indicator */
 :focus-visible {
   outline: 2px solid #00e5ff !important;
@@ -2127,5 +2157,43 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .dock-btn,
   .dock-play {
     transition: none;
+  }
+}
+
+/* Camera Studio: pulgar del slider (el riel se rellena inline con el color del instrumento) */
+input.studio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid var(--inst, #38e8ff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+input.studio-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid var(--inst, #38e8ff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Áreas táctiles: en pantallas pequeñas o táctiles los botones compactos ganan
+   un margen de toque invisible (mínimo ~44 px) sin alterar el diseño visible ── */
+@media (pointer: coarse), (max-width: 639px) {
+  :is(button, [role='button'], [role='switch'], [role='radio']):not(.absolute):not(.fixed):not(.sticky):not(:disabled) {
+    position: relative;
+  }
+  :is(button, [role='button'], [role='switch'], [role='radio']):not(:disabled)::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
   }
 }

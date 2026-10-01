@@ -2,9 +2,19 @@ import React, { useEffect } from 'react';
 import { Activity } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { bpmDetector } from '../../services/bpmDetectorService';
+import { useShallow } from 'zustand/react/shallow';
 
 export const BpmMeter: React.FC = () => {
-  const { bpm, isBeatPulse, isPlaying, isLucid, lucidTheme, lucidPrimaryColor } = usePlayerStore();
+  const { bpm, isBeatPulse, isPlaying, isLucid, lucidTheme, lucidPrimaryColor } = usePlayerStore(
+    useShallow((s) => ({
+      bpm: s.bpm,
+      isBeatPulse: s.isBeatPulse,
+      isPlaying: s.isPlaying,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+    }))
+  );
 
   useEffect(() => {
     bpmDetector.start();

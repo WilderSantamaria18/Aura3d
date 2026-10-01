@@ -17,7 +17,7 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { useAudioEngine } from '../../hooks/useAudioEngine';
+import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useLiquidGlassScrollbar } from '../../hooks/useLiquidGlassScrollbar';
 import { RADIO_STATIONS } from '../../config/radioStations';
@@ -28,6 +28,7 @@ import { SegmentedTabs } from './SegmentedTabs';
 import type { TabItem } from './SegmentedTabs';
 import { TrackItem } from './TrackItem';
 import type { Track } from '../../types/audio';
+import { useShallow } from 'zustand/react/shallow';
 
 type SidebarTab = 'queue' | 'favorites' | 'playlists' | 'radio';
 
@@ -47,7 +48,6 @@ export const PlaylistSidebar: React.FC = () => {
     playlists,
     currentTrack,
     isPlaying,
-    playTrack,
     playNext,
     clearQueue,
     removeFromQueue,
@@ -55,9 +55,30 @@ export const PlaylistSidebar: React.FC = () => {
     createPlaylist,
     addToPlaylist,
     removeFromPlaylist,
-  } = usePlayerStore();
+    playbackStatus,
+    playbackMessage,
+  } = usePlayerStore(
+    useShallow((s) => ({
+      isSidebarOpen: s.isSidebarOpen,
+      setSidebarOpen: s.setSidebarOpen,
+      queue: s.queue,
+      favorites: s.favorites,
+      playlists: s.playlists,
+      currentTrack: s.currentTrack,
+      isPlaying: s.isPlaying,
+      playNext: s.playNext,
+      clearQueue: s.clearQueue,
+      removeFromQueue: s.removeFromQueue,
+      toggleFavorite: s.toggleFavorite,
+      createPlaylist: s.createPlaylist,
+      addToPlaylist: s.addToPlaylist,
+      removeFromPlaylist: s.removeFromPlaylist,
+      playbackStatus: s.playbackStatus,
+      playbackMessage: s.playbackMessage,
+    }))
+  );
 
-  const { loadFile, playRadioStation } = useAudioEngine();
+  const { loadFile, playRadioStation, playTrack, playSavedTrack, error: playbackError } = useAudioPlayerActions();
 
   const [activeTab, setActiveTab] = useState<SidebarTab>('queue');
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +89,7 @@ export const PlaylistSidebar: React.FC = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
 
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [resolvingTrackId, setResolvingTrackId] = useState<string | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -112,6 +134,18 @@ export const PlaylistSidebar: React.FC = () => {
       createPlaylist(newPlaylistName.trim());
       setNewPlaylistName('');
       setIsCreatingPlaylist(false);
+    }
+  };
+
+  const handlePlayFavorite = async (track: Track) => {
+    setResolvingTrackId(track.id);
+    try {
+      await playSavedTrack(track);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('[PlaylistSidebar] Error playing favorite:', err);
+    } finally {
+      setResolvingTrackId(null);
     }
   };
 
@@ -261,7 +295,7 @@ export const PlaylistSidebar: React.FC = () => {
             {isDragging && (
               <div className="absolute inset-0 z-50 liquid-glass-drawer border-2 border-dashed border-cyan-400/70 flex items-center justify-center bg-cyan-400/[0.08] backdrop-blur-md pointer-events-none animate-in fade-in duration-150">
                 <div className="text-center p-6 rounded-3xl bg-black/50 border border-white/20 shadow-2xl">
-                  <Upload className="w-12 h-12 text-cyan-400 mx-auto mb-3 animate-bounce" />
+                  <Upload className="w-12 h-12 text-cyan-400 mx-auto mb-3" />
                   <p className="text-sm font-bold text-white tracking-tight">Suelta para importar a la estación</p>
                   <p className="text-xs text-white/50 mt-1 font-mono">FLAC · WAV · MP3 · AAC · M4A</p>
                 </div>
@@ -404,6 +438,25 @@ export const PlaylistSidebar: React.FC = () => {
               {/* TAB 2: FAVORITES */}
               {activeTab === 'favorites' && (
                 <div className="space-y-2">
+                  {(playbackStatus === 'resolving' || playbackStatus === 'buffering') &&
+                    playbackMessage && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex items-center gap-2 rounded-xl bg-cyan-400/[0.08] px-3 py-2 text-xs text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    >
+                      <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-cyan-300 motion-reduce:animate-none" aria-hidden="true" />
+                      <span className="min-w-0 truncate">{playbackMessage}</span>
+                    </div>
+                  )}
+                  {(playbackError || playbackStatus === 'error') && (
+                    <div
+                      role="alert"
+                      className="rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                    >
+                      {playbackError || playbackMessage || 'No se pudo reproducir la canción. Inténtalo otra vez.'}
+                    </div>
+                  )}
                   {filteredFavorites.length === 0 ? (
                     <EmptyState
                       icon={Heart}
@@ -424,7 +477,8 @@ export const PlaylistSidebar: React.FC = () => {
                           isActive={isTrackActive}
                           isPlaying={isPlaying && isTrackActive}
                           isFavorite={true}
-                          onPlay={() => playTrack(track)}
+                          onPlay={() => handlePlayFavorite(track)}
+                          isLoading={resolvingTrackId === track.id}
                           onToggleFavorite={toggleFavorite}
                           onPlayNext={playNext}
                         />

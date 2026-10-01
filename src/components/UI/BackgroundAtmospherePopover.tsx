@@ -16,6 +16,7 @@ import {
   RotateCcw,
   MousePointer,
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 export interface BackgroundAtmospherePopoverProps {
   isOpen?: boolean;
@@ -36,7 +37,17 @@ export const BackgroundAtmospherePopover: React.FC<BackgroundAtmospherePopoverPr
     lucidPrimaryColor,
     mouseEffectsEnabled,
     toggleMouseEffects,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      blobSettings: s.blobSettings,
+      updateBlobSettings: s.updateBlobSettings,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      lucidPrimaryColor: s.lucidPrimaryColor,
+      mouseEffectsEnabled: s.mouseEffectsEnabled,
+      toggleMouseEffects: s.toggleMouseEffects,
+    }))
+  );
 
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isControlled = controlledIsOpen !== undefined;

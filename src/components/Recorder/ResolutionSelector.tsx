@@ -1,96 +1,81 @@
 import React from 'react';
+import { Crop, Film, Zap } from 'lucide-react';
 import { useRecorderStore, type AspectRatio } from '../../store/recorderStore';
-import { Crop, Zap, Film, Sparkles } from 'lucide-react';
+import { FOCUS_RING, Section, Segmented } from '../Cards/controls';
+
+const ASPECTS: { id: AspectRatio; name: string; size: string }[] = [
+  { id: '9:16', name: 'Historia / Reel', size: '1080 × 1920' },
+  { id: '1:1', name: 'Feed cuadrado', size: '1080 × 1080' },
+  { id: '4:5', name: 'Post vertical', size: '1080 × 1350' },
+  { id: '16:9', name: 'YouTube / Web', size: '1920 × 1080' },
+];
+
+const BITRATES = [
+  { label: 'Equilibrada', value: 4_000_000, desc: '4 Mbps' },
+  { label: 'Alta definición', value: 8_000_000, desc: '8 Mbps' },
+  { label: 'Máxima', value: 15_000_000, desc: '15 Mbps' },
+];
 
 export const ResolutionSelector: React.FC = () => {
-  const aspectRatio = useRecorderStore((state) => state.aspectRatio);
-  const setAspectRatio = useRecorderStore((state) => state.setAspectRatio);
-  const fps = useRecorderStore((state) => state.fps);
-  const setFps = useRecorderStore((state) => state.setFps);
-  const videoBitrate = useRecorderStore((state) => state.videoBitrate);
-  const setVideoBitrate = useRecorderStore((state) => state.setVideoBitrate);
-  const isRecording = useRecorderStore((state) => state.isRecording);
-
-  const ASPECT_RATIOS: { id: AspectRatio; name: string; tag: string; icon: string }[] = [
-    { id: '9:16', name: 'Story / Reel', tag: '1080×1920', icon: '📱' },
-    { id: '1:1', name: 'Square Feed', tag: '1080×1080', icon: '⏹' },
-    { id: '4:5', name: 'Portrait Post', tag: '1080×1350', icon: '📄' },
-    { id: '16:9', name: 'YouTube / Web', tag: '1920×1080', icon: '🖥' },
-  ];
-
-  const BITRATES = [
-    { label: 'Balanced', value: 4000000, desc: '4 Mbps' },
-    { label: 'High Def', value: 8000000, desc: '8 Mbps' },
-    { label: 'Master Ultra', value: 15000000, desc: '15 Mbps' },
-  ];
+  const aspectRatio = useRecorderStore((s) => s.aspectRatio);
+  const setAspectRatio = useRecorderStore((s) => s.setAspectRatio);
+  const fps = useRecorderStore((s) => s.fps);
+  const setFps = useRecorderStore((s) => s.setFps);
+  const videoBitrate = useRecorderStore((s) => s.videoBitrate);
+  const setVideoBitrate = useRecorderStore((s) => s.setVideoBitrate);
+  const isRecording = useRecorderStore((s) => s.isRecording);
 
   return (
-    <div className="flex flex-col gap-4 text-white">
-      {/* Aspect Ratio */}
-      <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-          <Crop className="w-3.5 h-3.5 text-purple-400" />
-          <span>Framing & Aspect Ratio</span>
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {ASPECT_RATIOS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => !isRecording && setAspectRatio(item.id)}
-              disabled={isRecording}
-              className={`p-2.5 rounded-xl border text-left transition-all ${
-                aspectRatio === item.id
-                  ? 'bg-purple-500/20 text-white border-purple-500/60 shadow-sm shadow-purple-500/25'
-                  : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-xs font-bold">{item.name}</span>
-                <span className="text-[10px] font-mono opacity-60">{item.id}</span>
-              </div>
-              <div className="text-[10px] font-mono text-purple-300/80">{item.tag}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Frame Rate & Bitrate */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* FPS */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-purple-400" />
-            <span>Frame Rate</span>
-          </label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {([30, 60] as const).map((rate) => (
+    <div className="space-y-8 text-white">
+      <Section title="Formato del vídeo" icon={<Crop className="h-3.5 w-3.5" />}>
+        <div role="radiogroup" aria-label="Formato del vídeo" className="grid grid-cols-2 gap-2.5">
+          {ASPECTS.map((a) => {
+            const active = aspectRatio === a.id;
+            return (
               <button
-                key={rate}
-                onClick={() => !isRecording && setFps(rate)}
+                key={a.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
                 disabled={isRecording}
-                className={`py-1.5 rounded-xl text-xs font-mono font-medium border transition-all ${
-                  fps === rate
-                    ? 'bg-purple-500/20 text-white border-purple-500/60'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
+                onClick={() => setAspectRatio(a.id)}
+                className={`rounded-2xl border p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${
+                  active
+                    ? 'border-violet-400/60 bg-violet-500/10 shadow-[0_0_0_1px_rgba(167,139,250,0.3)]'
+                    : 'border-white/10 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.06]'
                 }`}
               >
-                {rate} FPS
+                <span className="flex items-center justify-between text-xs font-bold text-white">
+                  {a.name}
+                  <span className="font-mono text-[10px] font-medium text-white/45">{a.id}</span>
+                </span>
+                <span className="mt-1 block font-mono text-[11px] text-violet-300/80">{a.size}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </Section>
 
-        {/* Quality / Bitrate */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-            <Film className="w-3.5 h-3.5 text-purple-400" />
-            <span>Bitrate</span>
-          </label>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <Section title="Fotogramas" icon={<Zap className="h-3.5 w-3.5" />}>
+          <Segmented<'30' | '60'>
+            label="Fotogramas por segundo"
+            value={String(fps) as '30' | '60'}
+            onChange={(v) => setFps(Number(v) as 30 | 60)}
+            options={[
+              { value: '30', label: '30 FPS', disabled: isRecording },
+              { value: '60', label: '60 FPS', disabled: isRecording },
+            ]}
+          />
+        </Section>
+
+        <Section title="Calidad" icon={<Film className="h-3.5 w-3.5" />}>
           <select
+            aria-label="Calidad del vídeo"
             value={videoBitrate}
             onChange={(e) => setVideoBitrate(Number(e.target.value))}
             disabled={isRecording}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500/60"
+            className={`w-full rounded-2xl border border-white/12 bg-white/[0.05] px-3.5 py-3 text-xs font-semibold text-white disabled:opacity-50 ${FOCUS_RING}`}
           >
             {BITRATES.map((b) => (
               <option key={b.value} value={b.value} className="bg-zinc-900 text-white">
@@ -98,7 +83,7 @@ export const ResolutionSelector: React.FC = () => {
               </option>
             ))}
           </select>
-        </div>
+        </Section>
       </div>
     </div>
   );

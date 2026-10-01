@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRecorderStore } from '../store/recorderStore';
+import { resolveVideoDuration } from '../utils/videoDuration';
 
 export interface UseVideoPreviewReturn {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -25,11 +26,14 @@ export const useVideoPreview = (): UseVideoPreviewReturn => {
   const recordedBlobUrl = useRecorderStore((state) => state.recordedBlobUrl);
   const trimRange = useRecorderStore((state) => state.trimRange);
   const setTrimRangeStore = useRecorderStore((state) => state.setTrimRange);
+  const setRecordedDuration = useRecorderStore((state) => state.setRecordedDuration);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  // Si ya se calculó (al volver a esta pestaña), se usa desde el principio: así los deslizadores del recorte
+  // no muestran un rango falso mientras el vídeo recarga sus metadatos
+  const [duration, setDuration] = useState(() => useRecorderStore.getState().recordedDuration);
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolumeState] = useState(1);
@@ -39,11 +43,19 @@ export const useVideoPreview = (): UseVideoPreviewReturn => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleLoadedMetadata = () => {
-      const dur = video.duration || 0;
+    let cancelled = false;
+
+    // Chrome graba webm sin duración (video.duration === Infinity): se calcula para poder dibujar la
+    // barra, marcar un tramo y recortar. Los segundos contados al grabar sirven de respaldo.
+    const handleLoadedMetadata = async () => {
+      const fallback = useRecorderStore.getState().recordingDuration;
+      const dur = await resolveVideoDuration(video, fallback);
+      if (cancelled) return;
       setDuration(dur);
-      if (trimRange.end === 0 || trimRange.end > dur) {
-        setTrimRangeStore(trimRange.start, dur);
+      setRecordedDuration(dur);
+      const current = useRecorderStore.getState().trimRange;
+      if (current.end === 0 || current.end > dur) {
+        setTrimRangeStore(current.start, dur);
       }
     };
 
@@ -69,13 +81,16 @@ export const useVideoPreview = (): UseVideoPreviewReturn => {
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleEnded);
+    // Este efecto se vuelve a registrar al mover las marcas: si los metadatos ya llegaron, no se pierden
+    if (video.readyState >= 1) void handleLoadedMetadata();
 
     return () => {
+      cancelled = true;
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [trimRange.start, trimRange.end, setTrimRangeStore]);
+  }, [trimRange.start, trimRange.end, setTrimRangeStore, setRecordedDuration]);
 
   // Handle URL change
   useEffect(() => {

@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Moon,
 } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
 
 // ── MediaPipe Pose 33-point Connections (Bones) ──────────────────────────────
 const POSE_CONNECTIONS: [number, number][] = [
@@ -87,7 +88,33 @@ export const PoseTracker: React.FC = () => {
     handSensitivity,
     setHandSensitivity,
     togglePlay,
-  } = usePlayerStore();
+  } = usePlayerStore(
+    useShallow((s) => ({
+      vrMode: s.vrMode,
+      setVrMode: s.setVrMode,
+      vrTrackingMode: s.vrTrackingMode,
+      setVrTrackingMode: s.setVrTrackingMode,
+      setPoseLandmarks: s.setPoseLandmarks,
+      setHandLandmarks: s.setHandLandmarks,
+      setMultiHandLandmarks: s.setMultiHandLandmarks,
+      sphereOpacity: s.sphereOpacity,
+      setSphereOpacity: s.setSphereOpacity,
+      visualizerMode: s.visualizerMode,
+      sphereScale: s.sphereScale,
+      setSphereScale: s.setSphereScale,
+      setRainbowScale: s.setRainbowScale,
+      autoMode: s.autoMode,
+      autoPalette: s.autoPalette,
+      isLucid: s.isLucid,
+      lucidTheme: s.lucidTheme,
+      cyclePalette: s.cyclePalette,
+      cycleLucidTheme: s.cycleLucidTheme,
+      toggleAutoMode: s.toggleAutoMode,
+      handSensitivity: s.handSensitivity,
+      setHandSensitivity: s.setHandSensitivity,
+      togglePlay: s.togglePlay,
+    }))
+  );
 
   const { getSmoothedData } = useVisualizer(0.2);
   const { processPose, processHands, reset: resetSmoothing } = useSmoothLandmarks();
