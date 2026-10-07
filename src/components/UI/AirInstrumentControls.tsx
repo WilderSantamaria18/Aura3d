@@ -16,6 +16,7 @@ import {
   type SynthScale,
 } from '../../services/airSynthEngine';
 import { midiService, type MidiDevice } from '../../services/midiService';
+import { SpatialState } from '../../spatial/state/SpatialState';
 
 export const AirInstrumentControls: React.FC = () => {
   const isAirInstrumentsActive = usePlayerStore((s) => s.isAirInstrumentsActive);
@@ -31,6 +32,7 @@ export const AirInstrumentControls: React.FC = () => {
   const handLandmarks = usePlayerStore((s) => s.handLandmarks);
 
   const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
+  const [handStatus, setHandStatus] = useState<'idle' | 'tracking' | 'touching'>('idle');
 
   useEffect(() => {
     if (isAirInstrumentsActive && midiService.isMidiAvailable()) {
@@ -42,6 +44,26 @@ export const AirInstrumentControls: React.FC = () => {
       });
       return unsub;
     }
+  }, [isAirInstrumentsActive]);
+
+  useEffect(() => {
+    if (!isAirInstrumentsActive) return;
+    const unsub = SpatialState.getInstance().subscribeDiscrete(() => {
+      const dom = SpatialState.getInstance().getDominantHand();
+      if (!dom.isPresent || dom.confidenceTier === 'untrusted') {
+        setHandStatus('idle');
+      } else if (
+        dom.pinchState === 'PINCH_HOLD' ||
+        dom.pinchState === 'PINCH_MOVE' ||
+        dom.pinchState === 'PINCH_START' ||
+        dom.gesture === 'pinch'
+      ) {
+        setHandStatus('touching');
+      } else {
+        setHandStatus('tracking');
+      }
+    });
+    return unsub;
   }, [isAirInstrumentsActive]);
 
   if (!isAirInstrumentsActive) return null;
@@ -100,6 +122,24 @@ export const AirInstrumentControls: React.FC = () => {
                 <span className="text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 font-mono flex items-center gap-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${midiDevices.length > 0 ? 'bg-emerald-400 animate-ping' : 'bg-emerald-400'}`} />
                   {midiDevices.length > 0 ? midiDevices[0].name.slice(0, 14) : 'MIDI LISTO'}
+                </span>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono flex items-center gap-1 transition-all ${
+                  handStatus === 'touching'
+                    ? 'border-[#00e5ff]/50 bg-[#00e5ff]/15 text-[#00e5ff] shadow-[0_0_8px_rgba(0,229,255,0.3)] font-bold'
+                    : handStatus === 'tracking'
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                    : 'border-white/[0.08] bg-white/[0.02] text-white/40'
+                }`}>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                      handStatus === 'touching'
+                        ? 'bg-[#00e5ff] animate-ping'
+                        : handStatus === 'tracking'
+                        ? 'bg-emerald-400'
+                        : 'bg-white/30'
+                    }`}
+                  />
+                  {handStatus === 'touching' ? 'CONTACTO ACTIVO' : handStatus === 'tracking' ? 'EN RANGO 3D' : 'SIN CONTACTO'}
                 </span>
               </div>
               <p className="text-[11px] text-white/40">

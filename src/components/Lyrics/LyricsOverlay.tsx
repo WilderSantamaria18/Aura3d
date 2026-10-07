@@ -231,10 +231,10 @@ export const LyricsOverlay: React.FC = () => {
   let containerStyle: React.CSSProperties = {};
 
   if (isFullscreenActive) {
-    containerClasses = 'fixed inset-0 z-50 pointer-events-auto bg-black/25';
+    containerClasses = 'fixed inset-0 z-50 pointer-events-auto bg-black/40 backdrop-blur-[48px] sm:backdrop-blur-[64px]';
     containerStyle = {
-      backdropFilter: 'blur(1px)',
-      WebkitBackdropFilter: 'blur(1px)',
+      backdropFilter: 'blur(54px)',
+      WebkitBackdropFilter: 'blur(54px)',
     };
   } else if (position === 'custom' && coords) {
     containerStyle = {
@@ -297,6 +297,7 @@ export const LyricsOverlay: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
+            className="fixed inset-0 z-40 pointer-events-none"
           >
             <KawarpBackground
               primaryColor={kawarpColors.primary}
@@ -371,6 +372,7 @@ export const LyricsOverlay: React.FC = () => {
               onUploadLRC={loadLrcFile}
               coverUrl={currentTrack?.coverUrl}
               accentColor={kawarpColors.primary !== '#00f0ff' ? kawarpColors.primary : undefined}
+              secondaryAccentColor={kawarpColors.secondary !== '#a855f7' ? kawarpColors.secondary : undefined}
               onPlayPause={handlePlayPause}
               onSkipBack={handleSkipPrev}
               onSkipForward={handleSkipNext}

@@ -151,6 +151,22 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
     action: 'TOGGLE_AIR_INSTRUMENTS',
     context: 'visualizer',
   },
+  {
+    id: 'toggle-theater',
+    category: 'Visualizadores',
+    keys: ['T'],
+    description: 'Modo Teatro Panorámico Ambilight',
+    action: 'TOGGLE_THEATER',
+    context: 'global',
+  },
+  {
+    id: 'toggle-zen',
+    category: 'Visualizadores',
+    keys: ['Z'],
+    description: 'Modo Zen Minimalista',
+    action: 'TOGGLE_ZEN_MODE',
+    context: 'global',
+  },
 
   // ── Edición & Captura ──
   {

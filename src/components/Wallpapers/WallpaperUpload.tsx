@@ -118,7 +118,7 @@ export const WallpaperUpload: React.FC<WallpaperUploadProps> = ({ onApplied }) =
       ) : (
         /* Image Preview & Controls Card */
         <div className="flex flex-col gap-3 p-3.5 rounded-2xl bg-black/40 border border-white/10">
-          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">
+          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/60 border border-white/10 flex items-center justify-center">
             <img
               src={displayImage}
               alt="Vista previa personalizada"

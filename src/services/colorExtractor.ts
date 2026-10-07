@@ -21,7 +21,8 @@ const DEFAULT_COLORS: ColorPair = {
 };
 
 function componentToHex(c: number): string {
-  return Math.round(c).toString(16).padStart(2, '0');
+  // Recorta a 0..255: el centro de un bucket puede salirse del rango (256 → «100») y dejar un hex inválido
+  return Math.min(255, Math.max(0, Math.round(c))).toString(16).padStart(2, '0');
 }
 
 function rgbToHex(r: number, g: number, b: number): string {

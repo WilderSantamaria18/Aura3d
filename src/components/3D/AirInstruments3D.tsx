@@ -30,7 +30,7 @@ const PAD_SIZE: [number, number, number] = [0.46, 0.46, 0.06];
 // Campo del theremin: por encima del dock inferior de reproducción
 const FIELD = { cx: 0, cy: 0.42, w: 2.4, h: 1.3 };
 
-const MAX_SHOCKWAVES = 8;
+const MAX_SHOCKWAVES = 16;
 
 interface KeyVisualState {
   pressAmount: number;
@@ -44,6 +44,8 @@ interface ShockwaveRing {
   z: number;
   scale: number;
   alpha: number;
+  speed: number;
+  fadeSpeed: number;
   color: string;
 }
 
@@ -67,14 +69,16 @@ export const AirInstruments3D: React.FC = () => {
   const keyGroupRefs = useRef<(THREE.Group | null)[]>([]);
   const keyBodyMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const keyLedMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const keyFlashMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
 
   // Pads de batería
   const padGlowRef = useRef<number[]>([0, 0, 0, 0]);
   const padGroupRefs = useRef<(THREE.Group | null)[]>([]);
   const padFillMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
+  const padFlashMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>([]);
   const drumInsideRef = useRef<boolean[]>([false, false, false, false]);
 
-  // Ondas de choque: datos + pool fijo de mallas actualizadas en el frame loop
+  // Ondas de choque dobles concéntricas: datos + pool fijo de mallas
   const shockwavesRef = useRef<ShockwaveRing[]>([]);
   const shockwaveMeshRefs = useRef<(THREE.Mesh | null)[]>([]);
 
@@ -130,11 +134,32 @@ export const AirInstruments3D: React.FC = () => {
     [keyEdges, padEdges, fieldEdges]
   );
 
-  const pushShockwave = (x: number, y: number, z: number, color: string) => {
+  const pushDoubleShockwave = (x: number, y: number, z: number, color: string) => {
     // Menos ondas simultáneas en calidad baja
-    const cap = PerformanceManager.getInstance().getTier() === 'LOW' ? 3 : MAX_SHOCKWAVES;
-    while (shockwavesRef.current.length >= cap) shockwavesRef.current.shift();
-    shockwavesRef.current.push({ x, y, z, scale: 0.1, alpha: 1.0, color });
+    const cap = PerformanceManager.getInstance().getTier() === 'LOW' ? 6 : MAX_SHOCKWAVES;
+    while (shockwavesRef.current.length >= cap - 1) shockwavesRef.current.shift();
+    // 1. Núcleo primario rápido y brillante
+    shockwavesRef.current.push({
+      x,
+      y,
+      z,
+      scale: 0.08,
+      alpha: 1.0,
+      speed: 4.8,
+      fadeSpeed: 3.2,
+      color: '#ffffff',
+    });
+    // 2. Halo armónico difuso secundario
+    shockwavesRef.current.push({
+      x,
+      y,
+      z,
+      scale: 0.05,
+      alpha: 0.85,
+      speed: 2.8,
+      fadeSpeed: 1.8,
+      color,
+    });
   };
 
   // ── Frame Loop Principal (Three.js rAF) ────────────────────────────────────
@@ -197,7 +222,7 @@ export const AirInstruments3D: React.FC = () => {
           spatialInstruments.triggerNoteOn(idx, key.freq, 0.9);
           state.pressAmount = 1.0;
           state.glowIntensity = 1.0;
-          pushShockwave(key.position[0], key.position[1], key.position[2], '#' + key.color.getHexString());
+          pushDoubleShockwave(key.position[0], key.position[1], key.position[2], '#' + key.color.getHexString());
         } else if (isInside) {
           // Dedo sostenido: la tecla se mantiene encendida
           state.pressAmount = Math.max(state.pressAmount, 0.6);
@@ -215,7 +240,7 @@ export const AirInstruments3D: React.FC = () => {
         if (inside && !drumInsideRef.current[i]) {
           spatialInstruments.triggerDrum(pad.id as never, 0.95);
           padGlowRef.current[i] = 1;
-          pushShockwave(pad.pos[0], pad.pos[1], pad.pos[2], '#' + pad.color.getHexString());
+          pushDoubleShockwave(pad.pos[0], pad.pos[1], pad.pos[2], '#' + pad.color.getHexString());
         }
         drumInsideRef.current[i] = inside;
       });
@@ -250,7 +275,12 @@ export const AirInstruments3D: React.FC = () => {
         state.glowIntensity = Math.max(0, state.glowIntensity - decay * 0.8);
       }
       const g = keyGroupRefs.current[i];
-      if (g) g.position.y = -state.pressAmount * 0.07;
+      if (g) {
+        // Depresión física 3D con pivote angular y desplazamiento en Y/Z
+        g.position.y = -state.pressAmount * 0.065;
+        g.position.z = -state.pressAmount * 0.055;
+        g.rotation.x = -state.pressAmount * 0.14;
+      }
 
       const base = synthKeyLayout[i].color;
       const bodyMat = keyBodyMatRefs.current[i];
@@ -260,24 +290,38 @@ export const AirInstruments3D: React.FC = () => {
         ledMat.color.copy(base).lerp(HOT_WHITE, state.glowIntensity * 0.8);
         ledMat.opacity = 0.3 + state.glowIntensity * 0.7;
       }
+      const flashMat = keyFlashMatRefs.current[i];
+      if (flashMat) {
+        // Destello especular de alta intensidad fotónica que decae elásticamente
+        flashMat.opacity = Math.pow(state.pressAmount, 2.5) * 0.85;
+      }
     }
     for (let i = 0; i < 4; i++) {
       if (padGlowRef.current[i] > 0.01) padGlowRef.current[i] = Math.max(0, padGlowRef.current[i] - delta * 5);
+      const glow = padGlowRef.current[i];
       const g = padGroupRefs.current[i];
-      if (g) g.position.z = drumPads[i].pos[2] - padGlowRef.current[i] * 0.05;
+      if (g) {
+        // Hundimiento físico y absorción de impacto elástica
+        g.position.z = drumPads[i].pos[2] - glow * 0.08;
+        g.scale.set(1 - glow * 0.035, 1 - glow * 0.035, 1 - glow * 0.08);
+      }
       const mat = padFillMatRefs.current[i];
       if (mat) {
         _tint.copy(drumPads[i].color);
-        mat.color.copy(_tint).lerp(HOT_WHITE, padGlowRef.current[i] * 0.5);
-        mat.opacity = 0.16 + padGlowRef.current[i] * 0.8;
+        mat.color.copy(_tint).lerp(HOT_WHITE, glow * 0.5);
+        mat.opacity = 0.16 + glow * 0.8;
+      }
+      const flashMat = padFlashMatRefs.current[i];
+      if (flashMat) {
+        flashMat.opacity = Math.pow(glow, 2.0) * 0.9;
       }
     }
 
-    // 4. Ondas de choque
+    // 4. Ondas de choque dobles concéntricas
     for (let i = shockwavesRef.current.length - 1; i >= 0; i--) {
       const sw = shockwavesRef.current[i];
-      sw.scale += delta * 3.5;
-      sw.alpha -= delta * 2.2;
+      sw.scale += delta * sw.speed;
+      sw.alpha -= delta * sw.fadeSpeed;
       if (sw.alpha <= 0) shockwavesRef.current.splice(i, 1);
     }
     for (let i = 0; i < MAX_SHOCKWAVES; i++) {
@@ -301,7 +345,7 @@ export const AirInstruments3D: React.FC = () => {
 
   return (
     <group>
-      {/* ── Teclado: 7 teclas mate con LED inferior ── */}
+      {/* ── Teclado: 7 teclas mate con LED inferior y destello especular ── */}
       {airInstrumentType === 'synth' &&
         synthKeyLayout.map((key, idx) => (
           <group key={key.name} position={key.position}>
@@ -322,6 +366,7 @@ export const AirInstruments3D: React.FC = () => {
               <lineSegments geometry={keyEdges}>
                 <lineBasicMaterial color={EDGE_COLOR} transparent opacity={0.5} />
               </lineSegments>
+              {/* LED de base */}
               <mesh position={[0, -0.28, 0.055]}>
                 <planeGeometry args={[0.24, 0.04]} />
                 <meshBasicMaterial
@@ -333,12 +378,26 @@ export const AirInstruments3D: React.FC = () => {
                   opacity={0.3}
                 />
               </mesh>
+              {/* Specular Flash Overlay: Destello frontal en impacto */}
+              <mesh position={[0, 0, 0.052]}>
+                <planeGeometry args={[0.35, 0.71]} />
+                <meshBasicMaterial
+                  ref={(el) => {
+                    keyFlashMatRefs.current[idx] = el;
+                  }}
+                  color={HOT_WHITE}
+                  transparent
+                  opacity={0}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                />
+              </mesh>
               <Label3D text={key.name} position={[0, 0.27, 0.06]} size={0.07} />
             </group>
           </group>
         ))}
 
-      {/* ── Batería: 4 pads en rejilla 2x2 ── */}
+      {/* ── Batería: 4 pads en rejilla 2x2 con destello especular ── */}
       {airInstrumentType === 'drums' &&
         drumPads.map((pad, idx) => (
           <group
@@ -361,6 +420,20 @@ export const AirInstruments3D: React.FC = () => {
                 color={pad.color}
                 transparent
                 opacity={0.16}
+              />
+            </mesh>
+            {/* Specular Flash Overlay en Pad */}
+            <mesh position={[0, 0, 0.033]}>
+              <planeGeometry args={[0.44, 0.44]} />
+              <meshBasicMaterial
+                ref={(el) => {
+                  padFlashMatRefs.current[idx] = el;
+                }}
+                color={HOT_WHITE}
+                transparent
+                opacity={0}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
               />
             </mesh>
             <lineSegments geometry={padEdges}>

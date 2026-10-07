@@ -26,6 +26,7 @@ import {
   VolumeX,
   Mic,
   Image,
+  Activity,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
@@ -363,6 +364,34 @@ export const UniversalCommandPalette: React.FC = () => {
 
     // Ambientes Lo-Fi
     {
+      id: 'amb_cosmic',
+      title: 'Alternar Cosmic 432 Hz Drone (Binaural Theta)',
+      category: 'Ambientes Lo-Fi',
+      icon: Waves,
+      action: () => soundscapeEngine.toggleChannel('cosmic'),
+    },
+    {
+      id: 'amb_vinyl',
+      title: 'Alternar Vintage Vinyl Crackle (33 RPM)',
+      category: 'Ambientes Lo-Fi',
+      icon: Waves,
+      action: () => soundscapeEngine.toggleChannel('vinyl'),
+    },
+    {
+      id: 'amb_thunder',
+      title: 'Alternar Thunderstorm & Wind (Tormenta)',
+      category: 'Ambientes Lo-Fi',
+      icon: Waves,
+      action: () => soundscapeEngine.toggleChannel('thunder'),
+    },
+    {
+      id: 'amb_forest',
+      title: 'Alternar Forest Night (Brisa y Grillos)',
+      category: 'Ambientes Lo-Fi',
+      icon: Waves,
+      action: () => soundscapeEngine.toggleChannel('forest'),
+    },
+    {
       id: 'amb_rain',
       title: 'Alternar Lluvia Suave en Ventana',
       category: 'Ambientes Lo-Fi',
@@ -389,6 +418,13 @@ export const UniversalCommandPalette: React.FC = () => {
       category: 'Ambientes Lo-Fi',
       icon: Waves,
       action: () => soundscapeEngine.toggleChannel('ocean'),
+    },
+    {
+      id: 'amb_stop_all',
+      title: 'Detener Todos los Ambientes Acústicos',
+      category: 'Ambientes Lo-Fi',
+      icon: Waves,
+      action: () => soundscapeEngine.stopAll(),
     },
 
     // Visualizadores

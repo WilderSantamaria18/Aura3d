@@ -35,8 +35,8 @@ const GlitchLayer: React.FC = () => {
 
   useEffect(() => {
     if (!isPlaying) {
-      setIsGlitching(false);
-      return;
+      const id = requestAnimationFrame(() => setIsGlitching(false));
+      return () => cancelAnimationFrame(id);
     }
     if (isBeat && features.bassEnergy > 0.55) {
       const now = performance.now();

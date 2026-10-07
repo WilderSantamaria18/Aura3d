@@ -50,9 +50,9 @@ export const HelpModal: React.FC = () => {
 
         {/* Modal Window */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, scale: 0.92, y: 16, filter: 'blur(12px)' }}
+          animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, scale: 0.92, y: 14, filter: 'blur(12px)' }}
           transition={{ type: 'spring', stiffness: 340, damping: 28 }}
           className="relative w-full max-w-2xl max-h-[85vh] flex flex-col liquid-glass liquid-glass--modal overflow-hidden text-white"
         >

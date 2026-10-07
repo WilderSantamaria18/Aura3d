@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { usePlayerStore } from './playerStore';
-import { LUCID_THEMES } from '../types/audio';
-import { getLucidThemeForWallpaper } from '../services/wallpaperPresetsService';
+import {
+  harmonizeEcosystemWithWallpaper,
+  resetWallpaperThemeVariables,
+} from '../services/wallpaperColorService';
 import type {
   WallpaperGenerationResult,
   WallpaperApplicationSettings,
@@ -85,12 +87,13 @@ export const useWallpaperStore = create<WallpaperState>()(
             playerStore.setIsLucid(true);
             playerStore.updateBlobSettings({ customBackgroundImage: currentWallpaper.url });
 
-            // Armonizar el ecosistema Lúcido con el fondo
-            const themeId = getLucidThemeForWallpaper(currentWallpaper.palette, currentWallpaper.style);
-            const matchedTheme = LUCID_THEMES.find((t) => t.id === themeId);
-            if (matchedTheme) {
-              playerStore.setLucidTheme(matchedTheme);
-            }
+            // Armonizar todo el ecosistema (Chameleon Glass, paleta Lúcida, tokens CSS)
+            void harmonizeEcosystemWithWallpaper(
+              currentWallpaper.url,
+              currentWallpaper.title,
+              currentWallpaper.palette,
+              currentWallpaper.style
+            );
           } catch {
             // Ignore if store not yet ready
           }
@@ -98,6 +101,7 @@ export const useWallpaperStore = create<WallpaperState>()(
           set({ backgroundMode: 'atmosphere' });
           try {
             usePlayerStore.getState().updateBlobSettings({ customBackgroundImage: null });
+            resetWallpaperThemeVariables();
           } catch {
             // Ignore if store not yet ready
           }
@@ -107,6 +111,7 @@ export const useWallpaperStore = create<WallpaperState>()(
         set({ currentWallpaper: null, backgroundMode: 'atmosphere' });
         try {
           usePlayerStore.getState().updateBlobSettings({ customBackgroundImage: null });
+          resetWallpaperThemeVariables();
         } catch {
           // Ignore if store not yet ready
         }

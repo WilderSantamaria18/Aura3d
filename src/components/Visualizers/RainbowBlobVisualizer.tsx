@@ -1085,18 +1085,6 @@ export const RainbowBlobVisualizer: React.FC = () => {
             title="Haz clic para recortar, aplicar filtros y efectos al logo/carátula"
           >
             <LogoDisc src={activeImage} size={discSize} appearance={activeLogo.appearance} />
-            {/* Proportional Vinyl inner groove rings overlay */}
-            <div className="absolute inset-0 rounded-full border border-white/20 pointer-events-none" />
-            <div className="absolute inset-[15%] rounded-full border border-white/10 pointer-events-none" />
-            <div className="absolute inset-[30%] rounded-full border border-white/10 pointer-events-none" />
-            <div className="absolute inset-[45%] rounded-full border border-white/10 pointer-events-none" />
-            <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black border border-white/60 pointer-events-none shadow-sm"
-              style={{
-                width: `${Math.max(6, Math.round(discSize * 0.09))}px`,
-                height: `${Math.max(6, Math.round(discSize * 0.09))}px`,
-              }}
-            />
           </div>
         </div>
       );
@@ -1211,6 +1199,8 @@ export const RainbowBlobVisualizer: React.FC = () => {
             width: `${circleDimension}px`,
             height: `${circleDimension}px`,
             backgroundColor: isSunset ? '#000000' : isLucid ? (lucidTheme.glassColor || '#070a16') : blobSettings.circleColor,
+            // Base oscura bajo el cristal Lucid: el aura no atraviesa el disco y el centro queda limpio
+            backgroundImage: !isSunset && isLucid ? 'linear-gradient(rgba(3, 5, 12, 0.82), rgba(3, 5, 12, 0.82))' : undefined,
             borderColor: isLucid ? lucidTheme.borderColor : 'rgba(255, 255, 255, 0.14)',
             backdropFilter: isSunset ? 'none' : 'blur(20px) saturate(150%)',
           }}
@@ -1256,100 +1246,56 @@ export const RainbowBlobVisualizer: React.FC = () => {
         </div>
       </div>
 
-      {/* Botón flotante unificado de estudio: Estilo Halo & Ajustes (Se auto-oculta en reposo) */}
-      <div
-        className={`fixed top-[11.25rem] sm:top-24 right-3 sm:right-5 z-40 flex items-center gap-1.5 pointer-events-auto select-none transition-all duration-700 ${
-          isUiIdle && !isBlobPanelOpen ? 'opacity-0 -translate-y-3 pointer-events-none' : 'opacity-100 translate-y-0'
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
-          className={`group flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-full liquid-glass border transition-all duration-200 shadow-[0_8px_25px_rgba(0,0,0,0.5)] active:scale-95 cursor-pointer backdrop-blur-2xl ${
-            isBlobPanelOpen
-              ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_20px_rgba(0,229,255,0.3)]'
-              : 'bg-[#0a0f1d]/85 text-white/90 border-white/15 border-t-white/30 hover:bg-white/[0.12] hover:text-white'
-          }`}
-          style={
-            isLucid
-              ? {
-                  borderColor: isBlobPanelOpen ? `${lucidPrimaryColor}80` : `${lucidPrimaryColor}40`,
-                  boxShadow: isBlobPanelOpen ? `0 0 25px ${lucidTheme.glow}` : undefined,
-                }
-              : undefined
-          }
-          title={isBlobPanelOpen ? 'Cerrar panel de estilo Rainbow Void' : 'Abrir configuración y calibración Rainbow Void'}
-          aria-label="Configuración y Estilo de Halo"
-        >
-          <div
-            className="w-4 h-4 rounded-full flex items-center justify-center transition-colors bg-cyan-500/15"
-            style={{
-              backgroundColor: isLucid ? `${lucidPrimaryColor}25` : undefined,
-            }}
-          >
-            <Sliders
-              className="w-2.5 h-2.5 transition-transform group-hover:rotate-45 duration-300"
-              style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
-            />
-          </div>
-
-          <span className="text-[11px] font-medium tracking-wide text-white/90">
-            Rainbow Void
-          </span>
-
-          <span className="hidden sm:inline-block text-[8px] font-mono tracking-wider px-1.5 py-0.2 rounded-full border border-white/15 text-white/60 bg-white/[0.04]">
-            CALIB
-          </span>
-
-          <ChevronDown
-            className={`w-3 h-3 text-white/40 transition-transform duration-200 ${
-              isBlobPanelOpen ? 'rotate-180 text-white' : 'group-hover:text-white/70'
-            }`}
-          />
-        </button>
-      </div>
-
       {/* Panel de Control Editable (Z-Index: 50, pointer-events: auto) */}
       {isBlobPanelOpen && (
         <div
-          className={`fixed top-12 sm:top-14 right-3 sm:right-5 left-3 sm:left-auto sm:w-84 z-50 rounded-[24px] p-4 shadow-[0_25px_60px_rgba(0,0,0,0.95)] space-y-3.5 max-h-[calc(100vh-4.5rem)] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 duration-200 pointer-events-auto liquid-glass liquid-glass-card bg-[#0a0f1d]/94 backdrop-blur-3xl border border-white/15 border-t-white/30 text-white font-sans ${
+          className={`fixed top-14 sm:top-16 right-3 sm:right-6 left-3 sm:left-auto sm:w-[440px] z-50 rounded-[28px] p-4 sm:p-5 shadow-[0_32px_90px_rgba(0,0,0,0.96),inset_0_1px_1.5px_rgba(255,255,255,0.22)] space-y-4 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2 duration-200 pointer-events-auto bg-[#090c18]/96 backdrop-blur-3xl border border-white/20 border-t-white/35 text-white font-sans ${
             isLucid ? 'lucid-panel' : ''
           }`}
           style={
             isLucid
               ? {
-                  backgroundColor: lucidTheme.glassColor,
-                  borderColor: lucidTheme.borderColor,
-                  boxShadow: `0 0 35px ${lucidTheme.glow}, 0 25px 60px rgba(0,0,0,0.95)`,
+                  backgroundColor: 'rgba(9, 12, 24, 0.96)',
+                  borderColor: `${lucidPrimaryColor}60`,
+                  boxShadow: `0 0 35px ${lucidTheme.glow}, 0 32px 90px rgba(0,0,0,0.96)`,
                 }
               : undefined
           }
         >
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.10]">
+            <div className="flex items-center gap-2.5">
               <div
-                className="w-6.5 h-6.5 rounded-full flex items-center justify-center border border-white/10"
+                className="w-8 h-8 rounded-xl flex items-center justify-center border border-cyan-400/40 bg-cyan-500/20 shadow-[0_0_12px_rgba(0,229,255,0.3)]"
                 style={{
-                  backgroundColor: isLucid ? `${lucidPrimaryColor}25` : 'rgba(0, 229, 255, 0.12)',
+                  backgroundColor: isLucid ? `${lucidPrimaryColor}25` : undefined,
+                  borderColor: isLucid ? `${lucidPrimaryColor}50` : undefined,
                 }}
               >
                 <Palette
-                  className="w-3.5 h-3.5"
+                  className="w-4 h-4 text-cyan-300"
                   style={{ color: isLucid ? lucidPrimaryColor : '#00e5ff' }}
                 />
               </div>
-              <h4 className="text-white text-xs sm:text-sm font-semibold tracking-tight">
-                Calibración Rainbow Void
-              </h4>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-white text-sm font-bold tracking-tight">
+                    Estudio Rainbow Void
+                  </h4>
+                  <span className="text-[9px] font-mono font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                    2D Shaders
+                  </span>
+                </div>
+                <span className="text-[10.5px] text-white/50">Mándala, Shaders, Reactividad y Bloom</span>
+              </div>
             </div>
 
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleSaveFavoritePreset}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-95 border ${
+                className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center transition-all active:scale-95 border cursor-pointer ${
                   savedPresetSuccess
-                    ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40 font-bold'
+                    ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40 font-bold shadow-[0_0_10px_rgba(52,199,89,0.3)]'
                     : 'bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border-white/10 border-t-white/20'
                 }`}
                 title="Guardar combinación favorita en LocalStorage"
@@ -1359,14 +1305,14 @@ export const RainbowBlobVisualizer: React.FC = () => {
 
               <button
                 onClick={handleResetFixedCalibration}
-                className="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95"
-                title="Restablecer valores de calibración fija"
+                className="w-7.5 h-7.5 rounded-xl flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95 cursor-pointer"
+                title="Restablecer valores de calibración"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setBlobPanelOpen(false)}
-                className="w-7 h-7 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95"
+                className="w-7.5 h-7.5 rounded-xl flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white border border-white/10 border-t-white/20 transition-all active:scale-95 cursor-pointer"
                 aria-label="Cerrar panel"
               >
                 <X className="w-3.5 h-3.5" />

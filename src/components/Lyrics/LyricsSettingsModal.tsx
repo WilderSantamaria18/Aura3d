@@ -23,6 +23,7 @@ import {
   Sliders,
   Check,
   Maximize2,
+  Timer,
 } from 'lucide-react';
 import { usePlayerStore, DEFAULT_KAWARP_SETTINGS, DEFAULT_LENIS_SETTINGS } from '../../stores/playerStore';
 import type { LyricsFontType } from './LyricsPanel';
@@ -67,6 +68,9 @@ export const LyricsSettingsModal: React.FC<LyricsSettingsModalProps> = ({
     setLyricsHideDelay,
     lyricsAutoScroll,
     setLyricsAutoScroll,
+    lyricsOffset,
+    setLyricsOffset,
+    adjustLyricsOffset,
   } = usePlayerStore(
     useShallow((s) => ({
       kawarpSettings: s.kawarpSettings,
@@ -79,6 +83,9 @@ export const LyricsSettingsModal: React.FC<LyricsSettingsModalProps> = ({
       setLyricsHideDelay: s.setLyricsHideDelay,
       lyricsAutoScroll: s.lyricsAutoScroll,
       setLyricsAutoScroll: s.setLyricsAutoScroll,
+      lyricsOffset: s.lyricsOffset,
+      setLyricsOffset: s.setLyricsOffset,
+      adjustLyricsOffset: s.adjustLyricsOffset,
     }))
   );
 
@@ -92,6 +99,7 @@ export const LyricsSettingsModal: React.FC<LyricsSettingsModalProps> = ({
     setRomanizationMode('off');
     setLyricsHideDelay(3000);
     setLyricsAutoScroll(true);
+    setLyricsOffset(0);
     onFontChange('modern');
   };
 
@@ -216,6 +224,84 @@ export const LyricsSettingsModal: React.FC<LyricsSettingsModalProps> = ({
                     >
                       A+
                     </button>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Section: Calibración Temporal de Sincronía (Micro-Offset) */}
+            {matchesSearch(['offset', 'sync', 'sincronia', 'retraso', 'adelanto', 'tiempo', 'calibrar']) && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-white/50 uppercase text-[10px] font-mono tracking-wider font-semibold">
+                    <Timer className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Calibrador Temporal (Offset de Sincronía)</span>
+                  </div>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    {lyricsOffset > 0
+                      ? `+${lyricsOffset.toFixed(2)}s (Adelanto)`
+                      : lyricsOffset < 0
+                      ? `${lyricsOffset.toFixed(2)}s (Retraso)`
+                      : '0.00s (Perfecto)'}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.06] space-y-3">
+                  <p className="text-white/60 text-xs leading-relaxed">
+                    Si el audio y las letras van desfasados, ajusta el desfase aquí. Se guarda automáticamente para cada pista.
+                  </p>
+
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => adjustLyricsOffset(-0.5)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-xs font-mono font-medium transition-colors"
+                      title="Retrasar 0.5 segundos"
+                    >
+                      -0.5s
+                    </button>
+                    <button
+                      onClick={() => adjustLyricsOffset(-0.1)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-xs font-mono font-medium transition-colors"
+                      title="Retrasar 0.1 segundos"
+                    >
+                      -0.1s
+                    </button>
+                    <button
+                      onClick={() => setLyricsOffset(0)}
+                      className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-mono font-bold border border-cyan-500/30 transition-colors"
+                      title="Restablecer a sincronía neutra (0.0s)"
+                    >
+                      Reset 0.0s
+                    </button>
+                    <button
+                      onClick={() => adjustLyricsOffset(0.1)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-xs font-mono font-medium transition-colors"
+                      title="Adelantar 0.1 segundos"
+                    >
+                      +0.1s
+                    </button>
+                    <button
+                      onClick={() => adjustLyricsOffset(0.5)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white text-xs font-mono font-medium transition-colors"
+                      title="Adelantar 0.5 segundos"
+                    >
+                      +0.5s
+                    </button>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="-5"
+                    max="5"
+                    step="0.05"
+                    value={lyricsOffset}
+                    onChange={(e) => setLyricsOffset(parseFloat(e.target.value))}
+                    className="w-full accent-cyan-400"
+                  />
+                  <div className="flex justify-between text-[10px] font-mono text-white/40">
+                    <span>-5.0s (Retrasar)</span>
+                    <span>0.0s</span>
+                    <span>+5.0s (Adelantar)</span>
                   </div>
                 </div>
               </section>

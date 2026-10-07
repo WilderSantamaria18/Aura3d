@@ -20,7 +20,11 @@ if (typeof process.loadEnvFile === 'function') {
   try {
     process.loadEnvFile();
   } catch {
-    // Ignore if .env is absent
+    try {
+      process.loadEnvFile('.env.example');
+    } catch {
+      // Ignore if neither is present
+    }
   }
 }
 

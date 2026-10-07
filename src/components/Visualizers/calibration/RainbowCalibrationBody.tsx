@@ -1,28 +1,34 @@
 import React, { useState } from 'react';
-import { Activity, Layers, Palette, Sliders, Trash2, Upload, Zap } from 'lucide-react';
+import {
+  Activity,
+  Layers,
+  Palette,
+  Sliders,
+  Trash2,
+  Upload,
+  Zap,
+  Sparkles,
+  RotateCw,
+  Eye,
+  Disc3,
+  Sun,
+  Shield,
+  Circle,
+  Gem,
+} from 'lucide-react';
 import { usePlayerStore } from '../../../stores/playerStore';
-import { useWallpaperStore } from '../../../stores/wallpaperStore';
 import { RAINBOW_VOID_EFFECTS } from '../../../config/visualPresets';
 import { KICK_MAX_PEAK } from '../../../utils/kickSpring';
 import { VoidFxCustomizer } from '../../UI/VoidFxCustomizer';
 import type { ActiveLogo } from '../../../hooks/useActiveLogo';
 import type { ProEffectDef } from '../../../hooks/useProEffectsManager';
+import type { BlobShape } from '../../../types/audio';
 import { Choice, Section, SliderRow, SwitchRow } from './controls';
 
-/**
- * Cuerpo de la calibración de Rainbow Void. Cada ajuste vive en UN solo sitio:
- *
- *   Forma    qué se dibuja: tamaño del núcleo, efecto del contorno y sus ajustes, grosor del trazo
- *   Música   cómo reacciona al sonido: detección del bombo y cuánto se mueve cada cosa con él
- *   Aspecto  cómo se ve: color, aura, giro, logo del centro y (avanzado) el aro clásico
- *   Capas    efectos extra que se apilan encima (máximo 4)
- *
- * Fondo y atmósferas ya no se repiten aquí: se ajustan en el Estudio de Fondos (atajo W).
- */
-
-type TabId = 'shape' | 'music' | 'look' | 'layers';
+type TabId = 'presets' | 'shape' | 'music' | 'look' | 'layers';
 
 const TABS: Array<{ id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: 'presets', label: 'Presets', icon: Sparkles },
   { id: 'shape', label: 'Forma', icon: Sliders },
   { id: 'music', label: 'Música', icon: Activity },
   { id: 'look', label: 'Aspecto', icon: Palette },
@@ -36,7 +42,6 @@ export interface LogoPresetOption {
 }
 
 export interface RainbowCalibrationBodyProps {
-  /** Registra los elementos de los medidores: el bucle de render los actualiza directamente (sin pasar por React) */
   registerMeter: (key: string, el: HTMLElement | null) => void;
   isSunset: boolean;
   logoPresets: LogoPresetOption[];
@@ -53,11 +58,16 @@ export interface RainbowCalibrationBodyProps {
 }
 
 export const RainbowCalibrationBody: React.FC<RainbowCalibrationBodyProps> = (props) => {
-  const [tab, setTab] = useState<TabId>('shape');
+  const [tab, setTab] = useState<TabId>('presets');
 
   return (
-    <div className="space-y-3.5 text-xs text-white/80">
-      <div role="tablist" aria-label="Secciones de calibración" className="grid grid-cols-4 gap-1 p-1 bg-white/[0.04] rounded-xl border border-white/[0.06]">
+    <div className="space-y-3.5 text-xs text-white/90">
+      {/* 5 Tab Navigation */}
+      <div
+        role="tablist"
+        aria-label="Secciones de estudio Rainbow Void"
+        className="grid grid-cols-5 gap-1 p-1 bg-black/40 rounded-2xl border border-white/10"
+      >
         {TABS.map((t) => {
           const Icon = t.icon;
           const on = tab === t.id;
@@ -68,27 +78,31 @@ export const RainbowCalibrationBody: React.FC<RainbowCalibrationBodyProps> = (pr
               role="tab"
               aria-selected={on}
               onClick={() => setTab(t.id)}
-              className={`py-2 px-1 rounded-lg flex flex-col items-center gap-1 border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-300 ${
+              className={`py-2 px-1 rounded-xl flex flex-col items-center gap-1 border transition-all cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-cyan-300 ${
                 on
-                  ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 font-semibold'
-                  : 'bg-transparent text-white/50 border-transparent hover:text-white hover:bg-white/[0.04]'
+                  ? 'bg-cyan-500/25 text-white border-cyan-400/70 font-bold shadow-[0_0_12px_rgba(0,229,255,0.3)]'
+                  : 'bg-transparent text-white/50 border-transparent hover:text-white hover:bg-white/[0.06]'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="text-[11px] leading-none">{t.label}</span>
+              <Icon className={`w-3.5 h-3.5 ${on ? 'text-cyan-300' : ''}`} />
+              <span className="text-[10.5px] leading-none tracking-tight">{t.label}</span>
             </button>
           );
         })}
       </div>
 
       {props.proToast && (
-        <div role="status" className="p-2.5 bg-amber-500/15 border border-amber-400/35 rounded-xl text-amber-200 text-[11px] flex items-center gap-2">
+        <div
+          role="status"
+          className="p-2.5 bg-amber-500/20 border border-amber-400/40 rounded-xl text-amber-200 text-[11px] flex items-center gap-2 shadow-sm"
+        >
           <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span className="leading-snug">{props.proToast}</span>
         </div>
       )}
 
       <div role="tabpanel" className="space-y-3 animate-in fade-in-50 duration-150">
+        {tab === 'presets' && <PresetsTab />}
         {tab === 'shape' && <ShapeTab />}
         {tab === 'music' && <MusicTab registerMeter={props.registerMeter} />}
         {tab === 'look' && <LookTab {...props} />}
@@ -98,16 +112,271 @@ export const RainbowCalibrationBody: React.FC<RainbowCalibrationBodyProps> = (pr
   );
 };
 
-/* ═══ FORMA ═══════════════════════════════════════════════════════════════ */
-const CORE_PRESETS = [
-  { id: '240', label: 'Compacto' },
-  { id: '340', label: 'Estándar' },
-  { id: '430', label: 'Amplio' },
+/* ═══ 1. PRESETS MAESTROS ══════════════════════════════════════════════════ */
+const MASTER_PRESETS = [
+  {
+    id: 'zen_mandala',
+    title: 'Mándala Zen',
+    desc: 'Geometría sagrada de 8 pétalos, rotación suave y paleta Aurora mística',
+    icon: Sparkles,
+    badge: 'Místico',
+    gradient: 'from-emerald-400 to-cyan-400',
+    settings: {
+      blobShape: 'fractal',
+      catEarsCount: 8,
+      catEarsLayers: 3,
+      catEarsSharpness: 1.8,
+      circleSize: 320,
+      rotationSpeed: 0.6,
+      rotationDirection: 'clockwise' as const,
+      sacredPalette: 'aurora' as const,
+      dhonkioBloom: 1.4,
+      dhonkioOpacity: 0.85,
+      bassBoost: 2.2,
+      scaleSensitivity: 1.2,
+      kickIntensity: 1.1,
+      kickPower: 1.4,
+      transparentHalo: true,
+      strokeHairline: 0.75,
+      auraEnabled: true,
+      auraKickResponse: 0.9,
+    },
+  },
+  {
+    id: 'cyberpunk_overdrive',
+    title: 'Cyberpunk Overdrive',
+    desc: 'Vértices afilados de alta velocidad, bloom neón 2.4x y golpe de graves masivo',
+    icon: Zap,
+    badge: 'Club / Bass',
+    gradient: 'from-pink-500 to-cyan-400',
+    settings: {
+      blobShape: 'geometry',
+      catEarsCount: 6,
+      catEarsLayers: 4,
+      catEarsSharpness: 3.2,
+      circleSize: 340,
+      rotationSpeed: 1.8,
+      rotationDirection: 'clockwise' as const,
+      sacredPalette: 'cyberpunk' as const,
+      dhonkioBloom: 2.3,
+      dhonkioOpacity: 0.92,
+      bassBoost: 3.8,
+      scaleSensitivity: 1.7,
+      kickIntensity: 1.4,
+      kickPower: 2.1,
+      transparentHalo: false,
+      strokeHairline: 1.5,
+      shockwaveEnabled: true,
+      auraEnabled: true,
+      auraKickResponse: 1.3,
+    },
+  },
+  {
+    id: 'nebula_stardust',
+    title: 'Nebula Stardust',
+    desc: 'Núcleo flotante con aura expansiva reactiva y estela de partículas cósmicas',
+    icon: Sun,
+    badge: 'Espacial',
+    gradient: 'from-violet-500 to-indigo-400',
+    settings: {
+      blobShape: 'particles',
+      catEarsCount: 4,
+      catEarsLayers: 2,
+      catEarsSharpness: 2.0,
+      circleSize: 260,
+      rotationSpeed: 1.0,
+      rotationDirection: 'clockwise' as const,
+      sacredPalette: 'neon' as const,
+      dhonkioBloom: 1.8,
+      dhonkioOpacity: 0.78,
+      bassBoost: 2.5,
+      scaleSensitivity: 1.5,
+      kickIntensity: 1.2,
+      kickPower: 1.6,
+      transparentHalo: true,
+      strokeHairline: 1.0,
+      auraEnabled: true,
+      auraKickResponse: 1.2,
+    },
+  },
+  {
+    id: 'imperial_gold',
+    title: 'Imperial Gold',
+    desc: 'Lujo en obsidiana con geometría concéntrica en oro champán y halo pulido',
+    icon: Gem,
+    badge: 'Luxury',
+    gradient: 'from-amber-300 to-amber-600',
+    settings: {
+      blobShape: 'fractal',
+      catEarsCount: 8,
+      catEarsLayers: 4,
+      catEarsSharpness: 2.4,
+      circleSize: 360,
+      rotationSpeed: 0.5,
+      rotationDirection: 'counter_clockwise' as const,
+      sacredPalette: 'gold' as const,
+      dhonkioBloom: 1.3,
+      dhonkioOpacity: 0.95,
+      bassBoost: 2.0,
+      scaleSensitivity: 1.1,
+      kickIntensity: 1.0,
+      kickPower: 1.3,
+      transparentHalo: true,
+      strokeHairline: 1.0,
+      auraEnabled: true,
+      auraKickResponse: 0.7,
+    },
+  },
+  {
+    id: 'crystal_prism',
+    title: 'Crystal Prism',
+    desc: '12 vértices diamante, dispersión cromática arcoíris y rotación invertida',
+    icon: Disc3,
+    badge: 'Prismático',
+    gradient: 'from-cyan-300 via-white to-fuchsia-400',
+    settings: {
+      blobShape: 'crystal',
+      catEarsCount: 12,
+      catEarsLayers: 3,
+      catEarsSharpness: 3.5,
+      circleSize: 310,
+      rotationSpeed: 1.2,
+      rotationDirection: 'counter_clockwise' as const,
+      sacredPalette: 'crystal' as const,
+      dhonkioBloom: 1.9,
+      dhonkioOpacity: 0.88,
+      bassBoost: 2.6,
+      scaleSensitivity: 1.4,
+      kickIntensity: 1.25,
+      kickPower: 1.7,
+      transparentHalo: true,
+      isRainbowMode: true,
+      strokeHairline: 1.2,
+      auraEnabled: true,
+      auraKickResponse: 1.0,
+    },
+  },
+  {
+    id: 'pure_obsidian',
+    title: 'Obsidian Minimal',
+    desc: 'Estética purista monocroma, trazo ultrafino y reactividad sutil al audio',
+    icon: Circle,
+    badge: 'Minimal',
+    gradient: 'from-gray-300 to-zinc-600',
+    settings: {
+      blobShape: 'wave',
+      catEarsCount: 2,
+      catEarsLayers: 1,
+      catEarsSharpness: 1.5,
+      circleSize: 340,
+      rotationSpeed: 0.8,
+      rotationDirection: 'clockwise' as const,
+      sacredPalette: 'crystal' as const,
+      dhonkioBloom: 0.9,
+      dhonkioOpacity: 0.95,
+      bassBoost: 1.8,
+      scaleSensitivity: 1.0,
+      kickIntensity: 0.9,
+      kickPower: 1.2,
+      transparentHalo: false,
+      strokeHairline: 0.75,
+      auraEnabled: false,
+      auraKickResponse: 0.0,
+    },
+  },
 ];
+
+const PresetsTab: React.FC = () => {
+  const update = usePlayerStore((st) => st.updateBlobSettings);
+  const setBlobShape = usePlayerStore((st) => st.setBlobShape);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
+  const applyPreset = (preset: typeof MASTER_PRESETS[0]) => {
+    setActivePresetId(preset.id);
+    const { blobShape, ...rest } = preset.settings;
+    if (blobShape) setBlobShape(blobShape as BlobShape);
+    update(rest as never);
+  };
+
+  return (
+    <div className="space-y-2.5">
+      <div className="px-1">
+        <span className="text-xs font-semibold text-white/90">Estilos Maestros Preconfigurados</span>
+        <p className="text-[10.5px] text-white/50 leading-snug">
+          Aplica combinaciones armoniosas completas de geometría, shaders, bloom y reactividad con un solo toque.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
+        {MASTER_PRESETS.map((p) => {
+          const Icon = p.icon;
+          const isSelected = activePresetId === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className={`p-3 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all active:scale-[0.98] cursor-pointer ${
+                isSelected
+                  ? 'bg-cyan-500/20 border-cyan-400/80 shadow-[0_0_20px_rgba(0,229,255,0.3)] ring-1 ring-cyan-400/50'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br ${p.gradient} text-black font-bold shadow-md`}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white tracking-tight">{p.title}</span>
+                    <span className="text-[9px] font-mono font-semibold px-2 py-0.2 rounded-full bg-white/10 text-white/80 border border-white/10">
+                      {p.badge}
+                    </span>
+                  </div>
+                  <span className="text-[10.5px] text-white/55 line-clamp-1">{p.desc}</span>
+                </div>
+              </div>
+
+              {isSelected && (
+                <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00e5ff] shrink-0" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/* ═══ 2. FORMA & GEOMETRÍA SAGRADA ═════════════════════════════════════════ */
+const CORE_PRESETS = [
+  { id: '240', label: '240 px (Mini)' },
+  { id: '340', label: '340 px (Estándar)' },
+  { id: '430', label: '430 px (Amplio)' },
+];
+
+const PETALS_OPTIONS = [
+  { id: '2', label: '2 Puntas' },
+  { id: '3', label: '3 Puntas' },
+  { id: '4', label: '4 Puntas' },
+  { id: '6', label: '6 Puntas' },
+  { id: '8', label: '8 Pétalos' },
+  { id: '12', label: '12 Diamante' },
+];
+
 const STROKES = [
-  { id: '0.75', label: 'Ultrafino' },
-  { id: '1', label: 'Fino' },
-  { id: '1.5', label: 'Marcado' },
+  { id: '0.75', label: 'Ultrafino (0.75px)' },
+  { id: '1', label: 'Fino (1.0px)' },
+  { id: '1.5', label: 'Marcado (1.5px)' },
+  { id: '2.5', label: 'Grueso (2.5px)' },
+];
+
+const SHARPNESS_OPTIONS = [
+  { id: '1.5', label: 'Suave' },
+  { id: '2.2', label: 'Balanceado' },
+  { id: '3.5', label: 'Afilado' },
 ];
 
 const ShapeTab: React.FC = () => {
@@ -115,14 +384,18 @@ const ShapeTab: React.FC = () => {
   const update = usePlayerStore((st) => st.updateBlobSettings);
   const blobShape = usePlayerStore((st) => st.blobShape);
   const setBlobShape = usePlayerStore((st) => st.setBlobShape);
+
   const size = s.circleSize || 340;
   const stroke = s.strokeHairline ?? s.catEarsStrokeWidth ?? 1;
+  const petals = s.catEarsCount ?? 2;
+  const layers = s.catEarsLayers ?? 2;
+  const sharpness = s.catEarsSharpness ?? 2.2;
 
   return (
     <>
-      <Section title="Núcleo" hint="El disco oscuro del centro, donde se ve el logo o la carátula.">
+      <Section title="Núcleo del Visualizador" hint="Diámetro del disco central donde vibra el arte o logotipo.">
         <SliderRow
-          label="Tamaño"
+          label="Diámetro del Núcleo"
           value={size}
           min={160}
           max={500}
@@ -130,10 +403,44 @@ const ShapeTab: React.FC = () => {
           display={`${size} px`}
           onChange={(v) => update({ circleSize: Math.round(v) })}
         />
-        <Choice options={CORE_PRESETS} value={String(size)} onChange={(id) => update({ circleSize: parseInt(id, 10) })} />
+        <Choice
+          options={CORE_PRESETS}
+          value={String(size)}
+          onChange={(id) => update({ circleSize: parseInt(id, 10) })}
+        />
       </Section>
 
-      <Section title="Forma del contorno" hint="Lo que se dibuja alrededor del disco y reacciona a la música.">
+      <Section title="Geometría Sagrada & Mándala" hint="Configuración de vértices matemáticos, pétalos y capas concéntricas.">
+        <Choice
+          label="Puntas / Pétalos Matemáticos"
+          options={PETALS_OPTIONS}
+          value={String(petals)}
+          columns={3}
+          onChange={(id) => update({ catEarsCount: parseInt(id, 10) })}
+          hint="Controla la simetría del contorno (2 orejas, 4 crestas, 8 mándala o 12 diamante)."
+        />
+
+        <SliderRow
+          label="Capas Concéntricas"
+          value={layers}
+          min={1}
+          max={5}
+          step={1}
+          display={`${layers} ${layers === 1 ? 'capa' : 'capas'}`}
+          onChange={(v) => update({ catEarsLayers: Math.round(v) })}
+          hint="Multiplica las líneas en profundidad dimensional."
+        />
+
+        <Choice
+          label="Agudeza de Vértices"
+          options={SHARPNESS_OPTIONS}
+          value={String(sharpness)}
+          onChange={(id) => update({ catEarsSharpness: parseFloat(id) })}
+          hint="Curvatura de los picos en cada impulso del bombo."
+        />
+      </Section>
+
+      <Section title="Estilo de Contorno Activo" hint="Algoritmo procedural que envuelve el núcleo.">
         <div className="grid grid-cols-2 gap-2">
           {RAINBOW_VOID_EFFECTS.map((fx) => {
             const on = blobShape === fx.id;
@@ -144,10 +451,14 @@ const ShapeTab: React.FC = () => {
                 aria-pressed={on}
                 onClick={() => setBlobShape(fx.id)}
                 title={fx.desc}
-                className={`glass-item !rounded-xl px-3 py-2.5 text-left flex flex-col gap-0.5 cursor-pointer ${on ? 'is-active text-white' : 'text-white/75'}`}
+                className={`p-2.5 rounded-xl text-left flex flex-col gap-0.5 border transition-all cursor-pointer ${
+                  on
+                    ? 'bg-cyan-500/25 border-cyan-400/80 text-white shadow-[0_0_12px_rgba(0,229,255,0.3)] font-semibold'
+                    : 'bg-white/[0.04] border-white/10 text-white/75 hover:bg-white/[0.08] hover:text-white'
+                }`}
               >
-                <span className="text-[12px] font-semibold tracking-tight">{fx.name}</span>
-                <span className="text-[10.5px] leading-snug text-white/55 line-clamp-2">{fx.desc}</span>
+                <span className="text-xs font-bold tracking-tight text-white">{fx.name}</span>
+                <span className="text-[10px] leading-snug text-white/55 line-clamp-1">{fx.desc}</span>
               </button>
             );
           })}
@@ -156,38 +467,44 @@ const ShapeTab: React.FC = () => {
 
       <VoidFxCustomizer />
 
-      <Section title="Trazo" hint="Grosor de las líneas de todas las formas.">
+      <Section title="Grosor de Trazo" hint="Definición vectorial de todas las líneas perimetrales.">
         <Choice
           options={STROKES}
           value={String(stroke)}
-          onChange={(id) => update({ strokeHairline: parseFloat(id) as never, catEarsStrokeWidth: parseFloat(id) })}
+          columns={2}
+          onChange={(id) =>
+            update({ strokeHairline: parseFloat(id) as never, catEarsStrokeWidth: parseFloat(id) })
+          }
         />
       </Section>
     </>
   );
 };
 
-/* ═══ MÚSICA ══════════════════════════════════════════════════════════════ */
-const MusicTab: React.FC<{ registerMeter: RainbowCalibrationBodyProps['registerMeter'] }> = ({ registerMeter }) => {
+/* ═══ 3. MÚSICA & DINÁMICAS DSP ═════════════════════════════════════════════ */
+const MusicTab: React.FC<{ registerMeter: RainbowCalibrationBodyProps['registerMeter'] }> = ({
+  registerMeter,
+}) => {
   const s = usePlayerStore((st) => st.blobSettings);
   const update = usePlayerStore((st) => st.updateBlobSettings);
 
-  // La sensibilidad se muestra al derecho (más = más golpes); internamente es un umbral (menos = más golpes)
   const threshold = s.kickThreshold ?? 0.32;
   const sensitivity = Math.round(((0.7 - threshold) / 0.6) * 100);
   const strength = s.kickIntensity ?? 1;
+  const kickPower = s.kickPower ?? 1.6;
+  const boost = s.bassBoost ?? 2.8;
 
   return (
     <>
       <Section
-        title="Señal en vivo"
-        hint="Lo que el visualizador escucha ahora mismo. KICK se enciende con cada bombo detectado."
+        title="Monitor de Audio en Vivo"
+        hint="Medición FFT de transitorios. KICK se ilumina instantáneamente al detectar el bombo."
         action={
           <span
             ref={(el) => {
               registerMeter('kick', el);
             }}
-            className="text-[11px] font-mono font-bold text-cyan-300 opacity-0"
+            className="text-[11px] font-mono font-bold text-cyan-300 opacity-0 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 shadow-[0_0_10px_#00e5ff]"
           >
             ● KICK
           </span>
@@ -196,19 +513,19 @@ const MusicTab: React.FC<{ registerMeter: RainbowCalibrationBodyProps['registerM
         <div className="space-y-2">
           {(
             [
-              ['Graves', 'bass'],
+              ['Sub-Graves', 'bass'],
               ['Medios', 'mids'],
               ['Agudos', 'treble'],
             ] as const
           ).map(([label, key]) => (
-            <div key={key} className="flex items-center gap-2">
-              <span className="w-14 text-[11px] text-white/60">{label}</span>
-              <div className="relative flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div key={key} className="flex items-center gap-2.5">
+              <span className="w-18 text-[11px] text-white/70 font-medium">{label}</span>
+              <div className="relative flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
                   ref={(el) => {
                     registerMeter(key, el);
                   }}
-                  className="absolute inset-0 origin-left bg-gradient-to-r from-cyan-400 to-violet-400"
+                  className="absolute inset-0 origin-left bg-gradient-to-r from-cyan-400 via-sky-300 to-violet-400 shadow-[0_0_8px_rgba(0,229,255,0.5)]"
                   style={{ transform: 'scaleX(0)' }}
                 />
               </div>
@@ -217,74 +534,113 @@ const MusicTab: React.FC<{ registerMeter: RainbowCalibrationBodyProps['registerM
         </div>
       </Section>
 
-      <Section title="Detección del bombo">
+      <Section title="Detección y Resorte de Bombo (Kick Dynamics)">
         <SliderRow
-          label="Sensibilidad"
+          label="Sensibilidad de Detección"
           value={sensitivity}
           min={0}
           max={100}
           step={2}
           display={`${sensitivity}%`}
-          onChange={(v) => update({ kickThreshold: Math.round((0.7 - (v / 100) * 0.6) * 100) / 100 })}
-          hint="Más alto detecta más golpes. Súbelo hasta que KICK parpadee con cada bombo, y bájalo si se enciende con otros sonidos."
+          onChange={(v) =>
+            update({ kickThreshold: Math.round((0.7 - (v / 100) * 0.6) * 100) / 100 })
+          }
+          hint="Ajusta el umbral hasta que el indicador KICK parpadee en sincronía exacta con cada bombo."
         />
-      </Section>
 
-      <Section title="Cuánto se mueve con la música">
         <SliderRow
-          label="Fuerza del golpe"
+          label="Fuerza del Golpe (Impulso)"
           value={strength}
           min={0.5}
-          max={1.5}
+          max={2.0}
           step={0.05}
           display={`${strength.toFixed(2)}× · hasta +${Math.round(KICK_MAX_PEAK * strength * 100)}%`}
           onChange={(v) => update({ kickIntensity: v })}
-          hint="Cuánto crece el núcleo con el bombo más fuerte. Los golpes suaves crecen menos."
+          hint="Magnitud física de la expansión en el ataque del bombo."
         />
+
         <SliderRow
-          label="Reacción del núcleo al volumen"
+          label="Potencia de Expansión del Resorte"
+          value={kickPower}
+          min={1.0}
+          max={2.5}
+          step={0.05}
+          display={`${kickPower.toFixed(2)}×`}
+          onChange={(v) => update({ kickPower: v })}
+          hint="Elasticidad y rebote de amortiguación (física tipo resorte de iOS)."
+        />
+      </Section>
+
+      <Section title="Resonancia & Expansión Musical">
+        <SliderRow
+          label="Boost de Graves & Sub-Bass"
+          value={boost}
+          min={1.0}
+          max={5.0}
+          step={0.1}
+          display={`${boost.toFixed(1)}×`}
+          onChange={(v) => update({ bassBoost: v })}
+          hint="Multiplicador de respuesta a frecuencias sub-graves (<120Hz)."
+        />
+
+        <SliderRow
+          label="Respiración Dinámica al Volumen"
           value={s.scaleSensitivity ?? 1.4}
           min={0.4}
           max={2.2}
           step={0.05}
           display={`${(s.scaleSensitivity ?? 1.4).toFixed(2)}×`}
           onChange={(v) => update({ scaleSensitivity: v })}
-          hint="Cuánto respira el núcleo con la música en general, aparte de los golpes."
+          hint="Expansión continua del núcleo con el volumen musical general."
         />
+
         {s.auraEnabled !== false && (
           <SliderRow
-            label="Respuesta del aura al bombo"
+            label="Respuesta del Aura al Bombo"
             value={s.auraKickResponse ?? 1}
             min={0}
             max={1.5}
             step={0.05}
             display={`${Math.round((s.auraKickResponse ?? 1) * 100)}%`}
             onChange={(v) => update({ auraKickResponse: v })}
-            hint="Cuánto se expande la nube de color con cada golpe. En 0% el aura no reacciona al bombo."
+            hint="Expansión de la nebulosa perimetral en cada impacto de kick."
           />
         )}
+
+        <SwitchRow
+          label="Onda de Choque en Kicks Fuertes"
+          hint="Dispara un anillo de onda expansiva translúcida cuando el bombo supera el umbral."
+          on={Boolean(s.shockwaveEnabled)}
+          onChange={(val) => update({ shockwaveEnabled: val })}
+        />
       </Section>
     </>
   );
 };
 
-/* ═══ ASPECTO ═════════════════════════════════════════════════════════════ */
+/* ═══ 4. SHADERS, BLOOM & ASPECTO ═══════════════════════════════════════════ */
 const PALETTES = [
-  { id: 'neon', name: 'Neón líquido', desc: 'Cian y violeta' },
-  { id: 'gold', name: 'Oro champán', desc: 'Lujo y obsidiana' },
-  { id: 'crystal', name: 'Cristal', desc: 'Blanco esmerilado' },
-  { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Magenta y cian' },
-  { id: 'aurora', name: 'Aurora boreal', desc: 'Verde y aguamarina' },
-  { id: 'lucid', name: 'Sincro lúcido', desc: 'Color del reproductor' },
-  { id: 'custom', name: 'Personalizada', desc: 'Tus propios colores' },
+  { id: 'neon', name: 'Neón Líquido', desc: 'Cian & Violeta Eléctrico' },
+  { id: 'gold', name: 'Oro Champán', desc: 'Obsidiana & Oro Pulido' },
+  { id: 'crystal', name: 'Cristal Puro', desc: 'Blanco & Azul Hielo' },
+  { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Magenta & Turquesa' },
+  { id: 'aurora', name: 'Aurora Boreal', desc: 'Verde Esmeralda & Aguamarina' },
+  { id: 'lucid', name: 'Sincro Lúcido', desc: 'Sincronizado con Acento UI' },
+  { id: 'custom', name: 'Personalizado', desc: 'Colores Hex a Medida' },
 ] as const;
 
 const LookTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
   const s = usePlayerStore((st) => st.blobSettings);
   const update = usePlayerStore((st) => st.updateBlobSettings);
   const lucidTheme = usePlayerStore((st) => st.lucidTheme);
+
   const palette = s.sacredPalette || 'neon';
-  const auraOn = s.auraEnabled !== false;
+  const bloom = s.dhonkioBloom ?? 1.33;
+  const coreOpacity = s.dhonkioOpacity ?? 0.85;
+  const rotSpeed = s.rotationSpeed ?? 1.0;
+  const isClockwise = s.rotationDirection !== 'counter_clockwise';
+  const isTransparentHalo = s.transparentHalo !== false;
+
   const colorsOf = (id: string): [string, string] => {
     switch (id) {
       case 'neon':
@@ -303,13 +659,76 @@ const LookTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
         return [s.haloColor1 || '#00f0ff', s.haloColor2 || '#ffd166'];
     }
   };
-  const classicTransparent = s.transparentHalo !== false;
-  const hasLogoCustom = Boolean(s.customLogoUrl || s.logoAppearance || p.activeLogo.hasTrackImage || p.activeLogo.hasTrackAppearance);
 
   return (
     <>
-      <Section title="Color" hint="Paleta del contorno, el aura y los efectos.">
-        <div className="grid grid-cols-2 gap-1.5">
+      <Section title="Shaders & Resplandor Neón (Bloom)">
+        <SliderRow
+          label="Intensidad de Bloom / Resplandor"
+          value={bloom}
+          min={0.5}
+          max={3.0}
+          step={0.05}
+          display={`${bloom.toFixed(2)}×`}
+          onChange={(v) => update({ dhonkioBloom: v })}
+          hint="Potencia del brillo neón alrededor del núcleo y contornos."
+        />
+
+        <SliderRow
+          label="Opacidad del Disco Central"
+          value={coreOpacity}
+          min={0.2}
+          max={1.0}
+          step={0.02}
+          display={`${Math.round(coreOpacity * 100)}%`}
+          onChange={(v) => update({ dhonkioOpacity: v })}
+          hint="Transparencia de la base central contra el fondo."
+        />
+      </Section>
+
+      <Section title="Cinemática de Rotación">
+        <SliderRow
+          label="Velocidad de Giro"
+          value={rotSpeed}
+          min={0.0}
+          max={3.0}
+          step={0.05}
+          display={`${rotSpeed.toFixed(2)}×`}
+          onChange={(v) => update({ rotationSpeed: v })}
+          hint="Acelera o frena la rotación angular del mándala."
+        />
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs font-medium text-white/90">Dirección de Rotación</span>
+          <div className="flex gap-1.5 p-1 bg-black/40 rounded-xl border border-white/10">
+            <button
+              type="button"
+              onClick={() => update({ rotationDirection: 'clockwise' })}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                isClockwise
+                  ? 'bg-cyan-500/25 border border-cyan-400/60 text-white shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Horario ↻
+            </button>
+            <button
+              type="button"
+              onClick={() => update({ rotationDirection: 'counter_clockwise' })}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                !isClockwise
+                  ? 'bg-cyan-500/25 border border-cyan-400/60 text-white shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Antihorario ↺
+            </button>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Paleta de Color Neón" hint="Gama cromática de los contornos, shaders y partículas.">
+        <div className="grid grid-cols-2 gap-2">
           {PALETTES.map((pal) => {
             const on = palette === pal.id;
             const [c0, c1] = colorsOf(pal.id);
@@ -319,209 +738,99 @@ const LookTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
                 type="button"
                 aria-pressed={on}
                 onClick={() => update({ sacredPalette: pal.id as never })}
-                className={`p-2 rounded-xl border text-left flex items-center justify-between gap-2 cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-300 ${
-                  on ? 'bg-cyan-500/20 border-cyan-400/60 text-white' : 'bg-white/[0.02] border-white/[0.07] text-white/60 hover:text-white hover:bg-white/[0.05]'
+                className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 cursor-pointer transition-all active:scale-95 ${
+                  on
+                    ? 'bg-cyan-500/25 border-cyan-400/70 text-white font-bold shadow-[0_0_12px_rgba(0,229,255,0.25)]'
+                    : 'bg-white/[0.04] border-white/10 text-white/70 hover:text-white hover:bg-white/[0.08]'
                 }`}
               >
-                <span className="min-w-0">
-                  <span className="block text-[11px] font-semibold leading-tight truncate">{pal.name}</span>
-                  <span className="block text-[10px] text-white/45 truncate">{pal.desc}</span>
-                </span>
-                <span className="flex gap-0.5 shrink-0">
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold leading-tight truncate">{pal.name}</span>
+                  <span className="block text-[10px] text-white/50 truncate">{pal.desc}</span>
+                </div>
+                <div className="flex gap-1 shrink-0 p-1 rounded-md bg-black/40 border border-white/10">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c0 }} />
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c1 }} />
-                </span>
+                </div>
               </button>
             );
           })}
         </div>
 
-        {palette === 'custom' && (
-          <div className="pt-2 border-t border-white/[0.08] space-y-2">
-            {(
-              [
-                ['Color 1', 'haloColor1', '#00f0ff'],
-                ['Color 2', 'haloColor2', '#ffd166'],
-                ['Fondo del núcleo', 'circleColor', '#070a16'],
-              ] as const
-            ).map(([label, key, fallback]) => (
-              <label key={key} className="flex items-center justify-between gap-3 p-2 rounded-xl bg-black/30 border border-white/10">
-                <span className="text-[11px] text-white/75">{label}</span>
-                <span className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(s[key] as string) || fallback}
-                    onChange={(e) => update({ [key]: e.target.value })}
-                    className="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent"
-                  />
-                  <span className="text-[10.5px] font-mono uppercase text-white/55">{(s[key] as string) || fallback}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
+        <SwitchRow
+          label="Dispersión Cromática Arcoíris"
+          hint="Añade un desfase espectral prismático en los bordes iluminados."
+          on={Boolean(s.isRainbowMode)}
+          onChange={(val) => update({ isRainbowMode: val })}
+        />
       </Section>
 
-      <Section
-        title="Aura"
-        hint="La nube de color que rodea al disco."
-        action={
-          <button
-            type="button"
-            role="switch"
-            aria-checked={auraOn}
-            onClick={() => update({ auraEnabled: !auraOn })}
-            className={`px-2.5 py-1 rounded-lg text-[10.5px] font-mono font-bold border cursor-pointer transition-colors ${
-              auraOn ? 'bg-cyan-500/25 text-cyan-200 border-cyan-400/40' : 'bg-white/[0.05] text-white/45 border-white/[0.08]'
-            }`}
-          >
-            {auraOn ? 'ACTIVA' : 'APAGADA'}
-          </button>
-        }
-      >
-        {auraOn && (
-          <>
-            <SliderRow label="Intensidad" value={s.auraIntensity ?? 0.9} min={0} max={1.5} step={0.05} display={`${Math.round((s.auraIntensity ?? 0.9) * 100)}%`} onChange={(v) => update({ auraIntensity: v })} hint="Qué tan brillante se ve la nube." />
-            <SliderRow label="Extensión" value={s.auraReach ?? 1} min={0.6} max={1.5} step={0.05} display={`${Math.round((s.auraReach ?? 1) * 100)}%`} onChange={(v) => update({ auraReach: v })} hint="Qué tan lejos del disco llega." />
-            <SliderRow label="Suavidad" value={s.auraSoftness ?? 0.6} min={0} max={1} step={0.05} display={`${Math.round((s.auraSoftness ?? 0.6) * 100)}%`} onChange={(v) => update({ auraSoftness: v })} hint="Más suave = más difusa y más grande." />
-            <SliderRow label="Movimiento ambiental" value={s.auraMotion ?? 1} min={0} max={1.5} step={0.05} display={`${Math.round((s.auraMotion ?? 1) * 100)}%`} onChange={(v) => update({ auraMotion: v })} hint="Cuánto derivan los colores solos, sin música." />
-          </>
-        )}
-      </Section>
+      <Section title="Aro Difuso & Halo de Cristal">
+        <SwitchRow
+          label="Modo Cristal Translúcido"
+          hint="Aplica filtro esmerilado con resplandor suave en lugar de anillo sólido."
+          on={isTransparentHalo}
+          onChange={(val) => update({ transparentHalo: val })}
+        />
 
-      <Section title="Giro">
         <SliderRow
-          label="Velocidad"
-          value={s.rotationSpeed ?? 1}
-          min={0}
+          label="Diámetro del Halo"
+          value={s.haloSize || 382}
+          min={220}
+          max={520}
+          step={2}
+          display={`${s.haloSize || 382} px`}
+          onChange={(v) => update({ haloSize: Math.round(v) })}
+          hint="Tamaño del resplandor difuso perimetral."
+        />
+
+        <SliderRow
+          label="Resplandor de Sombra (Halo Glow)"
+          value={s.bloomIntensity ?? 1}
+          min={0.3}
           max={2.5}
           step={0.05}
-          display={(s.rotationSpeed ?? 1) === 0 ? 'Quieto' : `${(s.rotationSpeed ?? 1).toFixed(2)}×`}
-          onChange={(v) => update({ rotationSpeed: v })}
-          hint="Qué tan rápido gira el dibujo alrededor del disco."
-        />
-        <Choice
-          label="Sentido"
-          options={[
-            { id: 'clockwise', label: '↻ Horario' },
-            { id: 'counter_clockwise', label: '↺ Antihorario' },
-          ]}
-          value={s.rotationDirection === 'counter_clockwise' ? 'counter_clockwise' : 'clockwise'}
-          onChange={(id) => update({ rotationDirection: id as never })}
+          display={`${(s.bloomIntensity ?? 1).toFixed(2)}×`}
+          onChange={(v) => update({ bloomIntensity: v })}
+          hint="Intensidad lumínica de la sombra exterior."
         />
       </Section>
 
-      {!p.isSunset && (
-        <Section title="Logo del centro" hint="En Spotify y YouTube se usa la carátula de cada canción.">
-          <div className="grid grid-cols-4 gap-1.5">
-            {p.logoPresets.map((preset) => {
-              const Icon = preset.icon;
-              const on = s.logoStyle === preset.id && !s.customLogoUrl;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => update({ logoStyle: preset.id, customLogoUrl: null })}
-                  title={preset.name}
-                  className={`p-2 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-                    on ? 'bg-white/[0.1] border-white/70 text-white' : 'bg-white/[0.02] border-white/[0.07] text-white/45 hover:text-white hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-[10px] truncate max-w-full">{preset.name.split(' ')[0]}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex gap-2">
-            <label
-              title={p.activeLogo.streaming ? 'En Spotify y YouTube la carátula cambia con cada canción' : undefined}
-              className={`flex-1 min-h-[32px] px-2.5 border border-white/[0.08] rounded-lg flex items-center justify-center gap-1.5 text-[11px] ${
-                p.activeLogo.streaming ? 'bg-white/[0.02] text-white/30 cursor-not-allowed' : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/80 hover:text-white cursor-pointer'
-              }`}
-            >
-              <Upload className="w-3 h-3" />
-              <span>{p.activeLogo.hasTrackImage ? 'Cambiar imagen' : 'Subir imagen propia'}</span>
-              <input type="file" accept="image/*" onChange={p.onUploadLogo} className="hidden" disabled={p.activeLogo.streaming} />
-            </label>
-            {hasLogoCustom && (
+      {/* Logotipo Central */}
+      <Section title="Logotipo & Arte Central" hint="Personaliza la imagen que vibra en el centro del mándala.">
+        <div className="flex items-center gap-2 pt-1">
+          <label className="flex-1 py-2 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 text-center text-xs font-semibold text-white/90 hover:text-white cursor-pointer transition-all flex items-center justify-center gap-1.5 active:scale-95">
+            <Upload className="w-3.5 h-3.5 text-cyan-300" />
+            <span>Subir Imagen</span>
+            <input type="file" accept="image/*" onChange={p.onUploadLogo} className="hidden" />
+          </label>
+
+          {Boolean(p.activeLogo.src) && (
+            <>
+              <button
+                type="button"
+                onClick={p.onEditLogo}
+                className="py-2 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 text-xs font-semibold cursor-pointer transition-all active:scale-95"
+              >
+                Editar
+              </button>
               <button
                 type="button"
                 onClick={p.onRemoveLogo}
-                className="px-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg cursor-pointer"
-                title="Quitar la personalización del logo"
-                aria-label="Quitar la personalización del logo"
+                className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-200 cursor-pointer transition-all active:scale-95"
+                title="Quitar logotipo personalizado"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={p.onEditLogo}
-            className="w-full min-h-[34px] px-3 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 rounded-xl text-[11.5px] font-medium text-cyan-100 flex items-center justify-center gap-2 cursor-pointer transition-colors"
-          >
-            <Palette className="w-3.5 h-3.5 text-cyan-300" />
-            Editar encuadre y filtros
-          </button>
-        </Section>
-      )}
-
-      <Section title="Fondo y atmósfera" hint="Imagen de fondo, atmósferas, opacidad y desenfoque se ajustan en un solo lugar.">
-        <button
-          type="button"
-          onClick={() => useWallpaperStore.getState().setPanelOpen(true)}
-          className="w-full min-h-[34px] px-3 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] rounded-xl text-[11.5px] font-medium text-white/85 cursor-pointer transition-colors"
-        >
-          Abrir Estudio de Fondos <span className="text-white/40 font-mono ml-1">(W)</span>
-        </button>
-      </Section>
-
-      <details className="group rounded-xl border border-white/[0.08] bg-white/[0.02]">
-        <summary className="cursor-pointer select-none list-none px-3 py-2.5 flex items-center justify-between text-[12px] font-semibold text-white/80">
-          <span>Avanzado: aro clásico</span>
-          <span aria-hidden="true" className="text-white/40 text-[11px] group-open:rotate-180 transition-transform">
-            ▾
-          </span>
-        </summary>
-        <div className="px-3 pb-3 space-y-3">
-          <p className="text-[10.5px] leading-snug text-white/45">
-            El aro difuso original. Con el aura activa casi no se nota: estos ajustes se ven sobre todo si apagas «Halo transparente».
-          </p>
-          <SwitchRow
-            label="Halo transparente"
-            hint={classicTransparent ? 'Activo: sin aro difuso, solo el aura.' : 'Apagado: aro difuso clásico visible.'}
-            on={classicTransparent}
-            onChange={(v) => update({ transparentHalo: v })}
-          />
-          <SliderRow
-            label="Tamaño del aro"
-            value={s.haloSize || 382}
-            min={220}
-            max={520}
-            step={2}
-            display={`${s.haloSize || 382} px`}
-            onChange={(v) => update({ haloSize: Math.round(v) })}
-            hint="Diámetro del aro difuso. Más grande que el núcleo = más halo visible."
-          />
-          <SliderRow
-            label="Resplandor del aro"
-            value={s.bloomIntensity ?? 1}
-            min={0.3}
-            max={2.2}
-            step={0.05}
-            display={`${(s.bloomIntensity ?? 1).toFixed(2)}×`}
-            onChange={(v) => update({ bloomIntensity: v })}
-            hint="Brillo de la sombra de luz del aro."
-          />
+            </>
+          )}
         </div>
-      </details>
+      </Section>
     </>
   );
 };
 
-/* ═══ CAPAS ═══════════════════════════════════════════════════════════════ */
+/* ═══ 5. CAPAS PRO (VOID FX) ════════════════════════════════════════════════ */
 const LayersTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
   const s = usePlayerStore((st) => st.blobSettings);
   const full = p.proActiveCount >= p.proMax;
@@ -529,12 +838,16 @@ const LayersTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
   return (
     <>
       <Section
-        title="Capas extra"
-        hint={`Efectos que se apilan encima de la forma. Máximo ${p.proMax} a la vez; si los FPS bajan de 45 se apagan solos los más pesados.`}
+        title="Capas Pro Apilables (Void FX)"
+        hint={`Efectos cinemáticos que se dibujan encima del visualizador. Máximo ${p.proMax} simultáneos.`}
         action={
           <span
-            className={`text-[10.5px] font-mono px-2 py-0.5 rounded-full border font-bold tabular-nums whitespace-nowrap ${
-              full ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' : p.proActiveCount > 0 ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40' : 'bg-white/[0.04] text-white/45 border-white/[0.08]'
+            className={`text-xs font-mono px-2.5 py-0.5 rounded-full border font-bold tabular-nums whitespace-nowrap shadow-sm ${
+              full
+                ? 'bg-amber-500/25 text-amber-300 border-amber-400/50'
+                : p.proActiveCount > 0
+                ? 'bg-cyan-500/25 text-cyan-200 border-cyan-400/50'
+                : 'bg-white/[0.06] text-white/50 border-white/10'
             }`}
           >
             {p.proActiveCount} / {p.proMax}
@@ -548,12 +861,21 @@ const LayersTab: React.FC<RainbowCalibrationBodyProps> = (p) => {
             return (
               <div
                 key={eff.id}
-                className={`p-3 rounded-xl border space-y-2 transition-colors ${on ? 'bg-white/[0.05] border-cyan-500/30' : 'bg-white/[0.02] border-white/[0.06]'}`}
+                className={`p-3 rounded-2xl border space-y-2 transition-all ${
+                  on
+                    ? 'bg-cyan-500/15 border-cyan-400/50 shadow-[0_0_10px_rgba(0,229,255,0.15)]'
+                    : 'bg-white/[0.03] border-white/10'
+                }`}
               >
-                <SwitchRow label={eff.name} hint={eff.desc} on={on} onChange={() => p.onToggleEffect(eff.id)} />
+                <SwitchRow
+                  label={eff.name}
+                  hint={eff.desc}
+                  on={on}
+                  onChange={() => p.onToggleEffect(eff.id)}
+                />
                 {on && (
                   <SliderRow
-                    label="Intensidad"
+                    label="Ganancia de Efecto"
                     value={intensity}
                     min={0}
                     max={2}

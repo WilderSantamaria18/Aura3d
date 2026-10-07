@@ -54,6 +54,8 @@ export const DEFAULT_BLOB_SETTINGS: BlobCustomSettings = {
   backgroundOpacity: 1,
   backgroundFit: 'cover',
   backgroundScale: 1.0,
+  backgroundReactive: false,
+  backgroundReactiveAmount: 0.6,
   backgroundContrastMode: 'text_clarity',
   backgroundTextScrim: 0.35,
   backgroundThemeTint: 0.35,

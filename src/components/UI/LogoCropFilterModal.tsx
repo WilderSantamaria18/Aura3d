@@ -157,7 +157,7 @@ export const LogoCropFilterModal: React.FC<LogoCropFilterModalProps> = ({ isOpen
       <div
         role="dialog"
         aria-label="Logo de la canción"
-        className="fixed top-12 sm:top-14 right-3 sm:right-5 left-3 sm:left-auto sm:w-[385px] max-h-[min(660px,calc(100vh-4.5rem))] z-50 rounded-[24px] p-4 shadow-[0_28px_70px_rgba(0,0,0,0.95)] flex flex-col gap-3 pointer-events-auto bg-[#0a0f1d]/97 border border-white/15 text-white font-sans select-none overflow-y-auto custom-scrollbar"
+        className="fixed top-12 sm:top-14 right-3 sm:right-5 left-3 sm:left-auto sm:w-[385px] max-h-[min(660px,calc(100vh-4.5rem))] z-50 rounded-[24px] p-4 shadow-[0_28px_70px_rgba(0,0,0,0.95)] flex flex-col gap-3 pointer-events-auto liquid-glass liquid-glass-card border border-white/15 border-t-white/30 text-white font-sans select-none overflow-y-auto custom-scrollbar"
       >
         {/* Cabecera */}
         <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-white/[0.08]">

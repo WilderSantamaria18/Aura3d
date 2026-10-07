@@ -72,11 +72,15 @@ export class HandGestureStateMachine {
     if (!hand.isPresent || hand.confidenceTier === 'untrusted') {
       this.resetToIdle(timestampMs);
       hand.pinchState = 'IDLE';
+      hand.pinchProgress = 0;
       return;
     }
 
     const dist = hand.pinchDistance;
     const currentPos = hand.worldIndexTip;
+
+    // Progreso continuo de pellizco: 0 (dedos separados) a 1 (contacto cerrado <= 3.5 cm)
+    hand.pinchProgress = Math.max(0, Math.min(1, (0.075 - dist) / (0.075 - HandGestureStateMachine.PINCH_ENTER_DIST)));
 
     // Calcular desplazamiento delta respecto al frame anterior
     this.dragDelta.subVectors(currentPos, this.lastPosition);

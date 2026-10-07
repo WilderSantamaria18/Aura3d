@@ -391,6 +391,10 @@ export interface BlobCustomSettings {
   backgroundOpacity?: number;
   backgroundFit?: 'cover' | 'contain';
   backgroundScale?: number;
+  /** El fondo late con los graves y el bombo (zoom y destello sutiles) */
+  backgroundReactive?: boolean;
+  /** Intensidad de la reacción del fondo (0..1.5) */
+  backgroundReactiveAmount?: number;
   // Background Image Text Protection & Lucid Color Contrast Blend
   backgroundContrastMode?: 'none' | 'text_clarity' | 'lucid_tint' | 'deep_cinema';
   backgroundTextScrim?: number;
@@ -587,7 +591,7 @@ export interface FrequencyData {
   energy: number;   // overall audio energy (0 - 1)
 }
 
-export type MasteringLimiterPreset = 'off' | 'punchy_club' | 'warm_tape' | 'vocal_clarity';
+export type MasteringLimiterPreset = 'off' | 'smart_loudness' | 'punchy_club' | 'warm_tape' | 'vocal_clarity';
 
 export interface DjLoopState {
   loopA: number | null;

@@ -7,6 +7,7 @@ import {
   ListMusic,
   Plus,
   Upload,
+  Download,
   FolderPlus,
   Radio,
   Sparkles,
@@ -15,6 +16,8 @@ import {
   Eraser,
   Check,
   ChevronLeft,
+  Disc3,
+  Wand2,
 } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
@@ -27,6 +30,9 @@ import { SearchBar } from './SearchBar';
 import { SegmentedTabs } from './SegmentedTabs';
 import type { TabItem } from './SegmentedTabs';
 import { TrackItem } from './TrackItem';
+import { HarmonicTrackConnector } from './HarmonicTrackConnector';
+import { triggerVisualShockwave } from './VisualFeedbackRipple';
+import { camelotWheelService, type EnergyFilterType } from '../../services/camelotWheelService';
 import type { Track } from '../../types/audio';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -51,12 +57,16 @@ export const PlaylistSidebar: React.FC = () => {
     playNext,
     clearQueue,
     removeFromQueue,
+    reorderQueue,
     toggleFavorite,
     createPlaylist,
     addToPlaylist,
     removeFromPlaylist,
     playbackStatus,
     playbackMessage,
+    isInfiniteRadioActive,
+    toggleInfiniteRadio,
+    smartDjSortQueue,
   } = usePlayerStore(
     useShallow((s) => ({
       isSidebarOpen: s.isSidebarOpen,
@@ -69,12 +79,16 @@ export const PlaylistSidebar: React.FC = () => {
       playNext: s.playNext,
       clearQueue: s.clearQueue,
       removeFromQueue: s.removeFromQueue,
+      reorderQueue: s.reorderQueue,
       toggleFavorite: s.toggleFavorite,
       createPlaylist: s.createPlaylist,
       addToPlaylist: s.addToPlaylist,
       removeFromPlaylist: s.removeFromPlaylist,
       playbackStatus: s.playbackStatus,
       playbackMessage: s.playbackMessage,
+      isInfiniteRadioActive: s.isInfiniteRadioActive,
+      toggleInfiniteRadio: s.toggleInfiniteRadio,
+      smartDjSortQueue: s.smartDjSortQueue,
     }))
   );
 
@@ -84,6 +98,19 @@ export const PlaylistSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 150);
 
+  const [energyFilter, setEnergyFilter] = useState<EnergyFilterType>('all');
+  const [isDjSorting, setIsDjSorting] = useState(false);
+
+  const handleDjSmartSort = () => {
+    if (queue.length <= 1) return;
+    setIsDjSorting(true);
+    triggerVisualShockwave({ color: '#22d3ee' });
+    smartDjSortQueue();
+    setTimeout(() => {
+      setIsDjSorting(false);
+    }, 600);
+  };
+
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
@@ -91,6 +118,54 @@ export const PlaylistSidebar: React.FC = () => {
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [resolvingTrackId, setResolvingTrackId] = useState<string | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [draggedQueueIndex, setDraggedQueueIndex] = useState<number | null>(null);
+  const [dragOverQueueIndex, setDragOverQueueIndex] = useState<number | null>(null);
+  const playlistFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportPlaylists = () => {
+    if (playlists.length === 0) return;
+    const dataStr =
+      'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(playlists, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute(
+      'download',
+      `Aura3D_Playlists_${new Date().toISOString().slice(0, 10)}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleImportPlaylists = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (Array.isArray(imported)) {
+          imported.forEach((pl) => {
+            if (pl.name && Array.isArray(pl.tracks)) {
+              createPlaylist(pl.name);
+              setTimeout(() => {
+                const currentPls = usePlayerStore.getState().playlists;
+                const created = currentPls.find((p) => p.name === pl.name);
+                if (created) {
+                  pl.tracks.forEach((t: Track) => addToPlaylist(created.id, t));
+                }
+              }, 60);
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Error importando playlist JSON:', err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
@@ -210,14 +285,20 @@ export const PlaylistSidebar: React.FC = () => {
   const filterQuery = debouncedSearch.trim().toLowerCase();
 
   const filteredQueue = useMemo(() => {
-    if (!filterQuery) return queue;
-    return queue.filter(
-      (t) =>
-        t.title.toLowerCase().includes(filterQuery) ||
-        t.artist.toLowerCase().includes(filterQuery) ||
-        (t.genre && t.genre.toLowerCase().includes(filterQuery))
-    );
-  }, [queue, filterQuery]);
+    let list = queue;
+    if (filterQuery) {
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(filterQuery) ||
+          t.artist.toLowerCase().includes(filterQuery) ||
+          (t.genre && t.genre.toLowerCase().includes(filterQuery))
+      );
+    }
+    if (energyFilter !== 'all') {
+      list = camelotWheelService.filterTracksByEnergy(list, energyFilter, currentTrack);
+    }
+    return list;
+  }, [queue, filterQuery, energyFilter, currentTrack]);
 
   const filteredFavorites = useMemo(() => {
     if (!filterQuery) return favorites;
@@ -367,6 +448,40 @@ export const PlaylistSidebar: React.FC = () => {
                 />
               </label>
 
+              {activeTab === 'queue' && queue.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleDjSmartSort}
+                  disabled={isDjSorting}
+                  className={`glass-btn min-h-[44px] px-3.5 text-[12px] font-mono tracking-wider flex items-center gap-1.5 transition-all ${
+                    isDjSorting
+                      ? 'border-cyan-400 bg-cyan-500/25 text-cyan-200 shadow-[0_0_16px_rgba(6,182,212,0.4)]'
+                      : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+                  }`}
+                  title="DJ Smart Sort: Reorganizar automáticamente por Rueda de Camelot y progresión de BPM (1 Clic)"
+                >
+                  <Disc3 className={`w-3.5 h-3.5 text-cyan-300 ${isDjSorting ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline font-semibold">DJ Sort</span>
+                </button>
+              )}
+
+              {activeTab === 'queue' && (
+                <button
+                  type="button"
+                  onClick={toggleInfiniteRadio}
+                  className={`glass-btn min-h-[44px] px-3.5 text-[12px] font-mono tracking-wider flex items-center gap-1.5 transition-all ${
+                    isInfiniteRadioActive
+                      ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                      : 'text-white/50 hover:text-white/80'
+                  }`}
+                  title={isInfiniteRadioActive ? 'Radio Infinita activa: reproduce temas similares sin parar' : 'Activar Radio Infinita'}
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${isInfiniteRadioActive ? 'text-cyan-300 animate-spin-slow' : 'text-white/40'}`} />
+                  <span className="hidden sm:inline">Radio Infinita</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isInfiniteRadioActive ? 'bg-cyan-400 animate-pulse' : 'bg-white/20'}`} />
+                </button>
+              )}
+
               {activeTab === 'queue' && queue.length > 0 && (
                 <button
                   type="button"
@@ -393,6 +508,32 @@ export const PlaylistSidebar: React.FC = () => {
               )}
             </div>
 
+            {/* Energy & Harmonic Filters Pill Bar (Queue Tab) */}
+            {activeTab === 'queue' && queue.length > 0 && (
+              <div className="px-4 pt-2 pb-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'harmonic', label: '✦ Armónicos' },
+                  { id: 'high_energy', label: '⚡ Alta Energía' },
+                  { id: 'chill', label: '🌊 Chill' },
+                  { id: 'peak_time', label: '🔥 Peak Time' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setEnergyFilter(f.id as EnergyFilterType)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-mono whitespace-nowrap transition-all duration-200 border cursor-pointer ${
+                      energyFilter === f.id
+                        ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.25)] font-semibold'
+                        : 'bg-white/[0.04] border-white/10 text-white/50 hover:text-white/80 hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Scrollable Track Content List */}
             <div
               ref={scrollContainerRef}
@@ -417,18 +558,61 @@ export const PlaylistSidebar: React.FC = () => {
                   ) : (
                     filteredQueue.map((track, idx) => {
                       const isTrackActive = currentTrack?.id === track.id;
+                      const isDragOver = dragOverQueueIndex === idx;
+                      const isBeingDragged = draggedQueueIndex === idx;
+
                       return (
-                        <TrackItem
-                          key={`${track.id}_${idx}`}
-                          track={track}
-                          isActive={isTrackActive}
-                          isPlaying={isPlaying && isTrackActive}
-                          isFavorite={isFavTrack(track.id)}
-                          onPlay={() => playTrack(track)}
-                          onToggleFavorite={toggleFavorite}
-                          onPlayNext={playNext}
-                          onRemove={() => removeFromQueue(idx)}
-                        />
+                        <React.Fragment key={`${track.id}_${idx}`}>
+                          {idx > 0 && energyFilter === 'all' && !filterQuery && (
+                            <HarmonicTrackConnector
+                              prevTrack={filteredQueue[idx - 1]}
+                              nextTrack={track}
+                              index={idx}
+                            />
+                          )}
+
+                          <div
+                            draggable={!debouncedSearch}
+                            onDragStart={(e) => {
+                              setDraggedQueueIndex(idx);
+                              e.dataTransfer.setData('text/plain', String(idx));
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              if (dragOverQueueIndex !== idx) setDragOverQueueIndex(idx);
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverQueueIndex === idx) setDragOverQueueIndex(null);
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedQueueIndex !== null && draggedQueueIndex !== idx) {
+                                reorderQueue(draggedQueueIndex, idx);
+                              }
+                              setDraggedQueueIndex(null);
+                              setDragOverQueueIndex(null);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedQueueIndex(null);
+                              setDragOverQueueIndex(null);
+                            }}
+                            className={`transition-all duration-200 rounded-2xl ${
+                              isDragOver ? 'ring-2 ring-cyan-400 bg-cyan-500/10 scale-[1.01]' : ''
+                            } ${isBeingDragged ? 'opacity-35 scale-95' : 'opacity-100'}`}
+                          >
+                            <TrackItem
+                              track={track}
+                              isActive={isTrackActive}
+                              isPlaying={isPlaying && isTrackActive}
+                              isFavorite={isFavTrack(track.id)}
+                              onPlay={() => playTrack(track)}
+                              onToggleFavorite={toggleFavorite}
+                              onPlayNext={playNext}
+                              onRemove={() => removeFromQueue(idx)}
+                            />
+                          </div>
+                        </React.Fragment>
                       );
                     })
                   )}
@@ -497,13 +681,40 @@ export const PlaylistSidebar: React.FC = () => {
                         <span className="text-[12px] text-white/60 font-mono uppercase tracking-wider">
                           Tus Listas ({playlists.length})
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCreatingPlaylist(true)}
-                          className="flex items-center gap-1.5 text-[13px] text-cyan-300 hover:text-cyan-200 font-semibold cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Nueva Lista
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          {playlists.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleExportPlaylists}
+                              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                              title="Exportar listas a JSON"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => playlistFileInputRef.current?.click()}
+                            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                            title="Importar listas desde archivo JSON"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                          </button>
+                          <input
+                            ref={playlistFileInputRef}
+                            type="file"
+                            accept=".json"
+                            className="hidden"
+                            onChange={handleImportPlaylists}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setIsCreatingPlaylist(true)}
+                            className="flex items-center gap-1 text-[12px] text-cyan-300 hover:text-cyan-200 font-semibold cursor-pointer ml-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Nueva
+                          </button>
+                        </div>
                       </div>
 
                       {isCreatingPlaylist && (

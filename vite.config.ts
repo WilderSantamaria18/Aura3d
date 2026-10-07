@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     include: ['src/tests/**/*.test.ts'],
     environment: 'node',
+    setupFiles: ['src/tests/setup.ts'],
   },
   plugins: [
     react(),

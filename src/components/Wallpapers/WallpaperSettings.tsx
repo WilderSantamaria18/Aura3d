@@ -437,6 +437,24 @@ export const WallpaperSettings: React.FC = () => {
           format={pct}
           onChange={(v) => updateApplicationSettings({ saturation: v })}
         />
+        <Toggle
+          label="Reactivo al audio"
+          desc="El fondo late con los graves y el bombo: zoom y destello sutiles."
+          checked={blobSettings.backgroundReactive === true}
+          onChange={(v) => updateBlobSettings({ backgroundReactive: v })}
+        />
+        {blobSettings.backgroundReactive === true && (
+          <Slider
+            label="Intensidad de la reacción"
+            value={blobSettings.backgroundReactiveAmount ?? 0.6}
+            min={0.1}
+            max={1.5}
+            step={0.05}
+            defaultValue={0.6}
+            format={pct}
+            onChange={(v) => updateBlobSettings({ backgroundReactiveAmount: v })}
+          />
+        )}
       </Section>
 
       {/* Legibilidad */}

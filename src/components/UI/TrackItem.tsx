@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Heart, ListPlus, Trash2, Music, Loader2 } from 'lucide-react';
 import type { Track } from '../../types/audio';
+import { triggerVisualShockwave } from './VisualFeedbackRipple';
+import { camelotWheelService } from '../../services/camelotWheelService';
 
 interface TrackItemProps {
   track: Track;
@@ -43,6 +45,10 @@ export const TrackItem: React.FC<TrackItemProps> = ({
       ? 'LIVE'
       : 'FLAC');
 
+  const harmonics = useMemo(() => camelotWheelService.getTrackHarmonics(track), [track]);
+  const displayBpm = track.bpm || harmonics.bpm;
+  const displayCamelot = track.camelotKey || harmonics.camelotKey;
+
   return (
     <div
       className={`track-item-glass p-3 flex items-center gap-3.5 min-h-[68px] group relative cursor-pointer active:scale-[0.99] select-none ${
@@ -63,7 +69,13 @@ export const TrackItem: React.FC<TrackItemProps> = ({
       aria-busy={isLoading}
     >
       {/* Cover / Mini Visualizer */}
-      <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/[0.06] border border-white/15 flex items-center justify-center shadow-[0_6px_14px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]">
+      <div
+        className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/[0.06] border transition-all duration-300 flex items-center justify-center ${
+          isActive
+            ? 'border-cyan-400/60 shadow-[0_0_16px_rgba(6,182,212,0.35),0_6px_14px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.4)]'
+            : 'border-white/15 group-hover:border-white/30 shadow-[0_6px_14px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.3)]'
+        }`}
+      >
         {track.coverUrl ? (
           <img
             src={track.coverUrl}
@@ -75,17 +87,29 @@ export const TrackItem: React.FC<TrackItemProps> = ({
           <Music className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-white/40'}`} />
         )}
 
-        {/* Mini 3-bar animated cyan VU meter if active and playing */}
+        {/* Mini 3-bar jumping cyan VU meter if active */}
         {isLoading ? (
           <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px] flex items-center justify-center">
             <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-rose-300" aria-hidden="true" />
           </div>
         ) : isActive && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center">
-            <div className="flex items-end gap-0.5 h-3.5" aria-label="Reproduciendo">
-              <div className={`w-0.5 bg-cyan-400 rounded-full ${isPlaying ? 'animate-[bounce_0.6s_ease-in-out_infinite]' : 'h-3'}`} />
-              <div className={`w-0.5 bg-cyan-400 rounded-full ${isPlaying ? 'animate-[bounce_0.8s_ease-in-out_infinite_0.1s]' : 'h-2'}`} />
-              <div className={`w-0.5 bg-cyan-400 rounded-full ${isPlaying ? 'animate-[bounce_0.7s_ease-in-out_infinite_0.2s]' : 'h-2.5'}`} />
+          <div className="absolute inset-0 bg-black/65 backdrop-blur-[2px] flex items-center justify-center">
+            <div className="flex items-end gap-[3px] h-4 w-4 justify-center" aria-label={isPlaying ? 'Reproduciendo' : 'En pausa'}>
+              <div
+                className={`w-[3px] rounded-full bg-gradient-to-t from-cyan-500 via-cyan-300 to-white shadow-[0_0_6px_rgba(34,211,238,0.7)] ${
+                  isPlaying ? 'eq-bar-1' : 'h-[30%]'
+                }`}
+              />
+              <div
+                className={`w-[3px] rounded-full bg-gradient-to-t from-cyan-500 via-cyan-300 to-white shadow-[0_0_6px_rgba(34,211,238,0.7)] ${
+                  isPlaying ? 'eq-bar-2' : 'h-[65%]'
+                }`}
+              />
+              <div
+                className={`w-[3px] rounded-full bg-gradient-to-t from-cyan-500 via-cyan-300 to-white shadow-[0_0_6px_rgba(34,211,238,0.7)] ${
+                  isPlaying ? 'eq-bar-3' : 'h-[25%]'
+                }`}
+              />
             </div>
           </div>
         )}
@@ -96,42 +120,43 @@ export const TrackItem: React.FC<TrackItemProps> = ({
         <div className="flex items-center gap-2">
           <span
             className={`text-[14px] font-semibold truncate tracking-tight transition-colors ${
-              isActive ? 'text-cyan-300' : 'text-white'
+              isActive ? 'text-cyan-300 drop-shadow-[0_0_12px_rgba(6,182,212,0.35)]' : 'text-white group-hover:text-white/95'
             }`}
           >
             {track.title}
           </span>
 
           {/* Audio Format Chip */}
-          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/15 text-white/70 flex-shrink-0">
+          <span
+            className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border transition-colors flex-shrink-0 ${
+              isActive
+                ? 'bg-cyan-500/15 border-cyan-400/35 text-cyan-200'
+                : 'bg-white/[0.08] border-white/15 text-white/70'
+            }`}
+          >
             {detectedFormat}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 mt-1 text-white/60 text-[12px] truncate font-medium">
-          <span className="truncate max-w-[140px] sm:max-w-[170px]">{track.artist}</span>
+          <span className="truncate max-w-[130px] sm:max-w-[160px]">{track.artist}</span>
           <span className="text-white/20">•</span>
           <span className="font-mono text-[11px] text-white/50 tabular-nums">
             {formatDuration(track.duration)}
           </span>
 
-          {track.bpm && (
-            <>
-              <span className="text-white/20">•</span>
-              <span className="font-mono text-[11px] text-cyan-300/90 font-semibold">
-                {track.bpm} BPM
-              </span>
-            </>
-          )}
+          <span className="text-white/20">•</span>
+          <span className="font-mono text-[11px] text-cyan-300/90 font-semibold" title="Tempo">
+            {displayBpm} BPM
+          </span>
 
-          {track.camelotKey && (
-            <>
-              <span className="text-white/20">•</span>
-              <span className="font-mono text-[11px] text-purple-300/90 font-semibold">
-                {track.camelotKey}
-              </span>
-            </>
-          )}
+          <span className="text-white/20">•</span>
+          <span
+            className="font-mono text-[10px] text-purple-200 font-bold px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-400/25 tracking-wide"
+            title="Clave Armónica Camelot"
+          >
+            {displayCamelot}
+          </span>
         </div>
       </div>
 
@@ -146,9 +171,15 @@ export const TrackItem: React.FC<TrackItemProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              triggerVisualShockwave({
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+                color: isFavorite ? '#94a3b8' : '#f43f5e',
+              });
               onToggleFavorite(track);
             }}
-            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-white transition-colors cursor-pointer active:scale-90"
+            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-white transition-all cursor-pointer btn-spring"
             title={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
             aria-label={isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
           >
@@ -166,9 +197,15 @@ export const TrackItem: React.FC<TrackItemProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              triggerVisualShockwave({
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+                color: '#00f2fe',
+              });
               onPlayNext(track);
             }}
-            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-cyan-300 transition-colors cursor-pointer active:scale-90"
+            className="p-2 rounded-full hover:bg-white/15 text-white/60 hover:text-cyan-300 transition-all cursor-pointer btn-spring"
             title="Reproducir a continuación"
             aria-label="Reproducir a continuación"
           >

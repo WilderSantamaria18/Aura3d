@@ -45,100 +45,147 @@ const CURATED_THEMES = {
   ],
 };
 
-function resolveAestheticFallback(prompt = '', style = '') {
+function getHordeDimensions(aspectRatio, w = 1920, h = 1080) {
+  if (aspectRatio === '16:9') return { width: 896, height: 512 };
+  if (aspectRatio === '21:9') return { width: 896, height: 384 };
+  if (aspectRatio === '9:16') return { width: 512, height: 896 };
+  if (aspectRatio === '1:1') return { width: 512, height: 512 };
+  if (aspectRatio === '4:3') return { width: 768, height: 576 };
+
+  const ratio = w && h ? w / h : 16 / 9;
+  if (ratio >= 2.0) return { width: 896, height: 384 }; // 21:9
+  if (ratio >= 1.5) return { width: 896, height: 512 }; // 16:9
+  if (ratio >= 1.2) return { width: 768, height: 576 }; // 4:3
+  if (ratio <= 0.65) return { width: 512, height: 896 }; // 9:16
+  return { width: 512, height: 512 }; // 1:1
+}
+
+function resolveAestheticFallback(prompt = '', style = '', aspectRatio = '16:9', width = 1920, height = 1080) {
   const p = (prompt + ' ' + style).toLowerCase();
+  let selected = CURATED_THEMES.default[0];
   if (p.includes('porsche') || p.includes('car') || p.includes('auto') || p.includes('coche') || p.includes('lavanda')) {
     const list = CURATED_THEMES.porsche;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-  if (p.includes('lago') || p.includes('lake') || p.includes('bote') || p.includes('boat') || p.includes('agua') || p.includes('water')) {
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else if (p.includes('lago') || p.includes('lake') || p.includes('bote') || p.includes('boat') || p.includes('agua') || p.includes('water')) {
     const list = CURATED_THEMES.lake;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-  if (p.includes('ghibli') || p.includes('anime') || p.includes('campo') || p.includes('countryside') || p.includes('nube')) {
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else if (p.includes('ghibli') || p.includes('anime') || p.includes('campo') || p.includes('countryside') || p.includes('nube')) {
     const list = CURATED_THEMES.ghibli;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-  if (p.includes('cyberpunk') || p.includes('neon') || p.includes('shinjuku') || p.includes('tokyo') || p.includes('lluvia')) {
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else if (p.includes('cyberpunk') || p.includes('neon') || p.includes('shinjuku') || p.includes('tokyo') || p.includes('lluvia')) {
     const list = CURATED_THEMES.cyberpunk;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-  if (p.includes('cosmic') || p.includes('espacio') || p.includes('space') || p.includes('nebula') || p.includes('galaxia')) {
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else if (p.includes('cosmic') || p.includes('espacio') || p.includes('space') || p.includes('nebula') || p.includes('galaxia')) {
     const list = CURATED_THEMES.cosmic;
-    return list[Math.floor(Math.random() * list.length)];
-  }
-  if (p.includes('minimal') || p.includes('arquitectura') || p.includes('edificio') || p.includes('rascacielos')) {
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else if (p.includes('minimal') || p.includes('arquitectura') || p.includes('edificio') || p.includes('rascacielos')) {
     const list = CURATED_THEMES.minimal;
-    return list[Math.floor(Math.random() * list.length)];
+    selected = list[Math.floor(Math.random() * list.length)];
+  } else {
+    const list = CURATED_THEMES.default;
+    selected = list[Math.floor(Math.random() * list.length)];
   }
-  const list = CURATED_THEMES.default;
-  return list[Math.floor(Math.random() * list.length)];
+
+  const baseUrl = selected.split('?')[0];
+  const arParam = (aspectRatio || '16:9').replace('/', ':');
+  return `${baseUrl}?w=${width}&h=${height}&ar=${arParam}&auto=format&fit=crop&crop=entropy&q=90`;
 }
 
 /**
  * POST /api/wallpapers/generate
  * Generador backend de fondos AI con tolerancia a fallos multicapa:
- * 1. Replicate (si está configurado)
- * 2. Pollinations AI guardado en disco y servido vía URL estática (cero lag de Base64)
- * 3. Fotografía 4K curated temática de ultra-alta definición
+ * 1. AI Horde (Stable Diffusion descentralizado con relación de aspecto nativa)
+ * 2. Fotografía 4K curated temática de ultra-alta definición con proporción exacta
+ */
+async function generateWithAIHorde(prompt, width = 896, height = 512, seed) {
+  try {
+    const post = await fetch('https://stablehorde.net/api/v2/generate/async', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': '0000000000' },
+      body: JSON.stringify({
+        prompt: (prompt || 'cinematic 4k wallpaper masterpiece') + ', ultra detailed, 8k resolution, photorealistic, pristine sharp focus',
+        params: {
+          steps: 18,
+          width: width,
+          height: height,
+          seed: seed ? String(seed) : undefined,
+          n: 1,
+        },
+      }),
+    });
+
+    const data = await post.json();
+    if (!data?.id) return null;
+
+    // Polling hasta 26 segundos (13 iteraciones de 2s)
+    for (let i = 0; i < 13; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const check = await fetch(`https://stablehorde.net/api/v2/generate/check/${data.id}`);
+      if (!check.ok) continue;
+      const s = await check.json();
+      if (s.done) {
+        const res = await fetch(`https://stablehorde.net/api/v2/generate/status/${data.id}`);
+        if (!res.ok) return null;
+        const finalData = await res.json();
+        const imgUrl = finalData.generations?.[0]?.img;
+        if (!imgUrl) return null;
+
+        const imgRes = await fetch(imgUrl);
+        if (!imgRes.ok) return null;
+        return Buffer.from(await imgRes.arrayBuffer());
+      }
+      if (s.faulted) return null;
+    }
+  } catch (err) {
+    console.warn('[Wallpapers] AI Horde error:', err.message);
+  }
+  return null;
+}
+
+/**
+ * POST /api/wallpapers/generate
  */
 router.post('/generate', async (req, res) => {
-  const { prompt, negativePrompt, width, height, seed, style } = req.body;
-  const w = Math.min(2048, Math.max(256, Number(width) || 1920));
-  const h = Math.min(2048, Math.max(256, Number(height) || 1080));
+  const { prompt, negativePrompt, width, height, seed, style, aspectRatio } = req.body;
+  const w = Math.min(3840, Math.max(256, Number(width) || 1920));
+  const h = Math.min(3840, Math.max(256, Number(height) || 1080));
   const s = seed || Math.floor(Math.random() * 10000000);
+  const ratio = aspectRatio || (w >= h ? (w / h >= 2.0 ? '21:9' : '16:9') : '9:16');
 
-  // 1. Replicate API Token
-  const replicateToken = process.env.REPLICATE_API_TOKEN;
-  if (replicateToken) {
-    try {
-      const Replicate = (await import('replicate')).default;
-      const replicate = new Replicate({ auth: replicateToken });
+  // Calcular dimensiones nativas exactas para AI Horde (múltiplos de 64, sin deformación)
+  const hordeDims = getHordeDimensions(ratio, w, h);
 
-      const output = await replicate.run(
-        'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b',
-        {
-          input: {
-            prompt,
-            negative_prompt: negativePrompt,
-            width: w,
-            height: h,
-            num_inference_steps: 30,
-            guidance_scale: 7.5,
-            seed: s,
-          },
-        }
-      );
+  // 1. AI Horde: Generación IA real con proporción exacta nativa
+  console.log(`[Wallpapers] Generando IA [${ratio}] (${hordeDims.width}x${hordeDims.height}) para: "${(prompt || '').slice(0, 45)}..."`);
+  const hordeBuffer = await generateWithAIHorde(prompt, hordeDims.width, hordeDims.height, s);
+  if (hordeBuffer && hordeBuffer.length > 5000) {
+    const filename = `wp_ai_${Date.now()}_${s}.webp`;
+    const filePath = path.join(WALLPAPERS_DIR, filename);
+    fs.writeFileSync(filePath, hordeBuffer);
 
-      const url = Array.isArray(output) ? output[0] : output;
-      return res.json({ success: true, url, engine: 'replicate-sdxl' });
-    } catch (err) {
-      console.warn('[Wallpapers] Replicate failed, falling back to backend Pollinations:', err.message);
-    }
+    const host = req.get('host') || 'localhost:4000';
+    const protocol = req.protocol || 'http';
+    const fileUrl = `${protocol}://${host}/api/wallpapers/image/${filename}`;
+
+    console.log(`[Wallpapers] Fondo IA generado exitosamente (${hordeDims.width}x${hordeDims.height}, ${ratio}).`);
+    return res.json({
+      success: true,
+      url: fileUrl,
+      engine: 'ai-horde-stable-diffusion',
+      width: hordeDims.width,
+      height: hordeDims.height,
+      aspectRatio: ratio,
+    });
   }
 
-  // 2. Modelo de Nueva Generación FLUX.1 (Ultra alta definición fotográfica)
+  // 2. Fallback fotográfico temático en 4K con la proporción exacta solicitada
+  console.log(`[Wallpapers] Usando fotografía 4K curada con relación ${ratio} (${w}x${h}).`);
   try {
-    const fluxModel = 'flux';
-
-    const cleanPrompt = encodeURIComponent(prompt || 'cinematic wallpaper 4k ultra detailed masterpiece');
-    const pollUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?model=${fluxModel}&width=${w}&height=${h}&seed=${s}&nologo=true&enhance=false&private=true`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 80000);
-
-    const pollRes = await fetch(pollUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Aura3D/2.0',
-        'Accept': 'image/jpeg,image/webp,image/png,*/*',
-      },
-    });
-    clearTimeout(timeout);
-
-    if (pollRes.ok) {
-      const buffer = Buffer.from(await pollRes.arrayBuffer());
-      const filename = `wp_${Date.now()}_${s}.jpg`;
+    const curatedUrl = resolveAestheticFallback(prompt, style, ratio, w, h);
+    const downloadRes = await fetch(curatedUrl);
+    if (downloadRes.ok) {
+      const buffer = Buffer.from(await downloadRes.arrayBuffer());
+      const filename = `wp_curated_${Date.now()}_${s}.jpg`;
       const filePath = path.join(WALLPAPERS_DIR, filename);
       fs.writeFileSync(filePath, buffer);
 
@@ -149,19 +196,19 @@ router.post('/generate', async (req, res) => {
       return res.json({
         success: true,
         url: fileUrl,
-        engine: 'pollinations-backend-disk',
+        engine: 'curated-4k-aesthetic',
         width: w,
         height: h,
+        aspectRatio: ratio,
       });
     }
-  } catch (pollErr) {
-    console.warn('[Wallpapers] Pollinations request notice:', pollErr.message);
+  } catch (curatedErr) {
+    console.warn('[Wallpapers] Error al descargar curated fallback:', curatedErr.message);
   }
 
-  // 3. Sin motor disponible: se informa (no se sustituye por una foto ajena al prompt)
   return res.status(502).json({
     success: false,
-    error: 'Ningún motor de imágenes respondió',
+    error: 'No se pudo generar la imagen en este momento. Inténtalo de nuevo.',
   });
 });
 
@@ -177,7 +224,8 @@ router.get('/image/:filename', (req, res) => {
     return res.status(404).send('Wallpaper not found');
   }
 
-  res.setHeader('Content-Type', 'image/jpeg');
+  const mimeType = filename.endsWith('.webp') ? 'image/webp' : filename.endsWith('.png') ? 'image/png' : 'image/jpeg';
+  res.setHeader('Content-Type', mimeType);
   res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
   return fs.createReadStream(filePath).pipe(res);
 });

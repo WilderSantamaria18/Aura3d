@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CloudRain, Flame, Coffee, Waves, Volume2, VolumeX, X, Sparkles } from 'lucide-react';
+import { CloudRain, Flame, Coffee, Waves, Volume2, VolumeX, X, Sparkles, Radio, Disc3, Zap, Trees } from 'lucide-react';
 import { soundscapeEngine, type SoundscapeType, type SoundscapesConfig } from '../../services/soundscapeEngine';
 
 interface SoundscapesModalProps {
@@ -17,11 +17,46 @@ interface ChannelMeta {
 
 const CHANNELS: ChannelMeta[] = [
   {
+    type: 'cosmic',
+    title: 'Cosmic 432 Hz Drone',
+    subtitle: 'Zumbido binaural Theta 4Hz y 108Hz',
+    icon: Radio,
+    sliderColor: 'accent-indigo-400',
+  },
+  {
+    type: 'vinyl',
+    title: 'Vintage Vinyl Crackle',
+    subtitle: 'Crujido de aguja 33 RPM y calor analógico',
+    icon: Disc3,
+    sliderColor: 'accent-rose-400',
+  },
+  {
+    type: 'thunder',
+    title: 'Thunderstorm & Wind',
+    subtitle: 'Truenos lejanos, viento y lluvia fuerte',
+    icon: Zap,
+    sliderColor: 'accent-yellow-400',
+  },
+  {
+    type: 'forest',
+    title: 'Forest Night',
+    subtitle: 'Brisa en árboles y grillos nocturnos',
+    icon: Trees,
+    sliderColor: 'accent-emerald-400',
+  },
+  {
     type: 'rain',
     title: 'Lluvia en Ventana',
     subtitle: 'Ruido rosa 750Hz y gotas suaves',
     icon: CloudRain,
     sliderColor: 'accent-sky-400',
+  },
+  {
+    type: 'ocean',
+    title: 'Olas del Mar Nocturnas',
+    subtitle: 'Oleaje sinusoidal 8.5s continuo',
+    icon: Waves,
+    sliderColor: 'accent-teal-400',
   },
   {
     type: 'fire',
@@ -37,13 +72,6 @@ const CHANNELS: ChannelMeta[] = [
     icon: Coffee,
     sliderColor: 'accent-amber-400',
   },
-  {
-    type: 'ocean',
-    title: 'Olas del Mar Nocturnas',
-    subtitle: 'Oleaje sinusoidal 8.5s continuo',
-    icon: Waves,
-    sliderColor: 'accent-teal-400',
-  },
 ];
 
 export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onClose }) => {
@@ -58,12 +86,7 @@ export const SoundscapesModal: React.FC<SoundscapesModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  const activeCount = Object.values({
-    rain: config.rain.enabled,
-    fire: config.fire.enabled,
-    cafe: config.cafe.enabled,
-    ocean: config.ocean.enabled,
-  }).filter(Boolean).length;
+  const activeCount = CHANNELS.filter((ch) => config[ch.type]?.enabled).length;
 
   return (
     <>

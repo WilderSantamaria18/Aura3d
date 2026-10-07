@@ -52,7 +52,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 backdrop-blur-md pointer-events-auto select-none font-sans animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/50 pointer-events-auto select-none font-sans animate-aura-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -62,7 +62,7 @@ export const StudioModal: React.FC<StudioModalProps> = ({
       aria-describedby={subtitle ? 'studio-modal-desc' : undefined}
     >
       <div
-        className={`liquid-glass liquid-glass--modal w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} relative flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300 ${className}`}
+        className={`liquid-glass liquid-glass--modal w-full max-w-[calc(100vw-1.5rem)] ${maxWidthStyles[maxWidth]} relative flex flex-col max-h-[90vh] overflow-hidden animate-aura-modal ${className}`}
         style={{ fontFeatureSettings: "'ss01', 'cv01'" }}
       >
         {/* Header */}

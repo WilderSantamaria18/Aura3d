@@ -148,6 +148,15 @@ export const useKeyboardShortcuts = () => {
           usePlayerStore.getState().setBlobPanelOpen?.(false);
           usePlayerStore.getState().setAdminModalOpen?.(false);
           usePlayerStore.getState().setSidebarOpen?.(false);
+          usePlayerStore.getState().setVideoTheaterOpen?.(false);
+          break;
+
+        case 'TOGGLE_THEATER':
+          usePlayerStore.getState().toggleVideoTheater();
+          break;
+
+        case 'TOGGLE_ZEN_MODE':
+          usePlayerStore.getState().toggleZenMode();
           break;
 
         case 'OPEN_WALLPAPERS':
@@ -337,6 +346,14 @@ export const useKeyboardShortcuts = () => {
           case 'w':
             e.preventDefault();
             dispatchAction('OPEN_WALLPAPERS');
+            break;
+          case 't':
+            e.preventDefault();
+            dispatchAction('TOGGLE_THEATER');
+            break;
+          case 'z':
+            e.preventDefault();
+            dispatchAction('TOGGLE_ZEN_MODE');
             break;
           default:
             break;

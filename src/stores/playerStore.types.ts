@@ -45,6 +45,7 @@ export interface AutoPalette {
 
 export type CameraPreset = 'front' | 'orbit' | 'top' | 'driver' | 'drone';
 export type PlaybackStatus = 'idle' | 'resolving' | 'buffering' | 'playing' | 'error';
+export type DjCrossfadeCurve = 'equal_power' | 'bass_swap' | 'beatmatch' | 'smooth_linear' | 'cut' | 'ambient';
 
 export const DEFAULT_KAWARP_SETTINGS: KawarpSettings = {
   enabled: true,
@@ -120,6 +121,19 @@ export interface PlayerState {
   crossfadeDuration: number;
   isCrossfadeActive: boolean;
   toggleCrossfade: () => void;
+  djCrossfadeCurve: DjCrossfadeCurve;
+  setDjCrossfadeCurve: (curve: DjCrossfadeCurve) => void;
+  isBeatmatchEnabled: boolean;
+  toggleBeatmatch: () => void;
+  isBassSwapEnabled: boolean;
+  toggleBassSwap: () => void;
+  isDjModalOpen: boolean;
+  setDjModalOpen: (isOpen: boolean) => void;
+  toggleDjModal: () => void;
+  manualCrossfader: number;
+  setManualCrossfader: (val: number) => void;
+  isDjTransitioning: boolean;
+  setIsDjTransitioning: (val: boolean) => void;
 
   // 8D Audio & Spatial Panning DSP
   is8DAudioActive: boolean;
@@ -168,9 +182,11 @@ export interface PlayerState {
   binauralMode: 'off' | 'alpha' | 'theta' | 'solfeggio432';
   setBinauralMode: (mode: 'off' | 'alpha' | 'theta' | 'solfeggio432') => void;
 
-  // Studio Dynamic Mastering Limiter
+  // Studio Dynamic Mastering Limiter & Smart AGC Normalizer
   masteringPreset: MasteringLimiterPreset;
   setMasteringPreset: (preset: MasteringLimiterPreset) => void;
+  isLoudnessNormalizationActive: boolean;
+  toggleLoudnessNormalization: () => void;
 
   // Vocal Remover & Karaoke / Instrumental DSP
   vocalMode: VocalMode;
@@ -265,6 +281,17 @@ export interface PlayerState {
   isKaraokeFullscreen: boolean;
   isNowPlayingExpanded: boolean;
   isMiniPlayerOpen: boolean;
+  isVideoTheaterOpen: boolean;
+  setVideoTheaterOpen: (isOpen: boolean) => void;
+  toggleVideoTheater: () => void;
+  isAudioIntelligenceHudOpen: boolean;
+  audioIntelligenceHudView: 'multi' | 'goniometer' | 'vu' | 'waterfall';
+  setAudioIntelligenceHudOpen: (isOpen: boolean) => void;
+  toggleAudioIntelligenceHud: () => void;
+  setAudioIntelligenceHudView: (view: 'multi' | 'goniometer' | 'vu' | 'waterfall') => void;
+  isZenMode: boolean;
+  setIsZenMode: (isZen: boolean) => void;
+  toggleZenMode: () => void;
   isTransitioning: boolean;
   setIsTransitioning: (isTransitioning: boolean) => void;
 
@@ -285,6 +312,9 @@ export interface PlayerState {
   setLyricsHideDelay: (ms: number) => void;
   lyricsAutoScroll: boolean;
   setLyricsAutoScroll: (v: boolean) => void;
+  lyricsOffset: number;
+  setLyricsOffset: (offset: number) => void;
+  adjustLyricsOffset: (delta: number) => void;
 
   // Studio Capture & Framing Suite
   isCaptureStudioOpen: boolean;
@@ -419,6 +449,8 @@ export interface PlayerState {
   playNext: (track: Track) => void;
   clearQueue: () => void;
   removeFromQueue: (index: number) => void;
+  reorderQueue: (fromIndex: number, toIndex: number) => void;
+  smartDjSortQueue: () => void;
   nextTrack: () => Track | null;
   previousTrack: () => Track | null;
   setIsPlaying: (isPlaying: boolean) => void;

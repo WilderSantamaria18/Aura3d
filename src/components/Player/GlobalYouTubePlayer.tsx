@@ -3,6 +3,7 @@ import { usePlayerStore } from "../../stores/playerStore";
 import { audioEngine } from "../../services/audioEngine";
 import { feedPlaybackClock } from "../../services/playbackClock";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
+import { fetchRelatedTracks } from "../../services/youtubeDiscovery";
 
 /* ──────────────────────────────────────────────────────────────
    YT IFrame API global types
@@ -68,30 +69,60 @@ function getOrCreatePortal(): HTMLElement {
       height: "1px",
       transform: OFFSCREEN,
       overflow: "hidden",
-      zIndex: "9000",
+      zIndex: "51",
       borderRadius: "12px",
       background: "#000",
-      willChange: "transform",
+      willChange: "transform, width, height",
       contain: "layout paint",
     });
 
     const mount = document.createElement("div");
     mount.id = MOUNT_ID;
-    mount.style.cssText = "width:100%;height:100%;";
+    mount.style.cssText = "width:100%;height:100%;position:relative;";
     portal.appendChild(mount);
     document.body.appendChild(portal);
+
+    // Responsive iframe styles: Ensures YouTube video always fills 100% width/height without clipping
+    if (!document.getElementById("aura-yt-responsive-style")) {
+      const style = document.createElement("style");
+      style.id = "aura-yt-responsive-style";
+      style.textContent = `
+        #${PORTAL_ID} iframe,
+        #${PORTAL_ID} object,
+        #${PORTAL_ID} embed {
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          border: 0 !important;
+          border-radius: inherit !important;
+          object-fit: cover !important;
+          display: block !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }
   return portal;
 }
 
-function placePortal(rect: { left: number; top: number; width: number; height: number; borderRadius?: string }) {
+function placePortal(rect: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  borderRadius?: string;
+  interactive?: boolean;
+}) {
   // Medios píxeles para la posición y enteros para el tamaño: evita iframes borrosos
   const x = Math.round(rect.left * 2) / 2;
   const y = Math.round(rect.top * 2) / 2;
   const w = Math.round(rect.width);
   const h = Math.round(rect.height);
   const radius = rect.borderRadius || "12px";
-  const key = `${x}|${y}|${w}|${h}|${radius}`;
+  const interactive = rect.interactive !== false;
+  const key = `${x}|${y}|${w}|${h}|${radius}|${interactive}`;
   if (key === lastPlacedKey) return; // sin cambios: no se toca el DOM
   lastPlacedKey = key;
   portalWidth = w;
@@ -101,6 +132,7 @@ function placePortal(rect: { left: number; top: number; width: number; height: n
   portal.style.width = `${w}px`;
   portal.style.height = `${h}px`;
   portal.style.borderRadius = radius;
+  portal.style.pointerEvents = interactive ? "auto" : "none";
   applyQuality();
 }
 
@@ -113,6 +145,7 @@ function hidePortal() {
     portal.style.transform = OFFSCREEN;
     portal.style.width = "1px";
     portal.style.height = "1px";
+    portal.style.pointerEvents = "none";
   }
   applyQuality();
 }
@@ -171,7 +204,7 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
         videoId,
         // Modo de privacidad mejorada: sin cookies de seguimiento ni las peticiones de conversión
         // de anuncios a doubleclick.net que ensucian la consola con errores de CORS
-        host: "https://www.youtube-nocookie.com",
+        host: "https://www.youtube.com",
         playerVars: {
           autoplay: 1,
           controls: 1,
@@ -182,7 +215,8 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
-          origin: window.location.origin,
+          origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          widget_referrer: typeof window !== "undefined" ? window.location.origin : undefined,
         },
         events: {
           onReady: (e: { target: any }) => {
@@ -238,11 +272,14 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
               }
               return;
             }
-            // 2, 100, 101, 150: no se puede reproducir → siguiente pista
+            // 2, 100, 101, 150: no se puede reproducir → resolver inmediatamente
             const state = usePlayerStore.getState();
-            state.setPlaybackStatus('resolving', 'Este video no está disponible. Buscando otra versión…');
-            if (id && liveHandlers.onUnavailable) liveHandlers.onUnavailable(id);
-            else setTimeout(() => liveHandlers.onEnded(), 1500);
+            state.setPlaybackStatus('resolving', 'Buscando versión alternativa disponible en YouTube…');
+            if (id && liveHandlers.onUnavailable) {
+              liveHandlers.onUnavailable(id);
+            } else {
+              setTimeout(() => liveHandlers.onEnded(), 800);
+            }
           },
         },
       });
@@ -309,10 +346,42 @@ export const GlobalYouTubeController: React.FC = () => {
   latest.videoId = isYT ? videoId : undefined;
   latest.isPlaying = isPlaying;
 
-  /* ── Pista terminada → siguiente en la cola ─────────────────── */
-  const handleEnded = useCallback(() => {
+  /* ── Pista terminada → siguiente en la cola (con Radio Infinita) ── */
+  const handleEnded = useCallback(async () => {
     const store = usePlayerStore.getState();
-    const next = store.nextTrack();
+    let next = store.nextTrack();
+
+    if (!next && store.isInfiniteRadioActive && store.currentTrack) {
+      const vid =
+        store.currentTrack.youtubeId ||
+        (store.currentTrack.id?.startsWith("yt_")
+          ? store.currentTrack.id.replace(/^yt_/, "")
+          : "");
+      try {
+        const related = await fetchRelatedTracks(
+          vid,
+          store.currentTrack.title,
+          store.currentTrack.artist,
+          store.currentTrack.duration
+        );
+        if (related && related.length > 0) {
+          const currentQ = usePlayerStore.getState().queue;
+          const existingIds = new Set(currentQ.map((t) => t.id || t.youtubeId));
+          const fresh = related.filter((t) => !existingIds.has(t.id || t.youtubeId));
+          const toAdd = fresh.length > 0 ? fresh : related;
+          const nextTrackItem = toAdd[0];
+          usePlayerStore.setState({
+            queue: [...currentQ, ...toAdd],
+            queueIndex: currentQ.length,
+            currentTrack: nextTrackItem,
+          });
+          next = nextTrackItem;
+        }
+      } catch (err) {
+        console.warn("[GlobalYouTubePlayer] Infinite radio replenishment error:", err);
+      }
+    }
+
     if (next) {
       void playSavedTrack(next).catch((error) => {
         console.error('[GlobalYouTubePlayer] No se pudo reproducir la siguiente pista:', error);
@@ -396,11 +465,14 @@ export const GlobalYouTubeController: React.FC = () => {
     }
   }, [volume, isMuted, isYT]);
 
-  /* ── 5. Seek ────────────────────────────────────────────────── */
+  /* ── 5. Seek Throttling (evita saturar el iframe y congelar el buffer) ── */
   useEffect(() => {
-    const handler = (e: Event) => {
-      const sec = (e as CustomEvent<{ seconds: number }>).detail?.seconds;
-      if (typeof sec === "number" && ytPlayer && ytPlayerReady) {
+    let lastSeek = 0;
+    let pendingSec: number | null = null;
+    let seekTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const doSeek = (sec: number) => {
+      if (ytPlayer && ytPlayerReady) {
         try {
           ytPlayer.seekTo(sec, true);
           feedPlaybackClock(sec, latest.isPlaying, true);
@@ -409,11 +481,53 @@ export const GlobalYouTubeController: React.FC = () => {
         }
       }
     };
+
+    const handler = (e: Event) => {
+      const sec = (e as CustomEvent<{ seconds: number }>).detail?.seconds;
+      if (typeof sec !== "number") return;
+      const now = performance.now();
+      feedPlaybackClock(sec, latest.isPlaying, true);
+
+      if (now - lastSeek > 100) {
+        lastSeek = now;
+        doSeek(sec);
+      } else {
+        pendingSec = sec;
+        if (seekTimer) clearTimeout(seekTimer);
+        seekTimer = setTimeout(() => {
+          if (pendingSec !== null) {
+            doSeek(pendingSec);
+            pendingSec = null;
+          }
+        }, 100);
+      }
+    };
+
     window.addEventListener("aura:youtube-seek", handler);
-    return () => window.removeEventListener("aura:youtube-seek", handler);
+    return () => {
+      window.removeEventListener("aura:youtube-seek", handler);
+      if (seekTimer) clearTimeout(seekTimer);
+    };
   }, []);
 
-  /* ── 6. Sondeo de tiempo (100 ms) + vigilancia de atascos ───── */
+  /* ── 5b. Recarga Forzada (evento manual o automático de desatasco) ── */
+  useEffect(() => {
+    const handleReload = () => {
+      if (!ytPlayer || !ytPlayerReady || !latest.videoId) return;
+      try {
+        const t = ytPlayer.getCurrentTime?.() || 0;
+        lastQuality = "";
+        ytPlayer.loadVideoById({ videoId: latest.videoId, startSeconds: t });
+        if (latest.isPlaying) setTimeout(playSafe, 250);
+      } catch {
+        /* ignorar */
+      }
+    };
+    window.addEventListener("aura:youtube-reload", handleReload);
+    return () => window.removeEventListener("aura:youtube-reload", handleReload);
+  }, []);
+
+  /* ── 6. Sondeo de tiempo (100 ms) + vigilancia inteligente de atascos ───── */
   useEffect(() => {
     if (!isYT || !isPlaying) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -424,6 +538,7 @@ export const GlobalYouTubeController: React.FC = () => {
     let lastStoreUpdate = 0;
     let lastTime = -1;
     let lastAdvance = performance.now();
+    let bufferingSince: number | null = null;
     let recoverStep = 0;
 
     const recover = () => {
@@ -437,8 +552,8 @@ export const GlobalYouTubeController: React.FC = () => {
         } else if (recoverStep === 1) {
           ytPlayer.seekTo(t, true);
           ytPlayer.playVideo();
-        } else if (recoverStep === 2) {
-          // Último recurso: recargar el video desde el mismo punto
+        } else if (recoverStep >= 2) {
+          // Recargar video desde el mismo punto temporal
           lastQuality = "";
           ytPlayer.loadVideoById({ videoId: id, startSeconds: t });
         }
@@ -446,7 +561,7 @@ export const GlobalYouTubeController: React.FC = () => {
         /* ignorar */
       }
       recoverStep++;
-      lastAdvance = performance.now(); // espera otros 5 s antes del siguiente intento
+      lastAdvance = performance.now();
     };
 
     intervalRef.current = window.setInterval(() => {
@@ -457,6 +572,17 @@ export const GlobalYouTubeController: React.FC = () => {
         const d = ytPlayer.getDuration?.();
         const state = ytPlayer.getPlayerState?.();
         const YTS = window.YT?.PlayerState;
+
+        // Vigilancia de buffering infinito (> 4.5 segundos en estado BUFFERING)
+        if (state === YTS?.BUFFERING) {
+          if (!bufferingSince) bufferingSince = now;
+          else if (now - bufferingSince > 4500) {
+            bufferingSince = now;
+            recover();
+          }
+        } else {
+          bufferingSince = null;
+        }
 
         if (typeof t === "number" && !isNaN(t)) {
           // Reloj rápido para las letras (a 60 fps se interpola entre muestras)
@@ -476,7 +602,15 @@ export const GlobalYouTubeController: React.FC = () => {
 
         // Vigilancia: debería avanzar y lleva 5 s sin hacerlo → recuperar
         const shouldAdvance = state !== YTS?.PAUSED && state !== YTS?.ENDED;
-        if (shouldAdvance && now - lastAdvance > 5000 && recoverStep < 3) recover();
+        if (shouldAdvance && now - lastAdvance > 5000) {
+          if (recoverStep < 3) {
+            recover();
+          } else if (now - lastAdvance > 9500 && latest.videoId && liveHandlers.onUnavailable) {
+            // Se congeló completamente tras varios intentos → resolver versión alternativa
+            recoverStep = 0;
+            liveHandlers.onUnavailable(latest.videoId);
+          }
+        }
       } catch {
         /* ignorar */
       }
@@ -546,6 +680,7 @@ export interface GlobalYouTubePlayerProps {
   isMiniPlayerExpanded?: boolean;
   activeTab?: string;
   showVideoInPlayer?: boolean;
+  interactive?: boolean;
   onToggleVideoView?: () => void;
   onExpandMiniPlayer?: () => void;
   className?: string;
@@ -554,6 +689,7 @@ export interface GlobalYouTubePlayerProps {
 
 export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
   showVideoInPlayer = true,
+  interactive = true,
   className = "w-full aspect-video rounded-2xl bg-black overflow-hidden",
   borderRadius = "12px",
 }) => {
@@ -567,7 +703,29 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     (currentTrack?.id?.startsWith("yt_") ? currentTrack.id.replace(/^yt_/, "") : undefined);
   const isYT = Boolean(currentTrack && videoId);
 
-  /* Mantiene el portal alineado con el hueco. Solo escribe en el DOM cuando algo cambió. */
+  const sync = useCallback(() => {
+    const slot = slotRef.current;
+    if (slot && !document.hidden) {
+      const r = slot.getBoundingClientRect();
+      if (r.width > 10 && r.height > 10) {
+        activeHolderId = instanceId.current;
+        placePortal({
+          left: r.left,
+          top: r.top,
+          width: r.width,
+          height: r.height,
+          borderRadius,
+          interactive,
+        });
+      } else if (activeHolderId === instanceId.current) {
+        hidePortal();
+      }
+    } else if (!slot && activeHolderId === instanceId.current) {
+      hidePortal();
+    }
+  }, [borderRadius, interactive]);
+
+  /* Mantiene el portal alineado con el hueco usando ResizeObserver + ventana de tracking de 600ms para animaciones */
   useEffect(() => {
     if (!isYT || !showVideoInPlayer) {
       if (activeHolderId === instanceId.current) {
@@ -579,30 +737,48 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
 
     activeHolderId = instanceId.current;
 
-    const sync = () => {
-      const slot = slotRef.current;
-      if (slot && !document.hidden) {
-        const r = slot.getBoundingClientRect();
-        if (r.width > 10 && r.height > 10) {
-          activeHolderId = instanceId.current;
-          placePortal({ left: r.left, top: r.top, width: r.width, height: r.height, borderRadius });
-        } else if (activeHolderId === instanceId.current) {
-          hidePortal();
-        }
-      } else if (!slot && activeHolderId === instanceId.current) {
-        hidePortal();
+    // 1. Sincronización inmediata
+    sync();
+
+    // 2. Tracking activo a 60fps durante la transición física de Framer Motion (600 ms)
+    // Luego se apaga el rAF para evitar "layout thrashing" y congelamientos en reposo
+    const startTime = performance.now();
+    const trackTransition = () => {
+      sync();
+      if (performance.now() - startTime < 600) {
+        rafRef.current = requestAnimationFrame(trackTransition);
       }
-      rafRef.current = requestAnimationFrame(sync);
     };
-    rafRef.current = requestAnimationFrame(sync);
+    rafRef.current = requestAnimationFrame(trackTransition);
+
+    // 3. ResizeObserver para cambios de tamaño responsivos sin coste en CPU
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && slotRef.current) {
+      ro = new ResizeObserver(() => {
+        sync();
+      });
+      ro.observe(slotRef.current);
+    }
+
+    // 4. Escuchadores de ventana
+    const onResize = () => sync();
+    const onScroll = () => sync();
+    window.addEventListener("resize", onResize, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("aura:sync-yt-slot", sync);
+
     return () => {
       cancelAnimationFrame(rafRef.current);
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("aura:sync-yt-slot", sync);
       if (activeHolderId === instanceId.current) {
         activeHolderId = null;
         hidePortal();
       }
     };
-  }, [isYT, showVideoInPlayer, borderRadius]);
+  }, [isYT, showVideoInPlayer, sync]);
 
   if (!isYT) return null;
 
@@ -610,3 +786,4 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
 };
 
 export default GlobalYouTubePlayer;
+

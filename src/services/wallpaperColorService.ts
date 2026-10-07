@@ -1,7 +1,9 @@
 import { extractDominantColor } from './colorExtractor';
-import { createLucidTheme, type LucidTheme } from '../types/audio';
+import { createLucidTheme, type LucidTheme, LUCID_THEMES } from '../types/audio';
 import { useWallpaperStore } from '../stores/wallpaperStore';
 import { usePlayerStore } from '../stores/playerStore';
+import type { WallpaperPalette, WallpaperStyle } from '../types/wallpaper';
+import { getLucidThemeForWallpaper } from './wallpaperPresetsService';
 
 function hexToHsl(hex: string): [number, number, number] {
   let c = hex.replace('#', '');
@@ -62,6 +64,19 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+export function hexToRgbaString(hex: string, alpha: number): string {
+  try {
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map((x) => x + x).join('');
+    const r = parseInt(c.slice(0, 2), 16) || 0;
+    const g = parseInt(c.slice(2, 4), 16) || 0;
+    const b = parseInt(c.slice(4, 6), 16) || 0;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } catch {
+    return `rgba(0, 229, 255, ${alpha})`;
+  }
+}
+
 /**
  * Eleva los colores extraídos a valores lúcidos/neón vibrantes
  * para que resplandezcan adecuadamente sobre cristal líquido y modos oscuros.
@@ -76,6 +91,44 @@ export function enhanceColorForLucid(hex: string): string {
   } catch {
     return hex;
   }
+}
+
+/**
+ * Inyecta las variables CSS globales para que las superficies Liquid Glass
+ * y los efectos luminosos reflejen la tonalidad armónica del fondo (Chameleon Glass).
+ */
+export function applyWallpaperThemeVariables(primary: string, secondary: string): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+
+  const tintPrimary = hexToRgbaString(primary, 0.08);
+  const tintSecondary = hexToRgbaString(secondary, 0.04);
+  const rimAccent = hexToRgbaString(primary, 0.35);
+  const glow = hexToRgbaString(primary, 0.22);
+
+  root.style.setProperty('--wallpaper-ambient-primary', primary);
+  root.style.setProperty('--wallpaper-ambient-secondary', secondary);
+  root.style.setProperty('--glass-tint-active', tintPrimary);
+  root.style.setProperty('--glass-tint-secondary', tintSecondary);
+  root.style.setProperty('--glass-rim-accent', rimAccent);
+  root.style.setProperty('--wallpaper-glow', glow);
+  root.style.setProperty('--accent-active', primary);
+}
+
+/**
+ * Restaura los valores neutros de CSS cuando no hay fondo activo.
+ */
+export function resetWallpaperThemeVariables(): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+
+  root.style.removeProperty('--wallpaper-ambient-primary');
+  root.style.removeProperty('--wallpaper-ambient-secondary');
+  root.style.removeProperty('--glass-tint-active');
+  root.style.removeProperty('--glass-tint-secondary');
+  root.style.removeProperty('--glass-rim-accent');
+  root.style.removeProperty('--wallpaper-glow');
+  root.style.removeProperty('--accent-active');
 }
 
 /**
@@ -155,10 +208,59 @@ export async function combineColorsFromWallpaper(
       primary: primaryVibrant,
       secondary: secondaryVibrant,
       theme,
-      sourceTitle: active.title,
+      sourceTitle: active.title || 'Fondo',
     };
   } catch (err) {
     console.error('Error combining colors with wallpaper:', err);
     return null;
   }
+}
+
+/**
+ * Orquestador maestro de armonización:
+ * Aplica primero una respuesta inmediata basada en los metadatos del preset,
+ * y luego extrae los tonos microscópicos reales para inyectarlos en el Chameleon Glass.
+ */
+export async function harmonizeEcosystemWithWallpaper(
+  url: string,
+  title?: string,
+  palette?: WallpaperPalette,
+  style?: WallpaperStyle
+): Promise<WallpaperHarmonizationResult | null> {
+  if (!url) {
+    resetWallpaperThemeVariables();
+    return null;
+  }
+
+  // 1. Vía Rápida Instantánea: Si el wallpaper tiene preset/paleta definida, aplicar de inmediato
+  if (palette || style) {
+    const fastThemeId = getLucidThemeForWallpaper(palette, style);
+    const matched = LUCID_THEMES.find((t) => t.id === fastThemeId);
+    if (matched) {
+      applyWallpaperThemeVariables(matched.primary, matched.secondary);
+      try {
+        usePlayerStore.getState().setLucidTheme(matched);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // 2. Extracción profunda de píxeles para armonización cromática Chameleon Glass exacta
+  try {
+    const res = await combineColorsFromWallpaper(url, title);
+    if (res) {
+      applyWallpaperThemeVariables(res.primary, res.secondary);
+      try {
+        usePlayerStore.getState().setLucidTheme(res.theme);
+      } catch {
+        // ignore
+      }
+      return res;
+    }
+  } catch (err) {
+    console.warn('[wallpaperColorService] Error en extracción profunda:', err);
+  }
+
+  return null;
 }

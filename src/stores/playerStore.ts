@@ -27,8 +27,9 @@ import {
   replaceResolvedFavorite,
   resolveSavedTrackCandidate,
 } from '../utils/savedTrackPlayback';
+import { camelotWheelService } from '../services/camelotWheelService';
 
-import type { PlayerState } from './playerStore.types';
+import type { PlayerState, DjCrossfadeCurve } from './playerStore.types';
 import { DEFAULT_KAWARP_SETTINGS, DEFAULT_LENIS_SETTINGS } from './playerStore.types';
 
 // Se reexportan desde aquí: el resto de la app ya importa estos nombres de playerStore
@@ -39,6 +40,16 @@ let lastPrevTrackTimestamp = 0;
 
 // Cola de la sesión anterior (solo pistas reproducibles tras recargar: YouTube y radio)
 const restoredQueue = StorageService.getQueue();
+
+function getSavedLyricsOffset(trackId?: string): number {
+  if (!trackId) return 0;
+  try {
+    const val = localStorage.getItem(`aura3d_lyrics_offset_${trackId}`);
+    return val !== null ? parseFloat(val) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   analyser: null,
@@ -109,6 +120,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffleHistory: [],
   crossfadeDuration: 3,
   isCrossfadeActive: true,
+  djCrossfadeCurve: 'bass_swap' as DjCrossfadeCurve,
+  isBeatmatchEnabled: true,
+  isBassSwapEnabled: true,
+  isDjModalOpen: false,
+  manualCrossfader: 0,
+  isDjTransitioning: false,
 
   is8DAudioActive: false,
   eightDSpeed: 0.18,
@@ -126,6 +143,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   dspSpeedMode: 'normal',
   binauralMode: 'off',
   masteringPreset: 'off' as MasteringLimiterPreset,
+  isLoudnessNormalizationActive: false,
   vocalMode: 'off',
   isStoryCardOpen: false,
 
@@ -200,6 +218,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isKaraokeFullscreen: false,
   isNowPlayingExpanded: true,
   isMiniPlayerOpen: false,
+  isVideoTheaterOpen: false,
+  isAudioIntelligenceHudOpen: false,
+  audioIntelligenceHudView: 'multi',
+  isZenMode: false,
 
   // ─── Lyrics Evolution V2 Initial State ───
   lyricsPanelState: 'expanded',
@@ -244,6 +266,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return true;
     }
   })(),
+  lyricsOffset: 0,
 
   // Studio Capture & Framing Suite
   isCaptureStudioOpen: false,
@@ -786,7 +809,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setAudioUnlocked: (unlocked) => set({ isAudioUnlocked: unlocked }),
 
-  setCurrentTrack: (track) => set({ currentTrack: track }),
+  setCurrentTrack: (track) => set({ currentTrack: track, lyricsOffset: getSavedLyricsOffset(track?.id) }),
 
   playTrack: (track) => {
     const { queue, autoMode, baseColorHue } = get();
@@ -802,9 +825,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         autoFeedbackToast: true,
       });
     }
+    const offset = getSavedLyricsOffset(track?.id);
     const existingIndex = queue.findIndex((t) => t.id === track.id);
     if (existingIndex >= 0) {
-      set({ currentTrack: track, queueIndex: existingIndex, isPlaying: true, hasStarted: true });
+      set({ currentTrack: track, queueIndex: existingIndex, isPlaying: true, hasStarted: true, lyricsOffset: offset });
     } else {
       set({
         queue: [track, ...queue],
@@ -812,15 +836,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         currentTrack: track,
         isPlaying: true,
         hasStarted: true,
+        lyricsOffset: offset,
       });
     }
   },
 
   setQueue: (tracks, startIndex = 0) => {
+    const current = tracks[startIndex] || null;
     set({
       queue: tracks,
       queueIndex: startIndex,
-      currentTrack: tracks[startIndex] || null,
+      currentTrack: current,
+      lyricsOffset: getSavedLyricsOffset(current?.id),
     });
   },
 
@@ -862,6 +889,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       newIndex = Math.max(0, queueIndex - 1);
     }
     set({ queue: newQueue, queueIndex: newIndex });
+  },
+
+  reorderQueue: (fromIndex: number, toIndex: number) => {
+    const { queue, queueIndex } = get();
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= queue.length ||
+      toIndex >= queue.length
+    ) {
+      return;
+    }
+    const item = queue[fromIndex];
+    const newQueue = [...queue];
+    newQueue.splice(fromIndex, 1);
+    newQueue.splice(toIndex, 0, item);
+
+    let newIndex = queueIndex;
+    if (queueIndex === fromIndex) {
+      newIndex = toIndex;
+    } else if (fromIndex < queueIndex && toIndex >= queueIndex) {
+      newIndex = queueIndex - 1;
+    } else if (fromIndex > queueIndex && toIndex <= queueIndex) {
+      newIndex = queueIndex + 1;
+    }
+
+    set({ queue: newQueue, queueIndex: newIndex });
+  },
+
+  smartDjSortQueue: () => {
+    const { queue, queueIndex } = get();
+    if (queue.length <= 1) return;
+    const sorted = camelotWheelService.sortQueueHarmonically(queue, queueIndex);
+    const current = queue[queueIndex];
+    let newIndex = queueIndex;
+    if (current) {
+      const idx = sorted.findIndex((t) => t.id === current.id);
+      if (idx !== -1) newIndex = idx;
+    }
+    set({ queue: sorted, queueIndex: newIndex });
   },
 
   nextTrack: () => {
@@ -911,7 +979,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     const next = queue[nextIndex];
-    set({ currentTrack: next, queueIndex: nextIndex });
+    set({ currentTrack: next, queueIndex: nextIndex, lyricsOffset: getSavedLyricsOffset(next?.id) });
     return next;
   },
 
@@ -952,7 +1020,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     const prev = queue[prevIndex];
-    set({ currentTrack: prev, queueIndex: prevIndex });
+    set({ currentTrack: prev, queueIndex: prevIndex, lyricsOffset: getSavedLyricsOffset(prev?.id) });
     return prev;
   },
 
@@ -1077,6 +1145,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setEqualizerOpen: (isOpen) => set({ isEqualizerOpen: isOpen }),
+  setAudioIntelligenceHudOpen: (isOpen) => set({ isAudioIntelligenceHudOpen: isOpen }),
+  toggleAudioIntelligenceHud: () =>
+    set((s) => ({ isAudioIntelligenceHudOpen: !s.isAudioIntelligenceHudOpen })),
+  setAudioIntelligenceHudView: (view) => set({ audioIntelligenceHudView: view }),
   setLyricsOpen: (isOpen) => set({ isLyricsOpen: isOpen, lyricsPanelState: isOpen ? 'expanded' : 'hidden' }),
   setLyricsPanelState: (state) => set({ lyricsPanelState: state, isLyricsOpen: state !== 'hidden' }),
   setLyricsFullscreen: (v) => set({ isLyricsFullscreen: v, isKaraokeFullscreen: v }),
@@ -1109,11 +1181,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     try { localStorage.setItem('aura3d_lyrics_auto_scroll', String(v)); } catch {}
     set({ lyricsAutoScroll: v });
   },
+  setLyricsOffset: (offset) => {
+    const clamped = Math.round(Math.max(-10, Math.min(10, offset)) * 100) / 100;
+    const track = get().currentTrack;
+    if (track?.id) {
+      try { localStorage.setItem(`aura3d_lyrics_offset_${track.id}`, String(clamped)); } catch {}
+    }
+    set({ lyricsOffset: clamped });
+  },
+  adjustLyricsOffset: (delta) => {
+    const current = get().lyricsOffset || 0;
+    get().setLyricsOffset(current + delta);
+  },
   setImmersiveMode: (isImmersive) => set({ isImmersiveMode: isImmersive }),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   setNowPlayingExpanded: (isExpanded) => set({ isNowPlayingExpanded: isExpanded }),
   setMiniPlayerOpen: (isOpen) => set({ isMiniPlayerOpen: isOpen }),
   toggleMiniPlayer: () => set((s) => ({ isMiniPlayerOpen: !s.isMiniPlayerOpen })),
+  setVideoTheaterOpen: (isOpen) => set({ isVideoTheaterOpen: isOpen }),
+  toggleVideoTheater: () => set((s) => ({ isVideoTheaterOpen: !s.isVideoTheaterOpen })),
+  setIsZenMode: (isZen) => set({ isZenMode: isZen }),
+  toggleZenMode: () => set((s) => ({ isZenMode: !s.isZenMode })),
 
   // Studio Capture & Framing Actions
   setCaptureStudioOpen: (isOpen) => set({ isCaptureStudioOpen: isOpen }),
@@ -1135,6 +1223,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   toggleShuffle: () => set((state) => ({ isShuffled: !state.isShuffled })),
   setCrossfadeDuration: (crossfadeDuration) => set({ crossfadeDuration }),
   toggleCrossfade: () => set((state) => ({ isCrossfadeActive: !state.isCrossfadeActive })),
+  setDjCrossfadeCurve: (djCrossfadeCurve) => set({ djCrossfadeCurve }),
+  toggleBeatmatch: () => set((state) => ({ isBeatmatchEnabled: !state.isBeatmatchEnabled })),
+  toggleBassSwap: () => set((state) => ({ isBassSwapEnabled: !state.isBassSwapEnabled })),
+  setDjModalOpen: (isDjModalOpen) => set({ isDjModalOpen }),
+  toggleDjModal: () => set((state) => ({ isDjModalOpen: !state.isDjModalOpen })),
+  setManualCrossfader: (manualCrossfader) => set({ manualCrossfader }),
+  setIsDjTransitioning: (isDjTransitioning) => set({ isDjTransitioning }),
 
   toggle8DAudio: () => {
     const next = !get().is8DAudioActive;
@@ -1306,10 +1401,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setCameraPreset: (preset) => set({ cameraPreset: preset }),
 
-  // Mastering Limiter Action
+  // Mastering Limiter & Smart Loudness Normalizer Actions
   setMasteringPreset: (masteringPreset) => {
     audioEngine.setMasteringPreset(masteringPreset);
-    set({ masteringPreset });
+    set({
+      masteringPreset,
+      isLoudnessNormalizationActive: masteringPreset === 'smart_loudness',
+    });
+  },
+  toggleLoudnessNormalization: () => {
+    const next = !get().isLoudnessNormalizationActive;
+    const preset: MasteringLimiterPreset = next ? 'smart_loudness' : 'off';
+    audioEngine.setMasteringPreset(preset);
+    set({
+      isLoudnessNormalizationActive: next,
+      masteringPreset: preset,
+    });
   },
 
   // Vocal Remover & Karaoke Actions

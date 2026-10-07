@@ -1,224 +1,802 @@
-Actúa como desarrollador senior de gráficos en tiempo real, Canvas 2D, React y TypeScript. Implementa una mejora visual y funcional del visualizador **Rainbow Void de Aura3D**, tomando la imagen adjunta como referencia visual principal.
+# RAINBOW VOID — PLAN MAESTRO DE REDISEÑO VISUAL
 
-Trabaja sobre el código real del proyecto. No te limites a entregar recomendaciones: inspecciona los archivos, implementa los cambios y verifica el resultado en el navegador.
+## REGLA PRINCIPAL
 
-## 1. Objetivo visual
+NO rediseñes Rainbow Void completo de una sola vez.
 
-Quiero que Rainbow Void se acerque a la imagen adjunta:
+Vamos a trabajar efecto por efecto.
 
-- Fondo azul noche casi negro.
-- Disco central oscuro, circular y claramente definido.
-- Aura amplia y multicolor que rodea el disco.
-- Colores mezclados suavemente: magenta y violeta arriba, cyan y turquesa a la derecha, verde y amarillo abajo, naranja y rojo a la izquierda.
-- Luz volumétrica sugerida mediante transparencias, gradientes y composición en Canvas 2D.
-- Contorno exterior difuso, orgánico y ligeramente asimétrico.
-- Centro limpio, con icono o carátula legibles.
+Cada efecto tendrá estas etapas obligatorias:
 
-La referencia es estática. Tu trabajo es convertir esa composición en una experiencia musical viva: el aura debe respirar, deformarse y expandirse con el audio, especialmente con el kick.
+1. AUDITORÍA
+2. DISEÑO VISUAL
+3. DISEÑO DE MOVIMIENTO
+4. DISEÑO DE REACCIÓN MUSICAL
+5. IMPLEMENTACIÓN
+6. VALIDACIÓN VISUAL
+7. VALIDACIÓN DE RENDIMIENTO
+8. APROBACIÓN
 
-No copies el texto “AURALIS VOID” de la imagen ni cambies la identidad de Aura3D. Usa la referencia para la composición, la iluminación y la suavidad.
+NO avances al siguiente efecto hasta recibir mi aprobación.
 
-## 2. Inspección obligatoria
+---
 
-Localiza y revisa:
+# EFECTOS
 
-- `RainbowBlobVisualizer.tsx`
-- `voidEffects.ts`
-- `src/components/Visualizers/effects/`
-- `useProEffectsManager.ts`
-- `useFPSMonitor.ts`
-- `types/audio.ts`
-- `visualPresets.ts`
-- `VoidFxCustomizer.tsx`
+Trabajar exactamente en este orden:
 
-Comprueba cómo funcionan realmente:
+1. Spectrum → Spectral Crown
+2. Wave → Liquid Resonance
+3. Particles → Stardust Flow
+4. Geometry → Sacred Lattice
+5. Radar → Echo Lens
+6. Electro → Neural Arc
+7. Laser → Prismatic Caustics
+8. Spiro / Mandala → CONSERVAR
+9. Tunnel → Event Horizon
+10. Hive → Liquid Tessellation
+11. Spiral → Golden Flow
 
-- El bucle de animación.
-- La detección de kick y su intensidad.
-- El resorte del núcleo.
-- La normalización de escala.
-- Los datos FFT, chroma y RMS.
-- La composición de capas.
-- Las paletas y la extracción de color de carátulas.
-- La persistencia de ajustes y presets.
+IMPORTANTE:
 
-La descripción proporcionada es contexto; el código es la fuente de verdad. No presupongas que una función existe o se comporta exactamente como se ha descrito.
+`Spiro / Mandala` está aprobado visualmente.
 
-Conserva Canvas 2D y el ecosistema Lucid. Aprovecha la arquitectura existente antes de introducir abstracciones nuevas.
+NO modificarlo.
 
-## 3. Aura orgánica por capas
+Puede utilizarse como referencia de calidad, complejidad y elegancia, pero los demás efectos NO deben copiar su geometría.
 
-Mejora o sustituye internamente el halo existente para obtener tres niveles de luz coordinados:
+---
 
-### A. Halo interior
+# REGLAS DE DISEÑO
 
-Una luz contenida y suave inmediatamente detrás del perímetro del disco.
+Rainbow Void debe dejar de parecer una colección de:
 
-- Define la separación entre el disco y el fondo.
-- Sigue la deformación del núcleo.
-- Mantiene baja opacidad.
-- Aumenta brevemente con los transitorios.
-- No invade el contenido central.
+- demos de Canvas;
+- ecualizadores;
+- formas geométricas básicas;
+- líneas con glow;
+- círculos pulsantes;
+- partículas aleatorias;
+- efectos típicos de tutorial;
+- barras FFT;
+- animaciones generativas genéricas.
 
-### B. Cuerpo cromático
+Cada efecto debe tener:
 
-La capa principal de la referencia.
+IDENTIDAD VISUAL
++
+PROFUNDIDAD
++
+MOVIMIENTO
++
+FÍSICA
++
+RESPUESTA MUSICAL
++
+MICRODETALLES
++
+JERARQUÍA VISUAL.
 
-- Usa lóbulos de luz superpuestos con gradientes radiales y caída suave de alpha.
-- Distribuye los colores alrededor del disco.
-- Introduce variaciones lentas de posición, tamaño y opacidad.
-- Evita divisiones visibles entre sectores.
-- Mantén suficiente densidad cromática para que se perciba una nube luminosa, sin convertirla en un anillo sólido.
-- Conserva zonas de diferente extensión para conseguir una silueta orgánica.
+---
 
-### C. Bloom exterior
+# REGLA DE PROFUNDIDAD
 
-Una difusión más amplia, tenue y suave.
+No considerar un efecto terminado si consiste únicamente en:
 
-- Aporta profundidad alrededor del cuerpo cromático.
-- Se desvanece por completo antes de alcanzar el borde del canvas.
-- No presenta rectángulos, recortes ni saltos de color.
-- Su intensidad queda subordinada al cuerpo cromático.
+`draw shape → apply color → add glow`.
 
-Resuelve el efecto mediante buffers reutilizables y composición controlada. Evalúa `screen`, `lighter` y `source-over`; utiliza cada modo donde aporte el resultado correcto. Evita sumar luz hasta blanquear la paleta.
+Cada efecto debe evaluar una estructura visual multicapa.
 
-El desenfoque debe afectar al aura, conservando nítidos el disco, el icono y la carátula.
+Ejemplo conceptual:
 
-## 4. Reacción al kick
+ATMOSPHERE
+↓
+GHOST LAYER
+↓
+SECONDARY STRUCTURE
+↓
+MAIN STRUCTURE
+↓
+HIGHLIGHT
+↓
+MICRODETAIL
+↓
+TRANSIENT FX
 
-El kick debe sentirse como una presión que atraviesa el núcleo y desplaza su aura.
+No significa que todos necesiten siete capas.
 
-Implementa esta secuencia:
+Significa que debe existir profundidad visual intencional.
 
-1. El detector existente identifica un transitorio válido.
-2. Su fuerza normalizada genera un impulso acotado.
-3. El núcleo responde con su resorte.
-4. El cuerpo cromático se expande y sus lóbulos se deforman.
-5. El bloom exterior crece con un pequeño desfase.
-6. Todas las capas regresan suavemente a su posición de reposo.
+---
 
-Usa el impulso del kick y el estado del resorte como señales compartidas. Evita que cada capa detecte golpes de manera independiente.
+# REGLA DE MOVIMIENTO
 
-Requisitos:
+NO utilizar solamente:
 
-- Los golpes suaves generan una respuesta sutil.
-- Los golpes fuertes generan una expansión clara, sin saturar toda la pantalla.
-- La deformación combina expansión radial y variaciones locales suaves.
-- La respuesta vuelve al reposo sin temblores ni parpadeos.
-- Los golpes consecutivos se acumulan de forma controlada.
-- La animación usa tiempo real y permanece estable a distintas tasas de frames.
-- Acota el delta de tiempo y trata correctamente la reanudación de pestañas.
+`scale = audioEnergy`
 
-Si el detector produce falsos positivos, revisa su umbral adaptativo, normalización e intervalo mínimo entre golpes antes de aumentar la intensidad gráfica.
+Eso genera visualizadores básicos.
 
-No fuerces un +25 % de expansión en cada kick. Conserva ese límite solo si el código y las pruebas confirman que funciona bien.
+Separar:
 
-## 5. Separación de señales de audio
+POSITION
+VELOCITY
+ACCELERATION
+TARGET
+DAMPING
+SPRING
+PHASE
+ENERGY
 
-Asigna responsabilidades claras:
+Cuando sea apropiado.
 
-- **Kick:** impulso de expansión y deformación.
-- **Graves sostenidos:** volumen y amplitud del cuerpo cromático.
-- **RMS:** respiración general y nivel de luminosidad.
-- **Medios:** ondulaciones locales.
-- **Agudos:** detalles luminosos breves y contenidos.
-- **Chroma:** matices de color o respuesta de formas musicales existentes.
+El audio modifica el comportamiento físico.
 
-Suaviza las señales continuas con tiempos de ataque y liberación. Conserva la inmediatez del transitorio.
+No simplemente el tamaño.
 
-No vincules todos los parámetros al volumen global. El resultado debe distinguir entre un bombo, una voz sostenida y un hi-hat.
+---
 
-## 6. Disco central y compatibilidad
+# REGLA FFT
 
-Mantén el disco oscuro y bien separado del aura.
+SUB / BASS:
 
-Preserva:
+Debe controlar masa, presión, deformaciones grandes, expansión o profundidad.
 
-- Carátulas y logos personalizados.
-- Vinilo, surcos y rotación.
-- Iconos vectoriales.
-- Apertura de `LogoCropFilterModal.tsx`.
-- Biseles y controles existentes.
-- Formas `cat`, `bunny`, `horns`, `crown`, `flame`, `wings`, `notes`, `spikes` y `fractal`.
-- Acabados `neon`, `glass` e `ink`.
-- Paletas y modo `lucid`.
-- Modo DHONKIO.
+MID:
 
-El aura debe complementar las formas activas. Equilibra su brillo para conservar la lectura de orejas, picos, pétalos y contornos.
+Debe controlar movimiento estructural, ondulación, rotación secundaria o deformaciones medias.
 
-Evita duplicar ondas de choque entre `Boom` y `shockwave`. Si ambos están activos, coordina su comportamiento o reduce su superposición.
+HIGH:
 
-En DHONKIO, conserva el skyline, las estrellas y el rótulo legibles.
+Debe controlar microdetalle, refracción, highlights, pequeñas perturbaciones o textura.
 
-## 7. Controles y preset
+KICK:
 
-Integra los ajustes en el personalizador existente. Expón solo controles comprensibles:
+Debe producir eventos físicos.
 
-- Intensidad del aura.
-- Extensión.
-- Suavidad.
-- Respuesta al kick.
-- Movimiento ambiental.
+Ejemplos:
 
-Reutiliza controles equivalentes si ya existen. Define rangos seguros y valores iniciales equilibrados.
+- shock;
+- propagation;
+- displacement;
+- burst;
+- refraction;
+- recoil;
+- elastic response.
 
-Añade un preset inspirado en la referencia, siguiendo el sistema real de presets del proyecto. Este preset debe combinar:
+No simplemente:
 
-- Disco oscuro.
-- Aura amplia y suave.
-- Distribución cromática similar a la imagen.
-- Movimiento ambiental lento.
-- Respuesta elástica al kick.
-- Efectos adicionales discretos.
+`scale += kick`.
 
-Conserva compatibilidad con presets guardados y proporciona valores de respaldo para cualquier campo nuevo.
+---
 
-## 8. Rendimiento
+# REGLA DE COLOR
 
-Apunta a 60 FPS y verifica el coste real.
+Todos los efectos deben respetar las paletas existentes.
 
-- Reutiliza buffers, arrays y estructuras temporales.
-- No crees canvases ni colecciones por frame.
-- Evita generar gradientes complejos repetidamente cuando se puedan cachear.
-- No actualices estado React dentro del bucle de animación.
-- Renderiza la difusión en un buffer de resolución reducida si mantiene buena calidad.
-- Limita DPR y resolución de efectos según el dispositivo.
-- Recalcula tamaños y cachés cuando cambien sus dependencias.
-- Libera recursos, listeners y animation frames al desmontar.
-- Respeta el máximo existente de efectos Pro.
+NO crear colores hardcodeados innecesarios.
 
-Integra la degradación de calidad con el monitor de FPS. Reduce primero resolución de difusión, detalle y capas secundarias. Mantén la respuesta principal al kick.
+Color debe provenir del sistema Rainbow Void.
 
-Usa histéresis y periodos de evaluación para evitar cambios constantes de calidad alrededor de 45 FPS. No afirmes “cero allocations” ni “60 FPS garantizados” sin mediciones.
+Usar gradientes y transparencias con moderación.
 
-## 9. Verificación
+Glow no puede utilizarse para esconder geometría pobre.
 
-Prueba en navegador:
+---
 
-- Silencio y pausa: reposo suave y estable.
-- Música con bombo marcado: impulsos claros y recuperación elástica.
-- Música vocal o ambiental: respiración contenida.
-- Percusión rápida: sin destellos excesivos ni acumulación descontrolada.
-- Carátula, logo e icono central.
-- Cambio de paleta, preset, forma y acabado.
-- Modo DHONKIO.
-- Redimensionamiento, móvil, escritorio y DPR alto.
-- Ocultar y recuperar la pestaña.
-- Activación de varios efectos Pro.
+# REGLA DE RENDIMIENTO
 
-Comprueba que el aura no se recorta, no tapa los controles y mantiene el disco legible. Respeta `prefers-reduced-motion`, reduciendo deformaciones y destellos.
+Mantener Zero-GC cuando sea posible.
 
-Ejecuta las comprobaciones del proyecto apropiadas para los cambios. Mide rendimiento indicando dispositivo, resolución, DPR y efectos activos.
+Preferir:
 
-## 10. Entrega
+Float32Array
+Uint8Array
+buffers reutilizables
+variables precomputadas
+lookup tables
 
-Entrega la implementación terminada y un resumen breve con:
+Evitar creación innecesaria de:
 
-- Archivos modificados.
-- Comportamiento nuevo del aura y del kick.
-- Controles y preset incorporados.
-- Capturas del resultado.
-- Comprobaciones ejecutadas.
-- Rendimiento observado y limitaciones pendientes.
+Array
+Object
+Path
+Gradient
+Particle
 
-Prioriza el parecido con la referencia, la sincronización musical y la estabilidad. El resultado debe sentirse como un núcleo oscuro suspendido dentro de una nube cromática líquida, cuya luz recibe y transmite cada golpe de bombo.
+por frame.
+
+No utilizar `shadowBlur` pesado como solución visual principal.
+
+Objetivo:
+
+60 FPS estables.
+
+---
+
+# PROCESO OBLIGATORIO PARA CADA EFECTO
+
+Antes de escribir código:
+
+## ETAPA A — AUDITORÍA
+
+Identificar:
+
+- archivo;
+- función;
+- renderer;
+- buffers;
+- entrada FFT;
+- kick;
+- paleta;
+- configuración;
+- inners;
+- dependencias.
+
+Entregar un pequeño reporte.
+
+NO modificar código todavía.
+
+---
+
+## ETAPA B — PROPUESTA VISUAL
+
+Explicar:
+
+1. Qué se eliminará.
+2. Qué permanecerá.
+3. Nueva identidad.
+4. Forma principal.
+5. Capas.
+6. Movimiento.
+7. Respuesta musical.
+8. Comportamiento en silencio.
+9. Comportamiento con música intensa.
+10. Comportamiento durante kick.
+
+NO implementar todavía.
+
+Esperar aprobación.
+
+---
+
+## ETAPA C — IMPLEMENTACIÓN
+
+Una vez aprobado:
+
+Modificar exclusivamente el efecto seleccionado.
+
+No refactorizar otros motores.
+
+No realizar cambios globales innecesarios.
+
+No modificar Mandala.
+
+---
+
+## ETAPA D — VALIDACIÓN
+
+Probar:
+
+SILENCE
+
+BASS
+
+MID
+
+HIGH
+
+KICK
+
+DENSE MUSIC
+
+LOW ENERGY MUSIC
+
+HIGH ENERGY MUSIC
+
+RESIZE
+
+FULLSCREEN
+
+DPR ALTO
+
+DPR NORMAL
+
+---
+
+## ETAPA E — PERFORMANCE
+
+Verificar:
+
+FPS
+
+frame time
+
+allocations
+
+GC
+
+CPU
+
+cantidad de draw calls
+
+cantidad de vértices
+
+buffers
+
+---
+
+## ETAPA F — REPORTE
+
+Entregar:
+
+### Archivos modificados
+
+### Código eliminado
+
+### Código agregado
+
+### Algoritmo
+
+### Reacción FFT
+
+### Física
+
+### Rendimiento
+
+### Problemas encontrados
+
+### Posibles mejoras
+
+Después:
+
+DETENERTE.
+
+No continuar automáticamente.
+
+---
+
+# FASE 1
+
+## SPECTRUM → SPECTRAL CROWN
+
+Objetivo:
+
+Eliminar completamente la sensación de ecualizador radial.
+
+Crear una membrana espectral continua alrededor del núcleo.
+
+### Diseño
+
+La forma debe sentirse:
+
+orgánica
++
+líquida
++
+elástica
++
+precisa.
+
+No utilizar barras.
+
+Construir una curva radial continua de aproximadamente 128–256 muestras adaptables según rendimiento.
+
+Cada muestra puede almacenar:
+
+radius
+target
+velocity
+energy
+phase.
+
+Utilizar interpolación espacial.
+
+La forma debe parecer una membrana bajo presión acústica.
+
+### Bass
+
+Grandes deformaciones.
+
+### Mid
+
+Ondulaciones.
+
+### High
+
+Microdetalle.
+
+### Kick
+
+Propagación elástica alrededor de la membrana.
+
+### Inners
+
+2–4 membranas parciales interiores.
+
+NO simples círculos escalables.
+
+---
+
+# FASE 2
+
+## WAVE → LIQUID RESONANCE
+
+Eliminar el aspecto de osciloscopio.
+
+Crear interferencias fluidas alrededor del núcleo.
+
+Inspiración conceptual:
+
+ondas sobre líquido
++
+resonancia
++
+interferencia
++
+caustics.
+
+No dibujar simplemente una senoide.
+
+Crear dos o tres campos de ondas que interactúan.
+
+Cuando dos ondas se encuentran:
+
+constructive interference
+
+o
+
+destructive interference.
+
+Bass controla amplitud.
+
+Mid controla propagación.
+
+High controla pequeñas refracciones.
+
+Kick genera una onda primaria que atraviesa el sistema.
+
+---
+
+# FASE 3
+
+## PARTICLES → STARDUST FLOW
+
+NO generar partículas aleatorias flotando.
+
+Crear un campo de partículas coherente.
+
+Las partículas deben seguir:
+
+flow fields
++
+órbitas
++
+atractores
++
+inercia.
+
+El disco central puede funcionar como campo gravitacional visual.
+
+Bass:
+
+modifica órbitas.
+
+Mid:
+
+modifica flow.
+
+High:
+
+produce pequeños destellos.
+
+Kick:
+
+expulsa temporalmente partículas y posteriormente el campo las recupera.
+
+---
+
+# FASE 4
+
+## GEOMETRY → SACRED LATTICE
+
+No utilizar polígonos simplemente rotando.
+
+Crear una estructura geométrica interconectada.
+
+Nodos
++
+aristas
++
+simetría
++
+deformación.
+
+Las conexiones deben reaccionar como una estructura tensionada.
+
+Bass:
+
+deforma la red.
+
+Mid:
+
+rota regiones.
+
+High:
+
+ilumina conexiones.
+
+Kick:
+
+genera una deformación estructural que viaja por la lattice.
+
+---
+
+# FASE 5
+
+## RADAR → ECHO LENS
+
+Eliminar completamente el radar tradicional.
+
+NO:
+
+círculos
++
+línea giratoria.
+
+Crear una lente acústica.
+
+Cada transitorio genera un eco visual.
+
+El eco se expande, refracta y desaparece.
+
+Pueden existir múltiples ecos simultáneos.
+
+Visualmente:
+
+acoustic lensing
++
+refraction
++
+echo
++
+depth.
+
+---
+
+# FASE 6
+
+## ELECTRO → NEURAL ARC
+
+Mantener la idea eléctrica pero eliminar el efecto "rayo aleatorio".
+
+Crear conexiones eléctricas estructuradas.
+
+Los arcos deben buscar nodos.
+
+Nodo A
+→ trayectoria
+→ nodo B.
+
+Utilizar branching controlado.
+
+Bass:
+
+carga eléctrica.
+
+Mid:
+
+longitud.
+
+High:
+
+microarcos.
+
+Kick:
+
+descarga principal.
+
+No convertir toda la pantalla en rayos.
+
+---
+
+# FASE 7
+
+## LASER → PRISMATIC CAUSTICS
+
+Eliminar haces láser básicos.
+
+Crear refracciones de luz.
+
+Inspiración:
+
+glass
++
+prism
++
+caustics
++
+dispersion.
+
+La música debe deformar virtualmente una superficie refractiva.
+
+Esto genera líneas luminosas curvas y fragmentos espectrales.
+
+Debe sentirse óptico, no como luces de discoteca.
+
+---
+
+# FASE 8
+
+## SPIRO / MANDALA
+
+NO MODIFICAR.
+
+Estado:
+
+APPROVED.
+
+Puede utilizarse como referencia visual de calidad.
+
+---
+
+# FASE 9
+
+## TUNNEL → EVENT HORIZON
+
+Eliminar túnel clásico de círculos escalándose.
+
+Crear sensación de profundidad gravitacional.
+
+Elementos visuales deben:
+
+aparecer
+→ acelerar
+→ deformarse
+→ cruzar horizonte
+→ desaparecer.
+
+El centro funciona como una región gravitacional.
+
+Bass:
+
+profundidad.
+
+Mid:
+
+torsión.
+
+High:
+
+distorsión periférica.
+
+Kick:
+
+pulso gravitacional.
+
+---
+
+# FASE 10
+
+## HIVE → LIQUID TESSELLATION
+
+Eliminar panal estático.
+
+Mantener la idea de teselación pero convertirla en una superficie dinámica.
+
+Las celdas deben:
+
+comprimirse
+expandirse
+deformarse
+transferir energía.
+
+No todas reaccionan simultáneamente.
+
+La energía debe propagarse entre celdas vecinas.
+
+---
+
+# FASE 11
+
+## SPIRAL → GOLDEN FLOW
+
+No dibujar simplemente una espiral Fibonacci.
+
+Crear múltiples corrientes siguiendo proporciones áureas.
+
+Debe parecer flujo.
+
+No dibujo matemático.
+
+Los brazos pueden:
+
+expandirse
+contraerse
+dividirse
+fusionarse.
+
+Bass:
+
+radio.
+
+Mid:
+
+curvatura.
+
+High:
+
+detalle.
+
+Kick:
+
+onda que recorre los brazos.
+
+---
+
+# CRITERIO FINAL DE CALIDAD
+
+Antes de considerar cualquier efecto terminado, responder:
+
+¿Parece un tutorial de Canvas?
+
+Si SÍ:
+
+NO está terminado.
+
+¿Depende principalmente del glow para verse atractivo?
+
+Si SÍ:
+
+NO está terminado.
+
+¿Simplemente escala según FFT?
+
+Si SÍ:
+
+NO está terminado.
+
+¿Tiene identidad propia?
+
+¿Tiene profundidad?
+
+¿Tiene microdetalle?
+
+¿Tiene movimiento secundario?
+
+¿Tiene respuesta física?
+
+¿Tiene buena composición alrededor del disco?
+
+¿Funciona incluso con bloom reducido?
+
+Si estas respuestas son positivas:
+
+el efecto puede pasar a revisión.
+
+---
+
+# INSTRUCCIÓN FINAL
+
+Empieza EXCLUSIVAMENTE con:
+
+FASE 1 — SPECTRAL CROWN.
+
+Primero realiza:
+
+ETAPA A — AUDITORÍA.
+
+NO escribas código todavía.
+
+Muéstrame:
+
+- archivos encontrados;
+- funciones;
+- arquitectura actual;
+- dependencias;
+- problemas visuales detectados;
+- plan exacto de modificación.
+
+Después DETENTE.
+
+Espera mi aprobación.

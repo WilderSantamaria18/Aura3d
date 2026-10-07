@@ -74,11 +74,12 @@ export function ensureGlobalEngineSubscription() {
     // 2. Queue navigation: advance to next song in queue
     let next = state.nextTrack();
 
-    // 1. Auto-alimentación continua de cola infinita: si quedan menos de 10 canciones por delante, pre-cargar 50+ más
+    // 1. Auto-alimentación continua de cola infinita: si quedan menos de 5 canciones por delante, pre-cargar más
     const upcomingCount = state.queue.length - (state.queueIndex + 1);
-    if (upcomingCount < 10 && state.currentTrack?.youtubeId) {
+    const vid = state.currentTrack?.youtubeId || (state.currentTrack?.id?.startsWith('yt_') ? state.currentTrack.id.replace(/^yt_/, '') : '');
+    if (state.isInfiniteRadioActive && upcomingCount < 5 && state.currentTrack) {
       fetchRelatedTracks(
-        state.currentTrack.youtubeId,
+        vid,
         state.currentTrack.title,
         state.currentTrack.artist,
         state.currentTrack.duration
@@ -96,11 +97,11 @@ export function ensureGlobalEngineSubscription() {
         .catch(() => {});
     }
 
-    // 2. Si la cola llegó al final y no hay siguiente, buscar 50+ canciones similares de inmediato y continuar reproduciendo
-    if (!next && state.currentTrack && state.currentTrack.youtubeId) {
+    // 2. Si la cola llegó al final y no hay siguiente, buscar canciones similares de inmediato y continuar reproduciendo
+    if (!next && state.isInfiniteRadioActive && state.currentTrack) {
       try {
         const related = await fetchRelatedTracks(
-          state.currentTrack.youtubeId,
+          vid,
           state.currentTrack.title,
           state.currentTrack.artist,
           state.currentTrack.duration
@@ -132,6 +133,12 @@ export function ensureGlobalEngineSubscription() {
     }
 
     if (next) {
+      if (state.isHarmonicSyncActive) {
+        void audioEngine.harmonicCrossfade(2.5);
+      } else if (state.isCrossfadeActive) {
+        void audioEngine.crossfade(state.crossfadeDuration || 2);
+      }
+
       try {
         if (next.isIframePlayback || (!next.url && next.youtubeId)) {
           next.isIframePlayback = true;

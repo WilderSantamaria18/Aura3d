@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Disc3, ChevronUp, Music2 } from 'lucide-react';
+import { Disc3, ChevronUp, Mic } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 
 interface CollapsedLyricsPillProps {
@@ -30,6 +30,7 @@ export const CollapsedLyricsPill: React.FC<CollapsedLyricsPillProps> = ({
   activeColor = '#00f0ff',
   onExpand,
 }) => {
+  const vocalMode = usePlayerStore((s) => s.vocalMode);
   return (
     <motion.div
       layoutId="lyrics-panel"
@@ -65,13 +66,20 @@ export const CollapsedLyricsPill: React.FC<CollapsedLyricsPillProps> = ({
         />
       </div>
 
-      {/* Track title */}
-      <span
-        className="text-xs font-semibold text-white truncate max-w-[140px] leading-tight tracking-tight"
-        style={{ fontFamily: "'Inter', sans-serif" }}
-      >
-        {title}
-      </span>
+      {/* Track title & optional karaoke badge */}
+      <div className="flex items-center gap-1.5 min-w-0 max-w-[150px]">
+        <span
+          className="text-xs font-semibold text-white truncate leading-tight tracking-tight"
+          style={{ fontFamily: "'Inter', sans-serif" }}
+        >
+          {title}
+        </span>
+        {vocalMode === 'karaoke' && (
+          <span className="p-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 flex-shrink-0 animate-pulse" title="Karaoke Activo">
+            <Mic className="w-2.5 h-2.5" />
+          </span>
+        )}
+      </div>
 
       {/* Expand button */}
       <div

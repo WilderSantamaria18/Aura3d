@@ -16,8 +16,12 @@ const param = () => ({
 
 /** Nodo Web Audio falso: cualquier propiedad desconocida se comporta como un AudioParam */
 function fakeNode(extra: Record<string, unknown> = {}) {
+  const connections: unknown[] = [];
   const target: Record<string | symbol, unknown> = {
-    connect() {},
+    connections,
+    connect(dest: unknown) {
+      connections.push(dest);
+    },
     disconnect() {},
     start() {},
     stop() {},
@@ -499,5 +503,17 @@ describe('audioEngine: cambio de fuente', () => {
 
     await audioEngine.resume();
     expect(mic.tracks[0].enabled).toBe(true);
+  });
+
+  it('el analizador de visualización no se conecta a la salida de altavoces para evitar eco doble en mic y sistema', async () => {
+    const { audioEngine } = await freshEngine();
+    const analyser = audioEngine.analyser as unknown as { connections: unknown[] };
+    const dryGain = (audioEngine as unknown as { dryGain: unknown }).dryGain;
+    const convolver = (audioEngine as unknown as { convolver: unknown }).convolver;
+    const ctx = audioEngine.getContext() as unknown as { destination: unknown };
+
+    expect(analyser.connections).not.toContain(dryGain);
+    expect(analyser.connections).not.toContain(convolver);
+    expect(analyser.connections).not.toContain(ctx.destination);
   });
 });

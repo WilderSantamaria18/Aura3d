@@ -35,10 +35,18 @@ import {
 
 type FormDrawer = (f: VoidFxFrame, state: VoidFxState, e: FormEnvelope) => Tip[];
 
+const CAUSTIC_TIPS: Tip[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+];
+
 /* ══════════════════════════════════════════════════════════════════════════
-   LÁSER — haces que se abren en tijera con cada golpe
-   Exterior: N haces cuyo largo sigue el espectro (simétrico), con chispa en la punta.
-   Interior: rayos cortos que giran al revés dentro del disco.
+   LÁSER → CÁUSTICAS PRISMÁTICAS (PRISMATIC CAUSTICS)
+   Lente refractiva virtual: luz colimada que se curva en envolventes cáusticas
+   con dispersión cromática de Newton, cúspides focales y cámara de reflexión
+   interna total (TIR) en contra-rotación.
    ══════════════════════════════════════════════════════════════════════════ */
 const laser: FormDrawer = (f, state, e) => {
   const { ctx, cx, cy, r, u, t } = f;
@@ -48,76 +56,157 @@ const laser: FormDrawer = (f, state, e) => {
   const fin = finish(f);
 
   const base = e.rb + r * 0.02;
-  // Apertura en tijera: oscila despacio y el golpe abre el abanico de golpe
-  const fan = Math.sin(t * 0.5) * 0.3 + e.pop * 0.55;
-  const spin = t * 0.12 + rad(f.angleDeg) * 0.02;
-  const maxLen = r * f.fx.formScale * 2.0 * f.fx.reach;
-  const tips: Tip[] = [];
+  // Dinámica refractiva elástica: oscilación suave + perturbación por medios y choque del kick
+  const fan = Math.sin(t * 0.35) * 0.18 + (f.mids - 0.5) * 0.22 + e.pop * 0.42;
+  const spin = t * 0.08 + rad(f.angleDeg) * 0.02;
+  const maxLen = r * f.fx.formScale * 1.9 * f.fx.reach;
+  const refractK = 0.28 + f.bass * 0.32 + e.pop * 0.45;
 
   ctx.save();
   ctx.lineCap = 'round';
 
-  // Anillo base
+  // ── Capa 1: Anillo base refractivo (superficie de incidencia del prisma) ──
   ctx.beginPath();
   ctx.arc(cx, cy, base, 0, TAU);
-  ctx.strokeStyle = rgba(colAt(f, 0.5), 0.18 + e.pop * 0.5);
-  ctx.lineWidth = Math.max(1, u);
+  ctx.strokeStyle = rgba(colAt(f, 0.5), (0.22 + e.pop * 0.45) * fin.alpha);
+  ctx.lineWidth = Math.max(1, 1.2 * u);
   ctx.stroke();
 
-  // Haces por cubos de color
+  // ── Capa 2: Filamentos cáusticos exteriores con dispersión cromática ──
+  let tipIdx = 0;
+  const step = Math.max(1, Math.floor(n / 4));
+
   for (let g = 0; g < COLOR_BUCKETS; g++) {
     ctx.beginPath();
     let any = false;
+
     for (let i = 0; i < n; i++) {
       if (Math.floor((i / n) * COLOR_BUCKETS) !== g) continue;
       any = true;
-      const dir = i % 2 ? -1 : 1;
-      const ang = UP + (i / n) * TAU + spin + dir * fan * (0.6 + 0.4 * (i / n));
-      // Simetría del espectro: el haz i y su espejo comparten nivel
+
+      const dir = i % 2 === 0 ? 1 : -1;
+      const normIdx = i / n;
+      const ang = UP + normIdx * TAU + spin + dir * fan * (0.55 + 0.45 * normIdx);
+
+      // Nivel espectral simétrico
       const lvl = bars.lvl[Math.min(half - 1, Math.floor((Math.abs(i - half) / half) * (half - 1)))];
-      const len = r * 0.25 + maxLen * Math.min(1.2, lvl * 0.9 + f.energy * 0.25 + e.pop * 0.3);
-      const c = Math.cos(ang);
-      const s = Math.sin(ang);
-      ctx.moveTo(cx + c * base, cy + s * base);
-      ctx.lineTo(cx + c * (base + len), cy + s * (base + len));
-      if (tips.length < 4 && i % Math.max(1, Math.floor(n / 4)) === 0) tips.push({ x: cx + c * (base + len), y: cy + s * (base + len) });
+      const len = r * 0.22 + maxLen * Math.min(1.25, lvl * 0.88 + f.energy * 0.22 + e.pop * 0.35);
+
+      // Origen en el prisma
+      const c0 = Math.cos(ang);
+      const s0 = Math.sin(ang);
+      const x0 = cx + c0 * base;
+      const y0 = cy + s0 * base;
+
+      // Deflexión tangencial de la cáustica (curvatura refractiva)
+      const bend = dir * (0.32 + refractK * 0.55) * (0.6 + 0.4 * lvl);
+      const rMid = base + len * 0.52;
+      const angMid = ang + bend * 0.55;
+      const xc = cx + Math.cos(angMid) * rMid;
+      const yc = cy + Math.sin(angMid) * rMid;
+
+      const rEnd = base + len;
+      const angEnd = ang + bend;
+      const xEnd = cx + Math.cos(angEnd) * rEnd;
+      const yEnd = cy + Math.sin(angEnd) * rEnd;
+
+      // 1) Haz cáustico primario
+      ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo(xc, yc, xEnd, yEnd);
+
+      // 2) Sub-filamento de dispersión prismática (aberración cromática)
+      const bendDisp = bend * 1.25;
+      const rEndDisp = base + len * 0.94;
+      const angMidDisp = ang + bendDisp * 0.55;
+      const angEndDisp = ang + bendDisp;
+      const xcDisp = cx + Math.cos(angMidDisp) * rMid;
+      const ycDisp = cy + Math.sin(angMidDisp) * rMid;
+      const xEndDisp = cx + Math.cos(angEndDisp) * rEndDisp;
+      const yEndDisp = cy + Math.sin(angEndDisp) * rEndDisp;
+
+      ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo(xcDisp, ycDisp, xEndDisp, yEndDisp);
+
+      // Registro de cúspides cáusticas (Zero-GC, mutando CAUSTIC_TIPS)
+      if (i % step === 0 && tipIdx < 4) {
+        CAUSTIC_TIPS[tipIdx].x = xEnd;
+        CAUSTIC_TIPS[tipIdx].y = yEnd;
+        tipIdx++;
+      }
     }
-    if (any) strokeGlow(f, colAt(f, (g + 0.5) / COLOR_BUCKETS), 0.95, Math.max(1.4, 2 * f.stroke * u), 3.8);
+
+    if (any) {
+      strokeGlow(f, colAt(f, (g + 0.5) / COLOR_BUCKETS), 0.94, Math.max(1.3, 1.8 * f.stroke * u), 3.5);
+    }
   }
 
-  // Chispas en las puntas
+  // Si no se llenaron los 4 tips por paridad, clonar el primero
+  while (tipIdx < 4) {
+    CAUSTIC_TIPS[tipIdx].x = CAUSTIC_TIPS[0].x;
+    CAUSTIC_TIPS[tipIdx].y = CAUSTIC_TIPS[0].y;
+    tipIdx++;
+  }
+
+  // ── Capa 3: Cúspides fotónicas y destellos en los ápices (Highlights) ──
   ctx.globalCompositeOperation = fin.add ? 'lighter' : 'source-over';
-  ctx.fillStyle = rgba(WHITE, 0.9 * fin.alpha);
+  ctx.fillStyle = rgba(WHITE, 0.95 * fin.alpha);
   ctx.beginPath();
-  for (const tp of tips) {
-    ctx.moveTo(tp.x + Math.max(2, r * 0.02), tp.y);
-    ctx.arc(tp.x, tp.y, Math.max(2, r * 0.02), 0, TAU);
+  for (let k = 0; k < 4; k++) {
+    const tp = CAUSTIC_TIPS[k];
+    const tipR = Math.max(2, r * (0.016 + 0.02 * e.pop));
+    ctx.moveTo(tp.x + tipR, tp.y);
+    ctx.arc(tp.x, tp.y, tipR, 0, TAU);
   }
   ctx.fill();
+
+  // Micro-destello en cruz en los ápices con alta energía
+  if (f.energy > 0.35 || e.pop > 0.2) {
+    ctx.strokeStyle = rgba(WHITE, 0.75 * fin.alpha);
+    ctx.lineWidth = Math.max(0.8, u);
+    ctx.beginPath();
+    for (let k = 0; k < 4; k++) {
+      const tp = CAUSTIC_TIPS[k];
+      const flare = Math.max(3, r * (0.025 + 0.035 * e.pop));
+      ctx.moveTo(tp.x - flare, tp.y);
+      ctx.lineTo(tp.x + flare, tp.y);
+      ctx.moveTo(tp.x, tp.y - flare);
+      ctx.lineTo(tp.x, tp.y + flare);
+    }
+    ctx.stroke();
+  }
   ctx.globalCompositeOperation = 'source-over';
 
-  // ── INTERIOR: rayos cortos que giran al revés + anillo punteado ──
-  const m = 12;
+  // ── Capa 4: Cámara de Reflexión Interna Total (TIR Inner Layer) ──
+  // Confinada entre 0.56·r y 0.88·r (seguridad total para el centro > 0.55·r y test > 0.45·r)
+  const m = 14;
   ctx.beginPath();
   for (let j = 0; j < m; j++) {
-    const ang = -spin * 1.6 + (j / m) * TAU;
-    const len = r * (0.12 + 0.3 * Math.min(1, f.mids * 0.8 + bars.lvl[j % half] * 0.4));
-    ctx.moveTo(cx + Math.cos(ang) * r * 0.93, cy + Math.sin(ang) * r * 0.93);
-    ctx.lineTo(cx + Math.cos(ang) * (r * 0.93 - len), cy + Math.sin(ang) * (r * 0.93 - len));
-  }
-  strokeGlow(f, colAt(f, 0.85), 0.9, Math.max(1.3, 1.7 * u), 3);
+    const ang0 = -spin * 1.5 + (j / m) * TAU;
+    const r1 = r * 0.88;
+    const chordLen = r * (0.16 + 0.16 * Math.min(1, f.mids * 0.75 + bars.lvl[j % half] * 0.35));
+    const r0 = r1 - chordLen; // entre r * 0.56 y r * 0.72
 
-  ctx.setLineDash([r * 0.02, r * 0.045]);
-  ctx.lineDashOffset = -t * r * 0.16;
+    const xA = cx + Math.cos(ang0) * r1;
+    const yA = cy + Math.sin(ang0) * r1;
+
+    const ang1 = ang0 + 0.28 + 0.12 * Math.sin(j * 1.2 + t * 0.6);
+    const xB = cx + Math.cos(ang1) * r0;
+    const yB = cy + Math.sin(ang1) * r0;
+
+    ctx.moveTo(xA, yA);
+    ctx.lineTo(xB, yB);
+  }
+  strokeGlow(f, colAt(f, 0.82), 0.88, Math.max(1.1, 1.5 * u), 2.8);
+
+  // Anillo concéntrico de refracción interna
   ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.58, 0, TAU);
-  ctx.strokeStyle = rgba(colAt(f, 0.3), 0.25 + f.treble * 0.45);
-  ctx.lineWidth = Math.max(0.9, u);
+  ctx.arc(cx, cy, r * (0.68 + 0.04 * Math.sin(t * 1.2 + f.energy)), 0, TAU);
+  ctx.strokeStyle = rgba(colAt(f, 0.28), (0.22 + f.treble * 0.4) * fin.alpha);
+  ctx.lineWidth = Math.max(0.8, u);
   ctx.stroke();
-  ctx.setLineDash([]);
 
   ctx.restore();
-  return tips;
+  return CAUSTIC_TIPS;
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -203,15 +292,19 @@ const spiro: FormDrawer = (f, state, e) => {
   return [];
 };
 
+const HORIZON_TIPS: Tip[] = [];
+
 /* ══════════════════════════════════════════════════════════════════════════
-   TÚNEL — anillos que nacen con el golpe y viajan hacia afuera
-   Cada anillo es una «foto» del espectro en el instante del golpe: los tramos graves quedan gruesos y los
-   silencios, huecos. Interior: anillos punteados que se contraen hacia dentro y guías en perspectiva.
+   TÚNEL → HORIZONTE DE SUCESOS (EVENT HORIZON)
+   Lente gravitacional relativista: ondas espaciotemporales con arrastre de
+   marco de Kerr (frame dragging), anillos de Einstein deformados por el
+   espectro acústico, fotósfera cuántica y geodésicas de acreción interna.
    ══════════════════════════════════════════════════════════════════════════ */
 const tunnel: FormDrawer = (f, state, e) => {
   const { ctx, cx, cy, r, u, t } = f;
   const tn = state.tunnel;
   const bars = updateBars(f, state, TUNNEL_SNAP, e.dt);
+  const fin = finish(f);
 
   const spawn = (strength: number) => {
     tn.cursor = (tn.cursor + 1) % TUNNEL_RINGS;
@@ -219,7 +312,8 @@ const tunnel: FormDrawer = (f, state, e) => {
     tn.str[tn.cursor] = Math.min(1, strength);
     for (let i = 0; i < TUNNEL_SNAP; i++) tn.snap[tn.cursor * TUNNEL_SNAP + i] = bars.lvl[i];
   };
-  // Un anillo por golpe y, entre golpes, uno cada ~0.5 s mientras suene música
+
+  // Dinámica de propagación de ondas gravitacionales: transitorio del kick o reloj armónico continuo
   tn.next -= f.active ? e.dt * (1.6 + f.energy * 2.2) : 0;
   if (f.boom > 0) {
     spawn(Math.max(0.45, f.boom));
@@ -229,10 +323,31 @@ const tunnel: FormDrawer = (f, state, e) => {
     tn.next = 0.5;
   }
 
-  const segments = 96;
+  const spin = t * 0.14 + rad(f.angleDeg) * 0.02;
+  const segments = 64;
+
   ctx.save();
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
+  // ── Capa 1: Fotósfera / Anillo de Fotones (Photon Sphere en el horizonte) ──
+  ctx.beginPath();
+  const pSteps = 48;
+  for (let p = 0; p <= pSteps; p++) {
+    const th = (p / pSteps) * TAU;
+    // Fluctuación cuántica de vacío y perturbación de órbita fotónica
+    const pr = e.rb * (1 + 0.018 * Math.sin(4 * th + t * 2.2) * (0.4 + f.treble * 0.6) - e.pop * 0.022);
+    const x = cx + Math.cos(th) * pr;
+    const y = cy + Math.sin(th) * pr;
+    if (p === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = rgba(mixRGB(colAt(f, 0.5), WHITE, 0.4), 0.3 + e.pop * 0.55);
+  ctx.lineWidth = Math.max(1.1, 1.4 * u);
+  ctx.stroke();
+
+  // ── Capa 2: Frentes de onda geodésicos relativistas (Anillos de Einstein) ──
   for (let c = 0; c < TUNNEL_RINGS; c++) {
     const born = tn.born[c];
     if (born <= 0) continue;
@@ -240,59 +355,99 @@ const tunnel: FormDrawer = (f, state, e) => {
     const str = tn.str[c];
     const life = 1.15 + str * 0.45;
     if (age < 0 || age > life) continue;
+
     const k = age / life;
+    // Expansión acelerada relativista
     const ease = 1 - Math.pow(1 - k, 2.2);
-    const R = e.rb + r * (0.12 + ease * 2.3 * f.fx.reach * (0.7 + 0.3 * str));
-    const alpha = Math.pow(1 - k, 0.85) * (0.6 + 0.4 * str);
+    const baseR = e.rb + r * (0.12 + ease * 2.3 * f.fx.reach * (0.7 + 0.3 * str));
+    const alpha = Math.pow(1 - k, 0.85) * (0.6 + 0.4 * str) * fin.alpha;
+
+    // Arrastre espaciotemporal (Lense-Thirring): velocidad angular aumenta cerca de la singularidad
+    const drag = spin + (1 - k) * 0.45;
 
     ctx.beginPath();
-    for (let s = 0; s < segments; s++) {
-      const th = UP + ((s + 0.5) / segments) * TAU;
+    for (let s = 0; s <= segments; s++) {
+      const th = (s / segments) * TAU;
+      // Deformación cuadrupolar gravitacional de Einstein
+      const warp = 1 + 0.075 * (1 - k * 0.4) * Math.cos(2 * (th - drag))
+                     + 0.045 * f.mids * Math.sin(3 * th + t * 0.6);
+
+      // Modulación espectral del frente de onda según la instantánea grabada
       const uu = Math.abs(wrapPi(th - UP)) / Math.PI;
-      const v = tn.snap[c * TUNNEL_SNAP + Math.floor((1 - uu) * (TUNNEL_SNAP - 1))];
-      const w = (TAU / segments) * 0.5 * (0.25 + 0.9 * Math.min(1.2, v));
-      ctx.moveTo(cx + Math.cos(th - w) * R, cy + Math.sin(th - w) * R);
-      ctx.arc(cx, cy, R, th - w, th + w);
+      const snapIdx = Math.floor((1 - uu) * (TUNNEL_SNAP - 1));
+      const v = tn.snap[c * TUNNEL_SNAP + snapIdx];
+      const rMod = 1 + 0.14 * Math.min(1.2, v);
+
+      const currR = baseR * warp * rMod;
+      const x = cx + Math.cos(th) * currR;
+      const y = cy + Math.sin(th) * currR;
+      if (s === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
-    strokeGlow(f, colAt(f, k), alpha, Math.max(1.4, (2.4 + str * 3) * (1 - k * 0.55) * f.stroke * u), 3);
+    ctx.closePath();
+
+    strokeGlow(
+      f,
+      colAt(f, (k + c * 0.08) % 1.0),
+      alpha,
+      Math.max(1.2, (2.2 + str * 2.8) * (1 - k * 0.5) * f.stroke * u),
+      3.2
+    );
   }
 
-  // Anillo base
+  // ── Capa 3: Cámara de Curvatura Interior (Geodésicas de Infalling Matter y Ergosfera) ──
+  // Confinada estrictamente entre 0.58·r y 0.88·r (protección absoluta de la zona central < 0.55·r)
+  const m = 16;
   ctx.beginPath();
-  ctx.arc(cx, cy, e.rb, 0, TAU);
-  ctx.strokeStyle = rgba(colAt(f, 0.5), 0.16 + e.pop * 0.5);
-  ctx.lineWidth = Math.max(1, u);
-  ctx.stroke();
+  for (let g = 0; g < m; g++) {
+    const th0 = (g / m) * TAU - spin * 1.4;
+    const rOut = r * 0.88;
+    const xA = cx + Math.cos(th0) * rOut;
+    const yA = cy + Math.sin(th0) * rOut;
 
-  // ── INTERIOR: anillos punteados que se contraen + guías en perspectiva ──
-  for (let q = 0; q < 3; q++) {
-    ctx.setLineDash([r * 0.03, r * 0.05]);
-    ctx.lineDashOffset = t * r * 0.2 * (q % 2 ? -1 : 1);
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * (0.88 - q * 0.14) * (1 - e.pop * 0.03), 0, TAU);
-    ctx.strokeStyle = rgba(colAt(f, 0.3 + q * 0.3), 0.3 + e.pop * 0.5 + f.mids * 0.2);
-    ctx.lineWidth = Math.max(0.9, 1.3 * u);
-    ctx.stroke();
+    // Torsión tangencial geodésica hacia el horizonte interno
+    const rIn = r * (0.60 - 0.04 * e.pop);
+    const th1 = th0 + 0.42 + 0.12 * Math.sin(g * 0.8 + t * 0.5);
+    const xB = cx + Math.cos(th1) * rIn;
+    const yB = cy + Math.sin(th1) * rIn;
+
+    ctx.moveTo(xA, yA);
+    ctx.lineTo(xB, yB);
   }
-  ctx.setLineDash([]);
+  strokeGlow(f, colAt(f, 0.82), 0.75, Math.max(0.9, 1.2 * u), 2.5);
+
+  // Anillo interior elíptico de la ergosfera
   ctx.beginPath();
-  for (let g = 0; g < 16; g++) {
-    const th = (g / 16) * TAU + t * 0.05;
-    ctx.moveTo(cx + Math.cos(th) * r * 0.94, cy + Math.sin(th) * r * 0.94);
-    ctx.lineTo(cx + Math.cos(th) * r * 0.56, cy + Math.sin(th) * r * 0.56);
+  const inSteps = 32;
+  for (let q = 0; q <= inSteps; q++) {
+    const th = (q / inSteps) * TAU;
+    const rErgo = r * (0.72 + 0.045 * Math.sin(2 * th - t * 0.8) + 0.03 * f.mids);
+    const x = cx + Math.cos(th) * rErgo;
+    const y = cy + Math.sin(th) * rErgo;
+    if (q === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
-  ctx.strokeStyle = rgba(colAt(f, 0.8), 0.14 + f.treble * 0.25);
-  ctx.lineWidth = Math.max(0.7, 0.9 * u);
+  ctx.closePath();
+  ctx.strokeStyle = rgba(colAt(f, 0.35), 0.22 + f.treble * 0.35 + e.pop * 0.3);
+  ctx.lineWidth = Math.max(0.9, 1.2 * u);
   ctx.stroke();
 
   ctx.restore();
-  return [];
+  return HORIZON_TIPS;
 };
 
+const TESSELLATION_TIPS: Tip[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+];
+
 /* ══════════════════════════════════════════════════════════════════════════
-   PANAL — celdas hexagonales alrededor del disco
-   Cada celda se enciende según la zona del espectro de su ángulo; el golpe lanza una onda que se contagia
-   celda a celda hacia afuera. Interior: 12 hexágonos pequeños, uno por nota.
+   PANAL → TESELACIÓN LÍQUIDA (LIQUID TESSELLATION)
+   Membrana elástica de celdas celulares con tensión superficial de Plateau,
+   propagación peristáltica de energía entre celdas vecinas, deformación
+   viscoelástica y vesículas interiores resonantes con el cromagrama.
    ══════════════════════════════════════════════════════════════════════════ */
 const hive: FormDrawer = (f, state, e) => {
   const { ctx, cx, cy, r, u, t } = f;
@@ -300,180 +455,344 @@ const hive: FormDrawer = (f, state, e) => {
   const fin = finish(f);
   const rings = clampInt(f.fx.count, 2, 4);
 
-  const s = r * 0.3; // radio de cada hexágono
-  const minD = e.rb + r * 0.14;
-  const maxD = e.rb + r * (0.4 + rings * 0.55) * f.fx.reach;
-  const rot = t * 0.05 + rad(f.angleDeg) * 0.02;
-  const cosR = Math.cos(rot);
-  const sinR = Math.sin(rot);
-  const front = minD + (1 - e.pop) * (maxD - minD); // frente de la onda del golpe
-  const tips: Tip[] = [];
-
-  // Buckets de brillo: apagada, tenue, viva y encendida. Cada bucket es un trazado y un relleno.
-  const buckets: Array<{ v0: number; v1: number; fill: number; stroke: number }> = [
-    { v0: -1, v1: 0.15, fill: 0, stroke: 0.22 },
-    { v0: 0.15, v1: 0.45, fill: 0.12, stroke: 0.45 },
-    { v0: 0.45, v1: 0.8, fill: 0.3, stroke: 0.75 },
-    { v0: 0.8, v1: 9, fill: 0.55, stroke: 1 },
-  ];
+  const base = e.rb + r * 0.02;
+  const rot = t * 0.06 + rad(f.angleDeg) * 0.02;
+  let tipIdx = 0;
 
   ctx.save();
   ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
 
-  for (let b = 0; b < buckets.length; b++) {
-    const bk = buckets[b];
-    ctx.beginPath();
-    let any = false;
-    for (let q = -7; q <= 7; q++) {
-      for (let rr = -7; rr <= 7; rr++) {
-        // Coordenadas axiales → centro de celda; después se gira el panal entero
-        const px0 = s * Math.sqrt(3) * (q + rr / 2);
-        const py0 = s * 1.5 * rr;
-        const dx = px0 * cosR - py0 * sinR;
-        const dy = px0 * sinR + py0 * cosR;
-        const d = Math.hypot(dx, dy);
-        if (d < minD || d > maxD) continue;
+  // ── Capa 1: Anillo de membrana base (tensión superficial interior) ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, base, 0, TAU);
+  ctx.strokeStyle = rgba(colAt(f, 0.5), 0.2 + e.pop * 0.45);
+  ctx.lineWidth = Math.max(1, 1.2 * u);
+  ctx.stroke();
 
-        const th = Math.atan2(dy, dx);
-        const uu = Math.abs(wrapPi(th - UP)) / Math.PI;
-        const falloff = 1 - ((d - minD) / (maxD - minD)) * 0.45;
-        const wave = Math.exp(-(((d - front) / (s * 1.3)) ** 2)) * e.pop;
-        const v = Math.min(1.3, bars.lvl[Math.min(29, Math.floor((1 - uu) * 29))] * falloff + wave * 0.9);
-        if (!(v > bk.v0 && v <= bk.v1)) continue;
+  // ── Capa 2: Celosía líquida exterior (membrana celular elástica) ──
+  // Cada anillo polar divide la superficie en celdas deformables con bordes curvos
+  for (let ringIdx = 0; ringIdx < rings; ringIdx++) {
+    const sR = (ringIdx + 0.5) / rings;
+    const rSpan = r * (0.18 + 0.06 * f.bass) * f.fx.reach * f.fx.formScale;
+    const rMid = base + r * (0.16 + sR * 0.8 * f.fx.reach * f.fx.formScale);
+    const r0 = rMid - rSpan * 0.48;
+    const r1 = rMid + rSpan * 0.48;
 
-        any = true;
-        // La celda respira: pequeña en silencio (queda una rejilla de puntos) y casi llena cuando suena
-        const cs = s * (0.4 + 0.52 * Math.min(1, v)) + s * 0.08 * wave;
-        for (let k = 0; k < 6; k++) {
-          const a = rot + (k * Math.PI) / 3 + Math.PI / 6;
-          const x = cx + dx + Math.cos(a) * cs;
-          const y = cy + dy + Math.sin(a) * cs;
-          if (k === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        if (b === 3 && tips.length < 4) tips.push({ x: cx + dx, y: cy + dy });
+    const numCells = 12 + ringIdx * 6; // celdas adaptativas por anillo
+    const dTh = TAU / numCells;
+    const ringOffset = (ringIdx % 2) * (dTh * 0.5);
+
+    for (let c = 0; c < numCells; c++) {
+      const thC = rot + c * dTh + ringOffset;
+      const uu = Math.abs(wrapPi(thC - UP)) / Math.PI;
+      const specIdx = Math.min(29, Math.floor((1 - uu) * 29));
+      const localLvl = bars.lvl[specIdx];
+
+      // Transferencia elástica vecinal (diferencial con la celda adyacente)
+      const nextIdx = Math.min(29, (specIdx + 1) % 30);
+      const adjLvl = bars.lvl[nextIdx];
+      const shear = (localLvl - adjLvl) * 0.35;
+
+      // Onda de propagación peristáltica continua
+      const phase = thC * 3 - t * 1.8 + sR * 2.2;
+      const wave = Math.sin(phase) * (0.08 + 0.12 * f.mids) + e.pop * Math.cos(phase * 0.5) * 0.18;
+
+      // Presión hidrostática de la celda (turgencia)
+      const pressure = Math.max(0.12, Math.min(1.4, 0.28 + localLvl * 0.78 + wave + f.energy * 0.2 + e.pop * 0.35));
+
+      // Vértices de la celda líquida con deformación tangencial
+      const thL = thC - dTh * 0.42 * (1 - 0.2 * shear);
+      const thR = thC + dTh * 0.42 * (1 + 0.2 * shear);
+      const rIn = r0 - rSpan * 0.2 * (pressure - 0.5);
+      const rOut = r1 + rSpan * 0.24 * (pressure - 0.5);
+
+      const cosL = Math.cos(thL);
+      const sinL = Math.sin(thL);
+      const cosR = Math.cos(thR);
+      const sinR = Math.sin(thR);
+      const cosC = Math.cos(thC);
+      const sinC = Math.sin(thC);
+
+      // Puntos esquina
+      const x0 = cx + cosL * rIn;
+      const y0 = cy + sinL * rIn;
+      const x1 = cx + cosR * rIn;
+      const y1 = cy + sinR * rIn;
+      const x2 = cx + cosR * rOut;
+      const y2 = cy + sinR * rOut;
+      const x3 = cx + cosL * rOut;
+      const y3 = cy + sinL * rOut;
+
+      // Puntos de control de membrana curva
+      const xcIn = cx + cosC * (rIn - rSpan * 0.12 * pressure);
+      const ycIn = cy + sinC * (rIn - rSpan * 0.12 * pressure);
+      const xcOut = cx + cosC * (rOut + rSpan * 0.16 * pressure);
+      const ycOut = cy + sinC * (rOut + rSpan * 0.16 * pressure);
+
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo(xcIn, ycIn, x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.quadraticCurveTo(xcOut, ycOut, x3, y3);
+      ctx.closePath();
+
+      const col = colAt(f, (thC / TAU + t * 0.02) % 1.0);
+      // Relleno translúcido de la vesícula
+      ctx.fillStyle = rgba(col, (0.05 + 0.32 * Math.min(1, pressure)) * fin.alpha);
+      ctx.fill();
+
+      // Trazo de pared celular con tensión elástica
+      strokeGlow(
+        f,
+        col,
+        (0.35 + 0.65 * Math.min(1, pressure)) * fin.alpha,
+        Math.max(0.9, (0.9 + 0.8 * pressure) * f.stroke * u),
+        pressure > 0.6 ? 2.8 : 1.5
+      );
+
+      // Registro de cúspides de tensión (Zero-GC) en el anillo exterior
+      if (ringIdx === rings - 1 && c % Math.max(1, Math.floor(numCells / 4)) === 0 && tipIdx < 4) {
+        TESSELLATION_TIPS[tipIdx].x = x2;
+        TESSELLATION_TIPS[tipIdx].y = y2;
+        tipIdx++;
       }
     }
-    if (!any) continue;
-    const col = colAt(f, b / (buckets.length - 1));
-    if (bk.fill > 0) {
-      ctx.fillStyle = rgba(col, bk.fill * fin.alpha);
-      ctx.fill();
-    }
-    strokeGlow(f, col, bk.stroke, Math.max(0.9, (0.9 + b * 0.4) * f.stroke * u), b >= 2 ? 3 : 1.6);
   }
 
-  // ── INTERIOR: 12 hexágonos pequeños, uno por nota, en un anillo dentro del disco ──
+  // Si no se llenaron los 4 tips, clonar el primero
+  while (tipIdx < 4) {
+    TESSELLATION_TIPS[tipIdx].x = TESSELLATION_TIPS[0].x;
+    TESSELLATION_TIPS[tipIdx].y = TESSELLATION_TIPS[0].y;
+    tipIdx++;
+  }
+
+  // ── Capa 3: Nodos de Plateau y destellos en cúspides (Highlights) ──
+  ctx.globalCompositeOperation = fin.add ? 'lighter' : 'source-over';
+  ctx.fillStyle = rgba(WHITE, 0.9 * fin.alpha);
+  ctx.beginPath();
+  for (let k = 0; k < 4; k++) {
+    const tp = TESSELLATION_TIPS[k];
+    const nodeR = Math.max(2, r * (0.015 + 0.02 * e.pop));
+    ctx.moveTo(tp.x + nodeR, tp.y);
+    ctx.arc(tp.x, tp.y, nodeR, 0, TAU);
+  }
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // ── Capa 4: Núcleo Vesicular Interior (Chroma Vesicles) ──
+  // Confinado estrictamente en [0.62·r, 0.86·r] (seguridad absoluta > 0.55·r y test > 0.45·r)
   ctx.globalCompositeOperation = fin.add ? 'lighter' : 'source-over';
   for (let k = 0; k < 12; k++) {
     const nv = Math.min(1, f.chroma[k] || 0);
-    const th = UP + (k / 12) * TAU - t * 0.08;
-    const hx = cx + Math.cos(th) * r * 0.76;
-    const hy = cy + Math.sin(th) * r * 0.76;
-    const hs = r * (0.06 + 0.05 * nv);
+    const thK = UP + (k / 12) * TAU - t * 0.08;
+    const rVesicle = r * 0.74;
+    const hx = cx + Math.cos(thK) * rVesicle;
+    const hy = cy + Math.sin(thK) * rVesicle;
+    const hs = r * (0.05 + 0.045 * nv + 0.015 * e.pop);
+
     ctx.beginPath();
     for (let j = 0; j < 6; j++) {
-      const a = th + (j * Math.PI) / 3;
-      const x = hx + Math.cos(a) * hs;
-      const y = hy + Math.sin(a) * hs;
+      const a = thK + (j * Math.PI) / 3;
+      // Membrana vesical elástica con ondulación armónica
+      const rJ = hs * (1 + 0.16 * Math.sin(3 * a + t * 1.5 + nv));
+      const x = hx + Math.cos(a) * rJ;
+      const y = hy + Math.sin(a) * rJ;
       if (j === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.fillStyle = rgba(mixRGB(noteColor(f, k), WHITE, 0.3 + nv * 0.4), (0.12 + 0.6 * nv) * fin.alpha);
+
+    const noteC = noteColor(f, k);
+    ctx.fillStyle = rgba(mixRGB(noteC, WHITE, 0.25 + nv * 0.4), (0.12 + 0.55 * nv) * fin.alpha);
     ctx.fill();
-    ctx.strokeStyle = rgba(noteColor(f, k), (0.4 + 0.6 * nv) * fin.alpha);
+    ctx.strokeStyle = rgba(noteC, (0.45 + 0.55 * nv) * fin.alpha);
     ctx.lineWidth = Math.max(0.9, 1.2 * u);
+    ctx.stroke();
+
+    // Puentes de tensión entre vesículas adyacentes
+    const thNext = UP + ((k + 1) / 12) * TAU - t * 0.08;
+    const nextHx = cx + Math.cos(thNext) * rVesicle;
+    const nextHy = cy + Math.sin(thNext) * rVesicle;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(nextHx, nextHy);
+    ctx.strokeStyle = rgba(noteC, 0.25 * (1 + nv) * fin.alpha);
+    ctx.lineWidth = Math.max(0.8, u);
     ctx.stroke();
   }
   ctx.globalCompositeOperation = 'source-over';
 
   ctx.restore();
-  return tips;
+  return TESSELLATION_TIPS;
 };
 
+const GOLDEN_FLOW_TIPS: Tip[] = [
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+  { x: 0, y: 0 },
+];
+
 /* ══════════════════════════════════════════════════════════════════════════
-   ESPIRAL — brazos de barras en espiral
-   Exterior: cada brazo es una espiral de barras radiales (graves cerca del disco, agudos en la punta).
-   Interior: una espiral de puntos que se enrolla hacia el centro, en sentido contrario.
+   ESPIRAL → FLUJO DORADO (GOLDEN FLOW)
+   Corrientes laminares fluidas en proporción áurea (espiral logarítmica de
+   Bernoulli/Fibonacci), bifurcación de plasma, sub-filamentos helicoidales
+   entrelazados y vórtice interior en contra-rotación.
    ══════════════════════════════════════════════════════════════════════════ */
 const spiral: FormDrawer = (f, state, e) => {
   const { ctx, cx, cy, r, u, t } = f;
   const arms = clampInt(f.fx.count, 1, 4);
-  const M = 56;
+  const M = 48;
   const bars = updateBars(f, state, M, e.dt);
   const fin = finish(f);
 
-  const spin = t * 0.3 + rad(f.angleDeg) * 0.02 + e.pop * 0.25;
-  const wind = 3.6 + f.mids * 0.8;
-  const Lmax = r * f.fx.formScale * 2.2 * f.fx.reach;
-  const tips: Tip[] = [];
+  const spin = t * 0.16 + rad(f.angleDeg) * 0.02 + e.pop * 0.15;
+  const wind = 2.8 + f.mids * 0.75;
+  const Lmax = r * f.fx.formScale * 2.0 * f.fx.reach * (0.85 + 0.3 * f.bass);
+  let tipIdx = 0;
 
   ctx.save();
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
+  // ── Capa 1: Anillo de manantial base ──
+  ctx.beginPath();
+  ctx.arc(cx, cy, e.rb, 0, TAU);
+  ctx.strokeStyle = rgba(colAt(f, 0.5), (0.2 + e.pop * 0.45) * fin.alpha);
+  ctx.lineWidth = Math.max(1, 1.2 * u);
+  ctx.stroke();
+
+  // ── Capa 2: Corrientes troncales doradas y Capa 3: Sub-filamentos helicoidales ──
   for (let a = 0; a < arms; a++) {
-    const base = spin + (a / arms) * TAU;
+    const baseAng = spin + (a / arms) * TAU;
+    const colA = colAt(f, (a / arms + 0.1) % 1.0);
+    const colB = colAt(f, (a / arms + 0.5) % 1.0);
 
-    // Hilo guía: la espiral completa, fina, para que el brazo se lea como una curva continua
+    // 1) Corriente troncal principal (Laminar Core Stream)
     ctx.beginPath();
     for (let i = 0; i <= M; i++) {
       const s = i / M;
-      const rr = e.rb + r * 0.1 + s * Lmax;
-      const ang = base + s * wind;
-      const x = cx + Math.cos(ang) * rr;
-      const y = cy + Math.sin(ang) * rr;
+      const lvl = bars.lvl[i];
+      const rr = e.rb + r * 0.04 + Math.pow(s, 1.15) * Lmax * (1 + 0.14 * lvl);
+      const th = baseAng + s * wind + 0.08 * Math.sin(s * 6 - t * 2.0);
+      const x = cx + Math.cos(th) * rr;
+      const y = cy + Math.sin(th) * rr;
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+
+      // Cúspide terminal en la punta del brazo exterior
+      if (i === M && tipIdx < 4) {
+        GOLDEN_FLOW_TIPS[tipIdx].x = x;
+        GOLDEN_FLOW_TIPS[tipIdx].y = y;
+        tipIdx++;
+      }
+    }
+    strokeGlow(f, colA, 0.95, Math.max(1.6, (2.2 + e.pop * 1.5) * f.stroke * u), 3.2);
+
+    // 2) Corriente satélite bifurcada (Bifurcated Stream)
+    ctx.beginPath();
+    for (let i = 0; i <= M; i++) {
+      const s = i / M;
+      const lvl = bars.lvl[Math.min(M - 1, i + 2)];
+      // Se separa progresivamente formando un canal secundario
+      const branchSpread = (0.05 + 0.15 * f.mids) * Math.sin(s * 7 - t * 2.4);
+      const rr = e.rb + r * 0.04 + Math.pow(s, 1.22) * Lmax * (1 + 0.18 * lvl);
+      const th = baseAng + s * wind - branchSpread;
+      const x = cx + Math.cos(th) * rr;
+      const y = cy + Math.sin(th) * rr;
+
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = rgba(colAt(f, 0.5), (0.16 + e.pop * 0.3) * fin.alpha);
+    strokeGlow(f, colB, 0.75, Math.max(0.9, 1.3 * f.stroke * u), 2.0);
+
+    // 3) Filamentos de turbulencia y remolinos entre ambas corrientes
+    ctx.beginPath();
+    for (let i = 4; i < M; i += 4) {
+      const s = i / M;
+      const lvl = bars.lvl[i];
+      const rr1 = e.rb + r * 0.04 + Math.pow(s, 1.15) * Lmax * (1 + 0.14 * lvl);
+      const th1 = baseAng + s * wind + 0.08 * Math.sin(s * 6 - t * 2.0);
+      const x1 = cx + Math.cos(th1) * rr1;
+      const y1 = cy + Math.sin(th1) * rr1;
+
+      const branchSpread = (0.05 + 0.15 * f.mids) * Math.sin(s * 7 - t * 2.4);
+      const rr2 = e.rb + r * 0.04 + Math.pow(s, 1.22) * Lmax * (1 + 0.18 * lvl);
+      const th2 = baseAng + s * wind - branchSpread;
+      const x2 = cx + Math.cos(th2) * rr2;
+      const y2 = cy + Math.sin(th2) * rr2;
+
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+    }
+    ctx.strokeStyle = rgba(mixRGB(colA, WHITE, 0.35), (0.3 + 0.4 * f.treble) * fin.alpha);
     ctx.lineWidth = Math.max(0.8, u);
     ctx.stroke();
-
-    for (let g = 0; g < COLOR_BUCKETS; g++) {
-      const lo = Math.floor((g * M) / COLOR_BUCKETS);
-      const hi = Math.floor(((g + 1) * M) / COLOR_BUCKETS);
-      if (hi <= lo) continue;
-      ctx.beginPath();
-      for (let i = lo; i < hi; i++) {
-        const s = (i + 0.5) / M;
-        const rr = e.rb + r * 0.1 + s * Lmax;
-        const ang = base + s * wind;
-        const len = r * (0.06 + 0.46 * Math.min(1.25, bars.lvl[i] + e.pop * 0.25) * (0.55 + 0.9 * s));
-        const c = Math.cos(ang);
-        const sn = Math.sin(ang);
-        ctx.moveTo(cx + c * rr, cy + sn * rr);
-        ctx.lineTo(cx + c * (rr + len), cy + sn * (rr + len));
-        if (i === M - 1 && tips.length < 4) tips.push({ x: cx + c * (rr + len), y: cy + sn * (rr + len) });
-      }
-      strokeGlow(f, colAt(f, (g + 0.5) / COLOR_BUCKETS), 0.98, Math.max(1.8, 3 * f.stroke * u), 3);
-    }
   }
 
-  // ── INTERIOR: espiral de puntos que se enrolla hacia el centro, en sentido contrario ──
+  // Si no se llenaron los 4 tips, clonar el primero
+  while (tipIdx < 4) {
+    GOLDEN_FLOW_TIPS[tipIdx].x = GOLDEN_FLOW_TIPS[0].x;
+    GOLDEN_FLOW_TIPS[tipIdx].y = GOLDEN_FLOW_TIPS[0].y;
+    tipIdx++;
+  }
+
+  // ── Capa 3: Cúspides fotónicas en las puntas (Highlights) ──
   ctx.globalCompositeOperation = fin.add ? 'lighter' : 'source-over';
+  ctx.fillStyle = rgba(WHITE, 0.95 * fin.alpha);
   ctx.beginPath();
-  const dots = 26;
-  for (let a = 0; a < arms; a++) {
-    for (let j = 0; j < dots; j++) {
-      const s = j / (dots - 1);
-      const rr = r * (0.92 - s * 0.38);
-      const ang = -spin * 1.4 + s * 3.2 + (a / arms) * TAU;
-      const v = Math.min(1, bars.lvl[Math.min(M - 1, Math.floor(s * (M - 1)))]);
-      const size = Math.max(1.3 * u, r * (0.01 + 0.022 * v));
-      const x = cx + Math.cos(ang) * rr;
-      const y = cy + Math.sin(ang) * rr;
-      ctx.moveTo(x + size, y);
-      ctx.arc(x, y, size, 0, TAU);
-    }
+  for (let k = 0; k < 4; k++) {
+    const tp = GOLDEN_FLOW_TIPS[k];
+    const tipR = Math.max(2, r * (0.016 + 0.02 * e.pop));
+    ctx.moveTo(tp.x + tipR, tp.y);
+    ctx.arc(tp.x, tp.y, tipR, 0, TAU);
   }
-  ctx.fillStyle = rgba(mixRGB(colAt(f, 0.8), WHITE, 0.35), 0.85 * fin.alpha);
   ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
 
+  // ── Capa 4: Vórtice Interior Contra-Rotante (Inner Golden Vortex) ──
+  // Confinado estrictamente entre [0.60·r, 0.88·r] (seguridad absoluta > 0.55·r y test > 0.45·r)
+  ctx.globalCompositeOperation = fin.add ? 'lighter' : 'source-over';
+  const dots = 22;
+  for (let a = 0; a < arms; a++) {
+    const colArm = colAt(f, (a / arms + 0.7) % 1.0);
+    ctx.beginPath();
+    for (let j = 0; j < dots; j++) {
+      const s = j / (dots - 1);
+      const rr = r * (0.88 - s * 0.26); // de 0.88·r a 0.62·r (totalmente > 0.55·r)
+      const ang = -spin * 1.5 + s * 2.8 + (a / arms) * TAU;
+      const x = cx + Math.cos(ang) * rr;
+      const y = cy + Math.sin(ang) * rr;
+
+      if (j === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = rgba(colArm, (0.4 + 0.5 * f.mids) * fin.alpha);
+    ctx.lineWidth = Math.max(1, 1.4 * u);
+    ctx.stroke();
+
+    // Nodos luminosos a lo largo del vórtice interior
+    ctx.beginPath();
+    for (let j = 0; j < dots; j += 3) {
+      const s = j / (dots - 1);
+      const rr = r * (0.88 - s * 0.26);
+      const ang = -spin * 1.5 + s * 2.8 + (a / arms) * TAU;
+      const v = Math.min(1, bars.lvl[Math.min(M - 1, Math.floor(s * (M - 1)))]);
+      const nodeSize = Math.max(1.2 * u, r * (0.012 + 0.02 * v));
+      const x = cx + Math.cos(ang) * rr;
+      const y = cy + Math.sin(ang) * rr;
+      ctx.moveTo(x + nodeSize, y);
+      ctx.arc(x, y, nodeSize, 0, TAU);
+    }
+    ctx.fillStyle = rgba(mixRGB(colArm, WHITE, 0.4), (0.35 + 0.55 * f.energy) * fin.alpha);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
   ctx.restore();
-  return tips;
+  return GOLDEN_FLOW_TIPS;
 };
 
 export const MORE_FORMS: Record<string, FormDrawer> = {

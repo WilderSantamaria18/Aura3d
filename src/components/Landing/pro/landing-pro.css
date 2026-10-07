@@ -18,7 +18,7 @@
   position: relative;
   background: var(--lp-bg);
   color: #fff;
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .lp-root section { position: relative; background: transparent; }
@@ -30,16 +30,6 @@
 .lp-orb--a { background: radial-gradient(circle, rgba(var(--lp-violet), 0.42) 0%, transparent 62%); }
 .lp-orb--b { background: radial-gradient(circle, rgba(var(--lp-cyan), 0.26) 0%, transparent 62%); }
 .lp-orb--c { background: radial-gradient(circle, rgba(90, 70, 220, 0.30) 0%, transparent 62%); }
-.lp-orbs::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 72px 72px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px) 0 0 / 72px 72px;
-  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
-  mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 75%);
-}
 
 /* ── Cristal (uso restringido) ──────────────────────────────────────────────── */
 .lp-glass {
@@ -151,11 +141,28 @@
 .lp-h2 { font-weight: 500; letter-spacing: -0.035em; line-height: 1.05; text-wrap: balance; }
 .lp-lead { color: var(--lp-text); line-height: 1.7; text-wrap: pretty; }
 .lp-gradient-text {
-  background: linear-gradient(100deg, #ffffff 0%, #a9f1ff 45%, #b8a5ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  text-shadow: 0 0 32px rgba(0, 229, 255, 0.35), 0 0 64px rgba(139, 108, 255, 0.20);
+}
+
+/* ── Ecualizador de Audio Reactivo (sin rebotes sintéticos) ─────────────────── */
+@keyframes aura-eq-bar-anim {
+  0%, 100% {
+    transform: scaleY(0.25);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.aura-eq-bar {
+  transform-origin: bottom center;
+  animation: aura-eq-bar-anim 0.5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  will-change: transform;
 }
 
 /* ── Datos en línea (sin tarjetas) ──────────────────────────────────────────── */

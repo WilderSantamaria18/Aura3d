@@ -5,7 +5,7 @@
  */
 
 export type CardFormat = 'story' | 'post' | 'square';
-export type CardTemplate = 'pure_void' | 'aesthetic' | 'studio' | 'vinyl';
+export type CardTemplate = 'pure_void' | 'aesthetic' | 'studio' | 'vinyl' | 'liquid_glass';
 export type CardFontId = 'sans' | 'serif' | 'mono' | 'display';
 export type CardLayout = 'center' | 'left';
 export type CardArtSource = 'visualizer' | 'cover';
@@ -32,6 +32,7 @@ export const CARD_TEMPLATES: { id: CardTemplate; label: string; hint: string }[]
   { id: 'aesthetic', label: 'Aesthetic', hint: 'Degradado suave y cristal' },
   { id: 'studio', label: 'Studio', hint: 'Panel técnico de estudio' },
   { id: 'vinyl', label: 'Vinyl', hint: 'Disco analógico' },
+  { id: 'liquid_glass', label: 'Liquid Glass', hint: 'Cápsula visionOS espacial' },
 ];
 
 export interface CardFontSpec {
@@ -146,6 +147,8 @@ const TEMPLATE_ALIASES: Record<string, CardTemplate> = {
   aesthetic: 'aesthetic',
   studio: 'studio',
   vinyl: 'vinyl',
+  liquid_glass: 'liquid_glass',
+  'liquid-glass': 'liquid_glass',
 };
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;

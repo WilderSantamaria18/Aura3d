@@ -75,23 +75,27 @@ export async function upscaleImage(
   const srcH = 'naturalHeight' in bmp ? bmp.naturalHeight : bmp.height;
   if (!srcW || !srcH) throw new Error('La imagen recibida está vacía');
 
-  // Nunca se reduce por debajo de lo que entregó la IA
-  const tw = Math.max(targetW, srcW);
-  const th = Math.max(targetH, srcH);
+  // Si ya tiene la resolución solicitada o mayor en ambos lados y la misma proporción
+  const tw = Math.max(targetW, 128);
+  const th = Math.max(targetH, 128);
 
-  let cur: CanvasImageSource = bmp;
+  // Escalar de forma uniforme y proporcional para cubrir targetW y targetH sin deformar
+  const scale = Math.max(tw / srcW, th / srcH, 1.0);
+  const interW = Math.round(srcW * scale);
+  const interH = Math.round(srcH * scale);
+
   let cw = srcW;
   let ch = srcH;
   let canvas = makeCanvas(cw, ch);
   let ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('No se pudo preparar el lienzo');
-  ctx.drawImage(cur, 0, 0);
-  const upscaled = tw > srcW || th > srcH;
+  ctx.drawImage(bmp, 0, 0);
+  const upscaled = interW > srcW || interH > srcH;
 
-  // Pasos de ≤1.5×
-  while (cw < tw || ch < th) {
-    const nw = Math.min(tw, Math.round(cw * 1.5));
-    const nh = Math.min(th, Math.round(ch * 1.5));
+  // Pasos progresivos de ≤1.5× para máxima nitidez sin pixelado
+  while (cw < interW || ch < interH) {
+    const nw = Math.min(interW, Math.round(cw * 1.5));
+    const nh = Math.min(interH, Math.round(ch * 1.5));
     const next = makeCanvas(nw, nh);
     const nctx = next.getContext('2d');
     if (!nctx) break;
@@ -102,7 +106,22 @@ export async function upscaleImage(
     ctx = nctx;
     cw = nw;
     ch = nh;
-    cur = canvas;
+  }
+
+  // Si las dimensiones intermedias difieren de la meta, encuadrar al centro sin estirar
+  if (cw !== tw || ch !== th) {
+    const finalCanvas = makeCanvas(tw, th);
+    const fctx = finalCanvas.getContext('2d');
+    if (fctx) {
+      fctx.imageSmoothingEnabled = true;
+      fctx.imageSmoothingQuality = 'high';
+      const offsetX = Math.max(0, Math.round((cw - tw) / 2));
+      const offsetY = Math.max(0, Math.round((ch - th) / 2));
+      fctx.drawImage(canvas, offsetX, offsetY, tw, th, 0, 0, tw, th);
+      canvas = finalCanvas;
+      cw = tw;
+      ch = th;
+    }
   }
 
   if (upscaled) unsharp(canvas, 0.55, Math.max(0.6, cw / 3200));

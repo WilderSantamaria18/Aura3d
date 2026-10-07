@@ -7,6 +7,8 @@ import { PaletteSelector } from './shared/PaletteSelector';
 import { QualityPicker } from './shared/QualityPicker';
 import { PROMPT_SUGGESTIONS } from '../../services/wallpaperPresetsService';
 import type { WallpaperGenerationResult } from '../../types/wallpaper';
+import { WallpaperGenerationSkeleton } from './WallpaperGenerationSkeleton';
+import { triggerVisualShockwave } from '../UI/VisualFeedbackRipple';
 
 interface WallpaperGeneratorProps {
   onApply?: (item: WallpaperGenerationResult) => void;
@@ -43,13 +45,18 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
     const result = await generate();
     if (result) {
       setLastGenerated(result);
+      triggerVisualShockwave({ color: '#00e5ff' });
     }
   };
 
-  const handleApplyClick = (item: WallpaperGenerationResult) => {
+  const handleApplyClick = (item: WallpaperGenerationResult, e?: React.MouseEvent) => {
     if (onApply) {
       onApply(item);
       setIsAppliedJustNow(true);
+      const rect = (e?.currentTarget as HTMLElement)?.getBoundingClientRect();
+      const x = rect ? rect.left + rect.width / 2 : undefined;
+      const y = rect ? rect.top + rect.height / 2 : undefined;
+      triggerVisualShockwave({ x, y, color: '#10b981' });
     }
   };
 
@@ -111,33 +118,15 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
         </div>
       )}
 
-      {/* Generation Progress Bar */}
-      {isGenerating && (
-        <div className="flex flex-col gap-1.5 py-1">
-          <div className="flex justify-between text-[10px] font-mono text-cyan-300">
-            <span className="flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" />{generationProgress < 65 ? " Generando con IA..." : generationProgress < 85 ? " Reescalando y afinando..." : " Guardando..."}
-            </span>
-            <span>{generationProgress}%</span>
-          </div>
-          <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-400 via-violet-400 to-pink-500 transition-all duration-300"
-              style={{ width: `${generationProgress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Main Generate Button */}
       <button
         type="button"
         onClick={handleGenerate}
         disabled={isGenerating || !prompt.trim()}
-        className={`w-full py-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xl cursor-pointer ${
+        className={`w-full py-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xl cursor-pointer btn-spring ${
           isGenerating || !prompt.trim()
             ? 'bg-white/10 text-white/30 cursor-not-allowed'
-            : 'bg-white hover:bg-white/90 text-black shadow-[0_4px_24px_rgba(255,255,255,0.35)] hover:scale-[1.01] active:scale-[0.98]'
+            : 'bg-white hover:bg-white/90 text-black shadow-[0_4px_24px_rgba(255,255,255,0.35)]'
         }`}
       >
         {isGenerating ? (
@@ -153,6 +142,16 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
         )}
       </button>
 
+      {/* Iridescent Shimmer Generative Canvas Skeleton during AI synthesis */}
+      {isGenerating && (
+        <WallpaperGenerationSkeleton
+          aspectRatio={aspectRatio}
+          progress={generationProgress}
+          quality={quality}
+          style={style}
+        />
+      )}
+
       {/* Generated Result Success Card */}
       {lastGenerated && (
         <div className="glass-card !p-3.5 flex flex-col gap-3">
@@ -161,12 +160,29 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               ¡Fondo generado con éxito!
             </span>
-            <span className="text-[10px] font-mono text-white/40 uppercase">
-              {lastGenerated.width}×{lastGenerated.height} • {lastGenerated.style}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-400/30">
+                {lastGenerated.aspectRatio}
+              </span>
+              <span className="text-[10px] font-mono text-white/40 uppercase">
+                {lastGenerated.width}×{lastGenerated.height} • {lastGenerated.style}
+              </span>
+            </div>
           </div>
 
-          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-900 border border-white/10 group">
+          <div
+            className={`relative rounded-xl overflow-hidden bg-black/60 border border-white/10 group shadow-lg ${
+              lastGenerated.aspectRatio === '21:9'
+                ? 'aspect-[21/9] w-full'
+                : lastGenerated.aspectRatio === '9:16'
+                ? 'aspect-[9/16] max-h-[380px] w-auto mx-auto'
+                : lastGenerated.aspectRatio === '1:1'
+                ? 'aspect-square max-h-[340px] w-auto mx-auto'
+                : lastGenerated.aspectRatio === '4:3'
+                ? 'aspect-[4/3] max-h-[340px] w-auto mx-auto'
+                : 'aspect-video w-full'
+            }`}
+          >
             <img
               src={lastGenerated.url}
               alt={lastGenerated.prompt}
@@ -189,8 +205,8 @@ export const WallpaperGenerator: React.FC<WallpaperGeneratorProps> = ({ onApply,
             {onApply && (
               <button
                 type="button"
-                onClick={() => handleApplyClick(lastGenerated)}
-                className={`flex-1 py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
+                onClick={(e) => handleApplyClick(lastGenerated, e)}
+                className={`flex-1 py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer btn-spring ${
                   isAppliedJustNow
                     ? 'bg-emerald-400 text-black'
                     : 'bg-cyan-400 hover:bg-cyan-300 text-black hover:scale-105 active:scale-95'

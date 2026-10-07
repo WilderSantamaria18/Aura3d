@@ -21,6 +21,12 @@ export class AudioEngine {
   public audioContext: AudioContext | null = null;
   public masterGain: GainNode | null = null;
   public analyser: AnalyserNode | null = null;
+  /** Analizadores L y R dedicados para Vector-Scope / Goniómetro Lissajous */
+  public analyserL: AnalyserNode | null = null;
+  public analyserR: AnalyserNode | null = null;
+  private stereoSplitter: ChannelSplitterNode | null = null;
+  private stereoBufferL = new Float32Array(256);
+  private stereoBufferR = new Float32Array(256);
   /** Analizador de alta resolución (FFT 4096) dedicado a detectar notas */
   private pitchAnalyser: AnalyserNode | null = null;
   private pitchBuffer: Uint8Array | null = null;
@@ -33,6 +39,7 @@ export class AudioEngine {
 
   // 8D Audio & Spatial Panning DSP
   private stereoPanner: StereoPannerNode | null = null;
+  private eightDFilter: BiquadFilterNode | null = null;
   private is8DActive = false;
   private eightDSpeed = 0.18; // Hz
   private eightDAnimId: number | null = null;
@@ -81,6 +88,7 @@ export class AudioEngine {
   private isIframeMode = false;
 
   private underwaterFilter: BiquadFilterNode | null = null;
+  private djFilter: BiquadFilterNode | null = null;
   private isUnderwater = false;
   private currentDspProfile: 'normal' | 'slowed' | 'nightcore' = 'normal';
 
@@ -349,10 +357,14 @@ export class AudioEngine {
         this.wetGain = this.audioContext.createGain();
         this.wetGain.gain.setValueAtTime(0.0, this.audioContext.currentTime);
 
-        // 8D Stereo Panner Node
+        // 8D Stereo Panner & Pinna Depth Filter Nodes
         if (typeof this.audioContext.createStereoPanner === 'function') {
           this.stereoPanner = this.audioContext.createStereoPanner();
         }
+        this.eightDFilter = this.audioContext.createBiquadFilter();
+        this.eightDFilter.type = 'lowpass';
+        this.eightDFilter.frequency.setValueAtTime(22000, this.audioContext.currentTime);
+        this.eightDFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
 
         // Underwater / Outside the Club Muffled Filter
         this.underwaterFilter = this.audioContext.createBiquadFilter();
@@ -361,12 +373,48 @@ export class AudioEngine {
         this.underwaterFilter.Q.setValueAtTime(this.isUnderwater ? 2.5 : 0.7, this.audioContext.currentTime);
 
         // Strict Web Audio DSP routing:
-        // Source -> EQ Filters -> Underwater Filter -> AnalyserNode -> [Dry + (Convolver -> Wet)] -> [StereoPanner 8D] -> GainNode (masterGain) -> AudioContext.destination
+        // Source -> Vocal In/Out -> EQ Filters -> Underwater Filter
+        //  ├──> Playback Bus: dryGain & convolver(wetGain) -> [StereoPanner 8D] -> [EightD Pinna Filter] -> masterGain -> masteringCompressor -> destination (Speakers)
+        //  └──> FFT Analysis Bus: analyser (isolated from speakers) -> pitchAnalyser & recordDestination
+        //
+        // NOTE: Live inputs (microphone & system loopback) connect directly to `analyser` ONLY.
+        // They must NEVER be connected to dryGain, convolver, or destination, to prevent
+        // double audio, echo, and acoustic feedback screeching in the speakers.
         const lastFilter = this.eqFilters[this.eqFilters.length - 1];
         lastFilter.connect(this.underwaterFilter);
-        this.underwaterFilter.connect(this.analyser);
 
-        this.analyser.connect(this.dryGain);
+        // DJ Filter (High-pass / Low-pass Bass Crossover and Club FX)
+        this.djFilter = this.audioContext.createBiquadFilter();
+        this.djFilter.type = 'allpass';
+        this.djFilter.frequency.setValueAtTime(20, this.audioContext.currentTime);
+        this.djFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
+
+        this.underwaterFilter.connect(this.djFilter);
+
+        // 1. Playback Path (Speakers)
+        this.djFilter.connect(this.dryGain);
+        this.djFilter.connect(this.convolver);
+        this.convolver.connect(this.wetGain);
+
+        // 2. Visualization Path (FFT only - no output to speakers)
+        this.djFilter.connect(this.analyser);
+
+        // Analizadores estéreo dedicados L y R (para Goniómetro / Vector-Scope de Lissajous)
+        try {
+          this.stereoSplitter = this.audioContext.createChannelSplitter(2);
+          this.analyserL = this.audioContext.createAnalyser();
+          this.analyserR = this.audioContext.createAnalyser();
+          this.analyserL.fftSize = 512;
+          this.analyserR.fftSize = 512;
+          this.analyserL.smoothingTimeConstant = 0.25;
+          this.analyserR.smoothingTimeConstant = 0.25;
+
+          this.underwaterFilter.connect(this.stereoSplitter);
+          this.stereoSplitter.connect(this.analyserL, 0);
+          this.stereoSplitter.connect(this.analyserR, 1);
+        } catch (e) {
+          console.warn('[AudioEngine] No se pudo inicializar el splitter estéreo:', e);
+        }
 
         // Analizador de notas: cuelga del analizador principal, así también recibe
         // micrófono y audio del sistema (que entran directo a this.analyser)
@@ -375,10 +423,13 @@ export class AudioEngine {
         this.pitchAnalyser.smoothingTimeConstant = 0.55;
         this.pitchBuffer = new Uint8Array(this.pitchAnalyser.frequencyBinCount);
         this.analyser.connect(this.pitchAnalyser);
-        this.analyser.connect(this.convolver);
-        this.convolver.connect(this.wetGain);
 
-        if (this.stereoPanner) {
+        if (this.stereoPanner && this.eightDFilter) {
+          this.dryGain.connect(this.stereoPanner);
+          this.wetGain.connect(this.stereoPanner);
+          this.stereoPanner.connect(this.eightDFilter);
+          this.eightDFilter.connect(this.masterGain);
+        } else if (this.stereoPanner) {
           this.dryGain.connect(this.stereoPanner);
           this.wetGain.connect(this.stereoPanner);
           this.stereoPanner.connect(this.masterGain);
@@ -1090,6 +1141,70 @@ export class AudioEngine {
     return this.chromaValues;
   }
 
+  /**
+   * Obtiene datos en dominio temporal estéreo (L y R), correlación de fase (-1..+1)
+   * y balance de energía para el Vector-Scope / Goniómetro de Lissajous.
+   */
+  public getStereoPhaseData(): {
+    left: Float32Array;
+    right: Float32Array;
+    correlation: number;
+    balance: number;
+    width: number;
+  } {
+    if (this.analyserL && this.analyserR) {
+      this.analyserL.getFloatTimeDomainData(this.stereoBufferL);
+      this.analyserR.getFloatTimeDomainData(this.stereoBufferR);
+
+      let dotProduct = 0;
+      let sumL2 = 0;
+      let sumR2 = 0;
+      let sumAbsL = 0;
+      let sumAbsR = 0;
+      const len = this.stereoBufferL.length;
+
+      for (let i = 0; i < len; i++) {
+        const l = this.stereoBufferL[i];
+        const r = this.stereoBufferR[i];
+        dotProduct += l * r;
+        sumL2 += l * l;
+        sumR2 += r * r;
+        sumAbsL += Math.abs(l);
+        sumAbsR += Math.abs(r);
+      }
+
+      const denom = Math.sqrt(sumL2 * sumR2);
+      const correlation = denom > 1e-6 ? Math.max(-1, Math.min(1, dotProduct / denom)) : 1.0;
+      const totalAmp = sumAbsL + sumAbsR;
+      const balance = totalAmp > 1e-4 ? (sumAbsR - sumAbsL) / totalAmp : 0;
+      const width = Math.max(0, Math.min(1, (1 - correlation) * 0.5 + Math.abs(balance) * 0.5));
+
+      return {
+        left: this.stereoBufferL,
+        right: this.stereoBufferR,
+        correlation,
+        balance,
+        width,
+      };
+    }
+
+    // Fallback rítmico para Spotify Connect / Iframe o antes de audio contextual
+    const now = performance.now() * 0.003;
+    const len = this.stereoBufferL.length;
+    for (let i = 0; i < len; i++) {
+      const phase = (i / len) * Math.PI * 4 + now;
+      this.stereoBufferL[i] = Math.sin(phase) * 0.35;
+      this.stereoBufferR[i] = Math.sin(phase + 0.35) * 0.35;
+    }
+    return {
+      left: this.stereoBufferL,
+      right: this.stereoBufferR,
+      correlation: 0.92,
+      balance: 0,
+      width: 0.28,
+    };
+  }
+
   private freqCache: FrequencyData | null = null;
   private freqCacheAt = -Infinity;
   /**
@@ -1107,6 +1222,10 @@ export class AudioEngine {
     this.freqCache = data;
     this.freqCacheAt = now;
     return data;
+  }
+
+  public getRealtimeVisualData(): FrequencyData {
+    return this.getFrequencyData();
   }
 
   private computeFrequencyData(): FrequencyData {
@@ -1195,19 +1314,32 @@ export class AudioEngine {
       if (this.stereoPanner && this.audioContext) {
         this.stereoPanner.pan.setValueAtTime(0, this.audioContext.currentTime);
       }
+      if (this.eightDFilter && this.audioContext) {
+        this.eightDFilter.frequency.setValueAtTime(22000, this.audioContext.currentTime);
+      }
       return;
     }
 
     const orbitLoop = () => {
       if (!this.is8DActive) return;
       if (this.stereoPanner && this.audioContext) {
-        // Continuous smooth orbital sine panning (-1 to 1)
+        // Continuous smooth 360° circular orbit
         const t = performance.now() * 0.001;
-        const panValue = Math.sin(t * this.eightDSpeed * Math.PI * 2);
+        const angle = t * this.eightDSpeed * Math.PI * 2;
+        const panX = Math.sin(angle);
+        const depthZ = Math.cos(angle); // +1 = in front of face, -1 = behind the head
+
         this.stereoPanner.pan.setValueAtTime(
-          Math.max(-1, Math.min(1, panValue)),
+          Math.max(-1, Math.min(1, panX)),
           this.audioContext.currentTime
         );
+
+        // Pinna HRTF head-shadow emulation: gently roll off high frequencies when behind the head
+        if (this.eightDFilter) {
+          const depthRatio = (depthZ + 1) * 0.5; // 0 to 1
+          const targetFreq = 8500 + depthRatio * 13500;
+          this.eightDFilter.frequency.setValueAtTime(targetFreq, this.audioContext.currentTime);
+        }
       }
       this.eightDAnimId = requestAnimationFrame(orbitLoop);
     };
@@ -1220,7 +1352,7 @@ export class AudioEngine {
   }
 
   // ── Virtual Studio Reverb (Procedural Convolver Synthesis) ────────────────
-  private createImpulseResponse(durationSec: number, decay: number): AudioBuffer {
+  private createImpulseResponse(durationSec: number, decay: number, roomDiffusion = 0.5): AudioBuffer {
     if (!this.audioContext) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioContext = new AudioCtx();
@@ -1231,12 +1363,63 @@ export class AudioEngine {
     const left = impulse.getChannelData(0);
     const right = impulse.getChannelData(1);
 
-    for (let i = 0; i < length; i++) {
-      const n = i / length;
-      const env = Math.pow(1 - n, decay);
-      left[i] = (Math.random() * 2 - 1) * env;
-      right[i] = (Math.random() * 2 - 1) * env;
+    // 1. Early Reflections discretas para simular rebotes en paredes y techo
+    const earlyReflections = [
+      { delayMs: 11, gainL: 0.70, gainR: 0.30 },
+      { delayMs: 22, gainL: 0.35, gainR: 0.65 },
+      { delayMs: 37, gainL: 0.55, gainR: 0.45 },
+      { delayMs: 53, gainL: 0.25, gainR: 0.40 },
+      { delayMs: 72, gainL: 0.35, gainR: 0.20 },
+      { delayMs: 95, gainL: 0.18, gainR: 0.28 },
+    ];
+
+    for (const er of earlyReflections) {
+      const idx = Math.floor((er.delayMs / 1000) * sampleRate);
+      if (idx < length) {
+        left[idx] += (Math.random() > 0.5 ? 1 : -1) * er.gainL * 0.45;
+        right[idx] += (Math.random() > 0.5 ? 1 : -1) * er.gainR * 0.45;
+      }
     }
+
+    // 2. Cola difusa de reverberación con amortiguación espectral dependiente del tiempo
+    let dampFilterL = 0;
+    let dampFilterR = 0;
+    const dampingCoeff = 0.12 + (1 - roomDiffusion) * 0.25;
+
+    for (let i = 0; i < length; i++) {
+      const t = i / length;
+      // Curva natural de caída de presión sonora en sala
+      const env = Math.exp(-t * decay * 3.8);
+
+      // Ruido estocástico blanco descorrelacionado para imagen estéreo envolvente
+      const noiseL = (Math.random() * 2 - 1) * env;
+      const noiseR = (Math.random() * 2 - 1) * env;
+
+      // Filtro paso-bajas recursivo: simula cómo el aire y superficies absorben los agudos más rápido
+      const d = Math.min(0.94, dampingCoeff + t * 0.78);
+      dampFilterL = dampFilterL * d + noiseL * (1 - d);
+      dampFilterR = dampFilterR * d + noiseR * (1 - d);
+
+      left[i] += dampFilterL;
+      right[i] += dampFilterR;
+    }
+
+    // Normalización de pico para evitar distorsión o saturación en el convolver
+    let peak = 0;
+    for (let i = 0; i < length; i++) {
+      const aL = Math.abs(left[i]);
+      const aR = Math.abs(right[i]);
+      if (aL > peak) peak = aL;
+      if (aR > peak) peak = aR;
+    }
+    if (peak > 0) {
+      const scale = 0.92 / peak;
+      for (let i = 0; i < length; i++) {
+        left[i] *= scale;
+        right[i] *= scale;
+      }
+    }
+
     return impulse;
   }
 
@@ -1258,21 +1441,21 @@ export class AudioEngine {
 
     if (!buffer) {
       if (preset === 'studio') {
-        buffer = this.createImpulseResponse(0.4, 3.8);
-        dryLevel = 0.92;
-        wetLevel = 0.28;
+        buffer = this.createImpulseResponse(0.5, 3.4, 0.35);
+        dryLevel = 0.94;
+        wetLevel = 0.24;
       } else if (preset === 'club') {
-        buffer = this.createImpulseResponse(0.9, 2.6);
-        dryLevel = 0.82;
-        wetLevel = 0.48;
+        buffer = this.createImpulseResponse(1.1, 2.4, 0.55);
+        dryLevel = 0.86;
+        wetLevel = 0.42;
       } else if (preset === 'concert') {
-        buffer = this.createImpulseResponse(2.2, 2.0);
-        dryLevel = 0.72;
-        wetLevel = 0.65;
+        buffer = this.createImpulseResponse(2.3, 1.8, 0.75);
+        dryLevel = 0.76;
+        wetLevel = 0.60;
       } else if (preset === 'cathedral') {
-        buffer = this.createImpulseResponse(4.5, 1.4);
-        dryLevel = 0.60;
-        wetLevel = 0.85;
+        buffer = this.createImpulseResponse(4.6, 1.2, 0.90);
+        dryLevel = 0.65;
+        wetLevel = 0.78;
       }
       if (buffer) {
         this.reverbBuffers.set(preset, buffer);
@@ -1327,6 +1510,13 @@ export class AudioEngine {
   }
 
   public async crossfade(durationSec = 2.0): Promise<void> {
+    const state = usePlayerStore.getState();
+    if (state.isBassSwapEnabled) {
+      this.setDjFilter('highpass', 320);
+      setTimeout(() => {
+        this.setDjFilter('allpass', 20);
+      }, durationSec * 1000);
+    }
     await this.fadeThroughSilence(
       Math.max(0.4, durationSec * 0.4),
       Math.max(0.4, durationSec * 0.6),
@@ -1336,6 +1526,13 @@ export class AudioEngine {
 
   // ── Harmonic DJ Crossfade (BPM & Camelot Beat-Sync) ───────────────────────
   public async harmonicCrossfade(durationSec = 2.5, _fromKey?: string, _toKey?: string): Promise<void> {
+    const state = usePlayerStore.getState();
+    if (state.isBassSwapEnabled) {
+      this.setDjFilter('highpass', 320);
+      window.setTimeout(() => {
+        this.setDjFilter('allpass', 20);
+      }, durationSec * 1000);
+    }
     await this.fadeThroughSilence(
       Math.max(0.5, durationSec * 0.45),
       Math.max(0.5, durationSec * 0.55),
@@ -1350,6 +1547,16 @@ export class AudioEngine {
     const now = this.audioContext.currentTime;
 
     switch (preset) {
+      case 'smart_loudness':
+        // Transparent RMS Automatic Gain Normalization & Brickwall Peak Limiter:
+        // Evens out volume differences between YouTube, local files, and streams.
+        this.masteringCompressor.threshold.setValueAtTime(-24, now);
+        this.masteringCompressor.knee.setValueAtTime(30, now);
+        this.masteringCompressor.ratio.setValueAtTime(4.0, now);
+        this.masteringCompressor.attack.setValueAtTime(0.003, now);
+        this.masteringCompressor.release.setValueAtTime(0.25, now);
+        break;
+
       case 'punchy_club':
         // Tight, punchy transient control. Kicks stand out cleanly with body
         this.masteringCompressor.threshold.setValueAtTime(-18, now);
@@ -1387,6 +1594,10 @@ export class AudioEngine {
         this.masteringCompressor.release.setValueAtTime(0.25, now);
         break;
     }
+  }
+
+  public getMasteringReduction(): number {
+    return this.masteringCompressor ? this.masteringCompressor.reduction : 0;
   }
 
   // ── Vocal Remover & Karaoke / Instrumental DSP ───────────────────────────
@@ -1536,6 +1747,28 @@ export class AudioEngine {
 
   public getCurrentDspProfile(): 'normal' | 'slowed' | 'nightcore' {
     return this.currentDspProfile;
+  }
+
+  /** Modulate DJ Filter type, cutoff frequency and Q factor in real time */
+  public setDjFilter(type: BiquadFilterType, frequency: number, q = 0.7): void {
+    if (!this.djFilter || !this.audioContext) return;
+    const now = this.audioContext.currentTime;
+    this.djFilter.type = type;
+    this.djFilter.frequency.setTargetAtTime(Math.max(20, Math.min(22000, frequency)), now, 0.04);
+    this.djFilter.Q.setTargetAtTime(q, now, 0.04);
+  }
+
+  /** Set playback rate with pitch preservation or vinyl glide */
+  public setPlaybackRate(rate: number): void {
+    const audio = this.getActiveAudioElement();
+    if (audio) {
+      audio.playbackRate = Math.max(0.5, Math.min(2.0, rate));
+    }
+    if (this.bufferSourceNode && this.audioContext) {
+      try {
+        this.bufferSourceNode.playbackRate.setValueAtTime(rate, this.audioContext.currentTime);
+      } catch {}
+    }
   }
 
   // ── Vinyl Tape Stop & DJ Turntable Physics ───────────────────

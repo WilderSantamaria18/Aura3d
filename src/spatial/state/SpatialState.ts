@@ -36,6 +36,7 @@ function createEmptyHand(handedness: 'Left' | 'Right'): HandInteractionData {
 
     pinchState: 'IDLE',
     pinchDistance: 1.0,
+    pinchProgress: 0,
     indexVelocity: 0,
     worldVelocity: new THREE.Vector3(),
     deltaWorld: new THREE.Vector3(),

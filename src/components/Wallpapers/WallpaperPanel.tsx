@@ -22,6 +22,7 @@ import { WallpaperGenerator } from './WallpaperGenerator';
 import { WallpaperAtmospheres } from './WallpaperAtmospheres';
 import { WallpaperSettings } from './WallpaperSettings';
 import { WallpaperPreview } from './WallpaperPreview';
+import { triggerVisualShockwave } from '../UI/VisualFeedbackRipple';
 import type { WallpaperPreset, WallpaperGenerationResult } from '../../types/wallpaper';
 import './wallpapers.css';
 
@@ -75,11 +76,13 @@ export const WallpaperPanel: React.FC = () => {
           };
 
     setCurrentWallpaper(fullResult);
+    triggerVisualShockwave({ color: '#00f2fe' });
     showToast(`Fondo "${'name' in item ? item.name : 'Personalizado'}" aplicado con éxito`);
   };
 
   const handleClear = () => {
     clearWallpaper();
+    triggerVisualShockwave({ color: '#a855f7' });
     showToast('Fondo restablecido a modo limpio predeterminado');
   };
 
@@ -100,9 +103,9 @@ export const WallpaperPanel: React.FC = () => {
         {/* Card anclado bajo el header: sin velo, para ver el fondo mientras se ajusta */}
         <div className="fixed top-[76px] right-4 z-50 w-[min(440px,calc(100vw-2rem))] max-h-[calc(100dvh-92px)] flex pointer-events-none">
           <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: -8 }}
-            animate={{ opacity: isPeeking ? 0.08 : 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: -8 }}
+            initial={{ opacity: 0, scale: 0.94, y: -10, filter: 'blur(12px)' }}
+            animate={{ opacity: isPeeking ? 0.08 : 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.94, y: -10, filter: 'blur(12px)' }}
             transition={{ type: 'spring', damping: 28, stiffness: 340 }}
             style={{ transformOrigin: 'top right' }}
             className={`relative w-full rounded-[24px] overflow-hidden liquid-glass liquid-glass-modal flex flex-col select-none shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)] ${
@@ -155,7 +158,7 @@ export const WallpaperPanel: React.FC = () => {
             <div className="px-4 py-2 bg-white/[0.02] border-b border-white/[0.06] flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2.5 min-w-0">
                 {activeThumb ? (
-                  <div className="w-7 h-7 rounded-lg overflow-hidden border border-cyan-400/40 shrink-0 bg-slate-900 shadow-sm">
+                  <div className="w-7 h-7 rounded-lg overflow-hidden border border-cyan-400/40 shrink-0 bg-black/60 shadow-sm">
                     <img
                       src={activeThumb}
                       alt="Miniatura fondo activo"

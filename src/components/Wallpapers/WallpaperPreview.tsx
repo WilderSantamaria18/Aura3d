@@ -19,6 +19,18 @@ export const WallpaperPreview: React.FC<WallpaperPreviewProps> = ({
   const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
   const isApplied = currentWallpaper?.id === item?.id;
 
+  const [viewMode, setViewMode] = React.useState<'original' | 'cover'>(
+    item?.aspectRatio && item.aspectRatio !== '16:9' ? 'original' : 'cover'
+  );
+
+  React.useEffect(() => {
+    if (item?.aspectRatio && item.aspectRatio !== '16:9') {
+      setViewMode('original');
+    } else {
+      setViewMode('cover');
+    }
+  }, [item?.id, item?.aspectRatio]);
+
   if (!item) return null;
 
   const title = 'name' in item ? item.name : item.prompt;
@@ -38,36 +50,86 @@ export const WallpaperPreview: React.FC<WallpaperPreviewProps> = ({
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-xl">
         <motion.div
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.94 }}
+          initial={{ opacity: 0, scale: 0.92, y: 12, filter: 'blur(14px)' }}
+          animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, scale: 0.92, y: 12, filter: 'blur(14px)' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-[28px] overflow-hidden liquid-glass liquid-glass-modal border border-white/20 shadow-2xl"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 px-6 border-b border-white/[0.08]">
+          <div className="flex items-center justify-between p-3.5 sm:p-4 px-4 sm:px-6 border-b border-white/[0.08] flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#00e5ff]" />
               <h3 className="font-bold text-sm text-white tracking-tight">
                 Vista Previa del Fondo
               </h3>
+              {item.aspectRatio && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-400/40">
+                  {item.aspectRatio}
+                </span>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* View Mode Toggle: Proporción Real vs Llenar Pantalla */}
+              <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white/[0.08] border border-white/10 text-[11px] font-mono">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('original')}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    viewMode === 'original'
+                      ? 'bg-cyan-400 text-black font-bold shadow-md'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                  title="Ver imagen completa en su proporción original sin recortar"
+                >
+                  Proporción Real
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cover')}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    viewMode === 'cover'
+                      ? 'bg-cyan-400 text-black font-bold shadow-md'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                  title="Ver cómo llena una pantalla panorámica 16:9"
+                >
+                  Llenar Pantalla
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors ml-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Main Preview with Aura3D UI Overlay Simulation */}
-          <div className="relative w-full aspect-video max-h-[58vh] bg-black overflow-hidden flex items-center justify-center">
+          <div className="relative w-full aspect-video max-h-[58vh] bg-black/90 overflow-hidden flex items-center justify-center p-2">
+            {/* Ambient Blurred Background for original ratio mode */}
+            {viewMode === 'original' && (
+              <img
+                src={fullUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none select-none"
+              />
+            )}
+
             {/* The Wallpaper with current live filters applied */}
             <img
               src={fullUrl}
               alt={title}
-              className="w-full h-full object-cover select-none pointer-events-none transition-all duration-300"
+              className={`select-none pointer-events-none transition-all duration-300 relative z-10 ${
+                viewMode === 'original'
+                  ? 'max-h-full max-w-full object-contain rounded-lg shadow-2xl'
+                  : 'w-full h-full object-cover'
+              }`}
               style={{
                 filter: `
                   blur(${applicationSettings.blur}px)
@@ -80,17 +142,19 @@ export const WallpaperPreview: React.FC<WallpaperPreviewProps> = ({
 
             {/* Vignette simulation */}
             {applicationSettings.vignette && (
-              <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.6)_100%)]" />
+              <div className="absolute inset-0 pointer-events-none z-20 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.6)_100%)]" />
             )}
 
             {/* Simulated Floating UI Overlays to see real contrast */}
-            <div className="absolute bottom-4 left-4 p-3 rounded-2xl bg-black/40 border border-white/20 backdrop-blur-2xl shadow-xl flex items-center gap-3 pointer-events-none select-none">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-500 flex items-center justify-center text-xs font-bold text-white shadow-md">
+            <div className="absolute bottom-4 left-4 z-20 p-2.5 sm:p-3 rounded-2xl bg-black/45 border border-white/20 backdrop-blur-2xl shadow-xl flex items-center gap-3 pointer-events-none select-none">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-500 flex items-center justify-center text-xs font-bold text-white shadow-md">
                 3D
               </div>
               <div>
                 <p className="text-xs font-bold text-white tracking-tight">Aura3D Spatial Engine</p>
-                <p className="text-[10px] text-white/60">Simulación de contraste de interfaz</p>
+                <p className="text-[10px] text-white/60">
+                  {viewMode === 'original' ? `Vista nativa [${item.aspectRatio || '16:9'}]` : 'Ajustado a monitor 16:9'}
+                </p>
               </div>
             </div>
           </div>

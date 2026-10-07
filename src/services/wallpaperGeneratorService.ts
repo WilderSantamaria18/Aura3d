@@ -12,32 +12,49 @@ const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
   (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : 'http://localhost:4000');
 
-/** Lado largo máximo que la IA entrega de forma nativa y fiable */
-const NATIVE_LONG_SIDE = 2048;
-
-/** Relación de aspecto → proporción ancho:alto */
-const RATIO: Record<WallpaperAspectRatio, [number, number]> = {
-  '16:9': [16, 9],
-  '21:9': [21, 9],
-  '9:16': [9, 16],
-  '1:1': [1, 1],
-  '4:3': [4, 3],
+/** Dimensiones nativas optimizadas para IA (múltiplos de 64, sin deformación) */
+const HORDE_NATIVE_DIMS: Record<WallpaperAspectRatio, { width: number; height: number }> = {
+  '16:9': { width: 896, height: 512 },
+  '21:9': { width: 896, height: 384 },
+  '9:16': { width: 512, height: 896 },
+  '1:1': { width: 512, height: 512 },
+  '4:3': { width: 768, height: 576 },
 };
 
-/** Lado largo final por calidad */
-const TARGET_LONG_SIDE: Record<WallpaperQuality, number> = {
-  hd: 1280,
-  fhd: 1920,
-  '4k': 3840,
+/** Resoluciones estándar según la relación de aspecto y nivel de calidad */
+const STANDARD_DIMS: Record<WallpaperAspectRatio, Record<WallpaperQuality, { width: number; height: number }>> = {
+  '16:9': {
+    hd: { width: 1280, height: 720 },
+    fhd: { width: 1920, height: 1080 },
+    '4k': { width: 3840, height: 2160 },
+  },
+  '21:9': {
+    hd: { width: 1680, height: 720 },
+    fhd: { width: 2560, height: 1080 },
+    '4k': { width: 5120, height: 2160 },
+  },
+  '9:16': {
+    hd: { width: 720, height: 1280 },
+    fhd: { width: 1080, height: 1920 },
+    '4k': { width: 2160, height: 3840 },
+  },
+  '1:1': {
+    hd: { width: 1080, height: 1080 },
+    fhd: { width: 1440, height: 1440 },
+    '4k': { width: 2880, height: 2880 },
+  },
+  '4:3': {
+    hd: { width: 960, height: 720 },
+    fhd: { width: 1440, height: 1080 },
+    '4k': { width: 2880, height: 2160 },
+  },
 };
-
-const round16 = (v: number) => Math.max(16, Math.round(v / 16) * 16);
 
 export interface WallpaperDimensions {
   /** Resolución final que se guarda */
   width: number;
   height: number;
-  /** Resolución que se pide a la IA (≤ 2048) */
+  /** Resolución que se pide a la IA (múltiplos de 64) */
   nativeWidth: number;
   nativeHeight: number;
 }
@@ -55,20 +72,16 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
 export class WallpaperGeneratorService {
   /**
    * Dimensiones finales y nativas según relación de aspecto y calidad.
-   * 4K = 3840 px de lado largo (3840×2160 en 16:9).
    */
   static getDimensions(aspectRatio: WallpaperAspectRatio, quality: WallpaperQuality = 'fhd'): WallpaperDimensions {
-    const [rw, rh] = RATIO[aspectRatio] ?? RATIO['16:9'];
-    const long = TARGET_LONG_SIDE[quality];
-    const scale = long / Math.max(rw, rh);
-    const width = Math.round(rw * scale);
-    const height = Math.round(rh * scale);
-
-    const nativeLong = Math.min(long, NATIVE_LONG_SIDE);
-    const ns = nativeLong / Math.max(rw, rh);
-    const nativeWidth = round16(rw * ns);
-    const nativeHeight = round16(rh * ns);
-    return { width, height, nativeWidth, nativeHeight };
+    const finalDims = STANDARD_DIMS[aspectRatio]?.[quality] ?? STANDARD_DIMS['16:9'][quality];
+    const native = HORDE_NATIVE_DIMS[aspectRatio] ?? HORDE_NATIVE_DIMS['16:9'];
+    return {
+      width: finalDims.width,
+      height: finalDims.height,
+      nativeWidth: native.width,
+      nativeHeight: native.height,
+    };
   }
 
   /**
@@ -84,9 +97,11 @@ export class WallpaperGeneratorService {
     seed: number,
     onProgress?: (p: number) => void
   ): Promise<Blob> {
-    // 1. Backend local
+    // 1. Backend local (Hugging Face FLUX.1-schnell)
+    onProgress?.(25);
+    let resp: Response;
     try {
-      const resp = await fetchWithTimeout(
+      resp = await fetchWithTimeout(
         `${BACKEND_URL}/api/wallpapers/generate`,
         {
           method: 'POST',
@@ -104,44 +119,38 @@ export class WallpaperGeneratorService {
         },
         90000
       );
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.success && data.url && !data.isCuratedFallback) {
-          const img = await fetchWithTimeout(data.url, {}, 45000);
-          if (img.ok) {
-            const blob = await img.blob();
-            if (blob.size > 15000) return blob;
-          }
-        }
-      }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[WallpaperGeneratorService] Backend no disponible:', err);
+      throw new Error(
+        'No se pudo conectar con el servidor backend. Verifica que esté corriendo con "npm run dev".'
+      );
     }
 
-    onProgress?.(40);
-
-    // 2. Directo a FLUX (2 intentos; la semilla cambia levemente si el primero falla)
-    const cleanPrompt = encodeURIComponent(prompt);
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const url =
-        `https://image.pollinations.ai/prompt/${cleanPrompt}?model=flux` +
-        `&width=${dims.nativeWidth}&height=${dims.nativeHeight}&seed=${seed + attempt}` +
-        `&nologo=true&enhance=false&private=true`;
-      try {
-        const res = await fetchWithTimeout(url, {}, 90000);
-        if (res.ok) {
-          const blob = await res.blob();
-          if (blob.size > 15000 && blob.type.startsWith('image/')) return blob;
-        }
-      } catch (err) {
-        console.warn(`[WallpaperGeneratorService] FLUX intento ${attempt + 1} falló:`, err);
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => null);
+      if (errData?.error) {
+        throw new Error(errData.error);
       }
-      onProgress?.(50);
+      throw new Error(`El servidor de IA respondió con error HTTP ${resp.status}`);
     }
 
-    throw new Error(
-      'El servicio de IA no respondió. Revisa tu conexión y vuelve a intentarlo (no se aplicó ninguna imagen de reemplazo).'
-    );
+    const data = await resp.json().catch(() => null);
+    if (!data?.success || !data?.url) {
+      throw new Error(data?.error || 'No se recibió una URL válida de la imagen generada.');
+    }
+
+    onProgress?.(55);
+    const imgResp = await fetchWithTimeout(data.url, {}, 45000);
+    if (!imgResp.ok) {
+      throw new Error('No se pudo descargar la imagen generada por el servidor.');
+    }
+
+    const blob = await imgResp.blob();
+    if (blob.size < 1000) {
+      throw new Error('La imagen devuelta por la IA está corrupta o incompleta.');
+    }
+
+    return blob;
   }
 
   /**

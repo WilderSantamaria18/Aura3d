@@ -83,13 +83,22 @@ export class AuraRenderer {
     this.stamp(ctx, this.body, palette, cx, cy, discRadius);
 
     // Halo interior: luz contenida justo detrás del perímetro del disco (separa disco y fondo);
-    // sigue la deformación del núcleo y sube un instante con el transitorio
-    ctx.globalCompositeOperation = 'source-over';
-    const inner = 0.1 + 0.16 * params.intensity + bodySignals.kickEnv * 0.12 * params.kickResponse;
-    const ring = ctx.createRadialGradient(cx, cy, discRadius * 0.96, cx, cy, discRadius * (1.3 + bodySignals.kick * 0.18));
-    const [r, g, b] = parseColor(palette[2] ?? '#22d3ee');
-    ring.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.5, inner).toFixed(3)})`);
-    ring.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    // sigue la deformación del núcleo y sube un instante con el transitorio sin invadir el disco central
+    ctx.globalCompositeOperation = 'screen';
+    const innerAlpha = Math.min(0.5, 0.08 + 0.14 * params.intensity + bodySignals.kickEnv * 0.15 * params.kickResponse);
+    const ring = ctx.createRadialGradient(
+      cx,
+      cy,
+      discRadius * 0.98,
+      cx,
+      cy,
+      discRadius * (1.28 + bodySignals.kick * 0.22)
+    );
+    const [r1, g1, b1] = parseColor(palette[0] ?? '#ff2bd6');
+    const [r2, g2, b2] = parseColor(palette[2] ?? '#22d3ee');
+    ring.addColorStop(0, `rgba(${r2},${g2},${b2},${innerAlpha.toFixed(3)})`);
+    ring.addColorStop(0.5, `rgba(${r1},${g1},${b1},${(innerAlpha * 0.55).toFixed(3)})`);
+    ring.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = ring;
     ctx.fillRect(0, 0, size, size);
 

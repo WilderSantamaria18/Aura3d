@@ -189,6 +189,15 @@ export const useAudioPlayerActions = () => {
         setPlaybackStatus('buffering', `Preparando ${track.title}…`);
         await unlockAudio();
 
+        const state = usePlayerStore.getState();
+        if (state.isPlaying && state.currentTrack && state.currentTrack.id !== track.id) {
+          if (state.isHarmonicSyncActive) {
+            void audioEngine.harmonicCrossfade(2.2);
+          } else if (state.isCrossfadeActive) {
+            void audioEngine.crossfade(state.crossfadeDuration || 1.8);
+          }
+        }
+
         const ytId =
           track.youtubeId ||
           (track.id?.startsWith('yt_') ? track.id.replace(/^yt_/, '') : undefined) ||

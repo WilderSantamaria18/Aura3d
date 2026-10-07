@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import Lenis from 'lenis';
-import { ArrowRight, Sparkles, SlidersHorizontal, Palette, AlignLeft, Image as ImageIcon, Layers } from 'lucide-react';
+import { ArrowRight, Sparkles, SlidersHorizontal, Palette, AlignLeft, Image as ImageIcon, Layers, Play, Volume2, VolumeX } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore';
 import { useAudioPlayerActions } from '../../hooks/useAudioPlayer';
+import { demoAudioSynthesizer, type DemoPreset } from '../../services/demoAudioSynthesizer';
+import { Experience } from './sections/Experience';
 import './sections/ConicStation.css';
 import {
   AmbientOrbs,
@@ -24,9 +26,23 @@ export const LandingMinimal: React.FC = () => {
   const setIsTransitioning = usePlayerStore((s) => s.setIsTransitioning);
   const { unlockAudio } = useAudioPlayerActions();
   const [isTransitioning, setIsTransitioningLocal] = useState(false);
+  const [activeDemoPreset, setActiveDemoPreset] = useState<DemoPreset | null>(demoAudioSynthesizer.getCurrentPreset());
+
+  useEffect(() => {
+    return demoAudioSynthesizer.subscribe((preset) => {
+      setActiveDemoPreset(preset);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      demoAudioSynthesizer.stop();
+    };
+  }, []);
 
   const handleEnter = useCallback(() => {
     if (isTransitioning) return;
+    demoAudioSynthesizer.stop();
     setIsTransitioningLocal(true);
     setIsTransitioning(true);
     unlockAudio();
@@ -61,7 +77,6 @@ export const LandingMinimal: React.FC = () => {
   const scrollRailRef = useRef<HTMLElement | null>(null);
   const statusElRef = useRef<HTMLSpanElement | null>(null);
   const signalParentRef = useRef<HTMLDivElement | null>(null);
-  const stepItemsRef = useRef<NodeListOf<HTMLElement> | null>(null);
   const latencyCounterRef = useRef<HTMLSpanElement | null>(null);
   const tiltBoxRef = useRef<HTMLDivElement | null>(null);
   const kawarpProgressFillRef = useRef<HTMLDivElement | null>(null);
@@ -854,6 +869,7 @@ export const LandingMinimal: React.FC = () => {
         heroCtx.fill();
 
         // Update Hero Bars
+        const realFreq = demoAudioSynthesizer.getFrequencyData();
         for (let i = 0; i < N; i++) {
           const pos = i / N;
           let beatBoost = 0;
@@ -868,6 +884,13 @@ export const LandingMinimal: React.FC = () => {
 
           const lfo = Math.sin(nowSec * 1.15 + i * 0.18) * 0.035;
           let targetAmp = BASE_AMPS[i] * 0.72 + beatBoost + lfo;
+
+          // React to real Web Audio Demo stems when active
+          if (realFreq && realFreq.length > 0) {
+            const binIdx = Math.min(Math.floor((i / N) * (realFreq.length * 0.85)), realFreq.length - 1);
+            const normVal = realFreq[binIdx] / 255.0;
+            targetAmp = Math.max(targetAmp * 0.3, normVal * 1.6);
+          }
 
           if (isHeroBooting) {
             const delay = (i / N) * 0.55;
@@ -1039,6 +1062,7 @@ export const LandingMinimal: React.FC = () => {
     { id: 'manifiesto', label: 'Manifiesto' },
     { id: 'camino-senal', label: 'Señal', also: ['latencia'] },
     { id: 'conico', label: 'Funciones', also: ['manos', 'kawarp'] },
+    { id: 'laboratorio-interactivo', label: 'Laboratorio' },
     { id: 'estudio', label: 'Estudio' },
     { id: 'especificaciones', label: 'Specs' },
   ];
@@ -1112,6 +1136,83 @@ export const LandingMinimal: React.FC = () => {
                   <a href="#conico" onClick={(e) => handleSmoothScroll(e, 'conico')} className="lp-btn lp-btn--lg">
                     Ver cómo funciona
                   </a>
+                </motion.div>
+
+                {/* Interactive Audio Playground — visionOS Liquid Glass Stem Selector */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1, delay: 0.95, ease: [0.16, 1, 0.3, 1] }}
+                  className="mt-6 p-2 sm:p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl max-w-xl pointer-events-auto shadow-[0_8px_32px_rgba(0,0,0,0.36)]"
+                >
+                  <div className="flex items-center justify-between px-2 pb-2 border-b border-white/[0.06] mb-2 text-[11px] font-mono">
+                    <span className="text-white/60 flex items-center gap-1.5 uppercase tracking-wider">
+                      <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                      Probar Sonido en Vivo
+                    </span>
+                    {activeDemoPreset ? (
+                      <span className="text-cyan-400 flex items-center gap-1.5 font-medium animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        Sintetizador Web Audio Activo
+                      </span>
+                    ) : (
+                      <span className="text-white/40">1-clic demo • 0 descargas</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { id: 'cyberpunk' as DemoPreset, label: 'Cyberpunk 808', bpm: '124 BPM', color: 'hover:border-cyan-400 hover:text-cyan-300' },
+                      { id: 'lofi' as DemoPreset, label: 'Lo-Fi Dream', bpm: '84 BPM', color: 'hover:border-violet-400 hover:text-violet-300' },
+                      { id: 'spatial' as DemoPreset, label: 'Spatial Warp', bpm: '110 BPM', color: 'hover:border-pink-400 hover:text-pink-300' },
+                    ].map((stem) => {
+                      const isPlaying = activeDemoPreset === stem.id;
+                      return (
+                        <button
+                          key={stem.id}
+                          type="button"
+                          onClick={() => {
+                            if (isPlaying) {
+                              demoAudioSynthesizer.stop();
+                            } else {
+                              void demoAudioSynthesizer.start(stem.id);
+                            }
+                          }}
+                          className={`flex-1 min-w-[120px] px-3 py-2 rounded-xl text-xs font-mono transition-all flex items-center justify-between gap-2 border select-none ${
+                            isPlaying
+                              ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-[0_0_16px_rgba(0,229,255,0.4)] scale-[1.02]'
+                              : `bg-white/[0.03] border-white/[0.08] text-white/80 ${stem.color} hover:bg-white/[0.06]`
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            {isPlaying ? (
+                              <span className="flex items-end gap-0.5 h-3">
+                                <span className="w-0.5 h-3 bg-cyan-400 rounded-full aura-eq-bar" style={{ animationDuration: '0.45s' }} />
+                                <span className="w-0.5 h-2 bg-cyan-400 rounded-full aura-eq-bar" style={{ animationDuration: '0.65s', animationDelay: '0.12s' }} />
+                                <span className="w-0.5 h-3.5 bg-cyan-400 rounded-full aura-eq-bar" style={{ animationDuration: '0.52s', animationDelay: '0.24s' }} />
+                              </span>
+                            ) : (
+                              <Play className="w-3 h-3 text-white/60 fill-white/20" />
+                            )}
+                            <span className="font-sans font-medium">{stem.label}</span>
+                          </div>
+                          <span className="text-[10px] text-white/40">{stem.bpm}</span>
+                        </button>
+                      );
+                    })}
+
+                    {activeDemoPreset && (
+                      <button
+                        type="button"
+                        onClick={() => demoAudioSynthesizer.stop()}
+                        title="Detener audio"
+                        className="px-2.5 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 border border-white/10 hover:border-rose-400/40 text-white/70 hover:text-rose-300 text-xs transition-all flex items-center gap-1"
+                      >
+                        <VolumeX className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-mono">Stop</span>
+                      </button>
+                    )}
+                  </div>
                 </motion.div>
               </div>
 
@@ -1350,6 +1451,9 @@ export const LandingMinimal: React.FC = () => {
             </div>
           </Scene3D>
         </section>
+
+        {/* ================= LABORATORIO DE EXPERIENCIA INTERACTIVA ================= */}
+        <Experience onStartExperience={handleEnter} />
 
         {/* ================= ESTUDIO ================= */}
         <section className="relative w-full px-6 md:px-16 py-28" id="estudio">

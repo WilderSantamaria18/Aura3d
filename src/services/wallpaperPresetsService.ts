@@ -185,9 +185,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Sunset Drive',
     description: 'Porsche clásico en un campo de lavanda al atardecer',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600&ar=21:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=2560&ar=21:9&auto=format&fit=crop&q=90',
     style: 'cinematic',
     palette: 'warm-sunset',
     tags: ['Porsche', 'Lavanda', 'Atardecer', 'Cinemático'],
@@ -198,9 +198,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Silent Lake',
     description: 'Bote solitario en lago espejo con nubes rosas al amanecer',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&ar=21:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=2560&ar=21:9&auto=format&fit=crop&q=90',
     style: 'ethereal',
     palette: 'pastel-dream',
     tags: ['Lago', 'Bote', 'Reflejo', 'Etéreo'],
@@ -211,9 +211,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Countryside Dreams',
     description: 'Casa rural nostálgica con nubes monumentales Studio Ghibli',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'ghibli',
     palette: 'vibrant',
     tags: ['Ghibli', 'Campo', 'Casa', 'Nubes'],
@@ -224,22 +224,48 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Neo Shinjuku',
     description: 'Avenida cyberpunk lluviosa con reflejos de neón magenta y cian',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&ar=21:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=2560&ar=21:9&auto=format&fit=crop&q=90',
     style: 'cyberpunk',
     palette: 'cool-night',
     tags: ['Cyberpunk', 'Neón', 'Lluvia', 'Tokyo'],
     aspectRatio: '21:9',
   },
   {
+    id: 'preset-portrait-mobile-tokyo',
+    name: 'Tokyo Rain Portrait',
+    description: 'Rascacielos verticales bajo lluvia de neón para pantallas móviles',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=600&ar=9:16&auto=format&fit=crop&q=80',
+    fullUrl:
+      'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1080&ar=9:16&auto=format&fit=crop&q=90',
+    style: 'cyberpunk',
+    palette: 'cool-night',
+    tags: ['Móvil', 'Vertical', 'Tokyo', 'Neón'],
+    aspectRatio: '9:16',
+  },
+  {
+    id: 'preset-minimal-zen-square',
+    name: 'Zen Architecture',
+    description: 'Composición cuadrada equilibrada de hormigón y sombra geométrica',
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=600&ar=1:1&auto=format&fit=crop&q=80',
+    fullUrl:
+      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=1440&ar=1:1&auto=format&fit=crop&q=90',
+    style: 'minimal',
+    palette: 'monochrome',
+    tags: ['Cuadrado', 'Zen', 'Geometría'],
+    aspectRatio: '1:1',
+  },
+  {
     id: 'preset-minimal-solitude',
     name: 'Solitary Horizon',
     description: 'Composición arquitectónica minimalista con cielo degradado',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'minimal',
     palette: 'muted',
     tags: ['Minimal', 'Arquitectura', 'Calma'],
@@ -250,9 +276,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Midnight Highway',
     description: 'Horizonte retro 80s con rejilla y atardecer de cromo violeta',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'synthwave',
     palette: 'warm-sunset',
     tags: ['Synthwave', '80s', 'Retro', 'Grid'],
@@ -263,9 +289,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Misty Fjords',
     description: 'Picos alpinos esmeralda cubiertos de niebla y agua turquesa',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'nature',
     palette: 'cool-night',
     tags: ['Montañas', 'Niebla', 'Naturaleza', 'Lago'],
@@ -276,9 +302,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Liquid Chromatic Flow',
     description: 'Ondas de cristal líquido con refracciones holográficas',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'abstract',
     palette: 'vibrant',
     tags: ['Liquid Glass', 'Fluido', 'Abstracto'],
@@ -289,9 +315,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Carina Deep Nebula',
     description: 'Nebulosa estelar profunda capturada en alta resolución',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'cosmic',
     palette: 'cool-night',
     tags: ['Espacio', 'Nebulosa', 'Galaxia', 'Estrellas'],
@@ -302,9 +328,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Golden Sahara Dunes',
     description: 'Dunas infinitas de arena dorada esculpidas por el viento',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&ar=21:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=2560&ar=21:9&auto=format&fit=crop&q=90',
     style: 'cinematic',
     palette: 'warm-sunset',
     tags: ['Dunas', 'Desierto', 'Arena', 'Dorado'],
@@ -315,9 +341,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Sakura Mist',
     description: 'Cerezos en flor bajo suave niebla matutina con pétalos flotando',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'ethereal',
     palette: 'pastel-dream',
     tags: ['Sakura', 'Cerezo', 'Japón', 'Niebla'],
@@ -328,9 +354,9 @@ export const CURATED_PRESETS: WallpaperPreset[] = [
     name: 'Titan Monolith',
     description: 'Estructura geométrica solitaria bajo un cielo de acero puro',
     thumbnailUrl:
-      'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&ar=16:9&auto=format&fit=crop&q=80',
     fullUrl:
-      'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=2560&auto=format&fit=crop&q=90',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=2560&ar=16:9&auto=format&fit=crop&q=90',
     style: 'minimal',
     palette: 'monochrome',
     tags: ['Monocromo', 'Monolito', 'Sombra', 'Minimal'],

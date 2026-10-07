@@ -65,6 +65,7 @@ export interface HandInteractionData {
   // Dinámica y Máquina de Estados de Pellizco (con Histéresis)
   pinchState: HandPinchState;
   pinchDistance: number;       // Distancia euclídea normalizada entre pulgar e índice
+  pinchProgress: number;       // Progreso normalizado de pellizco: 0 (abierto) a 1 (contacto cerrado)
   indexVelocity: number;       // Velocidad escalar normalizada (unidades/s)
   worldVelocity: THREE.Vector3;// Velocidad 3D en coordenadas de mundo
   deltaWorld: THREE.Vector3;   // Desplazamiento desde el frame anterior

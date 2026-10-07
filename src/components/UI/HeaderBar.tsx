@@ -508,21 +508,31 @@ export const HeaderBar: React.FC = () => {
           )}
         </div>
 
-        {/* 1b. Ajustes del visualizador activo (Rainbow Void tiene su propio personalizador) */}
-        {visualizerMode !== 'blob' && (
-          <button
-            type="button"
-            onClick={() => toggleVisualizerSettings()}
-            aria-label="Ajustes del visualizador"
-            aria-pressed={isVisualizerSettingsOpen}
-            title="Ajustes del visualizador"
-            className={`flex items-center justify-center glass-btn w-8 h-8 cursor-pointer active:scale-95 border ${
-              isVisualizerSettingsOpen ? 'is-active text-white [--glass-accent:0,229,255]' : 'text-white/80 hover:text-white'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-          </button>
-        )}
+        {/* 1b. Ajustes del visualizador activo (Para Rainbow Void abre el Estudio 2D; para 3D abre VisualizerSettings) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (visualizerMode === 'blob') {
+              setBlobPanelOpen(!isBlobPanelOpen);
+            } else {
+              toggleVisualizerSettings();
+            }
+          }}
+          aria-label={visualizerMode === 'blob' ? 'Configuración de Rainbow Void' : 'Ajustes del visualizador'}
+          aria-pressed={visualizerMode === 'blob' ? isBlobPanelOpen : isVisualizerSettingsOpen}
+          title={
+            visualizerMode === 'blob'
+              ? 'Configuración de Rainbow Void (Estudio de Shaders, Mándala, Bloom y Calibración)'
+              : 'Ajustes de cámara y geometría del visualizador 3D'
+          }
+          className={`flex items-center justify-center glass-btn w-8 h-8 cursor-pointer active:scale-95 border transition-all ${
+            (visualizerMode === 'blob' ? isBlobPanelOpen : isVisualizerSettingsOpen)
+              ? 'is-active text-white border-cyan-400/50 bg-cyan-500/25 shadow-[0_0_12px_rgba(0,229,255,0.4)]'
+              : 'text-white/80 hover:text-white border-white/10 hover:border-white/20'
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+        </button>
 
         {/* 2. Spatial Camera Studio */}
         <div className="relative">
@@ -905,6 +915,27 @@ export const HeaderBar: React.FC = () => {
                     <Clock className="w-4 h-4 text-amber-400" />
                     <span>Estadísticas de Sesión</span>
                   </button>
+
+                  {/* Estudio de Calibración Rainbow Void */}
+                  {visualizerMode === 'blob' && (
+                    <button
+                      onClick={() => {
+                        setBlobPanelOpen(!isBlobPanelOpen);
+                        setActiveMenu(null);
+                      }}
+                      className={`flex items-center justify-between glass-item p-2.5 min-h-[40px] text-xs font-mono cursor-pointer ${
+                        isBlobPanelOpen ? 'is-active text-white font-medium border-cyan-400/30' : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-cyan-400" />
+                        <span>Estudio Rainbow Void</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/25">
+                        {isBlobPanelOpen ? 'ABIERTO' : '2D'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
 

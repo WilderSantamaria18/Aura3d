@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingMinimal } from './components/Landing/LandingMinimal';
 import { FEATURES } from './constants/features';
-import { Controls } from './components/Player/Controls';
-import { ProgressBar } from './components/Player/ProgressBar';
+import { LiquidPlaybackDock } from './components/Player/LiquidPlaybackDock';
 import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
 import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioPlayerActions } from './hooks/useAudioPlayer';
 import { useAnalytics } from './hooks/useAnalytics';
+import { useIdleTimer } from './hooks/useIdleTimer';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAutoPalette } from './hooks/useAutoPalette';
 import { useSpotifyPlayer } from './hooks/useSpotifyPlayer';
 import { usePlayerStore } from './stores/playerStore';
@@ -18,6 +19,7 @@ import { MiniSpectrumBars } from './components/UI/MiniSpectrumBars';
 import { UniversalDropZone } from './components/UI/UniversalDropZone';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useMediaSession } from './hooks/useMediaSession';
+import { useChameleonPalette } from './hooks/useChameleonPalette';
 import { installAdaptiveQuality } from './services/adaptiveQualityService';
 import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
@@ -31,11 +33,17 @@ import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 import { WallpaperBackground } from './components/Wallpapers/WallpaperBackground';
+import { CinematicStagePostFx } from './components/Visualizers/CinematicStagePostFx';
+import { VisualFeedbackRippleRoot } from './components/UI/VisualFeedbackRipple';
+import { Ambilight360Layer } from './components/Effects/Ambilight360Layer';
 
 // Solo se muestran tras pulsar "empezar" (o al abrir su panel): no hace falta descargarlos para pintar la
 // landing. Los cargadores se reutilizan abajo para precargarlos cuando el navegador está ocioso.
 const loadHeaderBar = () => import('./components/UI/HeaderBar').then((m) => ({ default: m.HeaderBar }));
 const loadMiniPlayer = () => import('./components/Player/MiniPlayer').then((m) => ({ default: m.MiniPlayer }));
+/** Inactividad (ms) antes de que el Modo Cinema oculte la interfaz */
+const CINEMA_IDLE_MS = 4000;
+
 const loadAtmosphereBackground = () =>
   import('./components/Visualizers/AtmosphereBackground').then((m) => ({ default: m.AtmosphereBackground }));
 const loadWallpaperPanel = () => import('./components/Wallpapers/WallpaperPanel').then((m) => ({ default: m.WallpaperPanel }));
@@ -75,6 +83,7 @@ const SpatialOverlay = lazy(() => import('./spatial/SpatialOverlay'));
 const SpatialHUD = lazy(() =>
   import('./spatial/ui/SpatialHUD').then((m) => ({ default: m.SpatialHUD }))
 );
+const VideoTheaterModal = lazy(() => import('./components/Player/VideoTheaterModal'));
 
 export const App: React.FC = () => {
   const { loadAudioFiles } = useAudioPlayerActions();
@@ -82,6 +91,7 @@ export const App: React.FC = () => {
   useSpotifyPlayer();
   useAnalytics();
   useAutoPalette();
+  useChameleonPalette();
   useKeyboardShortcuts();
   useMediaSession();
 
@@ -123,6 +133,7 @@ export const App: React.FC = () => {
   const isLyricsOpen = usePlayerStore((s) => s.isLyricsOpen);
   const isSidebarOpen = usePlayerStore((s) => s.isSidebarOpen);
   const isKaraokeFullscreen = usePlayerStore((s) => s.isKaraokeFullscreen);
+  const isVideoTheaterOpen = usePlayerStore((s) => s.isVideoTheaterOpen);
   const isAdminModalOpen = usePlayerStore((s) => s.isAdminModalOpen);
   const isSysReqModalOpen = usePlayerStore((s) => s.isSysReqModalOpen);
   const setSysReqModalOpen = usePlayerStore((s) => s.setSysReqModalOpen);
@@ -175,11 +186,12 @@ export const App: React.FC = () => {
   // Zen Ghost mode: Auto-collapses the bottom dock to a micro-pill with LED spectrum
   // when orbiting the 3D scene (userInteracting) or idle, giving 100% unobstructed screen to the 3D scene
   const isZenGhostMode = hasStarted && (userInteracting || isUiIdle) && !isDockHovered && !isUiHidden;
-  const shouldHideUI = isUiHidden;
+  // En Modo Cinema (inactivo mientras suena) la UI se oculta igual que con la tecla G, pero reaparece sola
+  const isCinemaIdle = isUiIdle && isPlaying && !isDockHovered;
+  const shouldHideUI = isUiHidden || isCinemaIdle;
 
   const [showLanding, setShowLanding] = useState(!hasStarted);
   const isTransitioning = usePlayerStore((s) => s.isTransitioning);
-  const idleTimerRef = useRef<number | null>(null);
 
   // Toggle in-player mode class on html/body and hide landing after exit transition
   useEffect(() => {
@@ -193,42 +205,18 @@ export const App: React.FC = () => {
     }
   }, [hasStarted]);
 
-  // Reset idle timer on any user interaction
-  const resetIdleTimer = useCallback(() => {
-    setIsUiIdle(false);
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-    }
-
-    // Only auto-hide if in player mode and no modal / menu / VR is active
-    if (
-      hasStarted &&
-      !isEqualizerOpen &&
-      !isLyricsOpen &&
-      !isSidebarOpen &&
-      !isKaraokeFullscreen &&
-      !isCameraStudioOpen &&
-      !isCaptureStudioOpen &&
-      !vrMode
-    ) {
-      idleTimerRef.current = window.setTimeout(() => {
-        setIsUiIdle(true);
-      }, 4500);
-    }
-  }, [setIsUiIdle, hasStarted, isEqualizerOpen, isLyricsOpen, isSidebarOpen, isKaraokeFullscreen, isCameraStudioOpen, isCaptureStudioOpen, vrMode]);
-
-  useEffect(() => {
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    const handleActivity = () => resetIdleTimer();
-
-    events.forEach((ev) => window.addEventListener(ev, handleActivity));
-    resetIdleTimer();
-
-    return () => {
-      events.forEach((ev) => window.removeEventListener(ev, handleActivity));
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
-  }, [resetIdleTimer]);
+  // Modo Cinema: tras 4 s sin actividad, durante la reproducción y sin paneles abiertos, la UI se desvanece
+  const cinemaEnabled =
+    hasStarted &&
+    isPlaying &&
+    !isEqualizerOpen &&
+    !isLyricsOpen &&
+    !isSidebarOpen &&
+    !isKaraokeFullscreen &&
+    !isCameraStudioOpen &&
+    !isCaptureStudioOpen &&
+    !vrMode;
+  useIdleTimer({ timeout: CINEMA_IDLE_MS, enabled: cinemaEnabled, onIdleChange: setIsUiIdle });
 
   // Garantizar que Modo Lucid siempre esté activo como el ecosistema base de diseño de Aura3D
   useEffect(() => {
@@ -247,6 +235,10 @@ export const App: React.FC = () => {
       if (e.key === 'g' || e.key === 'G') {
         e.preventDefault();
         updateBlobSettings({ isUiHidden: !isUiHidden });
+      } else if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (document.fullscreenElement) void document.exitFullscreen?.();
+        else void document.documentElement.requestFullscreen?.().catch(() => undefined);
       } else if (e.key === 'Escape' && isUiHidden) {
         e.preventDefault();
         updateBlobSettings({ isUiHidden: false });
@@ -358,7 +350,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Visualizer in Fullscreen Center (Mounts smoothly when user enters) */}
+      {/* 2. Visualizer in Fullscreen Center (Mounts smoothly with ethereal blur crossfade) */}
       <div
         className={`fixed inset-0 w-full h-full min-h-[55dvh] z-10 pointer-events-none transition-opacity duration-700 ease-out ${
           hasStarted ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -366,13 +358,24 @@ export const App: React.FC = () => {
       >
         {hasStarted && (
           <Suspense fallback={<div className="w-full h-full" />}>
-            {visualizerMode === 'synthwave' ? (
-              <SynthwaveGridVisualizer />
-            ) : visualizerMode === 'terrain' ? (
-              <TerrainVisualizer />
-            ) : (
-              <RainbowBlobVisualizer />
-            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={visualizerMode}
+                className="w-full h-full pointer-events-auto"
+                initial={{ opacity: 0, filter: 'blur(14px) brightness(1.2)', scale: 0.98 }}
+                animate={{ opacity: 1, filter: 'blur(0px) brightness(1)', scale: 1 }}
+                exit={{ opacity: 0, filter: 'blur(14px) brightness(0.85)', scale: 1.02 }}
+                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {visualizerMode === 'synthwave' ? (
+                  <SynthwaveGridVisualizer />
+                ) : visualizerMode === 'terrain' ? (
+                  <TerrainVisualizer />
+                ) : (
+                  <RainbowBlobVisualizer />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </Suspense>
         )}
       </div>
@@ -394,56 +397,52 @@ export const App: React.FC = () => {
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
       {hasStarted && <RgbGlitchOverlay />}
       {hasStarted && <RetroCrtOverlay />}
+      {hasStarted && <CinematicStagePostFx />}
 
       {/* Reactive Ambient Glow Backdrop & Space Dust */}
       {hasStarted && <AmbientGlow />}
 
+      {/* 360-Degree Audio-Reactive Edge Ambilight */}
+      {hasStarted && <Ambilight360Layer />}
+
       {/* 3D Cinematic Camera Presets Toolbar */}
-      {hasStarted && !shouldHideUI && <CameraPresetBar />}
+      <AnimatePresence>
+        {hasStarted && !shouldHideUI && (
+          <motion.div
+            key="camera-presets"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <CameraPresetBar />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. Floating Header UI */}
       {hasStarted && (
-        <div
-          className={`fixed top-0 left-0 right-0 z-50 pointer-events-none transition-all duration-700 ${
-            shouldHideUI ? 'opacity-0 -translate-y-4 pointer-events-none' : 'opacity-100 translate-y-0'
-          }`}
+        <motion.div
+          className="fixed top-0 left-0 right-0 z-50 pointer-events-none"
+          initial={false}
+          animate={shouldHideUI ? { opacity: 0, y: -16 } : { opacity: 1, y: 0 }}
+          transition={{ duration: shouldHideUI ? 0.8 : 0.45, ease: [0.16, 1, 0.3, 1] }}
+          style={{ pointerEvents: 'none' }}
         >
           <Suspense fallback={null}>
             <HeaderBar />
           </Suspense>
-        </div>
+        </motion.div>
       )}
 
-
-
-      {/* 5. Unified Bottom Playback Capsule & "Zen Ghost" Island */}
+      {/* 5. Master Liquid Playback Dock & Zen Morphing Island */}
       {hasStarted && (
-        <div
-          className={`fixed bottom-3 sm:bottom-6 left-0 right-0 z-50 p-1.5 sm:p-2 transition-[opacity,transform] duration-500 pointer-events-none flex flex-col items-center ${
-            shouldHideUI || isZenGhostMode
-              ? 'opacity-0 translate-y-28 pointer-events-none scale-95'
-              : 'opacity-100 translate-y-0 pointer-events-auto scale-100'
-          }`}
-          onMouseEnter={() => setIsDockHovered(true)}
-          onMouseLeave={() => setIsDockHovered(false)}
-        >
-          <div
-            className="w-[clamp(300px,78vw,640px)] px-3.5 py-2.5 flex flex-col gap-1.5 pointer-events-auto aura-dock group/capsule"
-            style={
-              isLucid
-                ? {
-                    backgroundColor: lucidTheme.glassColor,
-                    borderColor: lucidTheme.borderColor,
-                    boxShadow: `0 18px 44px -14px rgba(0,0,0,0.8), 0 0 28px ${lucidTheme.glow}, inset 0 1px 0 rgba(255,255,255,0.14)`,
-                  }
-                : undefined
-            }
-          >
-            {/* Main Player Transport & Progress */}
-            <Controls />
-            <ProgressBar />
-          </div>
-        </div>
+        <LiquidPlaybackDock
+          shouldHideUI={shouldHideUI}
+          isZenGhostMode={isZenGhostMode}
+          isDockHovered={isDockHovered}
+          setIsDockHovered={setIsDockHovered}
+        />
       )}
 
 
@@ -472,6 +471,11 @@ export const App: React.FC = () => {
       {(isLyricsOpen || isKaraokeFullscreen) && (
         <Suspense fallback={null}>
           <LyricsOverlay />
+        </Suspense>
+      )}
+      {isVideoTheaterOpen && (
+        <Suspense fallback={null}>
+          <VideoTheaterModal />
         </Suspense>
       )}
       {isEqualizerOpen && (
@@ -567,6 +571,9 @@ export const App: React.FC = () => {
           <AudioAnnouncer />
         </Suspense>
       )}
+
+      {/* Global Visual Success Feedback Ripple Shockwave */}
+      <VisualFeedbackRippleRoot />
     </div>
   );
 };

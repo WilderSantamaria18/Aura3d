@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import type { RefObject } from 'react';
 import type { EnhancedLyricLine } from '../types/lyrics';
 import { getPlaybackTime } from '../services/playbackClock';
+import { usePlayerStore } from '../stores/playerStore';
 
 export function findActiveLine(lines: ReadonlyArray<{ time: number }>, t: number): number {
   let lo = 0;
@@ -44,7 +45,8 @@ export function useLyricSync(
     let curWord = -2;
 
     const tick = () => {
-      const t = getPlaybackTime();
+      const offset = usePlayerStore.getState().lyricsOffset || 0;
+      const t = Math.max(0, getPlaybackTime() + offset);
       const li = findActiveLine(lines, t);
       let wi = -1;
       let lineProgress = 0;

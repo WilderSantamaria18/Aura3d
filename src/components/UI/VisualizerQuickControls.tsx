@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePlayerStore } from '../../stores/playerStore';
-import { CircleDot, Sun, Bot, Shapes, Link2, Unlink, Zap, Lock } from 'lucide-react';
+import { CircleDot, Sun, Bot, Shapes, Link2, Unlink, Zap, Lock, Sliders } from 'lucide-react';
 import type { VisualizerShape } from '../../types/audio';
 import { RAINBOW_VOID_EFFECTS } from '../../config/visualPresets';
 import { useAIDirectorPhase } from '../../services/aiSceneDirectorService';
@@ -41,6 +41,8 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
     setMusicSensitivity,
     blobSettings,
     updateBlobSettings,
+    isBlobPanelOpen,
+    setBlobPanelOpen,
   } = usePlayerStore(
     useShallow((s) => ({
       visualizerMode: s.visualizerMode,
@@ -71,6 +73,8 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
       setMusicSensitivity: s.setMusicSensitivity,
       blobSettings: s.blobSettings,
       updateBlobSettings: s.updateBlobSettings,
+      isBlobPanelOpen: s.isBlobPanelOpen,
+      setBlobPanelOpen: s.setBlobPanelOpen,
     }))
   );
 
@@ -102,18 +106,33 @@ export const VisualizerQuickControls: React.FC<VisualizerQuickControlsProps> = R
           {isBlob ? '2D VOID' : isSynthwave ? '3D ROAD' : '3D TERRAIN'}
         </span>
         {isBlob && (
-          <select
-            value={blobShape}
-            onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
-            className="bg-transparent text-white/90 font-medium text-[11px] focus:outline-none cursor-pointer"
-            title="Efecto activo del Rainbow Void 2D"
-          >
-            {RAINBOW_VOID_EFFECTS.map((fx) => (
-              <option key={fx.id} value={fx.id} className="bg-[#090d18] text-white">
-                {fx.name} // {fx.tag}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1">
+            <select
+              value={blobShape}
+              onChange={(e) => setBlobShape(e.target.value as VisualizerShape)}
+              className="bg-transparent text-white/90 font-medium text-[11px] focus:outline-none cursor-pointer"
+              title="Efecto activo del Rainbow Void 2D"
+            >
+              {RAINBOW_VOID_EFFECTS.map((fx) => (
+                <option key={fx.id} value={fx.id} className="bg-[#090d18] text-white">
+                  {fx.name} // {fx.tag}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setBlobPanelOpen(!isBlobPanelOpen)}
+              className={`p-1 rounded-md transition-all border cursor-pointer ${
+                isBlobPanelOpen
+                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(0,229,255,0.4)]'
+                  : 'bg-white/[0.04] border-white/10 text-white/70 hover:text-white hover:bg-white/[0.08]'
+              }`}
+              title="Configuración y Calibración de Rainbow Void"
+              aria-label="Abrir estudio Rainbow Void"
+            >
+              <Sliders className="w-3 h-3 text-cyan-400" />
+            </button>
+          </div>
         )}
         {isSynthwave && (
           <select
