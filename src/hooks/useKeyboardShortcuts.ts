@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { usePlayerStore } from '../stores/playerStore';
 import { useRecorderStore } from '../store/recorderStore';
 import { useWallpaperStore } from '../stores/wallpaperStore';
@@ -12,7 +12,7 @@ export const useKeyboardShortcuts = () => {
   const { togglePlayPause: engineTogglePlayPause, seek: engineSeek, playNext: engineNext, playPrevious: enginePrev } = useAudioPlayerActions();
   const { togglePlayPause: spotifyTogglePlayPause, seek: spotifySeek, playNext: spotifyNext, playPrevious: spotifyPrev } = useSpotifyPlayer();
 
-  const dispatchAction = useCallback(
+  const dispatchActionImpl = useCallback(
     (action: string) => {
     const {
       visualizerMode,
@@ -199,6 +199,13 @@ export const useKeyboardShortcuts = () => {
     ]
   );
 
+  const dispatchActionRef = useRef(dispatchActionImpl);
+  dispatchActionRef.current = dispatchActionImpl;
+
+  const dispatchAction = useCallback((action: string) => {
+    dispatchActionRef.current(action);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 0. Avoid responding if another event handler already consumed it
@@ -362,6 +369,10 @@ export const useKeyboardShortcuts = () => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    (window as Window & { __auraShortcutsReady?: boolean }).__auraShortcutsReady = true;
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      (window as Window & { __auraShortcutsReady?: boolean }).__auraShortcutsReady = false;
+    };
   }, [dispatchAction]);
 };

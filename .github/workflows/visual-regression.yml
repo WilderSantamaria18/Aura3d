@@ -32,6 +32,12 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Start Preview Server
+        run: npm run preview &
+
+      - name: Wait for App Server
+        run: npx wait-on http://127.0.0.1:5173 --timeout 60000
+
       - name: Run Visual Regression Tests
         run: npx playwright test e2e/visual-regression.spec.ts
         env:

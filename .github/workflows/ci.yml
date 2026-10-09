@@ -39,7 +39,7 @@ jobs:
           NODE_ENV: production
 
       - name: Wait for App Server
-        run: npx wait-on http://localhost:5173 --timeout 60000
+        run: npx wait-on http://127.0.0.1:5173 --timeout 60000
 
       - name: Run Playwright E2E Tests
         run: npx playwright test e2e/player-flows.spec.ts

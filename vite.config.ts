@@ -63,6 +63,7 @@ export default defineConfig({
     }),
   ],
   server: {
+    host: '0.0.0.0',
     port: 5173,
     watch: {
       ignored: ['**/.cache/**', '**/server/data/**'],
@@ -77,6 +78,10 @@ export default defineConfig({
         ws: true,
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 5173,
   },
   build: {
     rollupOptions: {

@@ -177,7 +177,7 @@ export const LandingMinimal: React.FC = () => {
       heroCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const isMobile = heroWidth < 768;
-      heroR = isMobile ? heroWidth * 0.35 : Math.min(heroWidth, heroHeight) * 0.24;
+      heroR = Math.max(20, isMobile ? heroWidth * 0.35 : Math.min(heroWidth, heroHeight) * 0.24);
       heroCenterX = heroWidth / 2;
       heroCenterY = heroHeight * 0.46;
 
@@ -187,7 +187,7 @@ export const LandingMinimal: React.FC = () => {
         const textTop = title ? title.getBoundingClientRect().top - (parent?.getBoundingClientRect().top ?? 0) : heroHeight * 0.55;
         const freeTop = 112;
         const free = Math.max(120, textTop - freeTop - 12);
-        heroR = Math.min(heroWidth * 0.3, free * 0.3);
+        heroR = Math.max(20, Math.min(heroWidth * 0.3, free * 0.3));
         heroCenterX = heroWidth / 2;
         heroCenterY = freeTop + free / 2;
       }
@@ -798,7 +798,13 @@ export const LandingMinimal: React.FC = () => {
       const nowSec = now / 1000;
 
       // Update Shared Global Beat Simulation
-      BeatSim.update(nowSec);
+      if (!prefersReducedMotion) {
+        BeatSim.update(nowSec);
+      } else {
+        BeatSim.kick = 0;
+        BeatSim.snare = 0;
+        BeatSim.hat = 0;
+      }
 
       // 1. Render Hero Visualizer
       if (heroCtx && heroCanvas && vis.hero) {
@@ -808,14 +814,14 @@ export const LandingMinimal: React.FC = () => {
         updateHeroStatus(heroElapsed);
 
         heroCtx.globalCompositeOperation = 'source-over';
-        heroCtx.fillStyle = 'rgba(5, 7, 16, 0.32)';
+        heroCtx.fillStyle = prefersReducedMotion ? '#050710' : 'rgba(5, 7, 16, 0.32)';
         heroCtx.fillRect(0, 0, heroWidth, heroHeight);
 
         if (!prefersReducedMotion) {
           rotationAngle += ROTATION_SPEED * delta;
         }
 
-        const ambAlpha = 0.20 + BeatSim.kick * 0.18;
+        const ambAlpha = prefersReducedMotion ? 0.20 : 0.20 + BeatSim.kick * 0.18;
         const glowRadius = heroR * 3.4;
         const ambGrad = heroCtx.createRadialGradient(heroCenterX, heroCenterY, 0, heroCenterX, heroCenterY, glowRadius);
         ambGrad.addColorStop(0, `rgba(90, 50, 200, ${ambAlpha.toFixed(3)})`);
@@ -831,10 +837,10 @@ export const LandingMinimal: React.FC = () => {
         // Expanding Boot Ring
         if (heroElapsed < 1440 && !prefersReducedMotion) {
           const ringProgress = Math.min(1.0, heroElapsed / 1100);
-          const ringR = heroR * 0.20 + (heroR * 0.90 - heroR * 0.20) * ringProgress;
+          const ringR = Math.max(0, heroR * 0.20 + (heroR * 0.90 - heroR * 0.20) * ringProgress);
           const ringAlpha = Math.pow(Math.max(0, 1 - ringProgress), 2) * 0.90;
 
-          if (ringAlpha > 0.005) {
+          if (ringAlpha > 0.005 && ringR > 0) {
             heroCtx.beginPath();
             heroCtx.ellipse(heroCenterX, heroCenterY, ringR, ringR * ELLIPSE_RATIO, 0, 0, Math.PI * 2);
             heroCtx.lineWidth = 3.6;
@@ -862,7 +868,7 @@ export const LandingMinimal: React.FC = () => {
         heroCtx.ellipse(heroCenterX, heroCenterY, heroR * 1.05, heroR * 1.05 * ELLIPSE_RATIO, 0, 0, Math.PI * 2);
         heroCtx.stroke();
 
-        const centerMarkerR = 1.8 + BeatSim.kick * 0.9;
+        const centerMarkerR = prefersReducedMotion ? 1.8 : 1.8 + BeatSim.kick * 0.9;
         heroCtx.fillStyle = `rgba(190, 150, 255, ${(0.5 + BeatSim.kick * 0.4).toFixed(2)})`;
         heroCtx.beginPath();
         heroCtx.arc(heroCenterX, heroCenterY, centerMarkerR, 0, Math.PI * 2);
@@ -873,16 +879,18 @@ export const LandingMinimal: React.FC = () => {
         for (let i = 0; i < N; i++) {
           const pos = i / N;
           let beatBoost = 0;
-          if (pos < 0.35) {
-            beatBoost = BeatSim.kick * (1 - pos / 0.35) * 0.75;
-          } else if (pos < 0.72) {
-            const midP = (pos - 0.35) / (0.72 - 0.35);
-            beatBoost = BeatSim.snare * (1 - Math.abs(midP - 0.5) * 1.8) * 0.55;
-          } else {
-            beatBoost = BeatSim.hat * (1 - pos * 0.4) * 0.42;
+          if (!prefersReducedMotion) {
+            if (pos < 0.35) {
+              beatBoost = BeatSim.kick * (1 - pos / 0.35) * 0.75;
+            } else if (pos < 0.72) {
+              const midP = (pos - 0.35) / (0.72 - 0.35);
+              beatBoost = BeatSim.snare * (1 - Math.abs(midP - 0.5) * 1.8) * 0.55;
+            } else {
+              beatBoost = BeatSim.hat * (1 - pos * 0.4) * 0.42;
+            }
           }
 
-          const lfo = Math.sin(nowSec * 1.15 + i * 0.18) * 0.035;
+          const lfo = prefersReducedMotion ? 0 : Math.sin(nowSec * 1.15 + i * 0.18) * 0.035;
           let targetAmp = BASE_AMPS[i] * 0.72 + beatBoost + lfo;
 
           // React to real Web Audio Demo stems when active
@@ -899,11 +907,16 @@ export const LandingMinimal: React.FC = () => {
             targetAmp *= (1 - Math.pow(1 - localP, 3));
           }
 
-          const factor = targetAmp > currentAmps[i] ? 0.45 : 0.10;
-          currentAmps[i] += (targetAmp - currentAmps[i]) * factor;
+          if (prefersReducedMotion && (!realFreq || realFreq.length === 0)) {
+            currentAmps[i] = targetAmp;
+            peakAmps[i] = targetAmp;
+          } else {
+            const factor = targetAmp > currentAmps[i] ? 0.45 : 0.10;
+            currentAmps[i] += (targetAmp - currentAmps[i]) * factor;
 
-          if (currentAmps[i] > peakAmps[i]) peakAmps[i] = currentAmps[i];
-          else peakAmps[i] *= 0.985;
+            if (currentAmps[i] > peakAmps[i]) peakAmps[i] = currentAmps[i];
+            else peakAmps[i] *= 0.985;
+          }
 
           barOrder[i] = i;
         }

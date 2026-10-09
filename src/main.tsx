@@ -36,9 +36,12 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       });
   });
 
+  // Only reload if the page was already controlled by a prior service worker (update flow).
+  // On first install, hadController is false, so we do not unexpectedly reload during user interactions.
+  const hadController = !!navigator.serviceWorker.controller;
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
+    if (!refreshing && hadController) {
       refreshing = true;
       window.location.reload();
     }
