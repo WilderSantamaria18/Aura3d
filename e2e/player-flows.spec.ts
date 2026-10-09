@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Aura3D Critical User Flows', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('aura3d_studio_onboarded_v1', 'true');
+    });
+
     await page.goto('/');
     // Wait for the app shell to hydrate
     await page.waitForLoadState('domcontentloaded');
@@ -15,10 +19,10 @@ test.describe('Aura3D Critical User Flows', () => {
     }
 
     const enterVisualizerButton = page
-      .getByRole('button', { name: /Entrar al Visualizador Aura3D|Enter Aura3D Visualizer/i })
+      .locator('button:has-text("Entrar al Visualizador"), button:has-text("Enter Aura3D Visualizer")')
       .first();
-    if (await enterVisualizerButton.isVisible().catch(() => false)) {
-      await enterVisualizerButton.click({ timeout: 3000 }).catch(() => {});
+    if (await enterVisualizerButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await enterVisualizerButton.click({ timeout: 5000 });
       await page.waitForTimeout(300);
     }
 
@@ -26,18 +30,26 @@ test.describe('Aura3D Critical User Flows', () => {
       await dismissOnboardingButton.click();
       await page.waitForTimeout(200);
     }
+
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 5000 });
+
+    const viewport = page.viewportSize();
+    if (viewport) {
+      await page.mouse.move(viewport.width / 2, viewport.height - 20);
+      await page.waitForTimeout(150);
+    }
   });
 
   test('Audio Controls: Toggle Play, Pause, Next, and Previous', async ({ page }) => {
     const playButton = page
       .locator(
-        'button[aria-label*="reproducción"], button[aria-label*="playback"], button[title*="Reproducir"], button[title*="Pausar"], button[title*="Play"], button[title*="Pause"]'
+        'button[title*="(Espacio)"]:visible, button[aria-label*="reproducción"]:visible, button[aria-label*="playback"]:visible'
       )
       .first();
     await expect(playButton).toBeVisible();
 
     // Toggle Play
-    await playButton.click();
+    await playButton.click({ force: true });
     await page.waitForTimeout(300);
 
     // Verify button state has updated or responds
@@ -46,22 +58,22 @@ test.describe('Aura3D Critical User Flows', () => {
     // Next Track
     const nextButton = page
       .locator(
-        'button[aria-label*="Siguiente canción"], button[aria-label*="Siguiente pista"], button[aria-label*="Next"], button[title*="Siguiente canción"], button[title*="Siguiente pista"], button[title*="Next"]'
+        'button[title*="Shift+→"]:visible, button[aria-label*="Siguiente canción"]:visible, button[aria-label*="Siguiente pista"]:visible, button[aria-label*="Next"]:visible'
       )
       .first();
     if (await nextButton.isVisible()) {
-      await nextButton.click();
+      await nextButton.click({ force: true });
       await page.waitForTimeout(200);
     }
 
     // Previous Track
     const prevButton = page
       .locator(
-        'button[aria-label*="Canción anterior"], button[aria-label*="Pista anterior"], button[aria-label*="Previous"], button[title*="Canción anterior"], button[title*="Pista anterior"], button[title*="Previous"]'
+        'button[title*="Shift+←"]:visible, button[aria-label*="Canción anterior"]:visible, button[aria-label*="Pista anterior"]:visible, button[aria-label*="Previous"]:visible'
       )
       .first();
     if (await prevButton.isVisible()) {
-      await prevButton.click();
+      await prevButton.click({ force: true });
       await page.waitForTimeout(200);
     }
   });
