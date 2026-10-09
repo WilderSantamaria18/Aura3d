@@ -14,6 +14,7 @@ export default defineConfig({
     screenshot: { mode: 'on', animations: 'disabled' },
     serviceWorkers: 'block',
     reducedMotion: 'reduce',
+    colorScheme: 'dark',
   },
   webServer: {
     command: process.env.CI ? 'npm run preview' : 'npm run dev',

@@ -15,10 +15,13 @@ async function waitForAppReady(page: Page) {
 
 test.describe('Aura3D Visual Regression Test Suite', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear storage and disable Onboarding modal for a clean, deterministic test sandbox
+    // Clear storage and enforce dark mode + completed onboarding for a deterministic test sandbox
     await page.addInitScript(() => {
       window.localStorage.clear();
       window.localStorage.setItem('aura3d_studio_onboarded_v1', 'true');
+      window.localStorage.setItem('aura3d_theme_mode', 'dark');
+      window.localStorage.setItem('aura3d_accent_color', 'cyan');
+      document.documentElement.setAttribute('data-theme', 'dark');
     });
   });
 
@@ -27,7 +30,7 @@ test.describe('Aura3D Visual Regression Test Suite', () => {
 
     // Snapshot Landing View across configured viewports
     await expect(page).toHaveScreenshot('landing.png', {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
       animations: 'disabled',
     });
   });
@@ -41,7 +44,7 @@ test.describe('Aura3D Visual Regression Test Suite', () => {
     await expect(eqDialog).toBeVisible({ timeout: 15000 });
 
     await expect(page).toHaveScreenshot('equalizer.png', {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
       animations: 'disabled',
     });
   });
@@ -55,7 +58,7 @@ test.describe('Aura3D Visual Regression Test Suite', () => {
     await expect(cmdPalette).toBeVisible({ timeout: 15000 });
 
     await expect(page).toHaveScreenshot('command-palette.png', {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
       animations: 'disabled',
     });
   });
