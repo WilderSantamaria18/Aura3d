@@ -558,6 +558,8 @@ export interface Track {
   spotifyUri?: string;
   youtubeId?: string;
   isIframePlayback?: boolean;
+  /** Canal/uploader del vídeo de YouTube. NO es necesariamente el artista. */
+  uploader?: string;
   coverUrl?: string;
   lrcContent?: string;
   addedAt: number;

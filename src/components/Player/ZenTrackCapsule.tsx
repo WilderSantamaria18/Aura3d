@@ -45,21 +45,9 @@ export const ZenTrackCapsule: React.FC<ZenTrackCapsuleProps> = ({ onExpand }) =>
     >
       <div
         onClick={handleRestore}
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          e.currentTarget.style.setProperty('--zen-specular-x', `${x.toFixed(1)}%`);
-        }}
         className="visionos-ornament relative overflow-hidden px-3.5 py-1.5 h-12 flex items-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
         title="Click para restaurar controles completos de reproducción"
       >
-        {/* Borde especular activo visionOS */}
-        <div
-          className="absolute inset-x-0 top-0 h-[1.5px] pointer-events-none opacity-60 transition-opacity duration-300 group-hover:opacity-100"
-          style={{
-            background: `radial-gradient(120px circle at var(--zen-specular-x, 50%) 0%, rgba(255, 255, 255, 0.95) 0%, rgba(0, 229, 255, 0.4) 50%, transparent 100%)`,
-          }}
-        />
         {/* Cover Artwork Thumbnail with Mini Vinyl Spin */}
         <div
           className={`relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/20 bg-black/60 shadow-md flex items-center justify-center transition-all ${

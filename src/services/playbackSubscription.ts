@@ -51,10 +51,11 @@ export function ensureGlobalEngineSubscription() {
       isPlaying,
       hasStarted: isPlaying ? true : state.hasStarted,
       isAudioUnlocked: isPlaying ? true : state.isAudioUnlocked,
+      // Los estados transitorios del pipeline de YouTube no se pisan desde el motor nativo.
       playbackStatus:
         isPlaying
           ? 'playing'
-          : state.playbackStatus === 'error' || state.playbackStatus === 'resolving'
+          : ['error', 'unavailable', 'searching', 'retrying', 'loading'].includes(state.playbackStatus)
             ? state.playbackStatus
             : 'idle',
     }));

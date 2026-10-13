@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { StreamStartTimeoutError, fetchYouTubeInfo, startWithTimeout } from '../services/youtubeLoad';
+import {
+  StreamStartTimeoutError,
+  buildYouTubeInfoPatch,
+  fetchYouTubeInfo,
+  startWithTimeout,
+} from '../services/youtubeLoad';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -36,6 +41,20 @@ describe('fetchYouTubeInfo', () => {
     const pending = fetchYouTubeInfo('x', 6000, hanging as unknown as typeof fetch);
     await vi.advanceTimersByTimeAsync(6001);
     expect(await pending).toBeNull();
+  });
+});
+
+describe('buildYouTubeInfoPatch · el canal no es el artista', () => {
+  it('aplica el canal como uploader y nunca como artista', () => {
+    const patch = buildYouTubeInfoPatch({ title: 'Tema', artist: 'LatinHype', duration: 197 });
+    expect(patch).toEqual({ title: 'Tema', uploader: 'LatinHype', duration: 197 });
+    expect(patch).not.toHaveProperty('artist');
+  });
+
+  it('ignora la duración desconocida y los metadatos vacíos', () => {
+    expect(buildYouTubeInfoPatch({ title: 'Solo título' })).toEqual({ title: 'Solo título' });
+    expect(buildYouTubeInfoPatch({ duration: 0 })).toEqual({});
+    expect(buildYouTubeInfoPatch(null)).toEqual({});
   });
 });
 

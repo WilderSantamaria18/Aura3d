@@ -28,94 +28,99 @@ Near	2	40–60 px	Modales, overlays, alertas críticas
 La regla: a mayor elevación, mayor blur y mayor saturación de specular. La luz siempre viene de arriba (eje Y negativo), consistente con el resto del design system.
 
 2.2 Tokens de Material (CSS)
+Estado: implementado en src/index.css (:root y [data-theme="light"]). Los nombres
+--liquid-* son los que consumen las clases; --blur-*/--edge-highlight-*/--shadow-*/
+--radius-material son los tokens canónicos de material.
+
 css
 /* ─── Far plane ─────────────────────────────── */
---material-canvas-dark:  rgba(6, 8, 14, 1);
---material-canvas-light: rgba(244, 246, 251, 1);
+--surface-base:   #06080e;
+--surface-canvas: #080b14;
 
 /* ─── Mid plane (glass estándar) ─────────────── */
---material-glass-dark:   rgba(14, 18, 30, 0.62);
---material-glass-light:  rgba(255, 255, 255, 0.72);
+--blur-glass:        40px;
+--saturate-glass:    190%;
+--contrast-glass:    105%;
+--shadow-mid-dark:
+  0 2px 4px rgba(0, 0, 0, 0.30),
+  0 10px 28px rgba(0, 0, 0, 0.40),
+  0 24px 64px -8px rgba(0, 0, 0, 0.65);
 
-/* ─── Near plane (glass elevado) ─────────────── */
---material-elevated-dark:  rgba(10, 14, 24, 0.82);
---material-elevated-light: rgba(255, 255, 255, 0.88);
+/* ─── Near plane (modales) ───────────────────── */
+--blur-elevated:     56px;
+--saturate-elev:     200%;
+--shadow-near-dark:
+  0 2px 6px rgba(0, 0, 0, 0.35),
+  0 16px 36px rgba(0, 0, 0, 0.45),
+  0 36px 84px -12px rgba(0, 0, 0, 0.85);
 
-/* ─── Overlay modal (más opaco) ──────────────── */
---material-overlay-dark:  rgba(8, 11, 20, 0.94);
---material-overlay-light: rgba(255, 255, 255, 0.96);
+/* ─── Nivel editorial del landing (blur contenido por coste sobre orbes) ── */
+--blur-editorial:    18px;
+--saturate-editorial: 170%;
 
-/* ─── Blur y saturación ──────────────────────── */
---blur-glass:     20px;
---blur-elevated:  40px;
---blur-overlay:   60px;
---saturate-glass: 180%;
---saturate-elev:  200%;
 2.3 Borde especular (light catching)
 Ningún vidrio se ve bien sin su borde iluminado. Esta es la firma visual del Liquid Glass.
 
 css
-/* Borde superior brillante, borde inferior sutil */
+/* Borde superior brillante, borde inferior sutil (un solo token para los dos planos) */
 --edge-highlight-dark:
-  inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-  inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  inset 0 1px 1.5px rgba(255, 255, 255, 0.25),
+  inset 0 -1px 1px rgba(0, 0, 0, 0.25);
 
 --edge-highlight-light:
   inset 0 1px 0 0 rgba(255, 255, 255, 0.90),
   inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+
 2.4 Sombras estratificadas (no una sola)
-css
-/* Tres capas: contacto + difusa + ambiental */
---shadow-mid-dark:
-  0 1px 2px rgba(0, 0, 0, 0.30),
-  0 4px 12px rgba(0, 0, 0, 0.20),
-  0 12px 32px rgba(0, 0, 0, 0.12);
+Las sombras exteriores viven en --shadow-mid-dark (Mid) y --shadow-near-dark (Near);
+el borde especular se compone aparte con --edge-highlight-dark. Métricas tienen su
+propio par en claro: --shadow-mid-light / --shadow-near-light.
 
---shadow-near-dark:
-  0 2px 4px rgba(0, 0, 0, 0.35),
-  0 8px 24px rgba(0, 0, 0, 0.28),
-  0 24px 64px rgba(0, 0, 0, 0.20);
-
-/* Light theme: sombras más suaves y difusas */
---shadow-mid-light:
-  0 1px 2px rgba(15, 20, 32, 0.06),
-  0 4px 12px rgba(15, 20, 32, 0.08),
-  0 12px 32px rgba(15, 20, 32, 0.06);
 2.5 Definición del material completo
+Las clases implementadas son .liquid-glass (Mid) y .liquid-glass--modal (Near). No
+existen .material-glass / .material-elevated / .material-overlay: si un componente
+nuevo necesita material, usa estas.
+
 css
-.material-glass {
-  background: var(--material-glass-dark);
-  backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(var(--saturate-glass));
-  border-radius: var(--radius-card);
-  box-shadow: var(--edge-highlight-dark), var(--shadow-mid-dark);
+.liquid-glass,
+.liquid-glass-drawer,
+.liquid-glass-dock {
+  backdrop-filter: var(--liquid-blur);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.09) 0%,
+    var(--glass-tint-active, rgba(0, 229, 255, 0.04)) 28%,
+    rgba(18, 22, 34, 0.68) 55%,
+    rgba(8, 10, 18, 0.86) 100%
+  );
+  border-radius: var(--radius-material);
+  box-shadow: var(--shadow-mid-dark), var(--edge-highlight-dark);
 }
 
-.material-elevated {
-  background: var(--material-elevated-dark);
-  backdrop-filter: blur(var(--blur-elevated)) saturate(var(--saturate-elev));
-  -webkit-backdrop-filter: blur(var(--blur-elevated)) saturate(var(--saturate-elev));
-  border-radius: var(--radius-container);
-  box-shadow: var(--edge-highlight-dark), var(--shadow-near-dark);
+.liquid-glass--modal,
+.liquid-glass-modal {
+  backdrop-filter: var(--liquid-blur-elevated);
+  background: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.11) 0%,
+    var(--glass-tint-active, rgba(0, 229, 255, 0.05)) 25%,
+    rgba(14, 18, 30, 0.80) 50%,
+    rgba(8, 10, 18, 0.94) 100%
+  );
+  border-radius: var(--radius-material-lg);
+  box-shadow: var(--shadow-near-dark), var(--edge-highlight-dark);
 }
 
-.material-overlay {
-  background: var(--material-overlay-dark);
-  backdrop-filter: blur(var(--blur-overlay)) saturate(var(--saturate-elev));
-  -webkit-backdrop-filter: blur(var(--blur-overlay)) saturate(var(--saturate-elev));
-  border-radius: var(--radius-container);
-  box-shadow: var(--edge-highlight-dark), var(--shadow-near-dark);
-}
 2.6 Vibrancy (tinte del contenido de fondo)
-En iOS, el vidrio se tiñe con el color del contenido detrás. Se implementa con un acento que varía según el contexto:
+El vidrio se tiñe con el acento activo. Los tokens implementados son:
 
 css
-/* El vidrio hereda un tinte del accent activo */
---glass-tint-cyan:    rgba(0, 229, 255, 0.06);
---glass-tint-violet:  rgba(168, 85, 247, 0.06);
---glass-tint-rose:    rgba(255, 45, 85, 0.06);
---glass-tint-emerald: rgba(52, 199, 89, 0.06);
-Se aplica como capa adicional sobre el material base con mix-blend-mode: overlay.
+--glass-tint-active:    rgba(0, 229, 255, 0.05);  /* acento activo (cyan por defecto) */
+--glass-tint-secondary: rgba(168, 85, 247, 0.03); /* acento secundario */
+--glass-rim-accent:     rgba(255, 255, 255, 0.32);/* borde superior del vidrio */
+
+El landing editorial usa además su propio par --lp-cyan / --lp-violet sobre .lp-orb
+para la luz ambiental que el vidrio refracta.
 
 3. Temas Soportados
 La aplicación soporta modos Oscuro (Dark), Claro (Light) y Automático (Auto) mediante el atributo data-theme en <html>:
@@ -130,11 +135,16 @@ auto sigue prefers-color-scheme y reevalúa en tiempo real.
 Token CSS	Dark	Light	Material
 --surface-base	#06080e	#f4f6fb	Far (opaco)
 --surface-canvas	#080b14	#edf1f8	Far (opaco)
---surface-dock	rgba(14, 18, 30, 0.62)	rgba(255, 255, 255, 0.72)	Mid (glass)
+--surface-dock	rgba(12, 16, 28, 0.72)	rgba(255, 255, 255, 0.94)	Mid (glass)
 --surface-card	rgba(18, 24, 38, 0.70)	rgba(255, 255, 255, 0.88)	Mid (glass)
---surface-overlay	rgba(8, 11, 20, 0.94)	rgba(255, 255, 255, 0.96)	Near (elevated)
+--surface-overlay	rgba(10, 14, 24, 0.95)	rgba(255, 255, 255, 0.97)	Near (elevated)
 --surface-hover	rgba(255, 255, 255, 0.06)	rgba(0, 0, 0, 0.04)	Hover
 --surface-active	rgba(255, 255, 255, 0.10)	rgba(0, 0, 0, 0.08)	Active/pressed
+
+Nota de decisión: --surface-dock se acordó en 0.72 (esta doc pedía 0.62 y el código
+tenía 0.92). Conserva el efecto vidrio sin comprometer la legibilidad de los valores
+DSP que el dock muestra sobre el canvas 3D.
+
 5. Jerarquía de Contraste Tipográfico (WCAG AA)
 Token CSS	Dark	Light	Uso
 --text-primary	#ffffff	#0a0d14	Títulos principales, valores activos
@@ -155,14 +165,24 @@ Cada acento define su propio par --accent-{name} y --accent-{name}-soft (para fo
 
 7. Escala Geométrica y Espaciado Estricto
 7.1 Escala de Radios (squircle continuo)
-Usamos radios continuos estilo iOS, más suaves que un border-radius convencional:
+Escala implementada en src/index.css. Los radios de material son los que usan
+.liquid-glass* y .lp-glass.
 
 css
+/* Controles y contenedores */
 --radius-container: 22px;  /* Modales, ventanas flotantes, docks */
---radius-card:      14px;  /* Tarjetas de pista, popovers */
---radius-control:   11px;  /* Botones interactivos, inputs */
---radius-badge:      7px;  /* Badges <kbd>, tags de estado */
+--radius-modal:     20px;  /* Modales de diálogo */
+--radius-dock:      18px;  /* Dock y drawers */
+--radius-card:      16px;  /* Tarjetas de pista, popovers */
+--radius-control:    8px;  /* Botones interactivos, inputs */
+--radius-badge:      5px;  /* Badges <kbd>, tags de estado */
 --radius-pill:    9999px;  /* Píldoras de filtro, switches */
+
+/* Materiales (superficies de vidrio) */
+--radius-material:    28px;  /* .liquid-glass, .liquid-glass-dock, .lp-glass */
+--radius-material-sm: 24px;  /* .liquid-glass-card */
+--radius-material-lg: 32px;  /* .liquid-glass--modal */
+
 Para la curvatura continua real de iOS:
 
 css
@@ -173,6 +193,7 @@ css
 @supports (corner-shape: squircle) {
   .squircle { corner-shape: squircle; }
 }
+
 7.2 Escala de Espaciado (8pt System)
 text
 --space-1:   4px
@@ -195,7 +216,16 @@ Clase	Tamaño	Line Height	Letter Spacing	Weight	Uso
 .type-caption	0.6875rem (11px)	1.4	0.01em	500	Metadatos y badges
 .type-mono	0.75rem (12px)	1.4	-0.01em	500	Frecuencias DSP, timestamps
 .font-tabular	inherited	inherited	inherited	inherited	Cifras tabulares (tabular-nums)
-Tipografía principal: SF Pro en Apple, con fallback a Inter y Geist para el resto de plataformas.
+
+Suelo tipográfico: 12px para cualquier texto de lectura (incluidas etiquetas en
+mayúsculas y telemetría). 11px queda reservado a badges y contadores. Ningún texto
+de lectura por debajo de 12px y ninguna opacidad de texto por debajo de 0.60 sobre
+material: se midió que 0.40 daba 3.78-4.06:1.
+
+Tipografías (declaradas en @theme de src/index.css y cargadas en index.html):
+- Sans: SF Pro en Apple; Inter → Geist → Segoe UI → Roboto en el resto.
+- Mono: JetBrains Mono (se sirve desde Google Fonts); antes `font-mono` caía en
+  ui-monospace (Consolas) e ignoraba la fuente cargada.
 
 9. Motion Design y Accesibilidad Motriz
 9.1 Duraciones y Curvas Estándar
@@ -205,16 +235,17 @@ css
 --duration-slow:   400ms;  /* Modales, transiciones de pantalla */
 
 --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
---ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
---ease-glass:  cubic-bezier(0.22, 1, 0.36, 1);  /* Entrada/salida de modales */
+--ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);  /* con rebote */
+--ease-glass:  cubic-bezier(0.22, 1, 0.36, 1);           /* entrada/salida de modales */
+
 9.2 Microinteracciones Táctiles
-.btn-spring: escala a 0.96 al pulsar con recuperación spring.
+.btn-spring: escala y desplazamiento al pulsar con recuperación spring
+(transform 0.22s var(--ease-spring)). Una sola definición en src/index.css.
 
-.btn-press: escala rápida a 0.94 para teclas.
+.btn-press: escala rápida a 0.92 para teclas, con --ease-smooth.
 
-.card-interactive: elevación y contraste de borde en hover.
-
-.glass-hover: incrementa el --edge-highlight y aumenta --blur-glass en +4 px en hover, simulando más vidrio.
+.lp-btn (landing): min-height 48px, radio --radius-pill, :focus-visible con
+outline cian de 2px y offset 3px.
 
 9.3 Animación de entrada de modales
 Los modales no aparecen con fade. Emergen desde el contenido:
@@ -229,7 +260,7 @@ css
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-    backdrop-filter: blur(var(--blur-overlay)) saturate(var(--saturate-elev));
+    backdrop-filter: blur(var(--blur-elevated)) saturate(var(--saturate-elev));
   }
 }
 Duración: --duration-slow con --ease-glass.
@@ -346,3 +377,32 @@ Antes de mergear cualquier componente nuevo, verificar:
 □ Su backdrop-filter no se recalcula por frame.
 □ No apila más de 2 materiales glass en el mismo eje visual.
 □ Su acento, si lo tiene, viene de la paleta definida.
+□ Ningún texto de lectura por debajo de 12px (11px solo badges) ni con opacidad < 0.60.
+□ No declara utilidades de Tailwind a mano en CSS sin capa: eso las suplanta.
+□ No redefine tokens en :root desde un archivo importado por una pantalla.
+
+14. Estado de Implementación Verificado
+Esta sección registra qué existe de verdad en el código, para que la doc no vuelva a
+describir un sistema distinto al implementado.
+
+Material (src/index.css): --blur-glass 40px, --blur-elevated 56px, --saturate-glass
+190%, --saturate-elev 200%, --contrast-glass 105%, --edge-highlight-dark/light,
+--shadow-mid-dark, --shadow-near-dark, --shadow-mid-light, --shadow-near-light,
+--radius-material 28px, --radius-material-sm 24px, --radius-material-lg 32px,
+--ease-glass. Consumidos por .liquid-glass / .liquid-glass--modal y por .lp-glass.
+
+Radios: --radius-container 22px, --radius-modal 20px, --radius-dock 18px,
+--radius-card 16px, --radius-control 8px, --radius-badge 5px, --radius-pill 9999px.
+
+Acentos de marca: declarados como --color-aura* en @theme (src/index.css), así que
+text-auraCyan / bg-auraViolet son utilidades reales de Tailwind. Antes eran clases
+escritas a mano en ConicStation.css, sin capa.
+
+Aislamiento entre superficies: ConicStation.css acota sus tokens a .lp-root. Antes
+los declaraba en :root y, al importarse desde la landing, pisaba globalmente
+--border-subtle (0.12 en lugar de 0.08) y con ello los bordes del estudio
+(App.tsx, SessionStatsModal, VisualizerPanel, AutoModeToast).
+
+Pendiente conocido: el landing mantiene su paleta editorial (--lp-*) como nivel
+documentado de material, no como un segundo sistema de color; su blur es
+--blur-editorial (18px) por coste de rendimiento sobre los orbes animados.

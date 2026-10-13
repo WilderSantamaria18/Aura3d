@@ -72,7 +72,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       id: videoId,
       title,
+      // `artist` y `uploader` son el CANAL del vídeo: el cliente decide si puede
+      // considerarlo artista (nunca sobrescribe al artista real de la pista).
       artist,
+      uploader: artist,
       duration,
       thumbnail,
     });
@@ -82,6 +85,7 @@ export default async function handler(req, res) {
       id: videoId,
       title,
       artist,
+      uploader: artist,
       duration: 0,
       thumbnail,
     });

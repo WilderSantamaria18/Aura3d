@@ -331,8 +331,53 @@ app.get(['/api/health', '/health'], (req, res) => {
 
 // In-memory cache & queue for YouTube processing
 const ytInfoCache = new Map();
+// El caché de metadatos caduca y está acotado: antes crecía sin límite durante toda la sesión.
+const YT_INFO_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const YT_INFO_CACHE_LIMIT = 500;
+const YT_SEARCH_CACHE_LIMIT = 200;
+
+function readInfoCache(videoId) {
+  const entry = ytInfoCache.get(videoId);
+  if (!entry) return null;
+  if (Date.now() - entry.savedAt > YT_INFO_CACHE_TTL_MS) {
+    ytInfoCache.delete(videoId);
+    return null;
+  }
+  return entry.info;
+}
+
+function writeInfoCache(videoId, info) {
+  if (ytInfoCache.size >= YT_INFO_CACHE_LIMIT) {
+    const oldest = ytInfoCache.keys().next().value;
+    if (oldest !== undefined) ytInfoCache.delete(oldest);
+  }
+  ytInfoCache.set(videoId, { info, savedAt: Date.now() });
+}
+
 const ytSearchCache = new Map();
 const ytDownloadQueue = new Map();
+
+/** Presupuesto total de una búsqueda: mejor responder rápido que esperar a yt-dlp. */
+const YT_SEARCH_BUDGET_MS = 9000;
+const YT_SEARCH_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function readSearchCache(key) {
+  const entry = ytSearchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.savedAt > YT_SEARCH_CACHE_TTL_MS) {
+    ytSearchCache.delete(key);
+    return null;
+  }
+  return entry.results;
+}
+
+function writeSearchCache(key, results) {
+  if (ytSearchCache.size >= YT_SEARCH_CACHE_LIMIT) {
+    const oldest = ytSearchCache.keys().next().value;
+    if (oldest !== undefined) ytSearchCache.delete(oldest);
+  }
+  ytSearchCache.set(key, { results, savedAt: Date.now() });
+}
 
 // ── Fast YouTube Search Helper ─────────────────────────────────────────────
 function parseDurationText(str) {
@@ -406,6 +451,7 @@ async function searchYouTubeDirect(query) {
 
 // ── YouTube Search Endpoint ────────────────────────────────────────────────
 app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
+  const startedAt = Date.now();
   try {
     const query = (req.query.q || req.query.query || '').toString().trim();
     if (!query || query.length < 2) {
@@ -413,20 +459,26 @@ app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
     }
 
     const cacheKey = query.toLowerCase();
-    if (ytSearchCache.has(cacheKey)) {
-      return res.json({ results: ytSearchCache.get(cacheKey) });
+    const cached = readSearchCache(cacheKey);
+    if (cached) {
+      res.setHeader('Cache-Control', 'private, max-age=1800');
+      return res.json({ results: cached, cached: true });
     }
 
-    // 1. Intento primario ultra-rápido: Direct Web Scraping (~400ms)
+    // 1. Intento primario ultra-rápido: Direct Web Scraping (~400ms, 6 s de presupuesto máximo)
     let results = await searchYouTubeDirect(query);
 
-    // 2. Intento secundario: Fallback a yt-dlp si el scraping directo no devolvió resultados
-    if ((!results || results.length === 0) && fs.existsSync(YTDLP_BIN)) {
+    // 2. Intento secundario: yt-dlp sólo si el scraping no dio nada y queda presupuesto.
+    //    yt-dlp tarda segundos: esperarlo siempre era la causa de que la búsqueda «se demorara
+    //    mucho». Ahora hay un presupuesto global y, si se agota, se responde lo que haya.
+    const elapsed = Date.now() - startedAt;
+    const dlpBudgetMs = YT_SEARCH_BUDGET_MS - elapsed;
+    if ((!results || results.length === 0) && dlpBudgetMs > 1500 && fs.existsSync(YTDLP_BIN)) {
       try {
         const { stdout } = await execFileAsync(
           YTDLP_BIN,
           ['--dump-json', '--flat-playlist', '--no-playlist', `ytsearch8:${query}`],
-          { timeout: 8000 }
+          { timeout: Math.min(8000, dlpBudgetMs) }
         );
         const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
         results = [];
@@ -461,8 +513,9 @@ app.get(['/api/youtube/search', '/youtube/search'], async (req, res) => {
       });
     }
 
-    ytSearchCache.set(cacheKey, results);
-    res.json({ results });
+    writeSearchCache(cacheKey, results);
+    res.setHeader('Cache-Control', 'private, max-age=1800');
+    res.json({ results, elapsedMs: Date.now() - startedAt });
   } catch (err) {
     console.warn('[YouTube Search Error]', err.message);
     res.status(500).json({ error: 'Error al buscar en YouTube: ' + err.message, results: [] });
@@ -593,46 +646,87 @@ app.get(['/api/youtube/related', '/youtube/related'], async (req, res) => {
 });
 
 // ── YouTube Audio Extractor & Real-Time Streamer via yt-dlp ────────────────
+/**
+ * Metadatos del vídeo. Nunca responde 5xx por un vídeo no disponible: si yt-dlp falla
+ * (bloqueado, privado, restringido por edad…) se degrada a oEmbed, que devuelve título,
+ * canal y miniatura. Así un vídeo problemático no rompe la carga ni ensucia la consola.
+ */
 app.get(['/api/youtube/info', '/youtube/info'], async (req, res) => {
-  try {
-    const videoId = (req.query.v || req.query.id || '').toString().trim();
-    if (!videoId || !/^[a-zA-Z0-9_-]{8,20}$/.test(videoId)) {
-      return res.status(400).json({ error: 'ID de video requerido y válido (ej: ?v=Bd9R1pFlOhQ)' });
-    }
-
-    if (ytInfoCache.has(videoId)) {
-      return res.json(ytInfoCache.get(videoId));
-    }
-
-    if (!fs.existsSync(YTDLP_BIN)) {
-      return res.status(503).json({ error: 'Motor de audio yt-dlp no encontrado en el servidor' });
-    }
-
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
-    const { stdout } = await execFileAsync(YTDLP_BIN, [
-      '--dump-json',
-      '--no-playlist',
-      url
-    ], { timeout: 20000 });
-
-    const details = JSON.parse(stdout);
-    const info = {
-      id: details.id || videoId,
-      title: details.title || 'YouTube Track',
-      artist: details.uploader || details.channel || details.artist || 'Artista de YouTube',
-      duration: Math.round(Number(details.duration) || 0),
-      thumbnail:
-        details.thumbnail ||
-        details.thumbnails?.[details.thumbnails.length - 1]?.url ||
-        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    };
-
-    ytInfoCache.set(videoId, info);
-    res.json(info);
-  } catch (err) {
-    console.warn('[YouTube Info Error]', err.message);
-    res.status(500).json({ error: 'No se pudo obtener información del video: ' + err.message });
+  const videoId = (req.query.v || req.query.id || '').toString().trim();
+  if (!videoId || !/^[a-zA-Z0-9_-]{8,20}$/.test(videoId)) {
+    return res.status(400).json({ error: 'ID de video requerido y válido (ej: ?v=Bd9R1pFlOhQ)' });
   }
+
+  const cached = readInfoCache(videoId);
+  if (cached) return res.json(cached);
+
+  const fallbackThumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+  // 1. Intento principal con yt-dlp (aporta duración exacta)
+  if (fs.existsSync(YTDLP_BIN)) {
+    try {
+      const url = `https://www.youtube.com/watch?v=${videoId}`;
+      const { stdout } = await execFileAsync(
+        YTDLP_BIN,
+        ['--dump-json', '--no-playlist', url],
+        { timeout: 12000 }
+      );
+
+      const details = JSON.parse(stdout);
+      const uploader = details.uploader || details.channel || details.artist || 'Artista de YouTube';
+      const info = {
+        id: details.id || videoId,
+        title: details.title || 'YouTube Track',
+        // `artist` se mantiene por compatibilidad, pero es el CANAL: el cliente lo usa como uploader.
+        artist: uploader,
+        uploader,
+        duration: Math.round(Number(details.duration) || 0),
+        thumbnail:
+          details.thumbnail ||
+          details.thumbnails?.[details.thumbnails.length - 1]?.url ||
+          fallbackThumbnail,
+        source: 'yt-dlp',
+      };
+
+      writeInfoCache(videoId, info);
+      return res.json(info);
+    } catch (err) {
+      console.warn('[YouTube Info] yt-dlp no pudo leer el vídeo, se usa oEmbed:', err.message);
+    }
+  }
+
+  // 2. Respaldo oficial: oEmbed (título, canal y miniatura sin duración)
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const oembedRes = await fetch(oembedUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (oembedRes.ok) {
+      const oembed = await oembedRes.json();
+      const uploader = oembed.author_name || 'Artista de YouTube';
+      const info = {
+        id: videoId,
+        title: oembed.title || 'YouTube Track',
+        artist: uploader,
+        uploader,
+        duration: 0,
+        thumbnail: oembed.thumbnail_url || fallbackThumbnail,
+        source: 'oembed',
+      };
+      writeInfoCache(videoId, info);
+      return res.json(info);
+    }
+  } catch (err) {
+    console.warn('[YouTube Info] oEmbed tampoco respondió:', err.message);
+  }
+
+  // 3. Ni yt-dlp ni oEmbed: el vídeo no es accesible (no es un fallo del servidor)
+  return res.status(404).json({
+    error: 'El vídeo no está disponible o no permite la lectura de sus metadatos.',
+    id: videoId,
+  });
 });
 
 function findCachedAudioFile(videoId) {

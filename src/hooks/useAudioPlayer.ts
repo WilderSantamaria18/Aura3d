@@ -23,9 +23,12 @@ import {
 } from '../services/liveInputs';
 import {
   canPlaySavedTrackDirectly,
+  confirmYouTubeCandidate,
   createTrackFromYouTubeCandidate,
+  getCachedYouTubeCandidate,
   replaceResolvedFavorite,
   resolveSavedTrackCandidate,
+  resolveSavedTrackCandidates,
   invalidateCachedYouTubeCandidate,
 } from '../utils/savedTrackPlayback';
 
@@ -33,7 +36,19 @@ import { ensureGlobalEngineSubscription } from '../services/playbackSubscription
 import { activeBlobUrl as activeBlobUrlRef } from '../services/playbackBlob';
 import { fetchRelatedTracks, ytSearchCache, type YouTubeSearchResult } from '../services/youtubeDiscovery';
 import { isAbort } from '../utils/isAbort';
-import { STREAM_START_TIMEOUT_MS, fetchYouTubeInfo, startWithTimeout } from '../services/youtubeLoad';
+import { STREAM_START_TIMEOUT_MS, buildYouTubeInfoPatch, fetchYouTubeInfo, startWithTimeout } from '../services/youtubeLoad';
+import {
+  setActiveYouTubeSession,
+  getActiveYouTubeSession,
+  awaitYouTubePlayback,
+  type ActiveYouTubeSession,
+} from '../services/youtubePlayerBridge';
+import {
+  YouTubeFallbackSession,
+  YT_ATTEMPT_TIMEOUT_MS,
+  YT_MAX_ATTEMPTS,
+  type YouTubeFallbackState,
+} from '../services/youtubeFallback';
 
 // Se siguen exportando desde aquí para no romper a quien ya los importa de este hook
 export { fetchRelatedTracks };
@@ -55,8 +70,26 @@ const setError = (message: string | null) => usePlayerStore.getState().setAudioE
 /** Cada carga de YouTube lleva un número: si llega otra mientras tanto, la anterior se descarta */
 let youtubeLoadSeq = 0;
 
+/** Igual que `youtubeLoadSeq`, pero para cualquier pista: evita que una carga lenta pise a la nueva. */
+let playTrackGeneration = 0;
+
 /** Duración mostrada hasta conocer la real (el reproductor de YouTube la corrige al arrancar) */
 const FALLBACK_YOUTUBE_DURATION = 210;
+
+/** Presupuesto para una comprobación opcional: si tarda más, se sigue con el valor por defecto. */
+const withTimeout = async <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
 
 /**
  * Arranca un stream propio con tiempo máximo. Si no empieza a sonar a tiempo se cancela la carga
@@ -184,10 +217,20 @@ export const useAudioPlayerActions = () => {
 
   const playTrack = useCallback(
     async (track: Track) => {
+      // Token de generación: si mientras esta carga se pide otra canción, esta se descarta
+      // en cada punto de espera. Antes, una carga lenta (stream que agota su tiempo) podía
+      // terminar después y pisar la canción que el usuario acababa de elegir.
+      const generation = ++playTrackGeneration;
+      const assertCurrent = () => {
+        if (generation !== playTrackGeneration) {
+          throw new DOMException('Carga reemplazada por otra canción', 'AbortError');
+        }
+      };
       try {
         setError(null);
-        setPlaybackStatus('buffering', `Preparando ${track.title}…`);
+        setPlaybackStatus('loading', `Preparando ${track.title}…`);
         await unlockAudio();
+        assertCurrent();
 
         const state = usePlayerStore.getState();
         if (state.isPlaying && state.currentTrack && state.currentTrack.id !== track.id) {
@@ -214,7 +257,9 @@ export const useAudioPlayerActions = () => {
           }
           const blobUrl = URL.createObjectURL(track.file);
           activeBlobUrlRef.current = blobUrl;
-          setDuration(await audioEngine.loadFile(track.file, blobUrl));
+          const loadedDuration = await audioEngine.loadFile(track.file, blobUrl);
+          assertCurrent();
+          setDuration(loadedDuration);
           setCurrentTrack({ ...track, url: blobUrl });
         } else if (isYouTube) {
           if (activeBlobUrlRef.current) {
@@ -223,6 +268,7 @@ export const useAudioPlayerActions = () => {
           }
           const isVercel = isVercelDeployment();
           const hasBackend = isVercel ? false : await hasNativeStreamBackend();
+          assertCurrent();
           const useIframe = !hasBackend || track.isIframePlayback || (Boolean(track.url) && track.url!.includes('youtube.com'));
 
           const cleanTrack: Track = {
@@ -241,6 +287,7 @@ export const useAudioPlayerActions = () => {
           } else if (cleanTrack.url) {
             try {
               await startStream(cleanTrack.url);
+              assertCurrent();
               setDuration(audioEngine.getDuration() || cleanTrack.duration || 210);
               setCurrentTrack(cleanTrack);
             } catch (loadErr) {
@@ -260,6 +307,7 @@ export const useAudioPlayerActions = () => {
         } else if (track.url) {
           try {
             await audioEngine.loadTrack(track.url, true);
+            assertCurrent();
             setDuration(audioEngine.getDuration() || track.duration || 0);
             setCurrentTrack(track);
           } catch (loadErr) {
@@ -270,6 +318,9 @@ export const useAudioPlayerActions = () => {
         } else {
           setCurrentTrack(track);
         }
+
+        // Si mientras cargaba se pidió otra canción, esta ya no debe tocar la cola ni el estado.
+        assertCurrent();
 
         // Sincronizar cola de reproducción automáticamente
         const currentQ = usePlayerStore.getState().queue;
@@ -291,7 +342,7 @@ export const useAudioPlayerActions = () => {
         setHasStarted(true);
         const activeTrack = usePlayerStore.getState().currentTrack;
         setPlaybackStatus(
-          activeTrack?.isIframePlayback ? 'buffering' : 'playing',
+          activeTrack?.isIframePlayback ? 'loading' : 'playing',
           activeTrack?.isIframePlayback
             ? `Conectando con YouTube: ${activeTrack.title}`
             : `Reproduciendo: ${activeTrack?.title || track.title}`
@@ -345,7 +396,7 @@ export const useAudioPlayerActions = () => {
         }
 
         setError(null);
-        setPlaybackStatus('resolving', `Buscando la mejor versión de ${track.title}…`);
+        setPlaybackStatus('searching', `Buscando la mejor versión de ${track.title}…`);
         if (options.forceYouTubeSearch) invalidateCachedYouTubeCandidate(track);
         timeoutId = window.setTimeout(() => {
           didTimeout = true;
@@ -361,9 +412,19 @@ export const useAudioPlayerActions = () => {
         await playTrack(resolvedTrack);
         if (savedTrackRequestRef.current !== controller) return resolvedTrack;
         setPlaybackStatus(
-          usePlayerStore.getState().currentTrack?.isIframePlayback ? 'buffering' : 'playing',
+          usePlayerStore.getState().currentTrack?.isIframePlayback ? 'loading' : 'playing',
           `Versión encontrada en YouTube: ${resolvedTrack.title}`
         );
+
+        // La caché de resolución sólo se escribe cuando el vídeo reproduce de verdad: un
+        // candidato confirmado se reutiliza; uno roto no se guarda durante 90 días.
+        if (resolvedTrack.youtubeId && resolvedTrack.isIframePlayback) {
+          void awaitYouTubePlayback(resolvedTrack.youtubeId, YT_ATTEMPT_TIMEOUT_MS)
+            .then(() => confirmYouTubeCandidate(track, candidate))
+            .catch(() => undefined);
+        } else if (resolvedTrack.youtubeId) {
+          confirmYouTubeCandidate(track, candidate);
+        }
 
         const currentFavorites = usePlayerStore.getState().favorites;
         const wasFavorite = currentFavorites.some(
@@ -400,6 +461,106 @@ export const useAudioPlayerActions = () => {
       }
     },
     [playTrack, setPlaybackStatus]
+  );
+
+  /**
+   * Reproduce una pista de YouTube con fallback automático entre candidatos.
+   *
+   * Sustituye al «intenta y ya veremos»: cada candidato tiene su propio presupuesto
+   * (`PLAYER_TIMEOUT`), los que fallan quedan excluidos para el resto de la sesión y
+   * nunca hay más de `YT_MAX_ATTEMPTS` intentos. Al agotarse, el estado es `unavailable`
+   * (nunca «cargando» indefinidamente) y el usuario no tiene que volver a pulsar Play.
+   */
+  const playYouTubeWithFallback = useCallback(
+    async (
+      track: Track,
+      options: { excludedIds?: string[]; forceSearch?: boolean } = {}
+    ): Promise<Track | null> => {
+      getActiveYouTubeSession()?.cancel();
+
+      const attempt = { track: null as Track | null };
+      let finished = false;
+
+      const session = new YouTubeFallbackSession({
+        maxAttempts: YT_MAX_ATTEMPTS,
+        attemptTimeoutMs: YT_ATTEMPT_TIMEOUT_MS,
+        onState: (state: YouTubeFallbackState) => {
+          if (state.status === 'playing') return; // lo confirma el propio reproductor
+          if (state.status === 'unavailable') {
+            setError(state.message ?? null);
+            setPlaybackStatus('unavailable', state.message ?? null);
+            setIsPlaying(false);
+            return;
+          }
+          if (state.status === 'searching' || state.status === 'loading' || state.status === 'retrying') {
+            setPlaybackStatus(state.status, state.message ?? null);
+          }
+        },
+        searchCandidates: ({ signal, excludedIds, attempt }) => {
+          // Si ya hay un candidato confirmado y sigue siendo válido, no se gasta una búsqueda
+          // en el primer intento: sólo si falla se buscan alternativas (intento 2).
+          const cached = options.forceSearch ? undefined : getCachedYouTubeCandidate(track);
+          const cachedUsable = Boolean(
+            cached &&
+              !excludedIds.includes(cached.id) &&
+              !excludedIds.includes(`yt_${cached.id}`)
+          );
+          return resolveSavedTrackCandidates(track, {
+            signal,
+            excludedIds,
+            forceRefresh: options.forceSearch,
+            skipSearch: cachedUsable && attempt <= 1,
+          });
+        },
+        playCandidate: async (candidate, context) => {
+          const next = createTrackFromYouTubeCandidate(candidate, track);
+          const videoId = next.youtubeId;
+          if (!videoId) throw new Error('El candidato de YouTube no tiene identificador de vídeo.');
+
+          // El oyente se registra ANTES de pedir el vídeo: así no se pierde el evento.
+          const playing = awaitYouTubePlayback(videoId, context.timeoutMs, context.signal);
+
+          audioEngine.releaseSources();
+          setCurrentTime(0);
+          setDuration(next.duration || FALLBACK_YOUTUBE_DURATION);
+          setCurrentTrack(next);
+          setIsPlaying(true);
+          setHasStarted(true);
+
+          await playing;
+          attempt.track = next;
+          // La caché sólo se escribe cuando el vídeo ha reproducido de verdad.
+          confirmYouTubeCandidate(track, candidate);
+        },
+      });
+
+      const adapter: ActiveYouTubeSession = {
+        trackId: track.id,
+        get excludedIds() {
+          return session.excludedIds;
+        },
+        get running() {
+          return !finished;
+        },
+        cancel: () => session.cancel(),
+      };
+
+      setActiveYouTubeSession(adapter);
+      try {
+        const result = await session.run();
+        if (result.outcome === 'playing') {
+          const played = attempt.track;
+          setPlaybackStatus('playing', `Reproduciendo: ${played?.title || track.title}`);
+          setError(null);
+          return played;
+        }
+        return null; // unavailable o cancelada: el estado ya está fijado
+      } finally {
+        finished = true;
+        if (getActiveYouTubeSession() === adapter) setActiveYouTubeSession(null);
+      }
+    },
+    [setCurrentTrack, setCurrentTime, setDuration, setIsPlaying, setHasStarted, setPlaybackStatus]
   );
 
   const playNext = useCallback(async () => {
@@ -553,8 +714,12 @@ export const useAudioPlayerActions = () => {
       const seq = ++youtubeLoadSeq;
       try {
         setError(null);
-        setPlaybackStatus('buffering', 'Conectando con YouTube…');
-        await unlockAudio();
+        setPlaybackStatus('loading', 'Conectando con YouTube…');
+
+        // El motor Web Audio se prepara EN SEGUNDO PLANO: el vídeo de YouTube no depende de él
+        // (su audio sale del iframe). Esperarlo añadía cientos de milisegundos —o segundos— a
+        // cada canción antes de que apareciera nada en pantalla.
+        void unlockAudio().catch(() => undefined);
 
         // La canción se muestra YA con lo que se conoce (el resultado de la búsqueda trae título,
         // artista y portada). Los metadatos del servidor son un extra: se piden en segundo plano más
@@ -563,9 +728,13 @@ export const useAudioPlayerActions = () => {
         const artist = fallbackInfo?.artist || 'YouTube Stream';
         const coverUrl = fallbackInfo?.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
-        // Si estamos en Vercel o sin backend nativo, se usa directamente el reproductor oficial
+        // Si estamos en Vercel o sin backend nativo, se usa directamente el reproductor oficial.
+        // El sondeo de backend tiene presupuesto propio: si tarda, se asume iframe (que es el
+        // camino seguro) en lugar de retrasar la reproducción.
         const isVercel = isVercelDeployment();
-        const hasBackend = isVercel ? false : await hasNativeStreamBackend();
+        const hasBackend = isVercel
+          ? false
+          : await withTimeout(hasNativeStreamBackend(), 1200, false);
         const streamUrl = `/api/youtube/stream?v=${videoId}`;
         let useIframe = !hasBackend;
 
@@ -607,20 +776,20 @@ export const useAudioPlayerActions = () => {
 
         setCurrentTrack(track);
         setPlaybackStatus(
-          useIframe ? 'buffering' : 'playing',
+          useIframe ? 'loading' : 'playing',
           useIframe ? `Conectando con YouTube: ${track.title}` : `Reproduciendo: ${track.title}`
         );
 
-        // Metadatos en segundo plano: se aplican solo si la canción sigue siendo esta
+        // Metadatos en segundo plano: se aplican solo si la canción sigue siendo esta.
+        // IMPORTANTE: el uploader del vídeo NO es el artista. Antes se sobrescribía
+        // `artist` con el canal («LatinHype», «sweetblue.») y las letras se buscaban con
+        // ese nombre. Ahora el canal se guarda aparte, en `uploader`.
         void fetchYouTubeInfo(videoId).then((info) => {
           if (!info || seq !== youtubeLoadSeq) return;
           const state = usePlayerStore.getState();
           const current = state.currentTrack;
           if (!current || current.id !== track.id) return;
-          const patch: Partial<Track> = {};
-          if (info.title) patch.title = info.title;
-          if (info.artist) patch.artist = info.artist;
-          if (info.duration && info.duration > 0) patch.duration = info.duration;
+          const patch = buildYouTubeInfoPatch(info);
           if (Object.keys(patch).length === 0) return;
           usePlayerStore.setState({ currentTrack: { ...current, ...patch } });
           // Mientras el reproductor de YouTube no informe de la duración real, se usa la del servidor
@@ -820,6 +989,7 @@ export const useAudioPlayerActions = () => {
     fetchRelatedTracks,
     playTrack,
     playSavedTrack,
+    playYouTubeWithFallback,
     playRadioStation,
     startSystemCapture,
     startMicrophoneCapture,

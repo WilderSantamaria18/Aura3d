@@ -93,6 +93,10 @@ export default defineConfig({
           if (/[\/]node_modules[\/]@mediapipe[\/]/.test(id)) return 'vendor-mediapipe';
           if (/[\/]node_modules[\/](framer-motion|motion|motion-dom|motion-utils)[\/]/.test(id)) return 'vendor-motion';
           if (/[\/]node_modules[\/](react|react-dom|scheduler|zustand)[\/]/.test(id)) return 'vendor-react';
+          if (/[\/]node_modules[\/](chart\.js|react-chartjs-2)[\/]/.test(id)) return 'vendor-charts';
+          if (/[\/]node_modules[\/](i18next|react-i18next)[\/]/.test(id)) return 'vendor-i18n';
+          if (/[\/]node_modules[\/](socket\.io-client|engine\.io-client)[\/]/.test(id)) return 'vendor-socket';
+          if (/[\/]node_modules[\/](kuroshiro|kuroshiro-analyzer-kuromoji|wanakana)[\/]/.test(id)) return 'vendor-cjk';
           return undefined;
         },
       },
@@ -102,12 +106,15 @@ export default defineConfig({
     modulePreload: {
       polyfill: true,
       resolveDependencies: (_filename, deps) => {
-        // Filter out deferred 3D visualizers, charts, and heavy studio modules from initial HTML modulepreload
+        // Filter out deferred 3D visualizers, charts, CJK romanization, and heavy studio modules from initial HTML modulepreload
         return deps.filter(
           (dep) =>
             !dep.includes('chart') &&
             !dep.includes('Visualizer') &&
-            !dep.includes('Admin')
+            !dep.includes('Admin') &&
+            !dep.includes('vendor-cjk') &&
+            !dep.includes('vendor-charts') &&
+            !dep.includes('vendor-socket')
         );
       },
     },

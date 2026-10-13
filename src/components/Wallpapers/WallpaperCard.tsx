@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Heart, Eye, Check, Sparkles, Download } from 'lucide-react';
 import type { WallpaperPreset, WallpaperGenerationResult } from '../../types/wallpaper';
 import { useWallpaperStore } from '../../stores/wallpaperStore';
@@ -19,9 +19,7 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
   isFavorite = false,
   onToggleFavorite,
 }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [tilt, setTilt] = useState({ x: 0, y: 0, sheenX: 50, sheenY: 50, isHovered: false });
 
   const currentWallpaper = useWallpaperStore((s) => s.currentWallpaper);
   const isApplied = currentWallpaper?.id === item.id;
@@ -29,21 +27,6 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
   const title = 'name' in item ? item.name : item.prompt;
   const description = 'description' in item ? item.description : item.style;
   const imageUrl = 'thumbnailUrl' in item ? item.thumbnailUrl : item.thumbnail || item.url;
-
-  // 3D Tilt calculation based on mouse coordinates inside card
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    const rotX = (0.5 - y) * 10;
-    const rotY = (x - 0.5) * 10;
-    setTilt({ x: rotX, y: rotY, sheenX: x * 100, sheenY: y * 100, isHovered: true });
-  };
-
-  const handleMouseLeave = () => {
-    setTilt({ x: 0, y: 0, sheenX: 50, sheenY: 50, isHovered: false });
-  };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -89,20 +72,11 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
 
   return (
     <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={`group glass-card !p-0 overflow-hidden flex flex-col will-change-transform transition-all ${
+      className={`group glass-card !p-0 overflow-hidden flex flex-col transition-all ${
         isApplied
           ? '!border-cyan-400/50 shadow-[0_0_0_1.5px_rgba(6,182,212,0.45),0_16px_40px_-8px_rgba(6,182,212,0.3)]'
-          : 'hover:border-white/25 hover:shadow-[0_20px_45px_rgba(0,0,0,0.7)]'
+          : 'hover:border-white/25'
       }`}
-      style={{
-        transform: tilt.isHovered
-          ? `perspective(1000px) rotateX(${tilt.x.toFixed(2)}deg) rotateY(${tilt.y.toFixed(2)}deg) scale3d(1.025, 1.025, 1.025)`
-          : 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-        transition: tilt.isHovered ? 'transform 120ms ease-out' : 'transform 450ms ease-out, border-color 300ms, box-shadow 300ms',
-      }}
     >
       {/* Image Thumbnail Container with 16:9 Aspect Ratio & Iridescent Skeleton */}
       <div
@@ -120,16 +94,6 @@ export const WallpaperCard: React.FC<WallpaperCardProps> = ({
             isLoaded ? 'opacity-100 filter-none' : 'opacity-0'
           }`}
         />
-
-        {/* Specular Liquid Glint following cursor */}
-        {tilt.isHovered && (
-          <div
-            className="absolute inset-0 pointer-events-none mix-blend-overlay opacity-75 transition-opacity"
-            style={{
-              background: `radial-gradient(circle 240px at ${tilt.sheenX}% ${tilt.sheenY}%, rgba(255, 255, 255, 0.45), transparent 70%)`,
-            }}
-          />
-        )}
 
         {/* Top Badges & Actions */}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-auto z-10">

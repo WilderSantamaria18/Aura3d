@@ -9,7 +9,8 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import {
   X,
   Play,
@@ -68,10 +69,18 @@ export const VideoTheaterModal: React.FC = () => {
 
   useEffect(() => {
     resetControlsTimer();
+    if (!isVideoTheaterOpen) return;
+
+    // El iframe vive en un portal hermano (z-85), no dentro de esta capa de controles.
+    // Se escucha el movimiento global para que los controles reaparezcan también cuando el
+    // puntero está sobre el vídeo real.
+    const onPointerMove = () => resetControlsTimer();
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
     return () => {
+      window.removeEventListener('pointermove', onPointerMove);
       if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
     };
-  }, [resetControlsTimer]);
+  }, [isVideoTheaterOpen, resetControlsTimer]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -137,70 +146,82 @@ export const VideoTheaterModal: React.FC = () => {
   const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <AnimatePresence>
+    <>
+      {/* Capa 1 (z-80): backdrop + Ambilight, por DEBAJO del vídeo. Se monta en body
+          para no quedar atrapada dentro del stacking context de los controles. */}
+      {createPortal(
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.28 }}
+          onClick={() => setVideoTheaterOpen(false)}
+          data-youtube-theater-layer="backdrop"
+          className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-2xl select-none"
+          aria-hidden="true"
+        >
+          {/* ── Reactive Ambilight Halo Layer ── */}
+          {ambilightMode !== 'off' && (
+            <div
+              className="absolute inset-0 m-auto w-[min(94vw,1040px)] aspect-video pointer-events-none transition-transform duration-75"
+              style={{
+                transform: `scale(${ambScale})`,
+                opacity: ambOpacity,
+              }}
+            >
+              {/* Primary diffuse chromatic aura */}
+              <div
+                className="absolute -inset-10 sm:-inset-16 rounded-[48px] blur-3xl opacity-75"
+                style={{
+                  background: `radial-gradient(circle, ${accentColor} 0%, rgba(168,85,247,0.3) 60%, transparent 80%)`,
+                }}
+              />
+              {/* Secondary perimeter edge light */}
+              <div
+                className="absolute -inset-4 sm:-inset-8 rounded-[36px] blur-xl opacity-60"
+                style={{
+                  background: `conic-gradient(from 180deg at 50% 50%, ${accentColor} 0deg, #a855f7 120deg, #3b82f6 240deg, ${accentColor} 360deg)`,
+                }}
+              />
+            </div>
+          )}
+        </motion.div>,
+        document.body
+      )}
+
+      {/* Capa 3 (z-90): marco y controles, por ENCIMA del portal de vídeo z-85. El
+          centro es transparente y no captura el puntero, por lo que YouTube sigue siendo
+          interactivo; sólo header y transportes usan pointer-events. */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
         transition={{ duration: 0.28 }}
-        onMouseMove={resetControlsTimer}
-        className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-2xl select-none"
+        data-youtube-theater-layer="controls"
+        className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 pointer-events-none select-none"
       >
-        {/* Backdrop click to close */}
-        <div
-          className="absolute inset-0"
-          onClick={() => setVideoTheaterOpen(false)}
-          aria-hidden="true"
-        />
-
-        {/* ── Reactive Ambilight Halo Layer ── */}
-        {ambilightMode !== 'off' && (
-          <div
-            className="absolute inset-0 m-auto w-[min(94vw,1040px)] aspect-video pointer-events-none transition-transform duration-75"
-            style={{
-              transform: `scale(${ambScale})`,
-              opacity: ambOpacity,
-            }}
-          >
-            {/* Primary diffuse chromatic aura */}
-            <div
-              className="absolute -inset-10 sm:-inset-16 rounded-[48px] blur-3xl opacity-75"
-              style={{
-                background: `radial-gradient(circle, ${accentColor} 0%, rgba(168,85,247,0.3) 60%, transparent 80%)`,
-              }}
-            />
-            {/* Secondary perimeter edge light */}
-            <div
-              className="absolute -inset-4 sm:-inset-8 rounded-[36px] blur-xl opacity-60"
-              style={{
-                background: `conic-gradient(from 180deg at 50% 50%, ${accentColor} 0deg, #a855f7 120deg, #3b82f6 240deg, ${accentColor} 360deg)`,
-              }}
-            />
-          </div>
-        )}
-
         {/* ── Main Cinema Stage Chassis ── */}
         <motion.div
           initial={{ scale: 0.92, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.92, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-          className="relative z-10 w-[min(94vw,1040px)] aspect-video rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.95)] border border-white/20 bg-black flex flex-col group/stage"
-          onClick={(e) => e.stopPropagation()}
+          className="relative w-[min(94vw,1040px)] rounded-2xl sm:rounded-3xl overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.95)] border border-white/20 bg-transparent flex flex-col group/stage pointer-events-none"
         >
           {/* YouTube Video Slot */}
-          <div className="absolute inset-0 w-full h-full bg-black">
+          <div data-youtube-host="cinema" className="relative w-full aspect-video pointer-events-none">
             <GlobalYouTubePlayer
               showVideoInPlayer={isVideoTheaterOpen}
               interactive={true}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full pointer-events-none"
               borderRadius="24px"
+              /* El modal vive en z-[80]: el portal debe quedar por encima o el vídeo se vería
+                 detrás del fondo negro con blur (era el fallo del Modo Cine). */
+              zIndex={85}
             />
           </div>
 
           {/* ── Top Cinema Glass Header ── */}
           <div
-            className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent transition-opacity duration-300 ${
+            className={`absolute top-0 inset-x-0 z-30 p-3 sm:p-4 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent transition-opacity duration-300 pointer-events-auto ${
               controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
@@ -275,7 +296,7 @@ export const VideoTheaterModal: React.FC = () => {
 
           {/* ── Bottom Cinema Floating Transport Deck ── */}
           <div
-            className={`absolute bottom-0 inset-x-0 z-30 p-3 sm:p-5 flex flex-col gap-2.5 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-300 ${
+            className={`absolute bottom-0 inset-x-0 z-30 p-3 sm:p-5 flex flex-col gap-2.5 bg-gradient-to-t from-black/85 via-black/50 to-transparent transition-opacity duration-300 pointer-events-auto ${
               controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
@@ -374,7 +395,7 @@ export const VideoTheaterModal: React.FC = () => {
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </>
   );
 };
 

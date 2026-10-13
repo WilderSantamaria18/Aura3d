@@ -44,17 +44,37 @@ class PadSynthesizer {
     osc.stop(t + 0.36);
   }
 
+  private snareBuf: AudioBuffer | null = null;
+  private hihatBuf: AudioBuffer | null = null;
+
+  private getSnareBuffer(ctx: AudioContext): AudioBuffer {
+    if (!this.snareBuf || this.snareBuf.sampleRate !== ctx.sampleRate) {
+      const bufLen = Math.floor(ctx.sampleRate * 0.18);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+      this.snareBuf = buf;
+    }
+    return this.snareBuf;
+  }
+
+  private getHihatBuffer(ctx: AudioContext): AudioBuffer {
+    if (!this.hihatBuf || this.hihatBuf.sampleRate !== ctx.sampleRate) {
+      const bufLen = Math.floor(ctx.sampleRate * 0.06);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+      this.hihatBuf = buf;
+    }
+    return this.hihatBuf;
+  }
+
   public playSnare() {
     const ctx = this.getContext();
     const t = ctx.currentTime;
 
-    const bufLen = Math.floor(ctx.sampleRate * 0.18);
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-
     const noise = ctx.createBufferSource();
-    noise.buffer = buf;
+    noise.buffer = this.getSnareBuffer(ctx);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'highpass';
@@ -76,13 +96,8 @@ class PadSynthesizer {
     const ctx = this.getContext();
     const t = ctx.currentTime;
 
-    const bufLen = Math.floor(ctx.sampleRate * 0.06);
-    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-
     const noise = ctx.createBufferSource();
-    noise.buffer = buf;
+    noise.buffer = this.getHihatBuffer(ctx);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'highpass';
@@ -169,7 +184,8 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
   // Card 1: Liquid Visualizer Canvas
   const visCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [visMode, setVisMode] = useState<'ring' | 'sphere' | 'flow'>('ring');
-  const [mouseVis, setMouseVis] = useState<{ x: number; y: number; active: boolean }>({ x: 0.5, y: 0.5, active: false });
+  const mouseVisRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0.5, y: 0.5, active: false });
+  const deflectionBadgeRef = useRef<HTMLDivElement>(null);
 
   // Card 2: Interactive Pads
   const [activePad, setActivePad] = useState<string | null>(null);
@@ -177,12 +193,14 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
   // Card 3: 3D Hand Tracking Canvas
   const handCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [handState, setHandState] = useState({
+  const handStateRef = useRef({
     x: 0,
     y: 0,
     isPinching: false,
     pinchDist: 100,
   });
+  const pinchBadgeRef = useRef<HTMLDivElement>(null);
+  const coordsBadgeRef = useRef<HTMLDivElement>(null);
 
   // -------------------------------------------------------------
   // 1. Interactive Liquid Audio Visualizer Simulation
@@ -212,8 +230,9 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
       const cx = w / 2;
       const cy = h / 2;
-      const mx = mouseVis.active ? mouseVis.x * w : cx;
-      const my = mouseVis.active ? mouseVis.y * h : cy;
+      const mv = mouseVisRef.current;
+      const mx = mv.active ? mv.x * w : cx;
+      const my = mv.active ? mv.y * h : cy;
 
       const baseR = Math.min(w, h) * 0.32;
       const points = 72;
@@ -308,7 +327,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [mouseVis, visMode]);
+  }, [visMode]);
 
   // -------------------------------------------------------------
   // 3. 3D Hand Skeleton Wireframe & Interactive Pinch Simulator
@@ -344,11 +363,12 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
         }
       }
 
-      const cx = w * 0.5 + (handState.x * 24);
-      const cy = h * 0.58 + (handState.y * 18);
+      const hs = handStateRef.current;
+      const cx = w * 0.5 + (hs.x * 24);
+      const cy = h * 0.58 + (hs.y * 18);
       const s = w * 0.42;
 
-      const pinchPull = handState.isPinching ? 1.0 : 0.0;
+      const pinchPull = hs.isPinching ? 1.0 : 0.0;
       const breath = Math.sin(t * 1.8) * 0.04;
 
       // Finger Landmarks (21 points)
@@ -393,7 +413,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
       // Bone connections
       ctx.lineWidth = 1.4;
-      ctx.strokeStyle = handState.isPinching ? 'rgba(0, 229, 255, 0.85)' : 'rgba(160, 120, 255, 0.45)';
+      ctx.strokeStyle = hs.isPinching ? 'rgba(0, 229, 255, 0.85)' : 'rgba(160, 120, 255, 0.45)';
 
       bones.forEach(([a, b]) => {
         const ptA = landmarks[a];
@@ -405,7 +425,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
       });
 
       // Pinch aura pulse
-      if (handState.isPinching) {
+      if (hs.isPinching) {
         const thumbTip = landmarks[4];
         const indexTip = landmarks[8];
         const pinchX = cx + ((thumbTip[0] + indexTip[0]) / 2) * s;
@@ -431,7 +451,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
         ctx.beginPath();
         ctx.arc(px, py, isTip ? 3.5 : 2, 0, Math.PI * 2);
-        ctx.fillStyle = isTip ? (handState.isPinching ? '#00e5ff' : '#ff2d92') : 'rgba(255, 255, 255, 0.8)';
+        ctx.fillStyle = isTip ? (hs.isPinching ? '#00e5ff' : '#ff2d92') : 'rgba(255, 255, 255, 0.8)';
         ctx.fill();
       });
 
@@ -440,7 +460,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [handState]);
+  }, []);
 
   // Handlers for tactile pads
   const handleTriggerPad = (id: string, sound: () => void) => {
@@ -502,10 +522,10 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400/80 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">
                   Shader 01
                 </span>
-                <span className="text-xs text-white/40 font-mono">160 Rayos</span>
+                <span className="text-xs text-white/60 font-mono">160 Rayos</span>
               </div>
               <h3 className="text-xl font-medium text-white mb-1">Refracción Líquida</h3>
               <p className="text-xs text-white/60 mb-3">Pasa el cursor por el lienzo para desviar la física de las ondas.</p>
@@ -533,17 +553,23 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
                 className="relative aspect-square w-full rounded-2xl bg-black/40 border border-white/[0.08] overflow-hidden flex items-center justify-center cursor-crosshair group/canvas"
                 onMouseMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
-                  setMouseVis({
-                    x: (e.clientX - rect.left) / rect.width,
-                    y: (e.clientY - rect.top) / rect.height,
-                    active: true,
-                  });
+                  const x = (e.clientX - rect.left) / rect.width;
+                  const y = (e.clientY - rect.top) / rect.height;
+                  mouseVisRef.current = { x, y, active: true };
+                  if (deflectionBadgeRef.current) {
+                    deflectionBadgeRef.current.textContent = `Deflexión: ${(x * 100).toFixed(0)}%`;
+                  }
                 }}
-                onMouseLeave={() => setMouseVis((m) => ({ ...m, active: false }))}
+                onMouseLeave={() => {
+                  mouseVisRef.current = { x: 0.5, y: 0.5, active: false };
+                  if (deflectionBadgeRef.current) {
+                    deflectionBadgeRef.current.textContent = 'Deflexión: Inactivo';
+                  }
+                }}
               >
                 <canvas ref={visCanvasRef} className="w-full h-full block" />
-                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-cyan-300 pointer-events-none">
-                  Deflexión: {mouseVis.active ? `${(mouseVis.x * 100).toFixed(0)}%` : 'Inactivo'}
+                <div ref={deflectionBadgeRef} className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-cyan-300 pointer-events-none">
+                  Deflexión: Inactivo
                 </div>
               </div>
             </div>
@@ -562,10 +588,10 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400/80 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded-full border border-violet-400/20">
                   Audio Engine
                 </span>
-                <span className="text-xs text-white/40 font-mono">Pads: {padPulseCount}</span>
+                <span className="text-xs text-white/60 font-mono">Pads: {padPulseCount}</span>
               </div>
               <h3 className="text-xl font-medium text-white mb-1">Sintetizador Auralis Touch</h3>
               <p className="text-xs text-white/60 mb-5">Haz clic en los pads para disparar sintetizadores con latencia cero.</p>
@@ -591,7 +617,7 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
                       } transition-all duration-150 flex flex-col items-center justify-center p-3 select-none active:scale-95 group/btn`}
                     >
                       <span className="text-[11px] font-mono text-white/90 font-medium">{pad.label}</span>
-                      <span className="text-[9px] text-white/40 mt-1 uppercase font-mono tracking-wider">Disparar</span>
+                      <span className="text-[11px] text-white/60 mt-1 uppercase font-mono tracking-wider">Disparar</span>
                     </button>
                   );
                 })}
@@ -612,10 +638,10 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
 
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-pink-400/80 bg-pink-400/10 px-2 py-0.5 rounded-full border border-pink-400/20">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-pink-400 bg-pink-400/10 px-2 py-0.5 rounded-full border border-pink-400/20">
                   MediaPipe ML
                 </span>
-                <span className="text-xs text-white/40 font-mono">21 Nodos 3D</span>
+                <span className="text-xs text-white/60 font-mono">21 Nodos 3D</span>
               </div>
               <h3 className="text-xl font-medium text-white mb-1">Air Control Holográfico</h3>
               <p className="text-xs text-white/60 mb-5">Haz clic o mantén presionado en el recuadro para pellizcar (pinch gesture).</p>
@@ -627,21 +653,43 @@ export const Experience: React.FC<ExperienceProps> = ({ onStartExperience }) => 
                   const rect = e.currentTarget.getBoundingClientRect();
                   const normX = (e.clientX - rect.left) / rect.width - 0.5;
                   const normY = (e.clientY - rect.top) / rect.height - 0.5;
-                  setHandState((s) => ({ ...s, x: normX, y: normY }));
+                  handStateRef.current.x = normX;
+                  handStateRef.current.y = normY;
+                  if (coordsBadgeRef.current) {
+                    coordsBadgeRef.current.textContent = `X: ${normX.toFixed(2)} | Y: ${normY.toFixed(2)}`;
+                  }
                 }}
                 onMouseDown={() => {
-                  setHandState((s) => ({ ...s, isPinching: true }));
+                  handStateRef.current.isPinching = true;
                   padSynth.playChime();
+                  if (pinchBadgeRef.current) {
+                    pinchBadgeRef.current.textContent = '⚡ PINCH DETECTADO';
+                  }
                 }}
-                onMouseUp={() => setHandState((s) => ({ ...s, isPinching: false }))}
-                onMouseLeave={() => setHandState((s) => ({ ...s, isPinching: false, x: 0, y: 0 }))}
+                onMouseUp={() => {
+                  handStateRef.current.isPinching = false;
+                  if (pinchBadgeRef.current) {
+                    pinchBadgeRef.current.textContent = '🖐 SEGUIMIENTO ACTIVO';
+                  }
+                }}
+                onMouseLeave={() => {
+                  handStateRef.current.isPinching = false;
+                  handStateRef.current.x = 0;
+                  handStateRef.current.y = 0;
+                  if (pinchBadgeRef.current) {
+                    pinchBadgeRef.current.textContent = '🖐 SEGUIMIENTO ACTIVO';
+                  }
+                  if (coordsBadgeRef.current) {
+                    coordsBadgeRef.current.textContent = 'X: 0.00 | Y: 0.00';
+                  }
+                }}
               >
                 <canvas ref={handCanvasRef} className="w-full h-full block" />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-pink-300 pointer-events-none">
-                  {handState.isPinching ? '⚡ PINCH DETECTADO' : '🖐 SEGUIMIENTO ACTIVO'}
+                <div ref={pinchBadgeRef} className="absolute top-3 left-3 px-2 py-1 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-pink-300 pointer-events-none">
+                  🖐 SEGUIMIENTO ACTIVO
                 </div>
-                <div className="absolute bottom-3 right-3 text-[10px] font-mono text-white/40 pointer-events-none">
-                  X: {handState.x.toFixed(2)} | Y: {handState.y.toFixed(2)}
+                <div ref={coordsBadgeRef} className="absolute bottom-3 right-3 text-[10px] font-mono text-white/60 pointer-events-none">
+                  X: 0.00 | Y: 0.00
                 </div>
               </div>
             </div>

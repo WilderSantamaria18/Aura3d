@@ -1,8 +1,0 @@
-/**
- * Audio Feature Module
- * Core Audio DSP, Singleton Engine, Web Audio Hooks and Equalizer
- */
-export * from '../../services/audioEngine';
-export * from '../../hooks/useAudioPlayer';
-export * from '../../components/UI/EqualizerModal';
-

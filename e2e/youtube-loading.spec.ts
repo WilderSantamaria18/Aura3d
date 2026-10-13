@@ -44,10 +44,11 @@ async function storeSnapshot(page: Page): Promise<StoreSnapshot> {
   });
 }
 
-async function mockBackend(page: Page, opts: { infoDelayMs: number }) {
-  await page.route('**/api/youtube/search**', (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [VIDEO] }) })
-  );
+async function mockBackend(page: Page, opts: { infoDelayMs: number; onSearch?: () => void }) {
+  await page.route('**/api/youtube/search**', (route) => {
+    opts.onSearch?.();
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ results: [VIDEO] }) });
+  });
   await page.route('**/api/youtube/info**', async (route) => {
     await new Promise((r) => setTimeout(r, opts.infoDelayMs));
     await route.fulfill({
@@ -88,7 +89,9 @@ test.describe('YouTube · la carga no deja la interfaz esperando', () => {
 
     await expect.poll(async () => (await storeSnapshot(page)).trackId, { timeout: 8000 }).toBe(`yt_${VIDEO.id}`);
     const elapsed = Date.now() - clickedAt;
-    expect(elapsed, `la canción tardó ${elapsed} ms en aparecer`).toBeLessThan(5000); // antes: ≥ 9 s (espera de /info)
+    // El invariante es «no se espera a /info» (que tarda 9 s): el margen es amplio a
+    // propósito porque en frío el servidor de desarrollo transforma módulos al vuelo.
+    expect(elapsed, `la canción tardó ${elapsed} ms en aparecer`).toBeLessThan(8000);
 
     // Se muestra con los datos de la búsqueda, sin esperar al servidor
     const snap = await storeSnapshot(page);
@@ -117,17 +120,25 @@ test.describe('YouTube · la carga no deja la interfaz esperando', () => {
     expect((await storeSnapshot(page)).title).toBe(VIDEO.title);
   });
 
-  test('si YouTube no llega a reproducir, el estado no se queda «conectando» para siempre', async ({ page }) => {
-    test.setTimeout(90_000);
-    await mockBackend(page, { infoDelayMs: 0 });
+  test('si YouTube no llega a reproducir, se busca otra versión y el estado no se queda «cargando»', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    let searchCalls = 0;
+    await mockBackend(page, { infoDelayMs: 0, onSearch: () => (searchCalls += 1) });
     // El reproductor de YouTube no carga (bloqueado, sin red, vídeo no incrustable…)
     await page.route(/youtube\.com\/(iframe_api|embed|s\/player)|youtube-nocookie\.com/, (route) => route.abort());
 
     await searchAndPlayFirstResult(page);
-    await expect.poll(async () => (await storeSnapshot(page)).status, { timeout: 8000 }).toBe('buffering');
+    await expect.poll(async () => (await storeSnapshot(page)).status, { timeout: 8000 }).toBe('loading');
 
-    // La vigilancia avisa pasados ~15 s
-    await expect.poll(async () => (await storeSnapshot(page)).status, { timeout: 30_000 }).toBe('error');
-    expect((await storeSnapshot(page)).message).toMatch(/YouTube no responde/);
+    // El vigilante de arranque dispara la búsqueda de una versión alternativa sin que el
+    // usuario tenga que volver a pulsar Play (la primera búsqueda fue la del usuario).
+    await expect.poll(async () => searchCalls, { timeout: 40_000 }).toBeGreaterThanOrEqual(2);
+
+    // Y siempre termina en un estado terminal: nunca se queda «cargando» para siempre.
+    await expect.poll(async () => (await storeSnapshot(page)).status, { timeout: 40_000 }).toBe('unavailable');
+    const snap = await storeSnapshot(page);
+    expect(snap.message ?? '').toMatch(/YouTube|vídeo|versión/i);
   });
 });

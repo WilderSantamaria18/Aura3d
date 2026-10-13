@@ -1,35 +1,35 @@
 import React from 'react';
-import { useAmbientGlow } from '../../hooks/useAmbientGlow';
 
 /**
- * AmbientGlowLayer — Liquid Ambient Glow & Dual-Orb Specular Caustics
+ * AmbientGlowLayer — luz ambiental fija de la aplicación.
  *
- * Renders a fluid organic ambient light layer responding to cursor movement,
- * dynamic chameleon album palette metamorphosis, and audio energy.
+ * Antes esta capa seguía al cursor: cada `mousemove` reescribía un
+ * `radial-gradient` sobre dos capas a pantalla completa, invalidando el degradado
+ * y forzando un repintado de viewport completo por frame. Ahora la luz es fija
+ * (misma composición en reposo que antes del primer movimiento) y no cuesta nada
+ * por movimiento del puntero; el color sigue viniendo de la paleta camaleónica.
  */
 export const AmbientGlowLayer: React.FC = () => {
-  const glow = useAmbientGlow();
-
   return (
     <div className="fixed inset-0 pointer-events-none select-none z-[1] overflow-hidden">
-      {/* Primary Floating Orb (tracks mouse with fluid inertia) */}
+      {/* Luz principal (centrada, sin seguimiento del cursor) */}
       <div
-        className="liquid-ambient-glow absolute inset-0 transition-opacity duration-700"
+        className="liquid-ambient-glow absolute inset-0"
         style={{
           background: `radial-gradient(
-            circle 900px at ${glow.x * 100}% ${glow.y * 100}%,
+            circle 900px at 50% 50%,
             var(--chameleon-glow, var(--wallpaper-glow, rgba(0, 229, 255, 0.12))),
             transparent 72%
           )`,
         }}
       />
 
-      {/* Secondary Counter-Balanced Ambient Aura */}
+      {/* Aura secundaria contrapesada */}
       <div
-        className="absolute inset-0 transition-opacity duration-1000 mix-blend-screen opacity-60"
+        className="absolute inset-0 mix-blend-screen opacity-60"
         style={{
           background: `radial-gradient(
-            circle 750px at ${(1 - glow.x) * 100}% ${(1 - glow.y) * 100}%,
+            circle 750px at 50% 50%,
             var(--chameleon-border, rgba(168, 85, 247, 0.08)),
             transparent 68%
           )`,

@@ -39,6 +39,13 @@ export const EdgeReactiveSparks: React.FC = () => {
   const prevBassRef = useRef<number>(0);
   const lastKickTimeRef = useRef<number>(0);
 
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const paletteRef = useRef(palette);
+  paletteRef.current = palette;
+  const currentTrackIdRef = useRef(currentTrack?.id);
+  currentTrackIdRef.current = currentTrack?.id;
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -60,7 +67,7 @@ export const EdgeReactiveSparks: React.FC = () => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
     const maxParticles = performanceTier === 'eco' ? MAX_PARTICLES_LOW : MAX_PARTICLES_HIGH;
     const pool: SparkParticle[] = Array.from({ length: maxParticles }, () => ({
@@ -79,12 +86,12 @@ export const EdgeReactiveSparks: React.FC = () => {
       sparkleSpeed: 0.1,
     }));
 
-    const colors = [palette.primary, palette.secondary, palette.accent, '#ffffff'];
-
     const spawnSpark = (edge?: 0 | 1 | 2 | 3, speedMult = 1, customColor?: string) => {
       const p = pool.find((particle) => !particle.active);
       if (!p) return;
 
+      const pal = paletteRef.current;
+      const colors = [pal.primary, pal.secondary, pal.accent, '#ffffff'];
       const chosenEdge = edge !== undefined ? edge : ((Math.floor(Math.random() * 4)) as 0 | 1 | 2 | 3);
       p.active = true;
       p.edge = chosenEdge;
@@ -133,20 +140,21 @@ export const EdgeReactiveSparks: React.FC = () => {
       }
     };
 
-    // Track change burst celebration
-    if (prevTrackIdRef.current && prevTrackIdRef.current !== currentTrack?.id) {
-      triggerBurst(Math.floor(maxParticles * 0.6), 2.2);
-    }
-    prevTrackIdRef.current = currentTrack?.id || null;
-
     let rafId: number;
     let smoothBass = 0;
 
     const render = (now: number) => {
       ctx.clearRect(0, 0, width, height);
 
+      // Check track change burst
+      const curTrackId = currentTrackIdRef.current;
+      if (prevTrackIdRef.current && prevTrackIdRef.current !== curTrackId) {
+        triggerBurst(Math.floor(maxParticles * 0.6), 2.2);
+      }
+      prevTrackIdRef.current = curTrackId || null;
+
       // Check audio kicks
-      if (isPlaying) {
+      if (isPlayingRef.current) {
         const freq = AudioEngine.getInstance().getFrequencyData();
         const rawBass = freq.bass || 0;
         smoothBass += (rawBass - smoothBass) * 0.2;
@@ -203,34 +211,36 @@ export const EdgeReactiveSparks: React.FC = () => {
         const fade = progress < 0.2 ? progress / 0.2 : 1 - (progress - 0.2) / 0.8;
         const currentAlpha = Math.max(0, Math.min(1, p.alpha * fade));
 
-        // Draw electric streak with bright core head
+        // Draw electric streak
         const headX = p.x;
         const headY = p.y;
         const tailX = p.x - (p.vx > 0 ? p.length : -p.length);
         const tailY = p.y - (p.vy > 0 ? p.length : -p.length);
 
-        const grad = ctx.createLinearGradient(tailX, tailY, headX, headY);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-        grad.addColorStop(0.7, p.color);
-        grad.addColorStop(1, '#ffffff');
-
-        ctx.strokeStyle = grad;
+        ctx.strokeStyle = p.color;
         ctx.lineWidth = p.thickness;
         ctx.lineCap = 'round';
+        ctx.globalAlpha = currentAlpha * 0.85;
 
         ctx.beginPath();
         ctx.moveTo(tailX, tailY);
         ctx.lineTo(headX, headY);
         ctx.stroke();
 
-        // Specular spark head point
+        // High-performance double-disc glowing spark head (avoids CPU shadowBlur)
+        // Outer aura
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = currentAlpha * 0.45;
+        ctx.beginPath();
+        ctx.arc(headX, headY, p.thickness * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner white specular core
         ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
+        ctx.globalAlpha = currentAlpha;
         ctx.beginPath();
         ctx.arc(headX, headY, p.thickness * 0.9, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
 
       ctx.restore();
@@ -243,7 +253,7 @@ export const EdgeReactiveSparks: React.FC = () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isPlaying, currentTrack?.id, performanceTier, palette.primary, palette.secondary, palette.accent]);
+  }, [performanceTier]);
 
   return (
     <canvas

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Eye, Music } from 'lucide-react';
 import { AudioEngine } from '../../services/audioEngine';
 import type { ChameleonPalette } from '../../services/chameleonPaletteService';
@@ -68,8 +68,9 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 3D Tilt Coordinates (-1 to 1)
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  // Sólo se conserva el estado de hover (borde + escala): la inclinación 3D y el
+  // brillo polarizado que seguían al cursor se retiraron porque cada mousemove
+  // re-renderizaba la funda entera y reescribía tres degradados.
   const [isHovered, setIsHovered] = useState(false);
 
   // Smooth continuous vinyl rotation angle (preserves momentum across play/pause)
@@ -109,29 +110,19 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
     };
   }, [isPlaying]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setTilt(computeTiltCoordinates(e.clientX, e.clientY, rect));
-  }, []);
-
   const handleMouseEnter = () => setIsHovered(true);
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    setTilt({ x: 0, y: 0 });
   };
 
   const sleeveSizeClass = size === 'large' ? 'w-36 h-36 sm:w-40 sm:h-40' : 'w-28 h-28 sm:w-32 sm:h-32';
   const vinylSizeClass = size === 'large' ? 'w-36 h-36 sm:w-40 sm:h-40' : 'w-28 h-28 sm:w-32 sm:h-32';
   const vinylSlideOffset = isPlaying ? 'translate-x-9 sm:translate-x-11 opacity-100' : 'translate-x-0 opacity-0';
 
-  const { rotX, rotY, shadowX, shadowY, sheenAngle } = computeSleeveRotations(tilt);
-
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="relative flex items-center justify-center p-2 select-none cursor-pointer group"
@@ -142,7 +133,7 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
         className="absolute -inset-3 rounded-3xl opacity-65 blur-2xl pointer-events-none transition-all duration-700"
         style={{
           background: `radial-gradient(circle, ${accentColor} 0%, ${palette.secondary} 45%, transparent 75%)`,
-          transform: `scale(${bassScale * (isHovered ? 1.08 : 1)})`,
+          transform: `scale(${bassScale})`,
         }}
       />
 
@@ -195,11 +186,11 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
       <div
         className={`relative z-10 ${sleeveSizeClass} rounded-2xl overflow-hidden shadow-2xl border transition-all duration-200 ease-out`}
         style={{
-          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${isHovered ? 1.04 : 1})`,
+          transform: `scale(${isHovered ? 1.04 : 1})`,
           transformStyle: 'preserve-3d',
           borderColor: isHovered ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.18)',
           boxShadow: `
-            ${shadowX}px ${shadowY}px 40px -8px rgba(0, 0, 0, 0.85),
+            0 18px 40px -8px rgba(0, 0, 0, 0.85),
             0 0 24px -4px ${palette.glow},
             inset 0 1px 1px rgba(255, 255, 255, 0.35)
           `,
@@ -226,11 +217,11 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
 
         {/* ── 3. Polarized Prismatic Holographic Sheen Layer ── */}
         <div
-          className="absolute inset-0 pointer-events-none transition-opacity duration-300 mix-blend-overlay"
+          className="absolute inset-0 pointer-events-none mix-blend-overlay"
           style={{
-            opacity: isHovered ? 0.85 : 0.45,
+            opacity: 0.45,
             background: `linear-gradient(
-              ${sheenAngle}deg,
+              120deg,
               transparent 25%,
               rgba(255, 255, 255, 0.18) 46%,
               rgba(255, 255, 255, 0.55) 50%,
@@ -242,11 +233,11 @@ export const HolographicAlbumSleeve: React.FC<HolographicAlbumSleeveProps> = ({
 
         {/* ── 4. Prismatic Foil Micro-Rainbow Glare ── */}
         <div
-          className="absolute inset-0 pointer-events-none mix-blend-color-dodge transition-opacity duration-300"
+          className="absolute inset-0 pointer-events-none mix-blend-color-dodge"
           style={{
-            opacity: isHovered ? 0.35 : 0.15,
+            opacity: 0.15,
             background: `radial-gradient(
-              ellipse at ${50 + tilt.x * 35}% ${50 + tilt.y * 35}%,
+              ellipse at 50% 50%,
               rgba(0, 229, 255, 0.5) 0%,
               rgba(244, 63, 94, 0.35) 45%,
               rgba(168, 85, 247, 0.25) 70%,

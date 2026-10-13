@@ -209,13 +209,6 @@ export const SpatialHUD: React.FC<SpatialHUDProps> = ({ onOpenCalibration, onExi
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.96 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            onMouseMove={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = ((e.clientX - rect.left) / rect.width) * 100;
-              const y = ((e.clientY - rect.top) / rect.height) * 100;
-              e.currentTarget.style.setProperty('--hud-mx', `${x.toFixed(1)}%`);
-              e.currentTarget.style.setProperty('--hud-my', `${y.toFixed(1)}%`);
-            }}
             className="fixed top-4 inset-x-0 mx-auto max-w-fit z-[80] flex items-center gap-2 p-1.5 rounded-[22px] visionos-window text-white select-none pointer-events-auto"
           >
             {/* Selector de Modo con Platters visionOS */}

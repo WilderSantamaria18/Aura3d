@@ -33,6 +33,7 @@ import {
   Sparkles,
   Video,
   Activity,
+  RefreshCw,
 } from 'lucide-react';
 import Lenis from 'lenis';
 import { usePlayerStore } from '../../stores/playerStore';
@@ -80,6 +81,12 @@ interface LyricsPanelProps {
   onSkipForward?: () => void;
   /** Whether lyrics are currently loading from API */
   isLoading?: boolean;
+  /** Estado explícito del pipeline de letras: not_found | temporarily_unavailable | error… */
+  lyricsStatus?: string | null;
+  /** Mensaje asociado al estado (para explicar por qué no hay letra). */
+  lyricsStatusMessage?: string | null;
+  /** Reintenta la búsqueda de letra (sólo se ofrece cuando el fallo es temporal). */
+  onRetryLyrics?: () => void;
 }
 
 const FONT_OPTIONS: { id: LyricsFontType; label: string; shortLabel: string; fontFamily: string }[] = [
@@ -145,6 +152,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   onSkipBack,
   onSkipForward,
   isLoading = false,
+  lyricsStatus = null,
+  lyricsStatusMessage = null,
+  onRetryLyrics,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -765,12 +775,23 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-bold text-white">
-                      Sin letras sincronizadas disponibles
+                      {lyricsStatusMessage || 'Sin letras sincronizadas disponibles'}
                     </p>
                     <p className="text-xs text-white/40 mt-1 max-w-sm">
-                      Puedes cargar un archivo .LRC sincronizado o buscarlo automáticamente.
+                      {lyricsStatus === 'temporarily_unavailable'
+                        ? 'El servicio de letras está saturado: puedes reintentar en unos segundos.'
+                        : 'Puedes cargar un archivo .LRC sincronizado o buscarlo automáticamente.'}
                     </p>
                   </div>
+                  {lyricsStatus === 'temporarily_unavailable' && onRetryLyrics && (
+                    <button
+                      onClick={onRetryLyrics}
+                      className="mt-2 px-5 py-2.5 rounded-full bg-cyan-400/15 hover:bg-cyan-400/25 text-white text-xs font-mono transition-all flex items-center gap-2 border border-cyan-300/30 shadow-lg active:scale-95 backdrop-blur-xl"
+                    >
+                      <RefreshCw className="w-4 h-4 text-cyan-300" />
+                      <span>Reintentar búsqueda</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="mt-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-mono transition-all flex items-center gap-2 border border-white/20 shadow-lg active:scale-95 backdrop-blur-xl"
@@ -1412,11 +1433,22 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/50">
                   <AlignLeft className="w-10 h-10 mb-3 opacity-30 animate-pulse text-cyan-400" />
                   <p className="text-sm font-semibold text-white/80 mb-1">
-                    Sin letras sincronizadas disponibles
+                    {lyricsStatusMessage || 'Sin letras sincronizadas disponibles'}
                   </p>
                   <p className="text-xs text-white/40 max-w-xs mb-4">
-                    Reproduce una pista con soporte de sincronización o importa un archivo .LRC.
+                    {lyricsStatus === 'temporarily_unavailable'
+                      ? 'El servicio de letras está saturado: puedes reintentar en unos segundos.'
+                      : 'Reproduce una pista con soporte de sincronización o importa un archivo .LRC.'}
                   </p>
+                  {lyricsStatus === 'temporarily_unavailable' && onRetryLyrics && (
+                    <button
+                      onClick={onRetryLyrics}
+                      className="mb-2 px-4 py-1.5 rounded-full bg-cyan-400/15 hover:bg-cyan-400/25 text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-cyan-300/30 shadow-sm"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-300" />
+                      Reintentar búsqueda
+                    </button>
+                  )}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors flex items-center gap-1.5 border border-white/15 shadow-sm"

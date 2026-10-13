@@ -46,6 +46,28 @@ export class StreamStartTimeoutError extends Error {
   }
 }
 
+export interface YouTubeInfoPatch {
+  title?: string;
+  uploader?: string;
+  duration?: number;
+}
+
+/**
+ * Traduce los metadatos del servidor a un parche de la pista.
+ *
+ * El `artist` que devuelve `/api/youtube/info` es el **canal del vídeo**, no el artista:
+ * se aplica a `uploader`. Antes se escribía en `artist` y las letras acababan buscándose
+ * como «LatinHype» o «sweetblue.». Devuelve `{}` si no hay nada que aplicar.
+ */
+export function buildYouTubeInfoPatch(info: YouTubeInfo | null): YouTubeInfoPatch {
+  if (!info || typeof info !== 'object') return {};
+  const patch: YouTubeInfoPatch = {};
+  if (info.title) patch.title = info.title;
+  if (info.artist) patch.uploader = info.artist;
+  if (typeof info.duration === 'number' && info.duration > 0) patch.duration = Math.round(info.duration);
+  return patch;
+}
+
 /**
  * Ejecuta el arranque de un stream con un tiempo máximo. Si se agota, llama a `onTimeout` (que debe
  * cancelar la carga pendiente: si no, el stream empezaría a sonar a la vez que el reproductor de

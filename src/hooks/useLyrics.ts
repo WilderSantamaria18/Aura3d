@@ -1,70 +1,130 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { EnhancedLyricsData, EnhancedLyricLine } from '../types/lyrics';
-import { LyricsService } from '../services/lyricsService';
+import { lyricsPipeline, type LyricsStatus } from '../services/lyrics/lyricsPipeline';
+import { normalizeMusicMetadata, type NormalizedMusicMetadata } from '../utils/musicMetadata';
+import { parseEnhancedLRC } from '../services/lyrics/lyricsParsing';
 import { usePlayerStore } from '../stores/playerStore';
 import { getPlaybackTime } from '../services/playbackClock';
 import { findActiveLine } from './useLyricSync';
+import { isAbort } from '../utils/isAbort';
 
-export const useLyrics = () => {
+const EMPTY_LYRICS: EnhancedLyricsData = { synced: false, lines: [], source: 'none', isWordSynced: false };
+
+/** Cadencia del cálculo de línea activa. La línea cambia unas pocas veces por segundo:
+ *  200 ms bastan y evitan un bucle de 60 fps por cada instancia del hook. */
+const ACTIVE_LINE_INTERVAL_MS = 200;
+
+export interface UseLyricsResult {
+  lyricsData: EnhancedLyricsData;
+  status: LyricsStatus;
+  statusMessage: string | null;
+  isLoading: boolean;
+  activeLineIndex: number;
+  activeLine: EnhancedLyricLine | null;
+  /** Metadatos ya normalizados (título limpio y artista fiable). */
+  metadata: NormalizedMusicMetadata | null;
+  loadLrcFile: (file: File) => void;
+  setLyricsData: (data: EnhancedLyricsData) => void;
+  /** Vuelve a consultar ignorando la caché (y el estado negativo). */
+  retry: () => void;
+}
+
+export const useLyrics = (): UseLyricsResult => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
-  const [lyricsData, setLyricsData] = useState<EnhancedLyricsData>({
-    synced: false,
-    lines: [],
-    source: 'none',
-    isWordSynced: false,
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [lyricsData, setLyricsData] = useState<EnhancedLyricsData>(EMPTY_LYRICS);
+  const [status, setStatus] = useState<LyricsStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const requestIdRef = useRef(0);
 
-  // Key tracking to prevent re-fetching on non-track state updates
-  const trackKey = currentTrack
-    ? `${currentTrack.id || ''}::${currentTrack.artist || ''}::${currentTrack.title || ''}::${currentTrack.lrcContent ? 'lrc' : 'api'}`
-    : '';
+  // Metadatos normalizados: título sin decoradores de YouTube y artista fiable.
+  // La clave se calcula sobre los datos normalizados, de modo que el parche de
+  // metadatos del vídeo (título/artista del servidor) NO repite la búsqueda.
+  const metadata = useMemo(() => {
+    if (!currentTrack) return null;
+    return normalizeMusicMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: currentTrack.album,
+      duration: currentTrack.duration,
+      uploader: currentTrack.uploader,
+    });
+  }, [
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.album,
+    currentTrack?.duration,
+    currentTrack?.uploader,
+  ]);
 
-  // Load lyrics when track identity genuinely changes
+  const lrcContent = currentTrack?.lrcContent;
+  const lookupKey = metadata ? `${metadata.cacheKey}::${lrcContent ? 'lrc' : 'api'}` : '';
+
   useEffect(() => {
-    if (!currentTrack) {
-      setLyricsData({ synced: false, lines: [], source: 'none', isWordSynced: false });
+    if (!currentTrack || !metadata) {
+      setLyricsData(EMPTY_LYRICS);
+      setStatus('idle');
+      setStatusMessage(null);
       return;
     }
 
-    // 1. If track already contains custom LRC text
-    if (currentTrack.lrcContent) {
-      const parsed = LyricsService.parseEnhancedLRC(currentTrack.lrcContent);
-      setLyricsData(parsed);
+    // 1. Letra propia de la pista (LRC incrustado): no hay red ni estados de carga.
+    if (lrcContent) {
+      setLyricsData(parseEnhancedLRC(lrcContent));
+      setStatus('loaded');
+      setStatusMessage(null);
       return;
     }
 
-    // 2. Otherwise fetch from LRCLIB synchronized lyrics API (with smart fallback & caching)
-    if (currentTrack.artist && currentTrack.title) {
-      let isCancelled = false;
-      setIsLoading(true);
-      LyricsService.fetchFromLRCLIB(
-        currentTrack.artist,
-        currentTrack.title,
-        currentTrack.album,
-        currentTrack.duration
-      )
-        .then((res) => {
-          if (!isCancelled) {
-            setLyricsData(res);
-          }
-        })
-        .finally(() => {
-          if (!isCancelled) {
-            setIsLoading(false);
-          }
-        });
-
-      return () => {
-        isCancelled = true;
-      };
-    } else {
-      setLyricsData({ synced: false, lines: [], source: 'none', isWordSynced: false });
+    if (!metadata.title) {
+      setLyricsData(EMPTY_LYRICS);
+      setStatus('idle');
+      setStatusMessage(null);
+      return;
     }
-  }, [trackKey]);
 
-  // Línea activa: se calcula con el reloj interpolado y solo cambia el estado cuando cambia
-  // la línea (unas pocas veces por segundo), en vez de re-renderizar en cada muestra de tiempo.
+    // 2. Caché en memoria: la misma canción no vuelve a consultar LRCLIB en la sesión.
+    const cached = lyricsPipeline.cached(metadata);
+    if (cached && reloadToken === 0) {
+      setLyricsData(cached);
+      setStatus('loaded');
+      setStatusMessage(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestId = ++requestIdRef.current;
+    const isStale = () => controller.signal.aborted || requestId !== requestIdRef.current;
+
+    setStatus('loading');
+    setStatusMessage(null);
+
+    lyricsPipeline
+      .lookup(metadata, { signal: controller.signal, force: reloadToken > 0 })
+      .then((result) => {
+        if (isStale()) return; // respuesta de una canción anterior: se descarta
+        setLyricsData(result.data);
+        setStatus(result.status);
+        setStatusMessage(result.message ?? null);
+      })
+      .catch((error: unknown) => {
+        if (isAbort(error) || isStale()) return; // cancelada por cambio de canción
+        setLyricsData(EMPTY_LYRICS);
+        setStatus('error');
+        setStatusMessage('No se pudo consultar el servicio de letras.');
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [lookupKey, reloadToken]); // eslint-disable-line react-hooks/exhaustive-deps -- `lookupKey` resume track+metadatos
+
+  const retry = useCallback(() => {
+    // `reloadToken > 0` fuerza la consulta en el efecto (ignora caché positiva y negativa).
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  // Línea activa: sólo se recalcula unas pocas veces por segundo y sólo si hay letra.
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   useEffect(() => {
     const lines = lyricsData.lines;
@@ -72,7 +132,6 @@ export const useLyrics = () => {
       setActiveLineIndex(-1);
       return;
     }
-    let raf = 0;
     let last = -2;
     const tick = () => {
       const idx = findActiveLine(lines, getPlaybackTime());
@@ -80,10 +139,10 @@ export const useLyrics = () => {
         last = idx;
         setActiveLineIndex(idx);
       }
-      raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    tick();
+    const timer = window.setInterval(tick, ACTIVE_LINE_INTERVAL_MS);
+    return () => window.clearInterval(timer);
   }, [lyricsData.lines]);
 
   const activeLine: EnhancedLyricLine | null = useMemo(() => {
@@ -98,8 +157,9 @@ export const useLyrics = () => {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       if (text) {
-        const parsed = LyricsService.parseEnhancedLRC(text);
-        setLyricsData(parsed);
+        setLyricsData(parseEnhancedLRC(text));
+        setStatus('loaded');
+        setStatusMessage(null);
       }
     };
     reader.readAsText(file);
@@ -107,11 +167,15 @@ export const useLyrics = () => {
 
   return {
     lyricsData,
+    status,
+    statusMessage,
+    isLoading: status === 'loading',
     activeLineIndex,
     activeLine,
-    isLoading,
+    metadata,
     loadLrcFile,
     setLyricsData,
+    retry,
   };
 };
 

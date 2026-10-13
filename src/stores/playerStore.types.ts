@@ -44,7 +44,21 @@ export interface AutoPalette {
 }
 
 export type CameraPreset = 'front' | 'orbit' | 'top' | 'driver' | 'drone';
-export type PlaybackStatus = 'idle' | 'resolving' | 'buffering' | 'playing' | 'error';
+/**
+ * Estado explícito del reproductor. Sustituye a los booleanos contradictorios:
+ *   idle → nada cargado · searching → buscando candidato (letra/vídeo)
+ *   loading → intentando reproducir · playing → suena
+ *   retrying → falló un candidato y se prueba el siguiente
+ *   unavailable → se agotaron los candidatos · error → fallo irrecuperable
+ */
+export type PlaybackStatus =
+  | 'idle'
+  | 'searching'
+  | 'loading'
+  | 'playing'
+  | 'retrying'
+  | 'unavailable'
+  | 'error';
 export type DjCrossfadeCurve = 'equal_power' | 'bass_swap' | 'beatmatch' | 'smooth_linear' | 'cut' | 'ambient';
 
 export const DEFAULT_KAWARP_SETTINGS: KawarpSettings = {

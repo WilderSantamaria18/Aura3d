@@ -620,7 +620,7 @@ export const AuralisStoryCardModal: React.FC = () => {
             <button
               onClick={handleExportVideo}
               disabled={isRecordingVideo || isExporting}
-              className="flex-1 py-3 px-4 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white font-bold text-xs tracking-tight shadow-[0_8px_25px_rgba(236,72,153,0.35)] hover:shadow-[0_10px_30px_rgba(236,72,153,0.5)] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="flex-1 py-3 px-4 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white font-bold text-xs tracking-tight shadow-[0_8px_25px_rgba(236,72,153,0.35)] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               title="Generar clip de video animado 9:16 con audio para Instagram y TikTok"
             >
               <Film className="w-4 h-4" />

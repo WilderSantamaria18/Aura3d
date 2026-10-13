@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { LandingMinimal } from './components/Landing/LandingMinimal';
 import { FEATURES } from './constants/features';
-import { LiquidPlaybackDock } from './components/Player/LiquidPlaybackDock';
 import { AutoThemeProvider } from './components/Theme/AutoThemeProvider';
 import { AutoModeToast } from './components/UI/AutoModeToast';
 import { useAudioPlayerActions } from './hooks/useAudioPlayer';
@@ -21,44 +20,37 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useMediaSession } from './hooks/useMediaSession';
 import { useChameleonPalette } from './hooks/useChameleonPalette';
 import { installAdaptiveQuality } from './services/adaptiveQualityService';
-import { AirInstrumentControls } from './components/UI/AirInstrumentControls';
 import { WebGLContextHandler } from './components/3D/WebGLContextHandler';
-import { RgbGlitchOverlay } from './components/Visualizers/RgbGlitchOverlay';
-import { RetroCrtOverlay } from './components/UI/RetroCrtOverlay';
-import { AmbientGlow } from './components/UI/AmbientGlow';
 import { AmbientGlowLayer } from './components/Effects/AmbientGlowLayer';
 import { CausticsOverlay } from './components/Effects/CausticsOverlay';
-import { CameraPresetBar } from './components/UI/CameraPresetBar';
 import { GlobalYouTubeController } from './components/Player/GlobalYouTubePlayer';
 import { ErrorBoundary } from './components/Common/ErrorBoundary';
 import { Sliders } from 'lucide-react';
 import { WallpaperBackground } from './components/Wallpapers/WallpaperBackground';
-import { CinematicStagePostFx } from './components/Visualizers/CinematicStagePostFx';
 import { VisualFeedbackRippleRoot } from './components/UI/VisualFeedbackRipple';
-import { Ambilight360Layer } from './components/Effects/Ambilight360Layer';
 
 // Solo se muestran tras pulsar "empezar" (o al abrir su panel): no hace falta descargarlos para pintar la
 // landing. Los cargadores se reutilizan abajo para precargarlos cuando el navegador está ocioso.
 const loadHeaderBar = () => import('./components/UI/HeaderBar').then((m) => ({ default: m.HeaderBar }));
 const loadMiniPlayer = () => import('./components/Player/MiniPlayer').then((m) => ({ default: m.MiniPlayer }));
-/** Inactividad (ms) antes de que el Modo Cinema oculte la interfaz */
-const CINEMA_IDLE_MS = 4000;
-
+const loadLiquidPlaybackDock = () =>
+  import('./components/Player/LiquidPlaybackDock').then((m) => ({ default: m.LiquidPlaybackDock }));
 const loadAtmosphereBackground = () =>
   import('./components/Visualizers/AtmosphereBackground').then((m) => ({ default: m.AtmosphereBackground }));
 const loadWallpaperPanel = () => import('./components/Wallpapers/WallpaperPanel').then((m) => ({ default: m.WallpaperPanel }));
 const loadAudioAnnouncer = () => import('./components/UI/AudioAnnouncer').then((m) => ({ default: m.AudioAnnouncer }));
+
+/** Inactividad (ms) antes de que el Modo Cinema oculte la interfaz */
+const CINEMA_IDLE_MS = 4000;
+
 const HeaderBar = lazy(loadHeaderBar);
 const AudioAnnouncer = lazy(loadAudioAnnouncer);
 const MiniPlayer = lazy(loadMiniPlayer);
+const LiquidPlaybackDock = lazy(loadLiquidPlaybackDock);
 const AtmosphereBackground = lazy(loadAtmosphereBackground);
 const WallpaperPanel = lazy(loadWallpaperPanel);
 
-// Lazy-loaded visualizers & heavy modals for code-splitting (reduces initial bundle size)
-// Landings alternativas (feature flags): solo se descargan si se activan; arrastran Three.js
-const LandingScreen = lazy(() => import('./components/Landing/LandingScreen').then((m) => ({ default: m.LandingScreen })));
-const LandingScreenV2 = lazy(() => import('./components/Landing/LandingScreenV2').then((m) => ({ default: m.LandingScreenV2 })));
-const LandingScreenV3 = lazy(() => import('./components/Landing/LandingScreenV3').then((m) => ({ default: m.LandingScreenV3 })));
+// Lazy-loaded visualizers, effects & heavy modals for code-splitting (reduces initial bundle size)
 const RainbowBlobVisualizer = lazy(() => import('./components/Visualizers/RainbowBlobVisualizer'));
 const SynthwaveGridVisualizer = lazy(() => import('./components/Visualizers/SynthwaveGridVisualizer'));
 const TerrainVisualizer = lazy(() => import('./components/Visualizers/TerrainVisualizer'));
@@ -77,6 +69,14 @@ const UniversalCommandPalette = lazy(() => import('./components/UI/UniversalComm
 const SessionStatsModal = lazy(() => import('./components/UI/SessionStatsModal'));
 const CameraStudioPanel = lazy(() => import('./components/VR/CameraStudioPanel'));
 const CaptureStudio = lazy(() => import('./capture/components/CaptureStudio'));
+const AirInstrumentControls = lazy(() => import('./components/UI/AirInstrumentControls'));
+const RgbGlitchOverlay = lazy(() => import('./components/Visualizers/RgbGlitchOverlay').then((m) => ({ default: m.RgbGlitchOverlay })));
+const RetroCrtOverlay = lazy(() => import('./components/UI/RetroCrtOverlay').then((m) => ({ default: m.RetroCrtOverlay })));
+const AmbientGlow = lazy(() => import('./components/UI/AmbientGlow').then((m) => ({ default: m.AmbientGlow })));
+const Ambilight360Layer = lazy(() => import('./components/Effects/Ambilight360Layer').then((m) => ({ default: m.Ambilight360Layer })));
+const CameraPresetBar = lazy(() => import('./components/UI/CameraPresetBar').then((m) => ({ default: m.CameraPresetBar })));
+const CinematicStagePostFx = lazy(() => import('./components/Visualizers/CinematicStagePostFx').then((m) => ({ default: m.CinematicStagePostFx })));
+
 // Estudio social (grabar, tarjetas para historias y exportar): solo se descarga al abrirlo
 const RecorderPanel = lazy(() => import('./components/Recorder/RecorderPanel').then((m) => ({ default: m.RecorderPanel })));
 const SpatialOverlay = lazy(() => import('./spatial/SpatialOverlay'));
@@ -104,9 +104,16 @@ export const App: React.FC = () => {
     const preload = () => {
       void loadHeaderBar();
       void loadMiniPlayer();
+      void loadLiquidPlaybackDock();
       void loadAtmosphereBackground();
       void loadWallpaperPanel();
       void loadAudioAnnouncer();
+      void import('./components/Visualizers/CinematicStagePostFx');
+      void import('./components/Effects/Ambilight360Layer');
+      void import('./components/UI/AmbientGlow');
+      void import('./components/Visualizers/RgbGlitchOverlay');
+      void import('./components/UI/RetroCrtOverlay');
+      void import('./components/UI/CameraPresetBar');
     };
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
     if (idle) idle(preload);
@@ -340,13 +347,7 @@ export const App: React.FC = () => {
           }`}
           style={{ display: hasStarted && !isTransitioning ? 'none' : 'block' }}
         >
-          {FEATURES.LANDING_MINIMAL ? (
-            <LandingMinimal />
-          ) : (
-            <Suspense fallback={null}>
-              {FEATURES.LANDING_V3 ? <LandingScreenV3 /> : FEATURES.LANDING_V2 ? <LandingScreenV2 /> : <LandingScreen />}
-            </Suspense>
-          )}
+          <LandingMinimal />
         </div>
       )}
 
@@ -395,15 +396,15 @@ export const App: React.FC = () => {
       )}
 
       {/* Reactive Post-Processing RGB Glitch & Shockwave Overlay */}
-      {hasStarted && <RgbGlitchOverlay />}
-      {hasStarted && <RetroCrtOverlay />}
-      {hasStarted && <CinematicStagePostFx />}
-
-      {/* Reactive Ambient Glow Backdrop & Space Dust */}
-      {hasStarted && <AmbientGlow />}
-
-      {/* 360-Degree Audio-Reactive Edge Ambilight */}
-      {hasStarted && <Ambilight360Layer />}
+      {hasStarted && (
+        <Suspense fallback={null}>
+          <RgbGlitchOverlay />
+          <RetroCrtOverlay />
+          <CinematicStagePostFx />
+          <AmbientGlow />
+          <Ambilight360Layer />
+        </Suspense>
+      )}
 
       {/* 3D Cinematic Camera Presets Toolbar */}
       <AnimatePresence>
@@ -415,7 +416,9 @@ export const App: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <CameraPresetBar />
+            <Suspense fallback={null}>
+              <CameraPresetBar />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
@@ -437,12 +440,14 @@ export const App: React.FC = () => {
 
       {/* 5. Master Liquid Playback Dock & Zen Morphing Island */}
       {hasStarted && (
-        <LiquidPlaybackDock
-          shouldHideUI={shouldHideUI}
-          isZenGhostMode={isZenGhostMode}
-          isDockHovered={isDockHovered}
-          setIsDockHovered={setIsDockHovered}
-        />
+        <Suspense fallback={null}>
+          <LiquidPlaybackDock
+            shouldHideUI={shouldHideUI}
+            isZenGhostMode={isZenGhostMode}
+            isDockHovered={isDockHovered}
+            setIsDockHovered={setIsDockHovered}
+          />
+        </Suspense>
       )}
 
 
@@ -548,7 +553,11 @@ export const App: React.FC = () => {
       </Suspense>
 
       {/* 3D Air Virtual Instruments Controls HUD */}
-      {hasStarted && !isCameraStudioOpen && <AirInstrumentControls />}
+      {hasStarted && !isCameraStudioOpen && (
+        <Suspense fallback={null}>
+          <AirInstrumentControls />
+        </Suspense>
+      )}
 
       {/* Aura Wallpapers AI (4K Minimalist & Ghibli) Modal Panel */}
       <Suspense fallback={null}>

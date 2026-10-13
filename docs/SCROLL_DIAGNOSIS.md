@@ -2,7 +2,9 @@
 
 **Fecha:** 22 de Septiembre, 2026  
 **Investigador:** Antigravity Engine Architecture Team  
-**Estado:** Resuelto (Fase 0 completada)
+**Estado:** Histórico; no describe la implementación actual.
+
+> Este diagnóstico documenta las landings V2/V3 retiradas en la limpieza de código muerto. La implementación vigente es `LandingMinimal` en `src/components/Landing/LandingMinimal.tsx`; el scroll ya no depende de `src/hooks/useLenis.ts` ni de `useLandingProgress`. Mantener este documento solo como antecedente, no como guía de implementación.
 
 ---
 

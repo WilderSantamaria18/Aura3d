@@ -622,7 +622,9 @@ export const PlaylistSidebar: React.FC = () => {
               {/* TAB 2: FAVORITES */}
               {activeTab === 'favorites' && (
                 <div className="space-y-2">
-                  {(playbackStatus === 'resolving' || playbackStatus === 'buffering') &&
+                  {(playbackStatus === 'searching' ||
+                    playbackStatus === 'loading' ||
+                    playbackStatus === 'retrying') &&
                     playbackMessage && (
                     <div
                       role="status"
@@ -633,7 +635,7 @@ export const PlaylistSidebar: React.FC = () => {
                       <span className="min-w-0 truncate">{playbackMessage}</span>
                     </div>
                   )}
-                  {(playbackError || playbackStatus === 'error') && (
+                  {(playbackError || playbackStatus === 'error' || playbackStatus === 'unavailable') && (
                     <div
                       role="alert"
                       className="rounded-xl bg-rose-500/10 px-3 py-2 text-xs text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"

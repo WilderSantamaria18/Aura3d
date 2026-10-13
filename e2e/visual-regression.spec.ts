@@ -1,5 +1,16 @@
 import { test, expect, type Page } from '@playwright/test';
 
+type HeroGeometry = {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  r: number;
+  cx: number;
+  cy: number;
+  title: { top: number; right: number; bottom: number; left: number };
+};
+
 async function waitForAppReady(page: Page) {
   await page.goto('/');
   await expect(page.locator('#initial-splash')).toBeHidden();
@@ -33,6 +44,38 @@ test.describe('Aura3D Visual Regression Test Suite', () => {
       maxDiffPixelRatio: 0.05,
       animations: 'disabled',
     });
+  });
+
+  test('Hero ring never overlaps the headline', async ({ page }) => {
+    await waitForAppReady(page);
+
+    // El titular entra animado y las fuentes cargan después: se espera a que la
+    // geometría publicada por el canvas se estabilice (dos lecturas idénticas).
+    await page.waitForFunction(
+      () => {
+        const w = window as Window & { __auraHeroGeometry?: HeroGeometry; __auraGeoSeen?: string };
+        const g = w.__auraHeroGeometry;
+        if (!g) return false;
+        const stamp = `${Math.round(g.top)}:${Math.round(g.left)}:${Math.round(g.r)}`;
+        if (w.__auraGeoSeen === stamp) return true;
+        w.__auraGeoSeen = stamp;
+        return false;
+      },
+      undefined,
+      { timeout: 20000 }
+    );
+
+    const geo = await page.evaluate(
+      () => (window as Window & { __auraHeroGeometry?: HeroGeometry }).__auraHeroGeometry as HeroGeometry
+    );
+    expect(geo).toBeTruthy();
+
+    const overlapX = geo.left < geo.title.right && geo.right > geo.title.left;
+    const overlapY = geo.top < geo.title.bottom && geo.bottom > geo.title.top;
+    expect(
+      overlapX && overlapY,
+      `El aro invade el titular · aro=${JSON.stringify(geo)}`
+    ).toBe(false);
   });
 
   test('Equalizer Modal Visual Test', async ({ page }) => {

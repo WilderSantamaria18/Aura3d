@@ -2,31 +2,19 @@
    Aura3D — Estación de audio reactiva & Landing Multi-Section
    ========================================================= */
 
-:root {
-  --bg: #050710;
-  --white: #ffffff;
+/* Tokens de la estación cónica, acotados a la raíz del landing.
+   Antes vivían en :root y, como este archivo lo importa siempre LandingMinimal,
+   pisaban GLOBALMENTE --border-subtle (0.12 en vez del 0.08 documentado) y con ello
+   los bordes del estudio: App.tsx, SessionStatsModal, VisualizerPanel y AutoModeToast.
+   Se conserva --cyan, el único token que este archivo consume de verdad. */
+.lp-root {
   --cyan: #00e5ff;
-  --presence-cyan: #00dcff;
-  --air-pink: #ff2d92;
-  --muted: rgba(255, 255, 255, 0.45);
-  --faint: rgba(255, 255, 255, 0.28);
-  --border-subtle: rgba(255, 255, 255, 0.12);
-  --font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
 }
 
-/* Color utility classes for Aura3D theme */
-.bg-auraBg { background-color: #050710; }
-.bg-auraDark { background-color: #04060e; }
-.bg-auraDeep { background-color: #07091a; }
-.text-auraCyan { color: #00e5ff; }
-.text-auraViolet { color: #a078ff; }
-.text-auraPink { color: #ff2d92; }
-.border-auraCyan { border-color: #00e5ff; }
-.border-auraViolet { border-color: #a078ff; }
-.border-auraPink { border-color: #ff2d92; }
-.bg-auraCyan { background-color: #00e5ff; }
-.bg-auraViolet { background-color: #a078ff; }
-.bg-auraPink { background-color: #ff2d92; }
+/* Las utilidades de color aura* (text-auraCyan, bg-auraViolet…) ya no se declaran
+   aquí a mano: son utilidades reales generadas desde los tokens --color-aura* de
+   @theme en src/index.css. Al ser CSS sin capa, estas reglas suplantaban a las
+   utilidades de Tailwind. */
 
 /* Status dot pulse */
 .status-dot-pulse {

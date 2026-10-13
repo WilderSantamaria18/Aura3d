@@ -12,13 +12,17 @@
   --lp-cyan: 0, 229, 255;
   --lp-violet: 139, 108, 255;
   --lp-text: rgba(232, 238, 255, 0.78);
-  --lp-muted: rgba(190, 202, 238, 0.58);
+  /* 0.58 daba 4.16:1 sobre vidrio (por debajo de AA). 0.72 mantiene la jerarquía
+     apagada y supera 4.5:1 sobre los materiales reales de la página. */
+  --lp-muted: rgba(190, 202, 238, 0.72);
   --lp-line: rgba(160, 180, 255, 0.14);
   --lp-ease: cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   background: var(--lp-bg);
   color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  /* Mismo orden que DESIGN.md §8: SF Pro, luego Inter/Geist y por último el sistema
+     (antes se omitía Inter, así que en Windows e Linux caía directo en Segoe UI). */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Geist', 'Segoe UI', Roboto, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .lp-root section { position: relative; background: transparent; }
@@ -32,29 +36,24 @@
 .lp-orb--c { background: radial-gradient(circle, rgba(90, 70, 220, 0.30) 0%, transparent 62%); }
 
 /* ── Cristal (uso restringido) ──────────────────────────────────────────────── */
+/* Mismo material que el estudio (var(--shadow-mid-dark) + borde especular) con el
+   nivel de blur editorial documentado en DESIGN.md §2.1. */
 .lp-glass {
   position: relative;
   isolation: isolate;
-  border-radius: 28px;
+  border-radius: var(--radius-material);
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.02) 100%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(var(--blur-editorial)) saturate(var(--saturate-editorial));
+  backdrop-filter: blur(var(--blur-editorial)) saturate(var(--saturate-editorial));
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-top-color: rgba(255, 255, 255, 0.36);
-  box-shadow: 0 36px 60px -34px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  border-top-color: var(--glass-rim-accent, rgba(255, 255, 255, 0.36));
+  box-shadow: var(--shadow-mid-dark), var(--edge-highlight-dark);
 }
-.lp-glass::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.13), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.4s var(--lp-ease);
-}
-.lp-glass--hover:hover::before { opacity: 1; }
+/* El brillo especular que seguía al cursor (::before alimentado por --mx/--my) se
+   retiró: cada mousemove invalidaba un radial-gradient sobre una superficie con
+   backdrop-filter, de modo que repintaba la tarjeta completa en cada frame. El
+   borde especular (::after) y el degradado del propio material siguen dando la
+   lectura de cristal sin coste por frame. */
 .lp-glass::after {
   content: '';
   position: absolute;
@@ -68,7 +67,7 @@
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   opacity: 0.65;
 }
-.lp-glass--pill { border-radius: 9999px; }
+.lp-glass--pill { border-radius: var(--radius-pill); }
 .lp-glass--tint { background-image: linear-gradient(150deg, rgba(var(--lp-cyan), 0.14), rgba(var(--lp-violet), 0.08) 55%, rgba(255, 255, 255, 0.02)); }
 
 /* ── Botones ────────────────────────────────────────────────────────────────── */
@@ -130,13 +129,20 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font: 500 11.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Suelo de 12px: DESIGN.md §8 reserva 11px para metadatos, pero estas etiquetas
+     son texto de lectura y 11.5px se queda corto en pantallas de portátil. */
+  font: 500 12px 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--lp-muted);
 }
 .lp-label b { font-weight: 500; color: rgb(var(--lp-cyan)); }
 .lp-label i { display: block; width: 36px; height: 1px; background: linear-gradient(90deg, rgba(var(--lp-cyan), 0.7), transparent); }
+/* Variante: solo desde sm. Va como clase propia y no como utilidad de Tailwind
+   (`hidden sm:flex`) porque este archivo es CSS sin capa y por tanto gana a la
+   capa utilities, así que la etiqueta seguía visible en móvil. */
+.lp-label--from-sm { display: none; }
+@media (min-width: 640px) { .lp-label--from-sm { display: flex; } }
 .lp-h1 { font-weight: 500; letter-spacing: -0.045em; line-height: 0.96; }
 .lp-h2 { font-weight: 500; letter-spacing: -0.035em; line-height: 1.05; text-wrap: balance; }
 .lp-lead { color: var(--lp-text); line-height: 1.7; text-wrap: pretty; }
@@ -169,13 +175,13 @@
 .lp-stats { display: flex; flex-wrap: wrap; gap: 0; }
 .lp-stats > div { padding: 0 24px; border-left: 1px solid var(--lp-line); }
 .lp-stats > div:first-child { padding-left: 0; border-left: 0; }
-.lp-stats dt { font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lp-muted); }
+.lp-stats dt { font: 500 12px 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lp-muted); }
 .lp-stats dd { margin: 6px 0 0; font-size: 20px; font-weight: 500; letter-spacing: -0.02em; color: #fff; font-variant-numeric: tabular-nums; }
 
 /* ── Ventana de demo ────────────────────────────────────────────────────────── */
 .lp-window-bar { display: flex; align-items: center; gap: 7px; padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
 .lp-window-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
-.lp-window-bar span { margin-left: 10px; font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; color: var(--lp-muted); text-transform: uppercase; }
+.lp-window-bar span { margin-left: 10px; font: 500 12px 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; color: var(--lp-muted); text-transform: uppercase; }
 
 /* ── Bento (solo 2 tarjetas) + lista de funciones ───────────────────────────── */
 .lp-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
@@ -201,6 +207,11 @@
 .lp-root #scroll-thumb { width: 10px; height: 10px; background: rgb(var(--lp-cyan)); box-shadow: 0 0 10px rgba(var(--lp-cyan), 0.6); }
 
 /* ── Adaptación ─────────────────────────────────────────────────────────────── */
+@media (max-width: 639px) {
+  /* En móvil el hero no tiene sitio para el aro y la telemetría: los datos siguen
+     disponibles en la sección de especificaciones, así que aquí se libera la banda. */
+  .lp-stats { display: none; }
+}
 @media (max-width: 767px) {
   .lp-glass { border-radius: 22px; -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
   .lp-orb { width: 110vmax; height: 110vmax; }
@@ -208,7 +219,6 @@
   .lp-stats > div { padding: 0 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-root:not([data-motion='on']) .lp-glass::before { transition: none; }
   .lp-root:not([data-motion='on']) .lp-btn { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce) {

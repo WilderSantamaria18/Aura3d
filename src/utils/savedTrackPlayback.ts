@@ -1,4 +1,5 @@
 import type { Track } from '../types/audio';
+import { isGenericArtist } from './musicMetadata';
 
 export interface YouTubePlaybackCandidate {
   id: string;
@@ -98,6 +99,20 @@ export function selectBestYouTubeCandidate(
   track: Track,
   excludedIds: string[] = []
 ): YouTubePlaybackCandidate | undefined {
+  return rankYouTubeCandidates(candidates, track, excludedIds)[0];
+}
+
+/**
+ * Ordena los candidatos por afinidad y descarta los vetados.
+ *
+ * El pipeline de fallback necesita **la lista**, no sólo el mejor: así puede probar el
+ * candidato 2, 3… sin repetir la búsqueda y sin volver a caer en uno que ya falló.
+ */
+export function rankYouTubeCandidates(
+  candidates: YouTubePlaybackCandidate[],
+  track: Track,
+  excludedIds: string[] = []
+): YouTubePlaybackCandidate[] {
   const excluded = new Set(excludedIds.map((id) => id.replace(/^yt_/, '')));
   return candidates
     .filter(
@@ -107,7 +122,8 @@ export function selectBestYouTubeCandidate(
         !excluded.has(candidate.id.replace(/^yt_/, ''))
     )
     .map((candidate) => ({ candidate, score: scoreYouTubeCandidate(candidate, track) }))
-    .sort((a, b) => b.score - a.score)[0]?.candidate;
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.candidate);
 }
 
 export function getResolutionCacheKey(track: Track): string {
@@ -155,20 +171,44 @@ export function cacheYouTubeCandidate(track: Track, candidate: YouTubePlaybackCa
   writeResolutionCache(cache);
 }
 
+/**
+ * Sólo se cachea un candidato **cuando se confirma que reproduce** (`confirmYouTubeCandidate`).
+ * Antes se cacheaba al resolverlo, así que un vídeo no incrustable quedaba guardado 90 días.
+ */
+export function confirmYouTubeCandidate(track: Track, candidate: YouTubePlaybackCandidate): void {
+  cacheYouTubeCandidate(track, candidate);
+}
+
 export function invalidateCachedYouTubeCandidate(track: Track): void {
   const cache = readResolutionCache();
   delete cache[getResolutionCacheKey(track)];
   writeResolutionCache(cache);
 }
 
-export async function resolveSavedTrackCandidate(
+/**
+ * Candidatos utilizables para una pista, ordenados por afinidad.
+ * Empieza por la resolución cacheada (si sigue siendo válida) y, si no, busca en YouTube.
+ *
+ * `skipSearch` permite usar sólo el candidato ya confirmado: si el vídeo guardado funciona
+ * no se gasta ninguna búsqueda; si falla, el pipeline vuelve a llamar (sin `skipSearch`) y
+ * entonces sí se buscan alternativas.
+ */
+export async function resolveSavedTrackCandidates(
   track: Track,
-  options: { signal?: AbortSignal; excludedIds?: string[]; forceRefresh?: boolean } = {}
-): Promise<YouTubePlaybackCandidate> {
+  options: {
+    signal?: AbortSignal;
+    excludedIds?: string[];
+    forceRefresh?: boolean;
+    skipSearch?: boolean;
+  } = {}
+): Promise<YouTubePlaybackCandidate[]> {
   const excludedIds = options.excludedIds || [];
   const cached = !options.forceRefresh ? getCachedYouTubeCandidate(track) : undefined;
-  if (cached && !excludedIds.includes(cached.id) && !excludedIds.includes(`yt_${cached.id}`)) {
-    return cached;
+  const cachedUsable =
+    cached && !excludedIds.includes(cached.id) && !excludedIds.includes(`yt_${cached.id}`) ? cached : undefined;
+
+  if (options.skipSearch && cachedUsable) {
+    return [cachedUsable];
   }
 
   const response = await fetch(
@@ -183,22 +223,46 @@ export async function resolveSavedTrackCandidate(
   }
 
   const data = (await response.json()) as { results?: YouTubePlaybackCandidate[] };
-  const candidate = selectBestYouTubeCandidate(data.results || [], track, excludedIds);
+  const ranked = rankYouTubeCandidates(data.results || [], track, excludedIds);
+
+  if (!cachedUsable) return ranked;
+
+  // El candidato ya confirmado va primero; el resto queda como respaldo por si falla.
+  return [cachedUsable, ...ranked.filter((item) => item.id !== cachedUsable.id)];
+}
+
+export async function resolveSavedTrackCandidate(
+  track: Track,
+  options: { signal?: AbortSignal; excludedIds?: string[]; forceRefresh?: boolean } = {}
+): Promise<YouTubePlaybackCandidate> {
+  const candidates = await resolveSavedTrackCandidates(track, options);
+  const candidate = candidates[0];
   if (!candidate) throw new Error(`No encontramos “${track.title}” en YouTube.`);
-  cacheYouTubeCandidate(track, candidate);
   return candidate;
 }
 
+/**
+ * Convierte un candidato de YouTube en la pista reproducible.
+ *
+ * Dos reglas de metadatos (causa de las letras mal buscadas):
+ *  - El **artista original de la pista nunca se pisa con el canal**: el canal se guarda en
+ *    `uploader` y sólo se usa como artista si no había ninguno aprovechable.
+ *  - El **id de la pista se mantiene** aunque cambie el vídeo: así la identidad es estable
+ *    entre reintentos de fallback y el pipeline puede acumular los vídeos que ya fallaron.
+ */
 export function createTrackFromYouTubeCandidate(
   candidate: YouTubePlaybackCandidate,
   savedTrack: Track
 ): Track {
   const videoId = candidate.id.replace(/^yt_/, '');
+  const savedArtist = (savedTrack.artist || '').trim();
+  const keepSavedArtist = Boolean(savedArtist) && !isGenericArtist(savedArtist);
   return {
     ...savedTrack,
-    id: savedTrack.id.startsWith('yt_') ? `yt_${videoId}` : savedTrack.id,
+    id: savedTrack.id,
     title: candidate.title || savedTrack.title,
-    artist: candidate.artist || savedTrack.artist,
+    artist: keepSavedArtist ? savedArtist : candidate.artist || savedTrack.artist,
+    uploader: candidate.artist || savedTrack.uploader,
     duration: candidate.duration || savedTrack.duration || 210,
     sourceType: 'youtube',
     youtubeId: videoId,

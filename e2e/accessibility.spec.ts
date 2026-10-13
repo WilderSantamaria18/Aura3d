@@ -21,7 +21,6 @@ test.describe('Automated WCAG 2.1 AA Accessibility Audits', () => {
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .disableRules(['color-contrast']) // Color contrast in dynamic 3D WebGL can vary by GPU shader state
       .analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);

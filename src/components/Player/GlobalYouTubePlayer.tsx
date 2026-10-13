@@ -4,6 +4,17 @@ import { audioEngine } from "../../services/audioEngine";
 import { feedPlaybackClock } from "../../services/playbackClock";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { fetchRelatedTracks } from "../../services/youtubeDiscovery";
+import {
+  awaitYouTubePlayback,
+  getActiveYouTubeSession,
+  notifyYouTubeEvent,
+} from "../../services/youtubePlayerBridge";
+import {
+  classifyYouTubeErrorCode,
+  YouTubePlaybackError,
+  YT_ATTEMPT_TIMEOUT_MS,
+  type YouTubeFailureReason,
+} from "../../services/youtubeFallback";
 
 /* ──────────────────────────────────────────────────────────────
    YT IFrame API global types
@@ -50,8 +61,23 @@ const PORTAL_ID = "aura-yt-singleton-portal";
 const MOUNT_ID = "aura-global-youtube-player-mount";
 const OFFSCREEN = "translate3d(-9999px, -9999px, 0)";
 
-/** Tiempo máximo que se espera a que el reproductor de YouTube empiece antes de avisar del problema */
-const YT_START_TIMEOUT_MS = 15000;
+/** Tiempo máximo para que la API del reproductor esté lista antes de recrearla. */
+const YT_READY_TIMEOUT_MS = 8000;
+
+/** Margen extra del vigilante para no competir con el presupuesto del pipeline. */
+const YT_WATCHDOG_GRACE_MS = 2500;
+
+/** Sin datos nuevos del buffer durante este tiempo se considera que hay un atasco real. */
+const YT_STALL_MS = 12000;
+
+/** Atasco sostenido antes de recargar el vídeo (último recurso, una sola vez). */
+const YT_RELOAD_AFTER_MS = 30000;
+
+/** Atasco sostenido tras la recarga antes de pasar al siguiente candidato. */
+const YT_GIVE_UP_AFTER_MS = 15000;
+
+/** Muestreo del hueco del vídeo: barato (sólo lee y compara) y sigue animaciones y scroll. */
+const SLOT_SAMPLE_INTERVAL_MS = 50;
 
 let lastPlacedKey = "";
 let portalWidth = 0; // ancho actual visible (0 = oculto), para elegir la calidad
@@ -114,6 +140,7 @@ function placePortal(rect: {
   height: number;
   borderRadius?: string;
   interactive?: boolean;
+  zIndex?: number;
 }) {
   // Medios píxeles para la posición y enteros para el tamaño: evita iframes borrosos
   const x = Math.round(rect.left * 2) / 2;
@@ -122,7 +149,8 @@ function placePortal(rect: {
   const h = Math.round(rect.height);
   const radius = rect.borderRadius || "12px";
   const interactive = rect.interactive !== false;
-  const key = `${x}|${y}|${w}|${h}|${radius}|${interactive}`;
+  const z = rect.zIndex ?? 51;
+  const key = `${x}|${y}|${w}|${h}|${radius}|${interactive}|${z}`;
   if (key === lastPlacedKey) return; // sin cambios: no se toca el DOM
   lastPlacedKey = key;
   portalWidth = w;
@@ -133,7 +161,10 @@ function placePortal(rect: {
   portal.style.height = `${h}px`;
   portal.style.borderRadius = radius;
   portal.style.pointerEvents = interactive ? "auto" : "none";
-  applyQuality();
+  // El z-index lo decide quien aloja el vídeo: el Modo Cine vive en z-[80], así que el
+  // portal tiene que quedar por encima o el vídeo se ve detrás del fondo negro con blur.
+  portal.style.zIndex = String(z);
+  scheduleQualityUpdate();
 }
 
 function hidePortal() {
@@ -147,7 +178,7 @@ function hidePortal() {
     portal.style.height = "1px";
     portal.style.pointerEvents = "none";
   }
-  applyQuality();
+  scheduleQualityUpdate();
 }
 
 let activeHolderId: string | null = null;
@@ -160,6 +191,27 @@ let ytPlayerReady = false;
 let ytCurrentVideoId = "";
 let lastQuality = "";
 let errorRetries: Record<string, number> = {};
+let readyTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Destruye el reproductor para poder recrearlo limpio (una inicialización fallida no puede
+ *  dejar el singleton inservible: antes, si `onReady` no llegaba, se ignoraban todos los
+ *  cambios de vídeo posteriores y la aplicación se quedaba «cargando» para siempre). */
+function resetPlayer(reason: string) {
+  if (readyTimer) {
+    clearTimeout(readyTimer);
+    readyTimer = undefined;
+  }
+  try {
+    ytPlayer?.destroy?.();
+  } catch {
+    /* el iframe puede estar ya desmontado */
+  }
+  ytPlayer = null;
+  ytPlayerReady = false;
+  ytCurrentVideoId = "";
+  lastQuality = "";
+  console.warn("[YT] Reproductor reiniciado:", reason);
+}
 
 // Último estado deseado. Se actualiza en cada render del controlador: así los callbacks del
 // iframe (que pueden dispararse mucho después) nunca usan un videoId o un estado obsoletos.
@@ -167,16 +219,76 @@ const latest: { videoId?: string; isPlaying: boolean } = { videoId: undefined, i
 
 // Manejadores vigentes: los eventos del iframe viven mucho más que un render, así que leen de aquí
 // y no de los callbacks capturados al crear el reproductor (que quedarían obsoletos).
-const liveHandlers: { onEnded: () => void; onUnavailable?: (videoId: string) => void } = {
+const liveHandlers: {
+  onEnded: (videoId?: string) => void;
+  onUnavailable?: (videoId: string, reason: YouTubeFailureReason) => void;
+} = {
   onEnded: () => {},
 };
 
-/** Calidad según el tamaño visible: en modo solo-audio se pide la más baja para ahorrar red. */
+/** `true` si el evento corresponde al vídeo que el reproductor tiene cargado ahora mismo.
+ *  Un callback tardío del vídeo anterior no debe atribuirse a la canción en curso. */
+function isCurrentVideoEvent(): boolean {
+  return Boolean(ytCurrentVideoId) && ytCurrentVideoId === latest.videoId;
+}
+
+/**
+ * Calidad del vídeo con histéresis y enfriamiento.
+ *
+ * `setPlaybackQuality` provoca un re-buffer: al abrir el Modo Cine el ancho visible pasa de
+ * ~340 px a ~1040 px en 600 ms, y la versión anterior cambiaba de calidad en cada umbral
+ * (small → medium → large → hd720) nada más arrancar. Eso era el «se pone a cargar y va
+ * lento». Ahora: se espera a que el tamaño se estabilice, hay un margen del 25 % para no
+ * cambiar por unos píxeles y nunca se cambia mientras el vídeo está cargando o recién
+ * arrancado.
+ */
+const QUALITY_COOLDOWN_MS = 6000;
+const QUALITY_SETTLE_MS = 900;
+const QUALITY_STARTUP_GRACE_MS = 8000;
+
+let qualityTimer: ReturnType<typeof setTimeout> | undefined;
+let lastQualityChangeAt = 0;
+let playbackStartedAt = 0;
+
+function qualityForWidth(width: number): string {
+  if (width === 0) return "small";
+  if (width < 320) return "small";
+  if (width < 560) return "medium";
+  if (width < 940) return "large";
+  return "hd720";
+}
+
+/** Programa la revisión de calidad cuando el tamaño lleve un momento quieto. */
+function scheduleQualityUpdate() {
+  if (qualityTimer) clearTimeout(qualityTimer);
+  qualityTimer = setTimeout(() => {
+    qualityTimer = undefined;
+    applyQuality();
+  }, QUALITY_SETTLE_MS);
+}
+
 function applyQuality() {
   if (!ytPlayer || !ytPlayerReady) return;
-  const q = portalWidth === 0 ? "small" : portalWidth < 300 ? "small" : portalWidth < 520 ? "medium" : portalWidth < 900 ? "large" : "hd720";
+
+  const now = performance.now();
+  const YTS = window.YT?.PlayerState;
+  let state: number | undefined;
+  try {
+    state = ytPlayer.getPlayerState?.();
+  } catch {
+    state = undefined;
+  }
+
+  // No tocar la calidad mientras el vídeo se está cargando ni en los primeros segundos:
+  // cada cambio reinicia el buffer.
+  if (state === YTS?.BUFFERING) return;
+  if (playbackStartedAt > 0 && now - playbackStartedAt < QUALITY_STARTUP_GRACE_MS) return;
+  if (now - lastQualityChangeAt < QUALITY_COOLDOWN_MS) return;
+
+  const q = qualityForWidth(portalWidth);
   if (q === lastQuality) return;
   lastQuality = q;
+  lastQualityChangeAt = now;
   try {
     ytPlayer.setPlaybackQuality?.(q);
   } catch {
@@ -193,10 +305,19 @@ function playSafe() {
 }
 
 /** Crea el reproductor o cambia de video. Siempre usa `latest`, nunca variables capturadas. */
-function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: (videoId: string) => void }) {
+function createOrUpdatePlayer(_handlers: {
+  onEnded: (videoId?: string) => void;
+  onUnavailable?: (videoId: string, reason: YouTubeFailureReason) => void;
+}) {
   const videoId = latest.videoId;
   if (!window.YT || !window.YT.Player || !videoId) return;
   getOrCreatePortal();
+
+  // El reproductor existente nunca llegó a estar listo y se pide otro vídeo: se recrea en vez
+  // de ignorarlo (antes ese caso dejaba el singleton pegado al primer vídeo para siempre).
+  if (ytPlayer && !ytPlayerReady && ytCurrentVideoId !== videoId) {
+    resetPlayer("la inicialización anterior no completó");
+  }
 
   if (!ytPlayer) {
     try {
@@ -220,12 +341,19 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
         },
         events: {
           onReady: (e: { target: any }) => {
+            if (readyTimer) {
+              clearTimeout(readyTimer);
+              readyTimer = undefined;
+            }
             ytPlayerReady = true;
             const store = usePlayerStore.getState();
             e.target.setVolume(store.isMuted ? 0 : Math.round(store.volume * 100));
             // Si mientras cargaba se eligió otro video, se cambia ahora
             if (latest.videoId && latest.videoId !== ytCurrentVideoId) {
               ytCurrentVideoId = latest.videoId;
+              lastQuality = "";
+              lastQualityChangeAt = 0;
+              playbackStartedAt = 0;
               e.target.loadVideoById(latest.videoId);
             }
             applyQuality();
@@ -234,7 +362,12 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
           onStateChange: (e: { data: number; target: any }) => {
             const YTS = window.YT?.PlayerState;
             if (!YTS) return;
+            const eventVideoId = ytCurrentVideoId;
+            const isCurrent = eventVideoId === latest.videoId;
+
             if (e.data === YTS.PLAYING) {
+              if (!isCurrent) return; // evento tardío de un vídeo ya reemplazado
+              if (playbackStartedAt === 0) playbackStartedAt = performance.now();
               const state = usePlayerStore.getState();
               state.setIsPlaying(true);
               state.setPlaybackStatus(
@@ -243,26 +376,35 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
               );
               const dur = e.target.getDuration?.();
               if (dur && dur > 0) usePlayerStore.getState().setDuration(dur);
+              notifyYouTubeEvent({ type: 'playing', videoId: eventVideoId });
             } else if (e.data === YTS.BUFFERING) {
+              if (!isCurrent) return;
               const state = usePlayerStore.getState();
-              state.setPlaybackStatus(
-                'buffering',
-                state.currentTrack ? `Cargando desde YouTube: ${state.currentTrack.title}` : 'Cargando desde YouTube…'
-              );
+              // El pipeline de fallback ya comunica «retrying/loading» con su propio mensaje.
+              if (!getActiveYouTubeSession()) {
+                state.setPlaybackStatus(
+                  'loading',
+                  state.currentTrack ? `Cargando desde YouTube: ${state.currentTrack.title}` : 'Cargando desde YouTube…'
+                );
+              }
             } else if (e.data === YTS.PAUSED) {
               // Un video cargándose puede reportar PAUSED brevemente: solo se refleja si el usuario pausó
               if (!latest.isPlaying) usePlayerStore.getState().setIsPlaying(false);
               else setTimeout(playSafe, 250);
             } else if (e.data === YTS.ENDED) {
-              liveHandlers.onEnded();
+              if (!isCurrent) return;
+              notifyYouTubeEvent({ type: 'ended', videoId: eventVideoId });
+              liveHandlers.onEnded(eventVideoId);
             } else if (e.data === YTS.CUED || e.data === YTS.UNSTARTED) {
               if (latest.isPlaying) setTimeout(playSafe, 300);
             }
           },
           onError: (e: { data: number }) => {
-            const id = latest.videoId || "";
+            const id = ytCurrentVideoId || latest.videoId || '';
+            if (!id) return;
+
             // 5 = error del reproductor HTML5: se reintenta una vez desde el mismo punto
-            if (e.data === 5 && id && (errorRetries[id] ?? 0) < 1) {
+            if (e.data === 5 && (errorRetries[id] ?? 0) < 1) {
               errorRetries[id] = (errorRetries[id] ?? 0) + 1;
               try {
                 const t = ytPlayer?.getCurrentTime?.() || 0;
@@ -272,25 +414,43 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
               }
               return;
             }
-            // 2, 100, 101, 150: no se puede reproducir → resolver inmediatamente
-            const state = usePlayerStore.getState();
-            state.setPlaybackStatus('resolving', 'Buscando versión alternativa disponible en YouTube…');
-            if (id && liveHandlers.onUnavailable) {
-              liveHandlers.onUnavailable(id);
-            } else {
-              setTimeout(() => liveHandlers.onEnded(), 800);
+
+            const reason = classifyYouTubeErrorCode(e.data);
+            // El intento en curso se entera por el bus (fail-fast, sin esperar al timeout).
+            notifyYouTubeEvent({ type: 'error', videoId: id, reason, code: e.data });
+
+            // Si ya estaba sonando (no hay pipeline esperando), se arranca el fallback aquí.
+            if (isCurrentVideoEvent() && !getActiveYouTubeSession() && liveHandlers.onUnavailable) {
+              liveHandlers.onUnavailable(id, reason);
             }
           },
         },
       });
       ytCurrentVideoId = videoId;
+
+      // Si la API nunca llama a onReady, el reproductor se recrea y el intento falla con
+      // PLAYER_NOT_READY en vez de dejar la interfaz cargando de forma indefinida.
+      if (readyTimer) clearTimeout(readyTimer);
+      readyTimer = setTimeout(() => {
+        if (ytPlayerReady) return;
+        const stuckId = ytCurrentVideoId || latest.videoId;
+        resetPlayer("onReady no llegó a tiempo");
+        if (stuckId) {
+          notifyYouTubeEvent({ type: 'error', videoId: stuckId, reason: 'PLAYER_NOT_READY' });
+        }
+      }, YT_READY_TIMEOUT_MS);
     } catch (err) {
       console.error("[YT] Error creating player:", err);
+      const stuckId = latest.videoId;
+      if (stuckId) notifyYouTubeEvent({ type: 'error', videoId: stuckId, reason: 'PLAYER_ERROR' });
     }
   } else if (ytPlayerReady && ytCurrentVideoId !== videoId) {
     try {
       ytCurrentVideoId = videoId;
+      // Vídeo nuevo: se reinician los contadores de calidad y de gracia de arranque.
       lastQuality = "";
+      lastQualityChangeAt = 0;
+      playbackStartedAt = 0;
       ytPlayer.loadVideoById(videoId);
       if (latest.isPlaying) setTimeout(playSafe, 200);
     } catch {
@@ -300,7 +460,10 @@ function createOrUpdatePlayer(_handlers: { onEnded: () => void; onUnavailable?: 
 }
 
 /** Carga la API una sola vez y, cuando esté lista, crea el reproductor con el video MÁS RECIENTE. */
-function ensureYtApi(handlers: { onEnded: () => void; onUnavailable?: (videoId: string) => void }) {
+function ensureYtApi(handlers: {
+  onEnded: (videoId?: string) => void;
+  onUnavailable?: (videoId: string, reason: YouTubeFailureReason) => void;
+}) {
   if (typeof window === "undefined") return;
   if (window.YT && window.YT.Player) {
     window.__auraYtApiReady = true;
@@ -326,7 +489,7 @@ function ensureYtApi(handlers: { onEnded: () => void; onUnavailable?: (videoId: 
    Gestiona el ciclo de vida de la YT.Player API. Se monta una vez en la app.
 ────────────────────────────────────────────────────────────── */
 export const GlobalYouTubeController: React.FC = () => {
-  const { playSavedTrack } = useAudioPlayer();
+  const { playSavedTrack, playYouTubeWithFallback } = useAudioPlayer();
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const volume = usePlayerStore((s) => s.volume);
@@ -335,6 +498,9 @@ export const GlobalYouTubeController: React.FC = () => {
   const setDuration = usePlayerStore((s) => s.setDuration);
 
   const intervalRef = useRef<number | null>(null);
+  // Vídeos que ya fallaron para la pista en curso: se acumulan para que el fallback nunca
+  // vuelva a probar uno que ya falló (antes sólo se excluía el último y había ping-pong).
+  const failedVideoIdsRef = useRef<{ trackId: string; ids: string[] }>({ trackId: '', ids: [] });
 
   const videoId =
     currentTrack?.youtubeId ||
@@ -347,7 +513,9 @@ export const GlobalYouTubeController: React.FC = () => {
   latest.isPlaying = isPlaying;
 
   /* ── Pista terminada → siguiente en la cola (con Radio Infinita) ── */
-  const handleEnded = useCallback(async () => {
+  const handleEnded = useCallback(async (endedVideoId?: string) => {
+    // Un «ended» tardío de una pista que ya no suena no debe saltar de canción.
+    if (endedVideoId && latest.videoId && endedVideoId !== latest.videoId) return;
     const store = usePlayerStore.getState();
     let next = store.nextTrack();
 
@@ -396,18 +564,34 @@ export const GlobalYouTubeController: React.FC = () => {
   }, [playSavedTrack]);
 
   const handleUnavailable = useCallback(
-    (unavailableVideoId: string) => {
+    (unavailableVideoId: string, reason: YouTubeFailureReason) => {
       const track = usePlayerStore.getState().currentTrack;
       if (!track) return;
-      void playSavedTrack(track, {
-        forceYouTubeSearch: true,
-        excludedIds: [unavailableVideoId],
-      }).catch((error) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error('[GlobalYouTubePlayer] No se encontró una versión alternativa:', error);
-      });
+
+      // Acumula los vídeos que ya fallaron para esta pista: nunca se reintenta uno fallido.
+      if (failedVideoIdsRef.current.trackId !== track.id) {
+        failedVideoIdsRef.current = { trackId: track.id, ids: [] };
+      }
+      const clean = unavailableVideoId.replace(/^yt_/, '');
+      if (clean && !failedVideoIdsRef.current.ids.includes(clean)) {
+        failedVideoIdsRef.current.ids.push(clean);
+      }
+
+      getActiveYouTubeSession()?.cancel();
+      console.info(
+        '[GlobalYouTubePlayer] Vídeo no reproducible, se busca una alternativa:',
+        clean,
+        reason
+      );
+
+      void playYouTubeWithFallback(track, { excludedIds: [...failedVideoIdsRef.current.ids] }).catch(
+        (error) => {
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+          console.error('[GlobalYouTubePlayer] No se encontró una versión alternativa:', error);
+        }
+      );
     },
-    [playSavedTrack]
+    [playYouTubeWithFallback]
   );
 
   // Los eventos del iframe leen siempre los manejadores vigentes (se actualizan tras cada render)
@@ -438,6 +622,28 @@ export const GlobalYouTubeController: React.FC = () => {
     errorRetries = {};
     createOrUpdatePlayer({ onEnded: handleEnded, onUnavailable: handleUnavailable });
   }, [isYT, videoId, handleEnded, handleUnavailable]);
+
+  /* ── 2b. Vigilante de arranque: si el vídeo no suena en el presupuesto, se busca
+     otra versión. Cubre también la reproducción directa de un vídeo guardado, que no
+     pasa por el pipeline: sin esto, un vídeo no incrustable dejaba «cargando» sin fin. */
+  useEffect(() => {
+    if (!isYT || !videoId || !isPlaying) return;
+    const controller = new AbortController();
+    const active = getActiveYouTubeSession();
+    if (active && active.running && active.trackId === currentTrack?.id) {
+      return () => controller.abort(); // el pipeline ya está vigilando este intento
+    }
+
+    void awaitYouTubePlayback(videoId, YT_ATTEMPT_TIMEOUT_MS + YT_WATCHDOG_GRACE_MS, controller.signal)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        const reason = error instanceof YouTubePlaybackError ? error.reason : 'PLAYER_TIMEOUT';
+        if (!isCurrentVideoEvent() && latest.videoId !== videoId) return; // ya no es esta pista
+        liveHandlers.onUnavailable?.(videoId, reason);
+      });
+
+    return () => controller.abort();
+  }, [isYT, videoId, isPlaying, currentTrack?.id]);
 
   /* ── 3. Play / Pausa ────────────────────────────────────────── */
   useEffect(() => {
@@ -527,7 +733,13 @@ export const GlobalYouTubeController: React.FC = () => {
     return () => window.removeEventListener("aura:youtube-reload", handleReload);
   }, []);
 
-  /* ── 6. Sondeo de tiempo (100 ms) + vigilancia inteligente de atascos ───── */
+  /* ── 6. Sondeo de tiempo (100 ms) + vigilancia de atascos ─────────────────
+     Antes, 4,5 s en BUFFERING bastaban para «recuperar» el vídeo, y la escalera terminaba
+     en `loadVideoById`: en una conexión lenta el buffer legítimo superaba ese umbral, se
+     recargaba el vídeo entero y volvía a buffear desde cero — el «se pone a cargar y va
+     lento». Ahora la señal es el **progreso real del buffer** (`getVideoLoadedFraction`):
+     si la red sigue trayendo datos no se toca nada; sólo si no llega nada nuevo y el
+     tiempo no avanza se dan toques suaves, y la recarga completa es el último recurso. */
   useEffect(() => {
     if (!isYT || !isPlaying) {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -538,30 +750,46 @@ export const GlobalYouTubeController: React.FC = () => {
     let lastStoreUpdate = 0;
     let lastTime = -1;
     let lastAdvance = performance.now();
-    let bufferingSince: number | null = null;
-    let recoverStep = 0;
+    let lastFraction = -1;
+    let fractionChangedAt = performance.now();
+    let stalledSince: number | null = null;
+    let nudgeStep = 0;
+    let nudges = 0;
+    let reloads = 0;
+    let gaveUp = false;
 
-    const recover = () => {
+    const nudge = () => {
+      if (!ytPlayer || !ytPlayerReady) return;
+      try {
+        const t = ytPlayer.getCurrentTime?.() || 0;
+        if (nudgeStep === 0) {
+          ytPlayer.playVideo?.();
+        } else {
+          // Un único reposicionamiento para forzar una nueva petición de datos.
+          ytPlayer.seekTo?.(t, true);
+          ytPlayer.playVideo?.();
+        }
+        nudgeStep += 1;
+      } catch {
+        /* ignorar */
+      }
+    };
+
+    const softReload = () => {
       if (!ytPlayer || !ytPlayerReady) return;
       const id = latest.videoId;
       if (!id) return;
       try {
         const t = ytPlayer.getCurrentTime?.() || 0;
-        if (recoverStep === 0) {
-          ytPlayer.playVideo();
-        } else if (recoverStep === 1) {
-          ytPlayer.seekTo(t, true);
-          ytPlayer.playVideo();
-        } else if (recoverStep >= 2) {
-          // Recargar video desde el mismo punto temporal
-          lastQuality = "";
-          ytPlayer.loadVideoById({ videoId: id, startSeconds: t });
-        }
+        console.warn('[YT] Atasco persistente: recargando el vídeo una sola vez.');
+        lastQuality = "";
+        lastQualityChangeAt = 0;
+        playbackStartedAt = 0;
+        ytPlayer.loadVideoById?.({ videoId: id, startSeconds: Math.max(0, t - 1) });
+        if (latest.isPlaying) setTimeout(playSafe, 300);
       } catch {
         /* ignorar */
       }
-      recoverStep++;
-      lastAdvance = performance.now();
     };
 
     intervalRef.current = window.setInterval(() => {
@@ -572,16 +800,15 @@ export const GlobalYouTubeController: React.FC = () => {
         const d = ytPlayer.getDuration?.();
         const state = ytPlayer.getPlayerState?.();
         const YTS = window.YT?.PlayerState;
+        const fraction =
+          typeof ytPlayer.getVideoLoadedFraction === 'function'
+            ? (ytPlayer.getVideoLoadedFraction() as number)
+            : undefined;
 
-        // Vigilancia de buffering infinito (> 4.5 segundos en estado BUFFERING)
-        if (state === YTS?.BUFFERING) {
-          if (!bufferingSince) bufferingSince = now;
-          else if (now - bufferingSince > 4500) {
-            bufferingSince = now;
-            recover();
-          }
-        } else {
-          bufferingSince = null;
+        // Progreso real del buffer: mientras suba, la red está trabajando y no hay atasco.
+        if (typeof fraction === 'number' && fraction > lastFraction + 0.0005) {
+          lastFraction = fraction;
+          fractionChangedAt = now;
         }
 
         if (typeof t === "number" && !isNaN(t)) {
@@ -590,7 +817,8 @@ export const GlobalYouTubeController: React.FC = () => {
           if (Math.abs(t - lastTime) > 0.05) {
             lastAdvance = now;
             lastTime = t;
-            recoverStep = 0;
+            nudgeStep = 0;
+            stalledSince = null;
           }
           // El store (y con él la interfaz) se actualiza más despacio
           if (now - lastStoreUpdate >= 250) {
@@ -600,16 +828,34 @@ export const GlobalYouTubeController: React.FC = () => {
         }
         if (typeof d === "number" && d > 0 && !isNaN(d)) setDuration(d);
 
-        // Vigilancia: debería avanzar y lleva 5 s sin hacerlo → recuperar
-        const shouldAdvance = state !== YTS?.PAUSED && state !== YTS?.ENDED;
-        if (shouldAdvance && now - lastAdvance > 5000) {
-          if (recoverStep < 3) {
-            recover();
-          } else if (now - lastAdvance > 9500 && latest.videoId && liveHandlers.onUnavailable) {
-            // Se congeló completamente tras varios intentos → resolver versión alternativa
-            recoverStep = 0;
-            liveHandlers.onUnavailable(latest.videoId);
+        const isLive = typeof d === 'number' && d === 0;
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        // Toda la carga ya está en memoria: que la fracción no suba no significa atasco.
+        const fullyBuffered = typeof fraction === 'number' && fraction >= 0.995;
+        const noNewData =
+          typeof fraction === 'number'
+            ? now - fractionChangedAt > YT_STALL_MS && !fullyBuffered
+            : now - lastAdvance > YT_STALL_MS;
+        const stuck = state === YTS?.BUFFERING && !isLive && !offline && noNewData;
+
+        if (stuck) {
+          if (stalledSince === null) stalledSince = now;
+          const stalledFor = now - stalledSince;
+
+          if (stalledFor > YT_STALL_MS + YT_RELOAD_AFTER_MS + YT_GIVE_UP_AFTER_MS && !gaveUp) {
+            gaveUp = true;
+            if (latest.videoId && liveHandlers.onUnavailable) {
+              liveHandlers.onUnavailable(latest.videoId, 'PLAYER_TIMEOUT');
+            }
+          } else if (stalledFor > YT_STALL_MS + YT_RELOAD_AFTER_MS && reloads === 0) {
+            reloads += 1;
+            softReload();
+          } else if (stalledFor > YT_STALL_MS && nudges < 2) {
+            nudges += 1;
+            nudge();
           }
+        } else {
+          stalledSince = null;
         }
       } catch {
         /* ignorar */
@@ -650,23 +896,15 @@ export const GlobalYouTubeController: React.FC = () => {
     return () => audioEngine.setIframeMode(false);
   }, [isYT, isPlaying]);
 
-  /* ── 9. Vigilancia: si no llega a reproducir, no se queda «cargando» para siempre ──
-     El estado pasa a 'buffering' al pedir la canción y solo el propio reproductor lo pone en 'playing'.
-     Si el vídeo no se puede incrustar, la API no responde o la red falla, se quedaba así indefinidamente. */
-  const playbackStatus = usePlayerStore((s) => s.playbackStatus);
+  /* ── 9. Reinicio del registro de vídeos fallidos al cambiar de pista ──
+     La vigilancia de arranque (2b) y el pipeline de fallback se encargan de que ningún
+     vídeo deje la interfaz cargando: aquí sólo se limpia la memoria entre canciones. */
   useEffect(() => {
-    if (!isYT || !isPlaying || playbackStatus !== "buffering") return;
-    const timer = window.setTimeout(() => {
-      const state = usePlayerStore.getState();
-      if (state.playbackStatus === "buffering") {
-        state.setPlaybackStatus(
-          "error",
-          "YouTube no responde. Comprueba tu conexión o prueba con otra canción."
-        );
-      }
-    }, YT_START_TIMEOUT_MS);
-    return () => window.clearTimeout(timer);
-  }, [isYT, isPlaying, playbackStatus, videoId]);
+    if (!currentTrack?.id) return;
+    if (failedVideoIdsRef.current.trackId !== currentTrack.id) {
+      failedVideoIdsRef.current = { trackId: currentTrack.id, ids: [] };
+    }
+  }, [currentTrack?.id]);
 
   return null; // sin DOM propio: el portal se gestiona de forma imperativa
 };
@@ -685,6 +923,8 @@ export interface GlobalYouTubePlayerProps {
   onExpandMiniPlayer?: () => void;
   className?: string;
   borderRadius?: string;
+  /** Capa donde vive el vídeo. El Modo Cine está en z-[80], así que necesita más que eso. */
+  zIndex?: number;
 }
 
 export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
@@ -692,9 +932,11 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
   interactive = true,
   className = "w-full aspect-video rounded-2xl bg-black overflow-hidden",
   borderRadius = "12px",
+  zIndex = 51,
 }) => {
   const slotRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  const lastSampleRef = useRef(0);
   const instanceId = useRef<string>(Math.random().toString(36).substring(2, 9));
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -716,6 +958,7 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
           height: r.height,
           borderRadius,
           interactive,
+          zIndex,
         });
       } else if (activeHolderId === instanceId.current) {
         hidePortal();
@@ -723,9 +966,13 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     } else if (!slot && activeHolderId === instanceId.current) {
       hidePortal();
     }
-  }, [borderRadius, interactive]);
+  }, [borderRadius, interactive, zIndex]);
 
-  /* Mantiene el portal alineado con el hueco usando ResizeObserver + ventana de tracking de 600ms para animaciones */
+  /* Mantiene el portal pegado a su hueco: muestreo continuo a ~20 fps (sólo lee y compara;
+     escribe en el DOM únicamente cuando la geometría cambia de verdad), ResizeObserver y
+     escuchadores de scroll en fase de captura para seguir también los contenedores con
+     scroll propio (el panel del MiniPlayer tiene el vídeo dentro de un área desplazable:
+     sin captura, el vídeo se quedaba fijo mientras el contenido se movía). */
   useEffect(() => {
     if (!isYT || !showVideoInPlayer) {
       if (activeHolderId === instanceId.current) {
@@ -740,16 +987,17 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
     // 1. Sincronización inmediata
     sync();
 
-    // 2. Tracking activo a 60fps durante la transición física de Framer Motion (600 ms)
-    // Luego se apaga el rAF para evitar "layout thrashing" y congelamientos en reposo
-    const startTime = performance.now();
-    const trackTransition = () => {
-      sync();
-      if (performance.now() - startTime < 600) {
-        rafRef.current = requestAnimationFrame(trackTransition);
+    // 2. Seguimiento continuo pero barato: cubre las animaciones de Framer Motion (que
+    //    duran más de los 600 ms que se vigilaban antes), el scroll interno y los cambios
+    //    de disposición sin dejar el vídeo descolocado.
+    const sample = (now: number) => {
+      if (now - lastSampleRef.current >= SLOT_SAMPLE_INTERVAL_MS) {
+        lastSampleRef.current = now;
+        sync();
       }
+      rafRef.current = requestAnimationFrame(sample);
     };
-    rafRef.current = requestAnimationFrame(trackTransition);
+    rafRef.current = requestAnimationFrame(sample);
 
     // 3. ResizeObserver para cambios de tamaño responsivos sin coste en CPU
     let ro: ResizeObserver | null = null;
@@ -760,18 +1008,23 @@ export const GlobalYouTubePlayer: React.FC<GlobalYouTubePlayerProps> = ({
       ro.observe(slotRef.current);
     }
 
-    // 4. Escuchadores de ventana
+    // 4. Escuchadores de ventana (scroll en captura: llega también desde contenedores hijos)
     const onResize = () => sync();
     const onScroll = () => sync();
+    const onVisibility = () => {
+      if (!document.hidden) sync();
+    };
     window.addEventListener("resize", onResize, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("aura:sync-yt-slot", sync);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       if (ro) ro.disconnect();
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("aura:sync-yt-slot", sync);
       if (activeHolderId === instanceId.current) {
         activeHolderId = null;

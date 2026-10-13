@@ -47,7 +47,7 @@ export const LyricsOverlay: React.FC = () => {
   );
 
   const spotifyActive = isSpotifyActiveSource({ isSpotifyConnected, currentTrack });
-  const { lyricsData, loadLrcFile, isLoading } = useLyrics();
+  const { lyricsData, loadLrcFile, isLoading, status: lyricsStatus, statusMessage: lyricsStatusMessage, retry: retryLyrics } = useLyrics();
   const {
     seek,
     togglePlayPause: engineTogglePlayPause,
@@ -377,6 +377,9 @@ export const LyricsOverlay: React.FC = () => {
               onSkipBack={handleSkipPrev}
               onSkipForward={handleSkipNext}
               isLoading={isLoading}
+              lyricsStatus={lyricsStatus}
+              lyricsStatusMessage={lyricsStatusMessage}
+              onRetryLyrics={retryLyrics}
             />
           </motion.div>
         )}

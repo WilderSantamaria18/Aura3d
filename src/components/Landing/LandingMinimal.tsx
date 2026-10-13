@@ -53,11 +53,14 @@ export const LandingMinimal: React.FC = () => {
   }, [isTransitioning, setIsTransitioning, unlockAudio, setHasStarted]);
 
   // Support Enter key shortcut to launch
+  // Solo con el foco en el documento: si hay un botón o enlace enfocado, Enter debe
+  // activarlo a él. Antes, pulsar Enter en cualquier punto lanzaba el motor.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        handleEnter();
-      }
+      if (e.key !== 'Enter' || e.defaultPrevented) return;
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== document.documentElement) return;
+      handleEnter();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -78,7 +81,6 @@ export const LandingMinimal: React.FC = () => {
   const statusElRef = useRef<HTMLSpanElement | null>(null);
   const signalParentRef = useRef<HTMLDivElement | null>(null);
   const latencyCounterRef = useRef<HTMLSpanElement | null>(null);
-  const tiltBoxRef = useRef<HTMLDivElement | null>(null);
   const kawarpProgressFillRef = useRef<HTMLDivElement | null>(null);
   const bpmPhaseReadoutRef = useRef<HTMLSpanElement | null>(null);
   const specsGridRef = useRef<HTMLDivElement | null>(null);
@@ -142,6 +144,17 @@ export const LandingMinimal: React.FC = () => {
     const ROTATION_SPEED = 0.09;
     const BOOT_DURATION = 2400;
 
+    // ── Geometría del hero: el aro nunca invade el titular ────────────────────
+    // El aro se dibuja como una elipse (r, r·ELLIPSE_RATIO) cuyas barras crecen
+    // hasta HERO_BAR_MAX·r por encima del centro. Ese modelo es el que se usa
+    // para colocarlo y para poder asertarlo en los tests de regresión visual.
+    const HERO_SAFE_TOP = 136;          // nav (16 + 54) + fila de estado
+    const HERO_GAP = 32;                // separación mínima entre aro y texto
+    const HERO_BAR_MAX = 1.4;           // altura máxima de barra, en múltiplos de r
+    const HERO_LATERAL_MIN_WIDTH = 1024;
+    const HERO_LATERAL_MIN_ROOM = 300;  // ancho libre mínimo a la derecha del titular
+    const clampHeroR = (r: number) => Math.max(20, Math.min(r, heroWidth * 0.34));
+
     const BASE_AMPS = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       const t = i / N;
@@ -164,6 +177,11 @@ export const LandingMinimal: React.FC = () => {
     let rotationAngle = 0;
     let bootStartTime = performance.now();
     let isHeroBooting = !prefersReducedMotion;
+    // En movimiento reducido, el hero es estático sin demo: no recrear 480 gradientes
+    // (tres por cada una de las 160 barras) en cada frame. Se invalida al redimensionar,
+    // volver a entrar en pantalla o terminar una demo activa.
+    let heroNeedsRedraw = true;
+    let wasDemoActive = false;
 
     function resizeHero() {
       if (!heroCanvas || !heroCtx) return;
@@ -177,23 +195,82 @@ export const LandingMinimal: React.FC = () => {
       heroCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const isMobile = heroWidth < 768;
-      heroR = Math.max(20, isMobile ? heroWidth * 0.35 : Math.min(heroWidth, heroHeight) * 0.24);
-      heroCenterX = heroWidth / 2;
-      heroCenterY = heroHeight * 0.46;
 
-      if (isMobile) {
-        // En móvil el texto ocupa la parte baja: el aro vive en el hueco entre la etiqueta y el título
-        const title = heroSectionRef.current?.querySelector('h1');
-        const textTop = title ? title.getBoundingClientRect().top - (parent?.getBoundingClientRect().top ?? 0) : heroHeight * 0.55;
-        const freeTop = 112;
-        const free = Math.max(120, textTop - freeTop - 12);
-        heroR = Math.max(20, Math.min(heroWidth * 0.3, free * 0.3));
+      // ── Colocación del aro derivada del texto real ───────────────────────────
+      // Antes: heroCenterY = heroHeight * 0.46 fijo para todos los anchos, sin
+      // consultar dónde está el titular; en 1024 px el aro lo atravesaba.
+      const parentRect = parent?.getBoundingClientRect();
+      const title = heroSectionRef.current?.querySelector('h1');
+      const titleRect = title?.getBoundingClientRect();
+
+      if (parentRect && titleRect) {
+        heroCanvas.style.opacity = '1';
+        const textTop = titleRect.top - parentRect.top;
+        // El box del h1 ocupa todo el contenedor (max-w-[720px]), así que su borde
+        // derecho no es el final del texto: se mide la tinta real de sus líneas.
+        let textRight = titleRect.right - parentRect.left;
+        if (title) {
+          const range = document.createRange();
+          range.selectNodeContents(title);
+          const ink = range.getBoundingClientRect();
+          if (ink.width > 0) textRight = ink.right - parentRect.left;
+        }
+        // La etiqueta superior se oculta por debajo de sm, así que la banda segura
+        // arranca justo bajo el nav en móvil.
+        const safeTop = heroWidth >= 640 ? HERO_SAFE_TOP : HERO_SAFE_TOP - 58;
+        const lateralRoom = heroWidth - textRight - HERO_GAP;
+        const verticalRoom = textTop - safeTop - HERO_GAP;
+        const byHeight = (heroHeight - safeTop - HERO_GAP) / (HERO_BAR_MAX + ELLIPSE_RATIO);
+
+        if (heroWidth >= HERO_LATERAL_MIN_WIDTH && lateralRoom >= HERO_LATERAL_MIN_ROOM) {
+          // 1. Composición lateral: el titular manda a la izquierda y el aro vive a su
+          // derecha, pegado al margen del texto y encogido solo lo que exija el hueco.
+          const byLateralRoom = (lateralRoom - HERO_GAP) / (2 * 1.08);
+          heroR = clampHeroR(Math.min(Math.min(heroWidth, heroHeight) * 0.24, byHeight, byLateralRoom));
+          heroCenterX = textRight + HERO_GAP + heroR * 1.08;
+          heroCenterY = safeTop + heroR * HERO_BAR_MAX;
+        } else if (verticalRoom >= 0) {
+          // 2. Composición apilada: el aro cabe entero en la banda libre sobre el titular.
+          heroR = clampHeroR(Math.min(heroWidth * 0.3, verticalRoom / (HERO_BAR_MAX + ELLIPSE_RATIO)));
+          heroCenterX = heroWidth / 2;
+          heroCenterY = safeTop + heroR * HERO_BAR_MAX;
+        } else {
+          // 3. Sin banda libre (móvil con el bloque de texto a pantalla completa): el aro
+          // se ajusta a la franja entre el nav y el titular. Si ni eso cabe, no se dibuja
+          // en lugar de invadir el texto.
+          const band = Math.max(0, textTop - safeTop - HERO_GAP);
+          heroR = Math.max(0, Math.min(heroWidth * 0.28, band / (HERO_BAR_MAX + ELLIPSE_RATIO)));
+          heroCenterX = heroWidth / 2;
+          heroCenterY = safeTop + heroR * HERO_BAR_MAX;
+          heroCanvas.style.opacity = heroR < 12 ? '0' : '1';
+        }
+
+        // Caja real del aro dibujado, para poder verificarla en los tests.
+        const halfW = heroR * 1.08;
+        (window as Window & { __auraHeroGeometry?: unknown }).__auraHeroGeometry = {
+          top: heroCenterY - heroR * HERO_BAR_MAX,
+          bottom: heroCenterY + heroR * ELLIPSE_RATIO + 2,
+          left: heroCenterX - halfW,
+          right: heroCenterX + halfW,
+          r: heroR,
+          cx: heroCenterX,
+          cy: heroCenterY,
+          title: {
+            top: textTop,
+            right: textRight,
+            bottom: titleRect.bottom - parentRect.top,
+            left: titleRect.left - parentRect.left,
+          },
+        };
+      } else {
+        heroR = Math.max(20, isMobile ? heroWidth * 0.35 : Math.min(heroWidth, heroHeight) * 0.24);
         heroCenterX = heroWidth / 2;
-        heroCenterY = freeTop + free / 2;
+        heroCenterY = heroHeight * 0.46;
       }
 
       heroCtx.fillStyle = '#050710';
       heroCtx.fillRect(0, 0, heroWidth, heroHeight);
+      heroNeedsRedraw = true;
     }
 
     function updateHeroStatus(elapsed: number) {
@@ -351,7 +428,9 @@ export const LandingMinimal: React.FC = () => {
           el.style.borderColor = 'rgba(0, 229, 255, 0.4)';
           el.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
         } else {
-          el.style.opacity = '0.35';
+          // 0.35 dejaba el texto por debajo de 4.5:1 (1.74-3.09:1 medido por axe).
+          // La jerarquía se mantiene con el borde y el fondo, no con invisibilidad.
+          el.style.opacity = '0.85';
           el.style.borderColor = 'rgba(255, 255, 255, 0.06)';
           el.style.backgroundColor = 'transparent';
         }
@@ -423,7 +502,6 @@ export const LandingMinimal: React.FC = () => {
     // ==========================================
     const miniCanvas = miniConeCanvasRef.current;
     const miniCtx = miniCanvas?.getContext('2d');
-    const tiltBox = tiltBoxRef.current;
     let miniW = 0, miniH = 0;
     let miniRot = 0;
 
@@ -435,24 +513,6 @@ export const LandingMinimal: React.FC = () => {
       miniCanvas.width = Math.floor(miniW * dpr);
       miniCanvas.height = Math.floor(miniH * dpr);
       miniCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    const handleTiltMove = (e: MouseEvent) => {
-      if (!tiltBox) return;
-      const rect = tiltBox.getBoundingClientRect();
-      const normX = (e.clientX - rect.left) / rect.width - 0.5;
-      const normY = (e.clientY - rect.top) / rect.height - 0.5;
-      tiltBox.style.transform = `perspective(1000px) rotateY(${normX * 12}deg) rotateX(${-normY * 12}deg)`;
-    };
-
-    const handleTiltLeave = () => {
-      if (!tiltBox) return;
-      tiltBox.style.transform = `perspective(1000px) rotateY(0deg) rotateX(0deg)`;
-    };
-
-    if (tiltBox) {
-      tiltBox.addEventListener('mousemove', handleTiltMove);
-      tiltBox.addEventListener('mouseleave', handleTiltLeave);
     }
 
     function renderMiniCone(delta: number) {
@@ -713,6 +773,11 @@ export const LandingMinimal: React.FC = () => {
         scrollThumbRef.current.style.top = `${progress * 100}%`;
       }
 
+      // El rail es un control operable: se mantiene su valor accesible en sincronía.
+      if (scrollRailRef.current) {
+        scrollRailRef.current.setAttribute('aria-valuenow', String(Math.round(progress * 100)));
+      }
+
       if (signalParentRef.current) {
         const rect = signalParentRef.current.getBoundingClientRect();
         const parentH = signalParentRef.current.offsetHeight - window.innerHeight;
@@ -726,16 +791,45 @@ export const LandingMinimal: React.FC = () => {
     window.addEventListener('scroll', updateScrollState, { passive: true });
 
     const scrollRail = scrollRailRef.current;
+    const railMaxScroll = () => document.documentElement.scrollHeight - window.innerHeight;
+    const scrollToRailProgress = (p: number) => {
+      const clamped = Math.min(1, Math.max(0, p));
+      window.scrollTo({
+        top: clamped * railMaxScroll(),
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
+    };
+
     const handleRailClick = (e: MouseEvent) => {
       if (!scrollRail) return;
       const rect = scrollRail.getBoundingClientRect();
-      const p = (e.clientY - rect.top) / rect.height;
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      window.scrollTo({ top: p * maxScroll, behavior: 'smooth' });
+      scrollToRailProgress((e.clientY - rect.top) / rect.height);
+    };
+
+    const handleRailKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        scrollToRailProgress(e.key === 'Home' ? 0 : 1);
+        return;
+      }
+      const step: Record<string, number> = {
+        ArrowUp: -0.02,
+        ArrowLeft: -0.02,
+        ArrowDown: 0.02,
+        ArrowRight: 0.02,
+        PageUp: -0.1,
+        PageDown: 0.1,
+      };
+      const delta = step[e.key];
+      if (delta === undefined) return;
+      e.preventDefault();
+      const max = railMaxScroll();
+      scrollToRailProgress((max > 0 ? window.scrollY / max : 0) + delta);
     };
 
     if (scrollRail) {
       scrollRail.addEventListener('click', handleRailClick);
+      scrollRail.addEventListener('keydown', handleRailKeyDown);
     }
 
     // ==========================================
@@ -762,8 +856,25 @@ export const LandingMinimal: React.FC = () => {
 
     // Initial resize setup
     resizeAll();
-    // El título entra animado y las fuentes cargan después: se vuelve a medir para ubicar el aro
-    const remeasureTimer = setTimeout(resizeAll, 1800);
+
+    // El titular entra animado (framer-motion, ~1.6 s) y las fuentes cargan después del
+    // primer frame, así que su rect se mueve durante los primeros compases. Se muestrea
+    // hasta que se estabiliza en lugar de confiar en un temporizador ciego.
+    let titleWatchFrames = 0;
+    let titleWatchRaf = 0;
+    let lastTitleTop = Number.NaN;
+    const watchTitle = () => {
+      const t = heroSectionRef.current?.querySelector('h1');
+      const top = t ? t.getBoundingClientRect().top : Number.NaN;
+      if (!Number.isNaN(top) && (Number.isNaN(lastTitleTop) || Math.abs(top - lastTitleTop) > 0.5)) {
+        lastTitleTop = top;
+        resizeHero();
+      }
+      titleWatchFrames += 1;
+      if (titleWatchFrames < 180) titleWatchRaf = requestAnimationFrame(watchTitle);
+    };
+    titleWatchRaf = requestAnimationFrame(watchTitle);
+    if (document.fonts?.ready) void document.fonts.ready.then(() => resizeHero());
 
     // ==========================================
     // VISIBILIDAD: solo se dibuja lo que está en pantalla
@@ -773,7 +884,10 @@ export const LandingMinimal: React.FC = () => {
       (entries) => {
         entries.forEach((en) => {
           const k = (en.target as HTMLElement).dataset.vis;
-          if (k) vis[k] = en.isIntersecting;
+          if (k) {
+            if (k === 'hero' && en.isIntersecting && !vis.hero) heroNeedsRedraw = true;
+            vis[k] = en.isIntersecting;
+          }
         });
       },
       { rootMargin: '160px' }
@@ -806,8 +920,13 @@ export const LandingMinimal: React.FC = () => {
         BeatSim.hat = 0;
       }
 
-      // 1. Render Hero Visualizer
-      if (heroCtx && heroCanvas && vis.hero) {
+      // 1. Render Hero Visualizer. Sin animación ni audio, el frame no cambia:
+      // conservar los píxeles evita rehacer 480 gradientes y 160 halos por tick.
+      const demoActive = demoAudioSynthesizer.isActive();
+      const drawHero = !prefersReducedMotion || heroNeedsRedraw || demoActive || wasDemoActive;
+      wasDemoActive = demoActive;
+      if (heroCtx && heroCanvas && vis.hero && drawHero) {
+        heroNeedsRedraw = false;
         const heroElapsed = now - bootStartTime;
         const introP = prefersReducedMotion ? 1.0 : Math.min(1.0, heroElapsed / BOOT_DURATION);
         if (isHeroBooting && introP >= 1.0) isHeroBooting = false;
@@ -1019,15 +1138,12 @@ export const LandingMinimal: React.FC = () => {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleWindowResize);
-      clearTimeout(remeasureTimer);
+      cancelAnimationFrame(titleWatchRaf);
       window.removeEventListener('scroll', updateScrollState);
       if (resizeTimer) clearTimeout(resizeTimer);
-      if (tiltBox) {
-        tiltBox.removeEventListener('mousemove', handleTiltMove);
-        tiltBox.removeEventListener('mouseleave', handleTiltLeave);
-      }
       if (scrollRail) {
         scrollRail.removeEventListener('click', handleRailClick);
+        scrollRail.removeEventListener('keydown', handleRailKeyDown);
       }
       specsObserver.disconnect();
       latencyObserver.disconnect();
@@ -1084,12 +1200,29 @@ export const LandingMinimal: React.FC = () => {
 
   return (
     <div data-motion={motionForced() ? 'on' : undefined} className="lp-root landing-root selection:bg-cyan-500/30 selection:text-white w-full min-h-[100dvh] overflow-x-clip">
+      {/* Primer elemento tabulable: permite saltar el nav flotante con teclado. */}
+      <a
+        href="#hero"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-full focus:bg-white focus:text-[#04121a] focus:font-medium"
+      >
+        Saltar al contenido
+      </a>
       <AmbientOrbs />
       <GlassNav links={navLinks} onNavigate={scrollToSection} onEnter={handleEnter} />
 
       {/* Desktop Vertical Scroll Rail Indicator */}
-      <aside ref={scrollRailRef} aria-label="Progreso de página" className="hidden md:block" id="scroll-rail" title="Desplazarse por la estación">
-        <div ref={scrollThumbRef} id="scroll-thumb" style={{ top: '0%' }} />
+      <aside
+        ref={scrollRailRef}
+        role="slider"
+        tabIndex={0}
+        aria-label="Desplazarse por la página"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={0}
+        className="hidden md:block"
+        id="scroll-rail"
+      >
+        <div ref={scrollThumbRef} id="scroll-thumb" style={{ top: '0%' }} aria-hidden="true" />
       </aside>
 
       <main className="lp-content">
@@ -1104,10 +1237,16 @@ export const LandingMinimal: React.FC = () => {
             className="relative z-10 w-full h-full flex flex-col justify-between px-6 md:px-12 lg:px-16 pt-24 md:pt-28 pb-8 md:pb-10 pointer-events-none"
           >
             <div className="flex items-start justify-between gap-4">
-              <SectionLabel className="hidden sm:flex">Estación de audio reactiva</SectionLabel>
+              <SectionLabel className="lp-label--from-sm">Estación de audio reactiva</SectionLabel>
               <div className="inline-flex items-center gap-2 ml-auto">
-                <span className="w-[5px] h-[5px] rounded-full bg-auraCyan status-dot-pulse shrink-0" />
-                <span className="font-mono text-[11px] tracking-wider text-white/60 tabular-nums min-w-[84px]" ref={statusElRef} id="status-indicator">
+                <span className="w-[5px] h-[5px] rounded-full bg-auraCyan status-dot-pulse shrink-0" aria-hidden="true" />
+                <span
+                  className="font-mono text-[12px] tracking-wider text-white/60 tabular-nums min-w-[84px]"
+                  ref={statusElRef}
+                  id="status-indicator"
+                  role="status"
+                  aria-live="polite"
+                >
                   Iniciando
                 </span>
               </div>
@@ -1156,20 +1295,20 @@ export const LandingMinimal: React.FC = () => {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 1, delay: 0.95, ease: [0.16, 1, 0.3, 1] }}
-                  className="mt-6 p-2 sm:p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl max-w-xl pointer-events-auto shadow-[0_8px_32px_rgba(0,0,0,0.36)]"
+                  className="mt-4 sm:mt-6 p-2 sm:p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.1] backdrop-blur-xl max-w-xl pointer-events-auto shadow-[0_8px_32px_rgba(0,0,0,0.36)]"
                 >
-                  <div className="flex items-center justify-between px-2 pb-2 border-b border-white/[0.06] mb-2 text-[11px] font-mono">
-                    <span className="text-white/60 flex items-center gap-1.5 uppercase tracking-wider">
+                  <div className="flex items-center justify-between gap-2 px-2 pb-2 border-b border-white/[0.06] mb-2 text-[12px] font-mono">
+                    <span className="text-white/60 flex items-center gap-1.5 uppercase tracking-wider whitespace-nowrap">
                       <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
                       Probar Sonido en Vivo
                     </span>
                     {activeDemoPreset ? (
-                      <span className="text-cyan-400 flex items-center gap-1.5 font-medium animate-pulse">
+                      <span className="text-cyan-400 flex items-center gap-1.5 font-medium animate-pulse whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                        Sintetizador Web Audio Activo
+                        <span className="hidden sm:inline">Sintetizador Web Audio Activo</span>
                       </span>
                     ) : (
-                      <span className="text-white/40">1-clic demo • 0 descargas</span>
+                      <span className="hidden sm:block text-white/60 whitespace-nowrap">1-clic demo • 0 descargas</span>
                     )}
                   </div>
 
@@ -1207,9 +1346,9 @@ export const LandingMinimal: React.FC = () => {
                             ) : (
                               <Play className="w-3 h-3 text-white/60 fill-white/20" />
                             )}
-                            <span className="font-sans font-medium">{stem.label}</span>
+                            <span className="font-sans font-medium whitespace-nowrap">{stem.label}</span>
                           </div>
-                          <span className="text-[10px] text-white/40">{stem.bpm}</span>
+                          <span className="hidden sm:inline text-[11px] text-white/60 whitespace-nowrap">{stem.bpm}</span>
                         </button>
                       );
                     })}
@@ -1222,7 +1361,7 @@ export const LandingMinimal: React.FC = () => {
                         className="px-2.5 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 border border-white/10 hover:border-rose-400/40 text-white/70 hover:text-rose-300 text-xs transition-all flex items-center gap-1"
                       >
                         <VolumeX className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-mono">Stop</span>
+                        <span className="text-[11px] font-mono">Stop</span>
                       </button>
                     )}
                   </div>
@@ -1290,13 +1429,13 @@ export const LandingMinimal: React.FC = () => {
                         key={n}
                         className="step-item rounded-2xl border border-transparent px-4 py-3.5 flex items-center justify-between gap-3"
                         data-step={i}
-                        style={i === 0 ? undefined : { opacity: 0.4 }}
+                        style={i === 0 ? undefined : { opacity: 0.85 }}
                       >
                         <div className="flex items-center gap-4 min-w-0">
-                          <span className="font-mono text-[11px] text-auraCyan shrink-0">{n}</span>
+                          <span className="font-mono text-[12px] text-auraCyan shrink-0">{n}</span>
                           <span className="text-[15px] font-medium text-white truncate">{title}</span>
                         </div>
-                        <span className="hidden sm:inline font-mono text-[11.5px] tabular-nums shrink-0 text-[color:var(--lp-muted)]">{meta}</span>
+                        <span className="hidden sm:inline font-mono text-[12px] tabular-nums shrink-0 text-[color:var(--lp-muted)]">{meta}</span>
                       </div>
                     ))}
                   </div>
@@ -1305,8 +1444,8 @@ export const LandingMinimal: React.FC = () => {
                 <div className="lg:col-span-7 flex flex-col items-center justify-center">
                   <div className="lp-glass w-full aspect-[16/10] max-h-[470px] relative overflow-hidden p-4 flex items-center justify-center">
                     <canvas ref={signalCanvasRef} className="w-full h-full block" id="signal-path-canvas" />
-                    <div className="absolute top-4 left-5 font-mono text-[10px] uppercase tracking-wider text-[color:var(--lp-muted)]">Buffer activo · 128 s / 2.66 ms</div>
-                    <div className="absolute bottom-4 right-5 font-mono text-[10px] tracking-wider text-[color:var(--lp-muted)] tabular-nums">SYNC LOCK 99.98%</div>
+                    <div className="absolute top-4 left-5 font-mono text-[12px] uppercase tracking-wider text-[color:var(--lp-muted)]">Buffer activo · 128 s / 2.66 ms</div>
+                    <div className="absolute bottom-4 right-5 font-mono text-[12px] tracking-wider text-[color:var(--lp-muted)] tabular-nums">SYNC LOCK 99.98%</div>
                   </div>
                 </div>
               </div>
@@ -1338,7 +1477,7 @@ export const LandingMinimal: React.FC = () => {
           <Scene3D className="w-full max-w-[1240px]">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-7 flex justify-center">
-                <div ref={tiltBoxRef} style={{ transition: 'transform 0.2s ease-out' }} className="lp-glass relative w-full max-w-[560px] overflow-hidden" id="cone-tilt-container">
+                <div className="lp-glass relative w-full max-w-[560px] overflow-hidden" id="cone-tilt-container">
                   <div className="lp-window-bar">
                     <i />
                     <i />
@@ -1347,8 +1486,8 @@ export const LandingMinimal: React.FC = () => {
                   </div>
                   <div className="relative aspect-square p-2">
                     <canvas ref={miniConeCanvasRef} className="w-full h-full block rounded-2xl" id="mini-cone-canvas" />
-                    <div className="absolute bottom-4 left-5 font-mono text-[11px] text-[color:var(--lp-muted)]">RADIAL SPECTRUM — 160 BANDS</div>
-                    <div className="absolute top-3 right-5 font-mono text-[11px] text-auraCyan">● LIVE</div>
+                    <div className="absolute bottom-4 left-5 font-mono text-[12px] text-[color:var(--lp-muted)]">RADIAL SPECTRUM — 160 BANDS</div>
+                    <div className="absolute top-3 right-5 font-mono text-[12px] text-auraCyan">● LIVE</div>
                   </div>
                 </div>
               </div>
@@ -1421,8 +1560,8 @@ export const LandingMinimal: React.FC = () => {
                   </div>
                   <div className="relative aspect-square p-2">
                     <canvas ref={handCanvasRef} className="w-full h-full block rounded-2xl" id="hand-canvas" />
-                    <div className="absolute bottom-4 left-5 font-mono text-[11px] text-[color:var(--lp-muted)]">21-POINT SKELETAL RIG</div>
-                    <div className="absolute top-3 right-5 font-mono text-[11px] text-auraViolet">● OPTICAL TRACK</div>
+                    <div className="absolute bottom-4 left-5 font-mono text-[12px] text-[color:var(--lp-muted)]">21-POINT SKELETAL RIG</div>
+                    <div className="absolute top-3 right-5 font-mono text-[12px] text-auraViolet">● OPTICAL TRACK</div>
                   </div>
                 </div>
               </div>
@@ -1452,7 +1591,7 @@ export const LandingMinimal: React.FC = () => {
                 <div className="w-full max-w-[480px] h-1 bg-white/10 rounded-full mt-10 overflow-hidden relative">
                   <div ref={kawarpProgressFillRef} className="h-full bg-gradient-to-r from-auraCyan to-auraViolet w-0" id="kawarp-progress-fill" />
                 </div>
-                <div className="flex items-center justify-between w-full max-w-[480px] font-mono text-[11px] text-[color:var(--lp-muted)] mt-3 tabular-nums">
+                <div className="flex items-center justify-between w-full max-w-[480px] font-mono text-[12px] text-[color:var(--lp-muted)] mt-3 tabular-nums">
                   <span>120.00 BPM</span>
                   <span ref={bpmPhaseReadoutRef} id="bpm-phase-readout">PASO 01 / 05</span>
                   <span>SYNC LOCK: EXACT</span>
@@ -1484,7 +1623,7 @@ export const LandingMinimal: React.FC = () => {
             </Scene3D>
 
             <div className="lp-bento">
-              <SpotlightCard tint tilt={3} className="b-7 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
+              <SpotlightCard tint className="b-7 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
                 <div>
                   <div className="lp-icon"><Sparkles className="w-5 h-5" aria-hidden="true" /></div>
                   <h3 className="text-2xl md:text-[30px] font-medium tracking-tight text-white mt-6">Visualizadores 3D en tiempo real</h3>
@@ -1495,7 +1634,7 @@ export const LandingMinimal: React.FC = () => {
                 </p>
               </SpotlightCard>
 
-              <SpotlightCard tilt={3} className="b-5 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
+              <SpotlightCard className="b-5 p-8 md:p-10 flex flex-col justify-between min-h-[300px]">
                 <div>
                   <div className="lp-icon lp-icon--v"><SlidersHorizontal className="w-5 h-5" aria-hidden="true" /></div>
                   <h3 className="text-2xl font-medium tracking-tight text-white mt-6">Ecualizador de 10 bandas</h3>

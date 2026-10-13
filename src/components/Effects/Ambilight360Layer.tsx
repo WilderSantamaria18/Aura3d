@@ -79,7 +79,7 @@ export const Ambilight360Layer: React.FC = () => {
       {/* ── Borde Superior (Ambilight Top) ── */}
       <div
         ref={topGlowRef}
-        className="absolute top-0 left-0 right-0 h-48 pointer-events-none transition-all duration-300 mix-blend-screen"
+        className="absolute top-0 left-0 right-0 h-48 pointer-events-none mix-blend-screen"
         style={{
           opacity: 0.16,
           background: `radial-gradient(ellipse 85% 100% at 50% 0%, ${hexToRgba(primaryColor, 0.6)} 0%, ${hexToRgba(accentColor, 0.25)} 45%, transparent 80%)`,
@@ -89,7 +89,7 @@ export const Ambilight360Layer: React.FC = () => {
       {/* ── Borde Inferior (Ambilight Bottom - kick reactivo profundo) ── */}
       <div
         ref={bottomGlowRef}
-        className="absolute bottom-0 left-0 right-0 h-56 pointer-events-none transition-all duration-150 mix-blend-screen"
+        className="absolute bottom-0 left-0 right-0 h-56 pointer-events-none mix-blend-screen"
         style={{
           opacity: 0.22,
           background: `radial-gradient(ellipse 90% 100% at 50% 100%, ${hexToRgba(secondaryColor, 0.65)} 0%, ${hexToRgba(primaryColor, 0.3)} 50%, transparent 80%)`,
@@ -99,7 +99,7 @@ export const Ambilight360Layer: React.FC = () => {
       {/* ── Lateral Izquierdo (Ambilight Left) ── */}
       <div
         ref={leftGlowRef}
-        className="absolute top-0 bottom-0 left-0 w-40 pointer-events-none transition-all duration-200 mix-blend-screen"
+        className="absolute top-0 bottom-0 left-0 w-40 pointer-events-none mix-blend-screen"
         style={{
           opacity: 0.13,
           background: `radial-gradient(ellipse 100% 70% at 0% 50%, ${hexToRgba(primaryColor, 0.5)} 0%, transparent 75%)`,
@@ -109,7 +109,7 @@ export const Ambilight360Layer: React.FC = () => {
       {/* ── Lateral Derecho (Ambilight Right) ── */}
       <div
         ref={rightGlowRef}
-        className="absolute top-0 bottom-0 right-0 w-40 pointer-events-none transition-all duration-200 mix-blend-screen"
+        className="absolute top-0 bottom-0 right-0 w-40 pointer-events-none mix-blend-screen"
         style={{
           opacity: 0.13,
           background: `radial-gradient(ellipse 100% 70% at 100% 50%, ${hexToRgba(secondaryColor, 0.5)} 0%, transparent 75%)`,
@@ -119,7 +119,7 @@ export const Ambilight360Layer: React.FC = () => {
       {/* ── Esquinas Especulares (Vignette Caustics de 4 Puntas) ── */}
       <div
         ref={causticsRef}
-        className="absolute inset-0 pointer-events-none mix-blend-screen transition-opacity duration-300"
+        className="absolute inset-0 pointer-events-none mix-blend-screen"
         style={{
           opacity: 0.1,
           background: `radial-gradient(circle at 0% 0%, ${hexToRgba(accentColor, 0.35)} 0%, transparent 35%),

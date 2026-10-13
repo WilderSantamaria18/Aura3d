@@ -114,7 +114,7 @@ describe('saved track YouTube playback', () => {
     ]);
   });
 
-  it('updates a broken YouTube favorite id when selecting an alternate video', () => {
+  it('updates a broken YouTube favorite video while keeping its identity stable', () => {
     const brokenYouTubeFavorite = {
       ...savedTrack,
       id: 'yt_oldVideo01',
@@ -126,7 +126,30 @@ describe('saved track YouTube playback', () => {
       brokenYouTubeFavorite
     );
 
-    expect(resolved.id).toBe('yt_newVideo02');
+    // El vídeo se actualiza…
     expect(resolved.youtubeId).toBe('newVideo02');
+    // …y la identidad de la pista se mantiene: el fallback acumula los vídeos que ya
+    // fallaron usando el id de la pista, así que no puede cambiar entre reintentos.
+    expect(resolved.id).toBe('yt_oldVideo01');
+  });
+
+  it('no pisa el artista real de la pista con el canal del vídeo', () => {
+    const resolved = createTrackFromYouTubeCandidate(
+      { id: 'dX3k_QDnzHE', title: 'M83 - Midnight City (Official Video)', artist: 'LatinHype' },
+      savedTrack
+    );
+
+    expect(resolved.artist).toBe('M83');
+    expect(resolved.uploader).toBe('LatinHype');
+  });
+
+  it('usa el canal como artista sólo si la pista no tenía ninguno aprovechable', () => {
+    const resolved = createTrackFromYouTubeCandidate(
+      { id: 'dX3k_QDnzHE', title: 'Midnight City', artist: 'sweetblue.' },
+      { ...savedTrack, artist: 'Archivo local' }
+    );
+
+    expect(resolved.artist).toBe('sweetblue.');
+    expect(resolved.uploader).toBe('sweetblue.');
   });
 });

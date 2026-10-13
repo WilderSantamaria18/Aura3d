@@ -776,7 +776,9 @@ export const EqualizerModal: React.FC = () => {
                         {tooltipInfo.text}
                       </div>
                     )}
-                    <div className="absolute bottom-2 right-3 pointer-events-none text-[8px] font-mono text-white/45 hidden sm:block">
+                    {/* Va arriba a la derecha, no al pie: abajo se imprimía encima de las
+                        etiquetas de frecuencia (500 Hz…16 kHz) y ambas quedaban ilegibles. */}
+                    <div className="absolute top-2 right-3 pointer-events-none text-[11px] font-mono text-white/60 hidden sm:block">
                       Arrastra los nodos para dibujar la curva • Doble clic para 0dB
                     </div>
                   </div>

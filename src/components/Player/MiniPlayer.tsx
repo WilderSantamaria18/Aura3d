@@ -1134,12 +1134,18 @@ export const MiniPlayer: React.FC = () => {
                     {/* Video Mode View */}
                     {isVideoTrack && showVideoView ? (
                       <div className="flex flex-col gap-2.5">
-                        <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-black aspect-video">
-                          <GlobalYouTubePlayer
-                            showVideoInPlayer={isExpanded && activeTab === 'player' && showVideoView && !isVideoTheaterOpen}
-                            borderRadius="16px"
-                            interactive={true}
-                          />
+                        {/* El marco y el lienzo 16:9 son cajas separadas: con `aspect-video`
+                            y `border` en la misma caja, el área interior perdía ~1 px y dejaba de
+                            ser exactamente 16:9. */}
+                        <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-black">
+                          <div data-youtube-host="mini" className="relative w-full aspect-video bg-black">
+                            <GlobalYouTubePlayer
+                              showVideoInPlayer={isExpanded && activeTab === 'player' && showVideoView && !isVideoTheaterOpen}
+                              borderRadius="15px"
+                              interactive={true}
+                              className="absolute inset-0 w-full h-full"
+                            />
+                          </div>
                         </div>
 
                         {/* Liquid Glass Video Action Bar */}
@@ -1639,8 +1645,9 @@ export const MiniPlayer: React.FC = () => {
                   </div>
                 )}
 
-                {(playbackStatus === 'resolving' ||
-                  playbackStatus === 'buffering' ||
+                {(playbackStatus === 'searching' ||
+                  playbackStatus === 'loading' ||
+                  playbackStatus === 'retrying' ||
                   playbackMessage?.startsWith('Versión encontrada')) &&
                   playbackMessage && (
                   <div
@@ -1648,14 +1655,16 @@ export const MiniPlayer: React.FC = () => {
                     aria-live="polite"
                     className="flex items-center gap-2 rounded-xl bg-cyan-400/[0.08] px-3 py-2 text-[11px] text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                   >
-                    {(playbackStatus === 'resolving' || playbackStatus === 'buffering') && (
+                    {(playbackStatus === 'searching' ||
+                      playbackStatus === 'loading' ||
+                      playbackStatus === 'retrying') && (
                       <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                     )}
                     <span className="min-w-0 truncate">{playbackMessage}</span>
                   </div>
                 )}
 
-                {(audioError || playbackStatus === 'error') && (
+                {(audioError || playbackStatus === 'error' || playbackStatus === 'unavailable') && (
                   <div role="alert" className="p-2 rounded-xl bg-rose-500/15 text-[11px] text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                     {audioError || playbackMessage || 'No se pudo reproducir la canción. Inténtalo otra vez.'}
                   </div>

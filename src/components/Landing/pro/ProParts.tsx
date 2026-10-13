@@ -94,54 +94,20 @@ export const Scene3D: React.FC<Scene3DProps> = ({ children, className = '', inte
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
-   SpotlightCard — superficie de cristal con brillo que sigue al cursor.
+   SpotlightCard — superficie de cristal sobria, sin brillo ni inclinación que
+   sigan al cursor: escribir --mx/--my en cada mousemove invalidaba el gradiente
+   y el backdrop-filter de la tarjeta en cada frame.
    ──────────────────────────────────────────────────────────────────────────── */
 interface SpotlightCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  tilt?: number;
   tint?: boolean;
 }
 
 export const SpotlightCard = React.forwardRef<HTMLDivElement, SpotlightCardProps>(
-  ({ children, className = '', tilt = 0, tint = false, style, onMouseMove, onMouseLeave, ...rest }, fwd) => {
-    const inner = useRef<HTMLDivElement | null>(null);
-
-    const setRefs = (node: HTMLDivElement | null) => {
-      inner.current = node;
-      if (typeof fwd === 'function') fwd(node);
-      else if (fwd) (fwd as React.MutableRefObject<HTMLDivElement | null>).current = node;
-    };
-
-    const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
-      const el = inner.current;
-      if (el) {
-        const r = el.getBoundingClientRect();
-        const x = e.clientX - r.left;
-        const y = e.clientY - r.top;
-        el.style.setProperty('--mx', `${x}px`);
-        el.style.setProperty('--my', `${y}px`);
-        if (tilt) {
-          el.style.transform = `perspective(1100px) rotateY(${(x / r.width - 0.5) * tilt}deg) rotateX(${-(y / r.height - 0.5) * tilt}deg)`;
-        }
-      }
-      onMouseMove?.(e);
-    };
-
-    const handleLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (inner.current && tilt) inner.current.style.transform = '';
-      onMouseLeave?.(e);
-    };
-
-    const cls = ['lp-glass lp-glass--hover', tint ? 'lp-glass--tint' : '', className].filter(Boolean).join(' ');
+  ({ children, className = '', tint = false, ...rest }, fwd) => {
+    const cls = ['lp-glass', tint ? 'lp-glass--tint' : '', className].filter(Boolean).join(' ');
 
     return (
-      <div
-        ref={setRefs}
-        className={cls}
-        style={{ transition: tilt ? 'transform 0.25s cubic-bezier(0.16,1,0.3,1)' : undefined, ...style }}
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
-        {...rest}
-      >
+      <div ref={fwd} className={cls} {...rest}>
         {children}
       </div>
     );

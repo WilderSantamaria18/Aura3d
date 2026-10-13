@@ -1,12 +1,33 @@
 @import "tailwindcss";
 
+/* ── Tokens tipográficos de Tailwind (DESIGN.md §8) ──────────────────────────
+   Sin este bloque, `font-mono` caía en la pila por defecto de Tailwind
+   (ui-monospace → Consolas en Windows) e ignoraba JetBrains Mono, que sí se
+   carga en index.html; y `font-sans` no declaraba Inter/Geist como respaldo. */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Geist', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+
+  /* Colores de marca que antes eran clases escritas a mano en ConicStation.css
+     (sin capa, así que suplantaban a las utilidades de Tailwind). */
+  --color-auraCyan: #00e5ff;
+  --color-auraViolet: #a078ff;
+  --color-auraPink: #ff2d92;
+  --color-auraBg: #050710;
+  --color-auraDark: #04060e;
+  --color-auraDeep: #07091a;
+}
+
 :root {
   color-scheme: dark;
   
   /* ── 1. Superficies & Capas de Elevación (iOS Minimalist Surfaces) ── */
   --surface-base: #06080e;
   --surface-canvas: #080b14;
-  --surface-dock: rgba(12, 16, 28, 0.92);
+  /* Dock translúcido: DESIGN.md documentaba vidrio (0.62) y el código tenía 0.92
+     (opaco). Se acuerda 0.72 — conserva el efecto vidrio sin comprometer la
+     legibilidad de los valores DSP sobre el canvas 3D. */
+  --surface-dock: rgba(12, 16, 28, 0.72);
   --surface-card: rgba(18, 24, 38, 0.70);
   --surface-overlay: rgba(10, 14, 24, 0.95);
   --surface-hover: rgba(255, 255, 255, 0.06);
@@ -60,7 +81,9 @@
   --duration-base: 250ms;
   --duration-slow: 400ms;
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Curva spring real (con rebote). Antes era idéntica a --ease-smooth, así que
+     la 'recuperación spring' que documenta DESIGN.md §9.2 no existía. */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* ── 7. Chameleon Glass & Variables Dinámicas Globales ── */
@@ -80,7 +103,7 @@
   --ai-bloom-intensity: 1.0;
 
   /* ── 8. Geometría & Escala de Radios Apple Liquid Glass (visionOS HIG) ── */
-  --radius-container: 20px;
+  --radius-container: 22px;
   --radius-dock: 18px;
   --radius-modal: 20px;
   --radius-card: 16px;
@@ -88,12 +111,41 @@
   --radius-pill: 9999px;
   --radius-badge: 5px;
 
-  /* ── 9. Apple visionOS Liquid Glass Master Shader Tokens ── */
-  --liquid-blur: blur(40px) saturate(190%) contrast(105%);
+  /* ── 9. Apple visionOS Liquid Glass Master Shader Tokens ──
+     Materiales canónicos (DESIGN.md §2). Estas son las variables que consumen
+     .liquid-glass y .liquid-glass--modal; antes tenían sus valores duplicados a
+     mano y --liquid-blur (que ya existía) no se usaba en ningún sitio. */
+  --blur-glass: 40px;
+  --blur-elevated: 56px;
+  --saturate-glass: 190%;
+  --saturate-elev: 200%;
+  --contrast-glass: 105%;
+  /* Nivel editorial de la landing: mismo material, blur más contenido por el coste
+     de rendimiento sobre los orbes animados (DESIGN.md §2.1). */
+  --blur-editorial: 18px;
+  --saturate-editorial: 170%;
+  --edge-highlight-dark:
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.25),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.25);
+  --shadow-mid-dark:
+    0 2px 4px rgba(0, 0, 0, 0.30),
+    0 10px 28px rgba(0, 0, 0, 0.40),
+    0 24px 64px -8px rgba(0, 0, 0, 0.65);
+  --shadow-near-dark:
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 16px 36px rgba(0, 0, 0, 0.45),
+    0 36px 84px -12px rgba(0, 0, 0, 0.85);
+  --radius-material: 28px;
+  --radius-material-sm: 24px;
+  --radius-material-lg: 32px;
+  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --liquid-blur: blur(var(--blur-glass)) saturate(var(--saturate-glass)) contrast(var(--contrast-glass));
+  --liquid-blur-elevated: blur(var(--blur-elevated)) saturate(var(--saturate-elev)) contrast(var(--contrast-glass));
   --liquid-resin: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(18, 18, 22, 0.60) 45%, rgba(8, 8, 12, 0.80) 100%);
   --liquid-specular-top: rgba(255, 255, 255, 0.32);
   --liquid-specular-rim: rgba(255, 255, 255, 0.14);
-  --liquid-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.75), inset 0 1px 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4);
+  --liquid-shadow: var(--shadow-mid-dark), var(--edge-highlight-dark);
 
   /* ── 10. Sombras de Elevación iOS (Neutras y Claras) ── */
   --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -131,6 +183,17 @@
   --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
   --shadow-dock: 0 16px 40px -8px rgba(0, 0, 0, 0.10), 0 0 1px rgba(0, 0, 0, 0.12);
   --shadow-modal: 0 24px 60px -12px rgba(0, 0, 0, 0.14), 0 0 1px rgba(0, 0, 0, 0.14);
+
+  /* Material en claro: borde especular superior y sombras estratificadas (DESIGN.md §2.3-2.4) */
+  --edge-highlight-light: inset 0 1px 0 0 rgba(255, 255, 255, 0.90), inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-mid-light:
+    0 1px 2px rgba(15, 20, 32, 0.06),
+    0 4px 12px rgba(15, 20, 32, 0.08),
+    0 12px 32px rgba(15, 20, 32, 0.06);
+  --shadow-near-light:
+    0 2px 4px rgba(15, 20, 32, 0.08),
+    0 8px 24px rgba(15, 20, 32, 0.10),
+    0 24px 64px rgba(15, 20, 32, 0.08);
 
   --glass-tint-active: rgba(0, 122, 255, 0.05);
   --glass-rim-accent: rgba(255, 255, 255, 0.95);
@@ -240,8 +303,8 @@ body.in-player #root {
 .liquid-glass,
 .liquid-glass-drawer,
 .liquid-glass-dock {
-  backdrop-filter: blur(40px) saturate(190%) contrast(105%);
-  -webkit-backdrop-filter: blur(40px) saturate(190%) contrast(105%);
+  backdrop-filter: var(--liquid-blur);
+  -webkit-backdrop-filter: var(--liquid-blur);
   background: linear-gradient(
     135deg,
     rgba(255, 255, 255, 0.09) 0%,
@@ -252,20 +315,16 @@ body.in-player #root {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-top: 1px solid var(--glass-rim-accent, rgba(255, 255, 255, 0.32));
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.30),
-    0 10px 28px rgba(0, 0, 0, 0.40),
-    0 24px 64px -8px rgba(0, 0, 0, 0.65),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.25);
-  border-radius: 28px;
-  transition: border-color 0.4s ease, background 0.4s ease;
+  box-shadow: var(--shadow-mid-dark), var(--edge-highlight-dark);
+  border-radius: var(--radius-material);
+  transition: border-color 0.4s var(--ease-glass), background 0.4s var(--ease-glass);
 }
 
 /* Plano Near (Vidrio elevado para modales y alertas críticas) */
 .liquid-glass--modal,
 .liquid-glass-modal {
-  backdrop-filter: blur(56px) saturate(200%) contrast(105%);
-  -webkit-backdrop-filter: blur(56px) saturate(200%) contrast(105%);
+  backdrop-filter: var(--liquid-blur-elevated);
+  -webkit-backdrop-filter: var(--liquid-blur-elevated);
   background: linear-gradient(
     140deg,
     rgba(255, 255, 255, 0.11) 0%,
@@ -276,26 +335,22 @@ body.in-player #root {
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-top: 1px solid var(--glass-rim-accent, rgba(255, 255, 255, 0.38));
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 
-    0 2px 6px rgba(0, 0, 0, 0.35),
-    0 16px 36px rgba(0, 0, 0, 0.45),
-    0 36px 84px -12px rgba(0, 0, 0, 0.85),
-    inset 0 1.5px 2px rgba(255, 255, 255, 0.32);
-  border-radius: 32px;
+  box-shadow: var(--shadow-near-dark), var(--edge-highlight-dark);
+  border-radius: var(--radius-material-lg);
   padding: 24px;
-  transition: border-color 0.4s ease, background 0.4s ease;
+  transition: border-color 0.4s var(--ease-glass), background 0.4s var(--ease-glass);
 }
 
 /* Variantes por tamaño */
 .liquid-glass--card,
-.liquid-glass-card   { border-radius: 24px; padding: 16px; }
+.liquid-glass-card   { border-radius: var(--radius-material-sm); padding: 16px; }
 .liquid-glass--pill,
-.liquid-glass-pill   { border-radius: 9999px; padding: 8px 16px; }
+.liquid-glass-pill   { border-radius: var(--radius-pill); padding: 8px 16px; }
 .liquid-glass--dock,
-.liquid-glass-dock   { border-radius: 28px; padding: 12px; }
+.liquid-glass-dock   { border-radius: var(--radius-material); padding: 12px; }
 .liquid-glass--micro,
-.liquid-glass-micro  { border-radius: 16px; padding: 8px; }
-.liquid-glass-drawer { border-radius: 28px; }
+.liquid-glass-micro  { border-radius: var(--radius-card); padding: 8px; }
+.liquid-glass-drawer { border-radius: var(--radius-material); }
 
 /* Scrollbar Liquid Glass */
 .liquid-glass-scrollbar::-webkit-scrollbar,
@@ -315,10 +370,11 @@ body.in-player #root {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+/* Hover sin resplandor: el brillo (box-shadow) repintaba la barra en cada
+   entrada del puntero; se conserva el cambio de relleno, que es composición. */
 .liquid-glass-scrollbar::-webkit-scrollbar-thumb:hover,
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(0, 240, 255, 0.5), rgba(140, 56, 255, 0.4));
-  box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
 }
 
 .liquid-glass-scrollbar.is-scrolling::-webkit-scrollbar-thumb,
@@ -373,9 +429,6 @@ body.in-player #root {
   border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
   transform: scale(1.02);
-  box-shadow:
-    0 4px 16px -2px rgba(0, 0, 0, 0.3),
-    inset 0 1px 1px rgba(255, 255, 255, 0.3);
 }
 
 .visionos-platter:active {
@@ -428,15 +481,13 @@ body.in-player #root {
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   AMBIENT GLOW — Resplandor reactivo del cursor
+   AMBIENT GLOW — luz ambiental fija (ya no sigue al cursor)
    ────────────────────────────────────────────────────────────────── */
 .liquid-ambient-glow {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1;
-  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
 }
 
 /* Light mode adjustments for Liquid Glass */
@@ -480,37 +531,35 @@ body.in-player #root {
   transition: border-color 0.4s ease, background 0.4s ease;
 }
 
-/* ── Tactile Microinteraction Utilities (visionOS Haptics) ── */
+/* ── Tactile Microinteraction Utilities (visionOS Haptics) ──
+   Una sola definición: antes había dos bloques .btn-spring y el segundo pisaba al
+   primero, así que el resultado dependía del orden del archivo. Se conserva el
+   estado final efectivo (translateY + escala) y la curva spring real del sistema. */
 .btn-spring {
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+  transition: transform 0.22s var(--ease-spring),
               opacity 0.15s ease,
               background-color 0.15s ease,
               border-color 0.15s ease,
-              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+              box-shadow 0.22s var(--ease-spring);
   will-change: transform;
 }
 .btn-spring:hover {
-  transform: scale(1.02);
+  transform: translateY(-1px) scale(1.025);
 }
 .btn-spring:active {
-  transform: scale(0.97);
-  transition-duration: 0.08s;
+  transform: translateY(0.5px) scale(0.965);
 }
 
 .btn-hero-play {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              filter 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 .btn-hero-play:hover {
   transform: scale(1.03);
-  box-shadow: 0 8px 32px rgba(255, 255, 255, 0.35);
 }
 .btn-hero-play:active {
   transform: scale(0.96);
   transition-duration: 0.08s;
-  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.2);
 }
 
 .btn-press {
@@ -608,9 +657,6 @@ body.in-player #root {
     rgba(0, 240, 255, 0.5) 0%,
     rgba(140, 56, 255, 0.4) 100%
   );
-  box-shadow: 
-    inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    0 0 16px rgba(0, 240, 255, 0.6);
   border-color: rgba(0, 240, 255, 0.4);
 }
 
@@ -682,9 +728,6 @@ body.in-player #root {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
-  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring-bounce: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Scrollbar Thin Utility */
@@ -878,18 +921,6 @@ body.in-player #root {
   mix-blend-mode: screen;
 }
 
-/* Micro-interaction Spring Button: zero layout thrash, pure GPU transform */
-.btn-spring {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  will-change: transform;
-}
-.btn-spring:hover {
-  transform: translateY(-1px) scale(1.025);
-}
-.btn-spring:active {
-  transform: translateY(0.5px) scale(0.965);
-}
-
 /* ── Preset Flash Overlay (PresetsModal.tsx) ── */
 @keyframes pm-flash {
   from {
@@ -1015,8 +1046,12 @@ body.in-player #root {
   }
 }
 
+/* Hover sin sombra difusa: el `box-shadow` de 70 px obligaba a repintar toda la
+   superficie de cristal. El borde especular marca la interacción igual de claro
+   y solo compone. */
 .liquid-glass:hover {
-  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.80), inset 0 1px 2px rgba(255, 255, 255, 0.40);
+  border-color: rgba(255, 255, 255, 0.22);
+  border-top-color: var(--glass-rim-accent, rgba(255, 255, 255, 0.48));
 }
 
 .ios-glass-dock {
@@ -1045,7 +1080,6 @@ body.in-player #root {
 }
 .ios-glass-card:hover {
   border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.80), 0 0 24px rgba(0, 240, 255, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.40);
 }
 
 .ios-glass-modal {
@@ -1281,7 +1315,6 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
 
 .lucid-mode input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--lucid-secondary, #ff088a) !important;
-  box-shadow: 0 0 18px var(--lucid-glow, rgba(0, 229, 255, 0.6)) !important;
 }
 
 /* Glassmorphism panels and containers in Lucid Mode */
@@ -1313,11 +1346,6 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
 .glass-panel:hover {
   border-color: rgba(255, 255, 255, 0.2);
   background: linear-gradient(145deg, rgba(18, 22, 42, 0.85), rgba(8, 12, 22, 0.95));
-  box-shadow: 
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
-    0 24px 48px -12px rgba(0, 0, 0, 1),
-    0 0 50px -5px var(--color-glow, rgba(0, 229, 255, 0.3));
   transform: translateY(-1px) scale(1.005);
 }
 
@@ -1856,9 +1884,6 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
 
 .landing-v2-cta-primary:hover {
   transform: scale(1.03) translateY(-2px);
-  box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.5),
-    0 0 24px rgba(0, 229, 255, 0.3);
 }
 
 .landing-v2-cta-primary:active {
@@ -2099,7 +2124,6 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
   --glass-rim: rgba(255,255,255,0.14);
   --glass-rim-top: rgba(255,255,255,0.38);
   --glass-shadow: 0 8px 24px -10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 0 rgba(0,0,0,0.25);
-  --glass-shadow-hover: 0 14px 30px -10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.25);
   --glass-accent: 0, 229, 255;
   --glass-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -2117,7 +2141,7 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
   border-top-color: var(--glass-rim-top);
   box-shadow: var(--glass-shadow);
   transition: transform 0.35s var(--glass-ease), background 0.35s var(--glass-ease),
-    box-shadow 0.35s var(--glass-ease), border-color 0.35s var(--glass-ease);
+    border-color 0.35s var(--glass-ease);
 }
 
 /* Reflejo especular diagonal (la "curva" del cristal) */
@@ -2141,6 +2165,8 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
 .glass-btn        { border-radius: 9999px; cursor: pointer; }
 .glass-input      { border-radius: 9999px; }
 
+/* Hover sin sombra: se conserva el relleno, el borde especular y el alzado, que
+   son composición pura; la sombra difusa se descarta para no repintar el blur. */
 .glass-item:hover,
 .glass-card:hover,
 .glass-btn:hover,
@@ -2148,7 +2174,6 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
   background: var(--glass-fill-hover);
   border-color: rgba(255,255,255,0.22);
   border-top-color: rgba(255,255,255,0.5);
-  box-shadow: var(--glass-shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -2221,7 +2246,7 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
   border-top-color: rgba(255, 255, 255, 0.28);
   box-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.14);
   contain: layout style;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: border-color 0.3s ease;
 }
 .aura-dock:hover {
   border-color: rgba(255, 255, 255, 0.16);
@@ -2260,7 +2285,7 @@ input[type="range"].viz-range:disabled::-webkit-slider-thumb {
   color: #000;
   border: 1px solid rgba(255, 255, 255, 0.35);
   box-shadow: 0 6px 20px -4px var(--dock-play-glow, rgba(255, 255, 255, 0.5)), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dock-play:hover {
   transform: scale(1.06);
